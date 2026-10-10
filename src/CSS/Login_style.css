@@ -1,0 +1,12 @@
+.login-page { display: grid; place-items: center; }
+.login-card { width: min(100%, 28rem); padding: clamp(1.5rem, 4vw, 2.5rem); }
+.login-card h1 { font-size: 2.5rem; }
+.login-preview { display: grid; gap: .65rem; margin-block: 2rem; }
+.login-preview label { font-size: .9rem; font-weight: 600; }
+.login-preview input { width: 100%; min-height: 48px; padding: .8rem; margin-bottom: .6rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--background); color: var(--muted); font: inherit; }
+.login-preview input::placeholder { color: var(--muted); opacity: 1; }
+.login-preview :disabled { cursor: not-allowed; opacity: .75; }
+.login-notice { border-top: 1px solid var(--border); padding-top: 1.25rem; }
+.login-notice p { font-size: .85rem; margin-top: .8rem; }
+.login-notice .status-label { color: var(--warning); background: var(--warning-dim); }
+

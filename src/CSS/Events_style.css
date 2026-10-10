@@ -1,0 +1,9 @@
+.events-filters { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 2rem; }
+.events-filters button { min-height: 44px; padding: .75rem 1rem; border-radius: .5rem; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font: inherit; cursor: pointer; }
+.events-filters button:hover { color: var(--text); border-color: var(--muted); }
+.events-filters button[aria-pressed="true"] { color: var(--accent); background: var(--accent-dim); border-color: var(--accent); }
+.events-empty { padding-block: 3rem; text-align: center; border-style: dashed; }
+.events-empty h2 { margin-top: 1.25rem; }
+.events-empty p { max-width: 38rem; margin-inline: auto; }
+.events-list { display: grid; gap: 1rem; }
+

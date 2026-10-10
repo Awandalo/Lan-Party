@@ -1,0 +1,21 @@
+import { Link, NavLink } from 'react-router';
+import './Header.css';
+
+export default function Header() {
+  return (
+    <header className="site-header">
+      <div className="container header-inner">
+        <Link className="brand" to="/" aria-label="LAN Party home">
+          <span className="brand-mark" aria-hidden="true">LP</span>
+          <span>LAN<span className="brand-accent"> / </span>PARTY</span>
+        </Link>
+        <nav className="site-nav" aria-label="Main navigation">
+          <NavLink to="/" end>Home</NavLink>
+          <NavLink to="/events">Events</NavLink>
+          <NavLink to="/login">Login</NavLink>
+        </nav>
+      </div>
+    </header>
+  );
+}
+

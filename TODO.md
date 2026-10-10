@@ -1,0 +1,55 @@
+# TODO / To remember
+
+These notes record requested future work. They do not authorize backend,
+authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
+
+## Current UI decisions
+
+- Login replaces Admin in navigation and has a disabled login preview.
+- The temporary /admin redirect has been removed; /login is the shared sign-in entry.
+- The obsolete standalone Registration page and /registration route have been removed.
+- Registration should eventually start from the selected event page, including day selection.
+  Public event registration must not require an organizer login.
+- Upcoming/Past buttons filter the event view. Local typed content is a temporary
+  frontend boundary, not a database or working administration feature.
+- The homepage has a news section between Up next and the three feature cards.
+
+## Future administration work
+
+- [ ] Let authorized organizers upload and replace the left/right LAN background photos.
+  Support image selection, preview, cropping/position, and removal.
+- [ ] Decide storage compatible with the Cloudflare free-tier goal before implementing uploads.
+  Validate file type and size on the server, review image rights/participant privacy,
+  remove unnecessary image metadata, and enforce upload authorization.
+- [ ] Let organizers create, edit, publish, and remove homepage news, such as
+  countdowns, practical reminders, and event updates. Replace example content
+  with published backend data; decide ordering and publication dates.
+- [ ] Populate event listings from published backend events and distinguish
+  upcoming and past events consistently using agreed Netherlands date/time rules.
+- [ ] Build individual event pages with registration and attendance day selection,
+  without requiring an organizer account.
+- [ ] Choose real organizer authentication and server-side authorization before
+  enabling login or any administration tools.
+- [ ] Add participant account tools at /account to view and adjust only their own
+  event signups, and authorized organizer/moderator tools at /manage.
+  These future routes are not implemented. Enforce permissions on the backend.
+- [ ] Decide how participants securely claim or edit registrations made without
+  an account. Keep public event registration independent of organizer login.
+- [ ] Define moderator permissions separately from administrator/organizer permissions
+  if moderator roles are added. The Login label does not implement those roles.
+
+## Verification reminders
+
+- Check background photos at wide desktop widths; the central content must stay opaque
+  and unchanged. Photos should be hidden where there is no useful side space.
+- Test Upcoming/Past controls, empty states, and eventual populated event lists.
+- Test keyboard focus, mobile layouts, and disabled login fields.
+
+## Generated background asset
+
+Saved to `public/lan-hall.png` using the built-in image generator. Final prompt:
+
+```text
+Use case: photorealistic-natural. Asset type: decorative side background for a personal LAN party website. Wide overhead overview of a large LAN gaming hall reminiscent of a DreamHack LAN gathering, dense rows of desktop gaming monitors, keyboards, computer towers and seated player silhouettes. Almost pitch-black room with only monitors casting cool cyan, blue and occasional muted green light, no overhead lights, realistic candid photographic atmosphere. Rows recede into darkness, foreground computers clear. Wide landscape composition with interesting monitor detail on both outer sides. No text, branding, watermark, readable screen content or recognizable faces. Generate only the photograph, not a webpage.
+```
+
