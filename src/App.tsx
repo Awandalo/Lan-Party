@@ -1,0 +1,34 @@
+import { Route, Routes, Link } from 'react-router';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import RouteFocus from './components/RouteFocus';
+import Home from './pages/Home';
+import Events from './pages/Events';
+import Login from './pages/Login';
+
+export default function App() {
+  return (
+    <div className="site-shell">
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <Header />
+      <main id="main-content" className="container main-content" tabIndex={-1}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={
+            <section className="page-section">
+              <p className="eyebrow">404</p>
+              <h1>Page not found</h1>
+              <p>This address does not lead to a page. Head home to regroup.</p>
+              <Link className="button" to="/">Back to home</Link>
+            </section>
+          } />
+        </Routes>
+      </main>
+      <Footer />
+      <RouteFocus />
+    </div>
+  );
+}
+

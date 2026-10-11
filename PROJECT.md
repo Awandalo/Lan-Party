@@ -36,7 +36,8 @@ paid dependencies, and verify relevant platform limits before production deploym
 
 1. A public homepage showing upcoming LAN events.
 2. An event calendar showing planned LAN parties.
-3. Individual event pages containing event details and registration.
+3. Individual event pages containing event details and registration. Visitors register
+   directly through the selected event page; there is no standalone Registration page.
 4. Events that can last multiple days.
 5. Registration allowing participants to select exactly which event days they attend.
 6. A public attendance overview showing registered display names and attendance per day.
@@ -48,6 +49,7 @@ paid dependencies, and verify relevant platform limits before production deploym
 ## Mandatory security and privacy requirements
 
 - Public visitors can view published events and register for events open to registration.
+- Public event registration must not require an organizer account or organizer login.
 - Organizers require secure authentication and server-side authorization.
 - Contact information and other private registration details must not appear in public
   attendance lists or public API responses.
@@ -91,6 +93,18 @@ Follow the styling boundaries in `AGENTS.md`: global rules belong in
 - **Public/private boundary:** Public responses contain published event information,
   approved display names, per-day attendance, and totals. Private organizer data
   and registration credentials are restricted to authorized operations.
+
+### Route naming decision
+
+- `/login` is the shared sign-in entry for participants, moderators, and organizers.
+- Future `/account` tools will let participants view and adjust their own signups.
+- Future `/manage` tools will serve authorized organizers and moderators; backend
+  permission checks must enforce access and role boundaries.
+- The temporary `/admin` redirect has been removed. `/account` and `/manage` are
+  reserved names, not implemented routes. Participant accounts and moderator roles
+  remain future enhancements.
+- Public registration can work without an account. Securely claiming or editing
+  these registrations remains an open decision.
 
 ### Proposed implementation shape — review before implementation
 

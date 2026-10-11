@@ -1,0 +1,45 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #edf1f5;
+  background: #101317;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --background: #101317;
+  --surface: #171c22;
+  --surface-raised: #222a33;
+  --text: #edf1f5;
+  --muted: #aeb9c7;
+  --border: #333d49;
+  --accent: #8de2bd;
+  --accent-dim: #20372f;
+  --warning: #f0c98b;
+  --warning-dim: #382f22;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+a { color: var(--accent); text-underline-offset: .25em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+h1, h2 { color: var(--text); line-height: 1.2; }
+h1 { font-size: clamp(2.3rem, 5vw, 3.6rem); margin: .5rem 0 1.25rem; letter-spacing: -.035em; }
+h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); margin: 0 0 .75rem; }
+p { color: var(--muted); line-height: 1.7; margin: 0 0 1rem; }
+p:last-child { margin-bottom: 0; }
+.site-shell { display: flex; flex-direction: column; min-height: 100dvh; overflow-x: clip; }
+.container { width: min(1120px, calc(100% - 3rem)); margin-inline: auto; }
+.main-content { flex: 1; }
+.page-section { padding-block: clamp(3rem, 7vw, 5rem); }
+.page-intro { max-width: 42rem; font-size: 1.1rem; }
+.eyebrow { color: var(--accent); font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.panel { padding: clamp(1.25rem, 3vw, 2rem); background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; }
+.status-label { display: inline-block; padding: .3rem .65rem; border-radius: .35rem; background: var(--accent-dim); color: var(--accent); font-size: .8rem; font-weight: 600; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: .8rem; min-height: 44px; padding: .8rem 1.15rem; border: 1px solid var(--accent); border-radius: .5rem; background: var(--accent); color: var(--background); font-weight: 700; text-decoration: none; }
+.button:hover { background: #aff0d4; border-color: #aff0d4; }
+.button-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+.button-secondary:hover { background: var(--surface-raised); border-color: var(--muted); }
+.text-link { font-weight: 600; }
+.skip-link { position: fixed; z-index: 10; top: 1rem; left: 1rem; padding: .8rem 1rem; color: var(--background); background: var(--accent); border-radius: .4rem; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
+@media (max-width: 640px) { .container { width: calc(100% - 2rem); } }
+
