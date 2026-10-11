@@ -1,11 +1,13 @@
 # D1 migrations
 
 This directory is configured as migrations_dir for both Wrangler environments.
-`0001_create_event_structure.sql` creates locations, events, and event days.
-It has been validated locally only; remote application requires owner review.
+`0001_create_event_structure.sql` creates locations, events, and event days and was
+applied and verified on Cloudflare DEV in Phase 2.3. It must not be edited.
+`0002_create_accounts.sql` creates name prefixes and user profiles; it is locally
+validated only and requires review/approval before remote application.
 
 Future schema changes must use versioned SQL files (for example,
-0002_create_accounts.sql). Never edit an already-applied migration; add a new one.
+0003_create_auth_credentials.sql). Never edit an already-applied migration; add a new one.
 Keep migrations free of secrets and real participant data.
 
 Test and review future migrations locally with explicit --env dev and --local
@@ -46,10 +48,10 @@ migrations automatically during builds, deployments, or CI.
 Install locked dependencies with `npm ci`, then run from the repository root:
 
 ```powershell
-node --test worker/tests/event-structure.test.mjs
+node --test worker/tests/accounts.test.mjs worker/tests/event-structure.test.mjs
 ```
 
-The tests apply this migration to a fresh local D1 simulator supplied by the
+The account tests apply 0001 followed by 0002 to a fresh local D1 simulator supplied by the
 installed Wrangler dependency, using fictional data and no remote bindings.
 They assert foreign-key enforcement is active. The simulator is disposed after
 the run. No additional test framework or dependency is installed.
@@ -69,3 +71,31 @@ Both commands explicitly select local storage. Never remove `--local` for routin
 verification. The unique storage path isolates this run from normal development
 state; it may be retained for inspection and is ignored by Git. This procedure
 does not authorize application to Cloudflare DEV or PROD.
+
+## Account schema decisions
+
+- Both new tables are `STRICT`, with application-generated UUIDs stored as text.
+  UUID generation/validation and email syntax/normalization are future Worker API
+  responsibilities. Required strings reject empty and ASCII-whitespace-only values.
+- `name_prefixes` contains `id`, unique `label`, `sort_order` (default 0), `is_active`
+  (default 1), `created_at`, and `updated_at`. Ordering is nonnegative; flags are 0/1.
+- `users` contains `id`, required `first_name`/`last_name`, optional `display_name`
+  and `name_prefix_id`, required `email` and unique `email_normalized`, optional
+  `email_verified_at`, `status` (default `active`), `created_at`, and `updated_at`.
+  Only `active` and `disabled` statuses are accepted. Verification defaults to null.
+- Store original email casing in `email`. The unique comparison uses the supplied
+  `email_normalized` value; the database does not lowercase or normalize emails.
+  Agree the API normalization policy before implementation; do not strip provider
+  dots/plus tags or automatically merge accounts solely because emails match.
+- All timestamps are nonnegative integer UTC Unix seconds. Callers maintain update
+  timestamps, which must not precede creation. Authentication is not implemented.
+- The optional prefix FK restricts deletion and ID changes. Inactive prefixes remain
+  valid historical references; future APIs must filter new choices to active prefixes.
+  `users_name_prefix_id_idx` covers prefix lookups; unique constraints supply their
+  own indexes, so no duplicate email/label indexes are added.
+- Password and Google identities will reference `users` in future migrations;
+  credentials, permissions, registrations, and automatic merging are not included.
+- No reference data is seeded. The planned separate prefix catalogue is: Mr., Mrs.,
+  Apache Helicopter, Pastafarier, TechnoViking, NPC, LAN Legend, and Chaos Goblin.
+- First/last names and emails remain private. Approve public display-name handling,
+  retention/deletion, and guest registration rules before using profiles in APIs.

@@ -12,8 +12,9 @@ scale and independent of work infrastructure.
 
 The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
 focuses on database design and backend foundation alongside the planned event UI.
-Phase 2.2 introduces the first event-structure migration and local-only validation;
-Phase 2 is not complete, and no remote schema application is authorized yet.
+The Phase 2.3 event migration is applied and verified on Cloudflare DEV. Phase 2.4
+adds the account profile schema with local-only validation. Phase 2 is not complete;
+migration 0002 has not been applied remotely and requires separate review/approval.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -128,7 +129,7 @@ method, final schema, or API contract.
 ### Approved Phase 2 event database foundation
 
 - `migrations/0001_create_event_structure.sql` defines `locations`, `events`, and
-  `event_days`. Validate it locally before requesting review for Cloudflare DEV.
+  `event_days`. It was applied and verified on Cloudflare DEV in Phase 2.3.
 - IDs are application-generated UUIDs stored as `TEXT`; instant timestamps are
   integer UTC Unix seconds, and attendance dates are valid `YYYY-MM-DD` dates.
 - Reusable locations contain addresses. Events select `public` or `authenticated`
@@ -151,6 +152,32 @@ method, final schema, or API contract.
   See `migrations/README.md` for isolated local verification commands.
 - Existing DEV/PROD Workers and D1 bindings are preserved. Migration application
   remains separate from builds and deployment automation.
+
+### Approved Phase 2 account profile foundation
+
+- `migrations/0002_create_accounts.sql` adds strict `name_prefixes` and `users`
+  tables. It is validated locally after 0001; remote application awaits review.
+- Prefixes have unique nonempty labels, nonnegative ordering, and active/inactive
+  flags. Referenced prefixes cannot be deleted or have their IDs changed; deactivate
+  them to preserve existing references. Reference-data seeding is a separate task.
+- Users have required first/last names, original email and a unique normalized
+  email, optional display name and prefix, and `active`/`disabled` status.
+  Email verification defaults to null, with no assumption that verification occurred.
+- Required strings reject empty/ASCII-whitespace-only values. Instant timestamps
+  use nonnegative integer UTC Unix seconds; updated timestamps cannot precede creation.
+- Future Worker APIs generate/validate UUIDs, validate and normalize email addresses,
+  maintain timestamps, and allow only active prefixes for new selections. The
+  database retains original email casing and compares supplied normalized values.
+- Password and Google authentication must eventually reference the same user
+  profile. Never automatically merge accounts solely because emails match.
+- Names and emails are private profile information; the schema does not authorize
+  exposing them publicly. Public display-name policy, privacy, retention/deletion,
+  and guest registration ownership must be resolved before registration APIs.
+- No credentials, authentication, authorization, role tables, registration APIs,
+  or account UI are implemented by this migration. Participant account tools remain
+  future work; this foundation does not require a login for public registration.
+- `worker/tests/accounts.test.mjs` tests both migrations together with fictional
+  data and verifies that existing event schema and records remain intact.
 
 ## Open architectural questions and recommendations for review
 

@@ -9,7 +9,13 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
   and multi-day/overnight sessions with constraints and indexes.
 - [x] Validate the event schema with fictional data in disposable local D1 storage,
   including foreign keys, deletion restrictions, dates, statuses, and timestamps.
-- [ ] Owner review before applying this migration to Cloudflare DEV.
+- [x] Apply and verify migration 0001 on Cloudflare DEV after owner approval (Phase 2.3).
+- [x] Prepare and locally validate migration 0002 for `name_prefixes` and `users`,
+  including original/normalized email fields and preserved historical prefix references.
+- [ ] Owner review and separate approval before applying migration 0002 to Cloudflare DEV.
+- [ ] Seed the approved prefix catalogue separately; migration 0002 contains no seeds.
+- [ ] Implement UUID validation, email normalization/validation, and active-prefix
+  selection rules in future Worker APIs when approved; never merge users by email alone.
 - [ ] Add server validation for publication readiness, UUIDs, timezones, and
   attendance-date/session alignment when event APIs are approved.
 - [ ] Enforce event location visibility in future APIs; authenticated addresses
@@ -18,8 +24,9 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
   authentication storage before subsequent account/registration implementation.
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
-Local migration work is explicitly approved for Phase 2.2. Remote database
-changes and automatic migration execution remain unauthorized.
+Local account migration work is explicitly approved for Phase 2.4. Migration 0001
+was applied remotely in Phase 2.3; remote application of 0002 is not authorized.
+Automatic migration execution remains unauthorized.
 
 ## Current UI decisions
 
