@@ -48,8 +48,8 @@ these commands; no system-wide execution-policy change is needed.
 | `npm audit` | Review known dependency vulnerabilities |
 
 Run `npm run build` before `npm run preview`. Preview is a local verification
-server, not a production deployment. No Cloudflare configuration or deployment
-scripts are included yet.
+server, not a production deployment. Cloudflare deployment configuration is in
+`wrangler.jsonc`; deployment remains a separate, explicitly approved action.
 
 ## Project structure
 
@@ -74,8 +74,57 @@ The theme uses system fonts, a local generated photograph, and no UI framework.
 React Router provides `/`, `/events`, and `/login`, browser
 back/forward navigation, active navigation links, and a missing-page fallback.
 Navigation updates the document title and moves focus to the main content.
-Future Workers hosting must serve `index.html` for frontend route requests while
-keeping future API routes separate. Vite handles frontend route fallback locally.
+Workers Static Assets uses the single-page application fallback to serve
+`index.html` for frontend navigation requests such as `/events` and `/login`.
+Vite handles frontend route fallback locally.
+
+## Cloudflare Workers deployment
+
+Deploy this project with **Cloudflare Workers**, not Cloudflare Pages. Wrangler
+is a locked development dependency. `wrangler.jsonc` names the Worker `lan-party`
+and serves `./dist` using `assets.not_found_handling: "single-page-application"`
+so direct visits and refreshes reach React Router. No Worker entry point or D1
+binding is needed for this static frontend.
+
+When configuring Workers Builds for `Awandalo/Lan-Party`, use:
+
+| Setting | Value |
+| --- | --- |
+| Worker/project name | `lan-party` |
+| Root directory | Repository root |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Production branch | `main` |
+| Preview builds | Disabled for now |
+
+Work on `dev`; reserve `main` for reviewed, stable production releases. Configure
+the production branch and disable preview builds in Cloudflare's branch control
+settings. Wrangler does not enforce this Git branch strategy: a manual deploy
+uses the current checkout, so only deploy an approved production release.
+Once repository integration is configured, pushes to `main` can trigger production
+builds and deployment. With preview builds disabled, `dev` pushes do not produce
+Cloudflare previews. These settings are documented here, not changed by this setup.
+
+For local verification without login, uploads, or deployment, run from the root:
+
+```powershell
+npm run typecheck
+npm run build
+npx wrangler deploy --dry-run
+```
+
+The build must run first because Wrangler consumes `dist/`. The dry run validates
+and prepares the deployment locally; it does not verify a live Cloudflare site.
+Actual deployment (`npx wrangler deploy`, without `--dry-run`) requires separate
+approval and authorized Cloudflare access.
+
+Later, backend work can add a `main` entry point under `worker/`, explicit API
+routing, and D1 bindings with separate development/production databases. Review
+asset/Worker routing then so SPA fallback does not handle API requests.
+No API, database, credentials, or Cloudflare resources are added now.
+
+References: [Workers Static Assets SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/)
+and [Workers Builds branch control](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/).
 
 ## Current limitations and verification
 
@@ -114,7 +163,7 @@ files, dependencies, build output, Workers local state, and database files are
 ignored. No environment variables are needed for this phase. Any future variable
 prefixed with `VITE_` is exposed to the browser and must never contain a secret.
 
-Cloudflare Workers and D1 integration will be introduced in later phases, with
+Cloudflare Worker API code and D1 integration will be introduced in later phases, with
 separate development/production configuration and reviewed access controls.
 Commits, pushes, and deployments are not automatic.
 

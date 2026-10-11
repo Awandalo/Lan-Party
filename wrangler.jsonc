@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "lan-party",
+  "compatibility_date": "2026-10-11",
+  // Static-only deployment. Add main and API/D1 configuration when backend work begins.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
