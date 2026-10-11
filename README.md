@@ -42,9 +42,10 @@ these commands; no system-wide execution-policy change is needed.
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Run Vite with live updates |
-| `npm run typecheck` | Validate frontend and Vite configuration with strict TypeScript |
+| `npm run typecheck` | Validate frontend, Vite configuration, and Worker with strict TypeScript |
 | `npm run build` | Run type checking, then create the production frontend in `dist/` |
 | `npm run preview` | Serve the built frontend locally for verification |
+| `npm run dev:worker` | Serve built frontend and Worker locally in the explicit dev environment |
 | `npm audit` | Review known dependency vulnerabilities |
 
 Run `npm run build` before `npm run preview`. Preview is a local verification
@@ -61,8 +62,8 @@ src/
   lib/           Shared frontend utilities and typed temporary public content
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
-worker/          Reserved for future Cloudflare Workers backend code
-migrations/      Reserved for versioned D1 migrations
+worker/          TypeScript Worker entry point and health API
+migrations/      Versioned D1 migrations (no SQL migrations yet)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -83,8 +84,8 @@ Vite handles frontend route fallback locally.
 Deploy this project with **Cloudflare Workers**, not Cloudflare Pages. Wrangler
 is a locked development dependency. `wrangler.jsonc` names the Worker `lan-party`
 and serves `./dist` using `assets.not_found_handling: "single-page-application"`
-so direct visits and refreshes reach React Router. No Worker entry point or D1
-binding is needed for this static frontend.
+so direct visits and refreshes reach React Router. The `worker/index.ts` entry
+point handles `/api/*` before assets; other paths retain static asset serving.
 
 When configuring Workers Builds for `Awandalo/Lan-Party`, use:
 
@@ -111,6 +112,7 @@ For local verification without login, uploads, or deployment, run from the root:
 npm run typecheck
 npm run build
 npx wrangler deploy --dry-run
+npx wrangler deploy --dry-run --env dev
 ```
 
 The build must run first because Wrangler consumes `dist/`. The dry run validates
@@ -118,10 +120,60 @@ and prepares the deployment locally; it does not verify a live Cloudflare site.
 Actual deployment (`npx wrangler deploy`, without `--dry-run`) requires separate
 approval and authorized Cloudflare access.
 
-Later, backend work can add a `main` entry point under `worker/`, explicit API
-routing, and D1 bindings with separate development/production databases. Review
-asset/Worker routing then so SPA fallback does not handle API requests.
-No API, database, credentials, or Cloudflare resources are added now.
+The default command still targets the existing production Worker and production
+D1 binding. Development requires explicit `--env dev`. This foundation references
+existing databases only; it creates no Cloudflare resources and performs no
+database queries or schema changes.
+
+## Backend environments and local development
+
+| Wrangler environment | Worker | Binding | D1 database | Database UUID |
+| --- | --- | --- | --- | --- |
+| Default (no environment flag) | `lan-party` | `DB` | `lan-party-prod` | `9fbe3402-c26b-45fd-be67-71775e5e6a3e` |
+| `dev` (explicit `--env dev`) | `lan-party-dev` | `DB` | `lan-party-dev` | `a3c4cea6-ceb7-43b8-b9b7-b374726b35b4` |
+
+Both existing databases were created with EU jurisdiction. UUIDs are resource
+identifiers, not credentials. D1 bindings are non-inheritable, so `env.dev`
+defines its own `DB`. Both environments explicitly define `ASSETS`, `./dist`,
+SPA fallback, and Worker-first routing for `/api` and `/api/*`.
+The shared entry point and compatibility date are inherited by `dev`.
+
+For the complete local frontend and API:
+
+```powershell
+npm run build
+npm run dev:worker
+```
+
+Open the URL printed by Wrangler (normally `http://127.0.0.1:8787`).
+`GET /api/health` returns `{"status":"ok"}` without using D1. Other methods
+return JSON 405 with `Allow: GET`; unknown API paths return JSON 404 rather
+than SPA HTML. Check `/events` and `/login` directly and on refresh.
+Press Ctrl+C to stop the server.
+
+`--local` uses local simulation; do not use `--remote` or remote D1 bindings
+for routine development. State belongs in ignored `.wrangler/`. No login or
+credentials are needed. `npm run dev` still runs Vite for frontend editing,
+without this API. Rebuild to update frontend files served by Wrangler.
+
+Worker code is checked separately via `tsconfig.worker.json` using the
+development-only `@cloudflare/workers-types` package. The existing
+`npm run build` command includes Worker type validation through `typecheck`;
+Wrangler bundles the Worker during deploy or dry run. Production build and deploy
+commands remain `npm run build` and `npx wrangler deploy`.
+
+### Migration safety
+
+Both bindings use `./migrations`, ready for version-controlled SQL files but
+containing no application migrations yet. See `migrations/README.md`.
+
+- Use ordered, versioned migrations; never edit already-applied migrations.
+- Review and test future migrations on local development state first with
+  explicit `--env dev` and `--local`; the default environment targets production.
+- Confirm database name, UUID, and environment before any database work.
+- Remote SQL and migrations require explicit approval. Production changes require
+  reviewed backup/recovery procedures and preservation of existing registrations.
+- Keep SQL out of build/deploy/CI automation and real participant data out of Git.
 
 References: [Workers Static Assets SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/)
 and [Workers Builds branch control](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/).
@@ -129,7 +181,8 @@ and [Workers Builds branch control](https://developers.cloudflare.com/workers/ci
 ## Current limitations and verification
 
 All event, registration, and organizer content is placeholder content. There is
-no authentication, database connection, registration submission, or backend API.
+no authentication, registration submission, or database queries. The backend
+currently provides only the database-independent health endpoint.
 The Login page is publicly accessible, with disabled email/password controls, and
 explicitly identifies itself as a nonfunctional preview, not a secured administration
 area. The temporary `/admin` redirect has been removed. Registration will be added
@@ -163,8 +216,8 @@ files, dependencies, build output, Workers local state, and database files are
 ignored. No environment variables are needed for this phase. Any future variable
 prefixed with `VITE_` is exposed to the browser and must never contain a secret.
 
-Cloudflare Worker API code and D1 integration will be introduced in later phases, with
-separate development/production configuration and reviewed access controls.
+Additional Worker APIs, D1 schema and queries will be introduced in later phases,
+with separate development/production databases and reviewed access controls.
 Commits, pushes, and deployments are not automatic.
 
 ## UI follow-up notes
