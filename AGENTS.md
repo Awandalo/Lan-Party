@@ -113,3 +113,58 @@ The owner is learning this technology stack.
 - Keep documentation updated when functionality or decisions change.
 - Keep the existing Jotform workflow operational until its replacement has been
   tested and approved by the owner.
+
+## Git Commit & Pull Request Conventions
+
+Use Conventional Commits for Git commit messages and Pull Request titles.
+
+### Approved types
+
+| Prefix | Purpose |
+| --- | --- |
+| `feat:` | New functionality or features |
+| `fix:` | Bug fixes |
+| `docs:` | Documentation changes |
+| `style:` | Formatting or styling changes that do not affect functionality |
+| `refactor:` | Code restructuring without changing behavior |
+| `perf:` | Performance improvements |
+| `test:` | Adding or updating tests |
+| `build:` | Build system or dependency changes |
+| `ci:` | CI/CD workflow changes |
+| `chore:` | General maintenance tasks |
+
+### Naming format and rules
+
+Use `type(scope): short description`. The scope is optional and identifies the
+affected feature, component, or subsystem. Without a scope, use
+`type: short description`.
+
+Commit and Pull Request titles must:
+
+- Be written in English with lowercase type prefixes.
+- Use the imperative mood, such as "add", "fix", or "update".
+- Be concise and descriptive, without unnecessary punctuation at the end.
+- Describe the actual changes, rather than just the task being worked on.
+- Use `!` immediately before the colon for breaking changes, such as
+  `feat(events)!: change registration format`. Clearly document the breaking
+  changes and their impact in the PR description.
+- Use the dominant change type when multiple categories are involved.
+
+Examples:
+
+- `feat(events): add event registration functionality`
+- `fix(login): correct authentication validation`
+- `docs(project): update development guidelines`
+- `ci(github): add automated build verification`
+- `refactor(home): simplify news component structure`
+
+### Completion guidance for Codex
+
+When completing development tasks:
+
+- Suggest an appropriate Conventional Commit message.
+- Suggest a matching Pull Request title when applicable.
+- Provide a short PR description summarizing the changes and tests performed.
+- Mention any tests that could not be performed or were not run.
+- Never create commits, push branches, merge PRs, or deploy automatically unless
+  explicitly instructed by the project owner.
