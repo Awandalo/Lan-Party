@@ -50,7 +50,8 @@ these commands; no system-wide execution-policy change is needed.
 
 Run `npm run build` before `npm run preview`. Preview is a local verification
 server, not a production deployment. Cloudflare deployment configuration is in
-`wrangler.jsonc`; deployment remains a separate, explicitly approved action.
+`wrangler.jsonc`. Branch pushes trigger the deployment automation described below;
+manual deployments require explicit approval.
 
 ## Project structure
 
@@ -124,6 +125,39 @@ The default command still targets the existing production Worker and production
 D1 binding. Development requires explicit `--env dev`. This foundation references
 existing databases only; it creates no Cloudflare resources and performs no
 database queries or schema changes.
+
+### Automatic development deployment
+
+`.github/workflows/deploy-dev.yml` runs only on pushes to `dev`. It uses Node.js
+24 with npm caching, installs locked dependencies with `npm ci`, runs
+`npm run typecheck` and `npm run build`, then validates Wrangler with
+`npx wrangler deploy --dry-run --env dev`. If those checks pass, it runs
+`npx wrangler deploy --env dev` to deploy the existing `lan-party-dev` Worker.
+The explicit environment selects its `DB` binding to `lan-party-dev`
+(`a3c4cea6-ceb7-43b8-b9b7-b374726b35b4`). No migrations or SQL run automatically.
+
+In **Awandalo/Lan-Party → Settings → Secrets and variables → Actions**, configure:
+
+| GitHub configuration | Name | Value |
+| --- | --- | --- |
+| Repository secret (already created) | `CLOUDFLARE_API_TOKEN_DEV` | Authorized development deployment token |
+| Repository variable (add before the first push) | `CLOUDFLARE_ACCOUNT_ID` | Account ID from the Cloudflare dashboard for the development Worker |
+
+The deployment step passes these as `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. Keep the token in GitHub Secrets, never in files or
+frontend variables. The account ID is an identifier, not an API credential.
+The workflow's GitHub token has only `contents: read` permission.
+
+The `deploy-dev` concurrency group allows one active run at a time, with
+`cancel-in-progress: false` so a newer push does not interrupt an active deployment.
+GitHub can replace an older pending run with a newer one. Monitor results in the
+repository's **Actions** tab; an actual deployment requires the configuration above
+and valid Cloudflare permissions. Local dry runs cannot verify these credentials.
+
+This workflow does not run on `main`. Production continues through the existing
+Cloudflare Git integration from `main`, using the unchanged `npm run build` and
+`npx wrangler deploy` commands. Cloudflare preview builds remain disabled;
+development deployment uses this separate GitHub Actions workflow.
 
 ## Backend environments and local development
 
@@ -213,12 +247,14 @@ modified as part of this scaffold.
 
 Do not commit secrets, real participant data, or production exports. Local secret
 files, dependencies, build output, Workers local state, and database files are
-ignored. No environment variables are needed for this phase. Any future variable
+ignored. Local development needs no Cloudflare credentials; GitHub development
+deployment uses the secret and variable documented above. Any future variable
 prefixed with `VITE_` is exposed to the browser and must never contain a secret.
 
 Additional Worker APIs, D1 schema and queries will be introduced in later phases,
 with separate development/production databases and reviewed access controls.
-Commits, pushes, and deployments are not automatic.
+Commits and pushes remain owner-controlled. Pushing to `dev` triggers the
+development workflow; production deployment follows the existing `main` integration.
 
 ## UI follow-up notes
 
