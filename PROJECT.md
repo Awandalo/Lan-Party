@@ -12,9 +12,10 @@ scale and independent of work infrastructure.
 
 The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
 focuses on database design and backend foundation alongside the planned event UI.
-The Phase 2.3 event migration is applied and verified on Cloudflare DEV. Phase 2.4
-adds the account profile schema with local-only validation. Phase 2 is not complete;
-migration 0002 has not been applied remotely and requires separate review/approval.
+Migrations 0001 and 0002 are applied and verified on Cloudflare DEV, as confirmed
+by the owner after Phase 2.4. Phase 2.5 adds authentication storage with local-only
+validation. Phase 2 remains in progress; migration 0003 requires review and separate
+approval before remote application.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -53,6 +54,8 @@ paid dependencies, and verify relevant platform limits before production deploym
 
 - Public visitors can view published events and register for events open to registration.
 - Public event registration must not require an organizer account or organizer login.
+- Every participant must have a user account. Traditional email/password and
+  optional Google login will share one central profile with multiple login methods.
 - Organizers require secure authentication and server-side authorization.
 - Contact information and other private registration details must not appear in public
   attendance lists or public API responses.
@@ -104,10 +107,10 @@ Follow the styling boundaries in `AGENTS.md`: global rules belong in
 - Future `/manage` tools will serve authorized organizers and moderators; backend
   permission checks must enforce access and role boundaries.
 - The temporary `/admin` redirect has been removed. `/account` and `/manage` are
-  reserved names, not implemented routes. Participant accounts and moderator roles
-  remain future enhancements.
-- Public registration can work without an account. Securely claiming or editing
-  these registrations remains an open decision.
+  reserved names, not implemented routes. Account interfaces and moderator roles
+  remain future implementation work.
+- Phase 2.5 requires participant accounts for registration. Organizer privileges
+  are separate; secure signup ownership and editing must be enforced by future APIs.
 
 ### Proposed implementation shape — review before implementation
 
@@ -123,8 +126,8 @@ Follow the styling boundaries in `AGENTS.md`: global rules belong in
   timezone (`Europe/Amsterdam`), with date-only event days where appropriate.
   Confirm time handling before designing the schema.
 
-These proposals do not select an authentication provider, registration-editing
-method, final schema, or API contract.
+These proposals do not define a registration-editing method or API contract.
+The approved database and authentication decisions below supersede earlier proposals.
 
 ### Approved Phase 2 event database foundation
 
@@ -156,7 +159,7 @@ method, final schema, or API contract.
 ### Approved Phase 2 account profile foundation
 
 - `migrations/0002_create_accounts.sql` adds strict `name_prefixes` and `users`
-  tables. It is validated locally after 0001; remote application awaits review.
+  tables. The owner confirms it is applied and verified on Cloudflare DEV.
 - Prefixes have unique nonempty labels, nonnegative ordering, and active/inactive
   flags. Referenced prefixes cannot be deleted or have their IDs changed; deactivate
   them to preserve existing references. Reference-data seeding is a separate task.
@@ -172,21 +175,49 @@ method, final schema, or API contract.
   profile. Never automatically merge accounts solely because emails match.
 - Names and emails are private profile information; the schema does not authorize
   exposing them publicly. Public display-name policy, privacy, retention/deletion,
-  and guest registration ownership must be resolved before registration APIs.
+  and registration ownership must be resolved before registration APIs.
 - No credentials, authentication, authorization, role tables, registration APIs,
   or account UI are implemented by this migration. Participant account tools remain
-  future work; this foundation does not require a login for public registration.
+  future work; registration requires a participant account, not organizer privileges.
 - `worker/tests/accounts.test.mjs` tests both migrations together with fictional
   data and verifies that existing event schema and records remain intact.
+
+### Approved Phase 2 authentication storage foundation
+
+- `migrations/0003_create_auth_credentials.sql` adds strict external identity and
+  password credential tables. It is local-only pending review and remote approval.
+- `users` stores profiles; `user_auth_providers` maps external identities to profiles
+  using unique `(provider, identity_namespace, provider_subject)` values. Google
+  uses the validated OpenID Connect issuer and subject, never the provider email.
+  Multiple explicitly linked identities per user are supported. Account merging
+  based solely on matching emails is prohibited.
+- Provider codes are nonblank and exclude `password`; only Google is initially
+  supported by future APIs. Provider allowlists and trusted issuer/subject validation
+  belong to the Worker. Additional providers require separate approval.
+- `user_password_credentials` stores at most one current hash per profile. A user
+  may have neither method during account setup, either method, or both. Both tables
+  restrict deletion and ID changes of referenced users; deletion policy remains open.
+- Instants are nonnegative integer UTC Unix seconds. Last login cannot precede
+  linking; password timestamps satisfy creation <= password change <= update.
+- Future trusted Worker authentication must generate/verify hashes using an
+  appropriate algorithm, per-password salts, and explicitly reviewed cost settings.
+  Never store plaintext passwords or expose hashes/authentication internals publicly.
+- Future login and identity-linking workflows require server-side authentication
+  and authorization, reject disabled accounts, and validate UUIDs and identity values.
+  This migration does not implement those behaviors or grant permissions.
+- Sessions, password reset and credential revocation remain Phase 3 work. No login,
+  OAuth configuration, hashing implementation, secrets, sessions or endpoints are added.
+- `worker/tests/auth-credentials.test.mjs` validates all three migrations locally
+  using fictional identities and deliberately unusable dummy hash-like values.
 
 ## Open architectural questions and recommendations for review
 
 1. **Organizer authentication:** Choose a secure approach suitable for a small number
    of organizers and the free-tier constraint. Decide how organizer access is granted
    and revoked before building administration endpoints.
-2. **Registration editing:** Decide how a participant proves ownership of a registration.
-   Participant accounts are a future idea, so the initial editing mechanism must be
-   agreed without assuming accounts or email delivery are already required.
+2. **Registration editing:** Participant accounts are required by Phase 2.5. Define
+   server-side signup ownership checks and the recovery/editing flow before APIs;
+   email delivery, sessions, password reset and revocation are not implemented yet.
 3. **Registration fields and privacy:** Agree the minimum fields, whether any contact
    information is necessary, and how participants are informed about public display
    names and selected days. Set retention and deletion rules before launch.
@@ -225,7 +256,7 @@ but must be accompanied by relevant behavior tests and documented manual checks.
 
 These are not immediate requirements and must not be implemented without approval:
 
-- Participant accounts.
+- Additional participant account tools beyond the required registration identity.
 - Waiting lists or participant capacity limits.
 - Event announcements.
 - Registration confirmation emails.

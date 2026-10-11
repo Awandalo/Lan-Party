@@ -64,7 +64,7 @@ src/
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
 worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (event schema on DEV; account schema local only)
+migrations/      Versioned D1 migrations (events/accounts on DEV; auth storage local only)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -200,8 +200,9 @@ commands remain `npm run build` and `npx wrangler deploy`.
 
 Both bindings use `./migrations`. Migration 0001 defines locations, events, and
 event days and is applied on Cloudflare DEV. Migration 0002 defines prefixes and
-user profiles and is validated only in disposable local storage; its remote
-application requires owner review/approval. See `migrations/README.md` for local checks.
+user profiles and is also applied on DEV, as confirmed by the owner. Migration 0003
+defines external identities and password credential storage; it is local-only pending
+review/approval. See `migrations/README.md` for local checks and execution safety.
 
 - Use ordered, versioned migrations; never edit already-applied migrations.
 - Review and test future migrations on local development state first with
@@ -269,8 +270,9 @@ route have been removed; `/registration` now uses the missing-page fallback.
 `/login` is the shared sign-in entry point. Future `/account` tools will let
 participants view and adjust their own signups; future `/manage` tools will serve
 authorized organizers and moderators. Neither route is implemented yet. Backend
-permission checks must control access. Public registration can work without an
-account; securely claiming or editing such registrations remains an open decision.
+permission checks must control access. Phase 2.5 requires a participant account
+for registration, without organizer privileges. Login and signup ownership checks
+remain future Worker implementation work.
 
 The decorative `public/lan-hall.png` image was created using the built-in image
 generator. Prompt: a wide overhead LAN gaming hall overview, dense monitor rows,

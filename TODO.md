@@ -12,7 +12,13 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 - [x] Apply and verify migration 0001 on Cloudflare DEV after owner approval (Phase 2.3).
 - [x] Prepare and locally validate migration 0002 for `name_prefixes` and `users`,
   including original/normalized email fields and preserved historical prefix references.
-- [ ] Owner review and separate approval before applying migration 0002 to Cloudflare DEV.
+- [x] Owner confirms migration 0002 is applied and verified on Cloudflare DEV (Phase 2.4).
+- [x] Prepare and locally validate migration 0003 for external identities and password
+  credential storage, preserving existing event and account records.
+- [ ] Review migration 0003 and obtain separate approval before applying it to DEV.
+- [ ] Implement reviewed password hashing, trusted Google issuer/subject validation,
+  explicit login-method linking, and disabled-account enforcement in future Worker logic.
+- [ ] Plan sessions, password reset and credential revocation for Phase 3.
 - [ ] Seed the approved prefix catalogue separately; migration 0002 contains no seeds.
 - [ ] Implement UUID validation, email normalization/validation, and active-prefix
   selection rules in future Worker APIs when approved; never merge users by email alone.
@@ -20,12 +26,12 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
   attendance-date/session alignment when event APIs are approved.
 - [ ] Enforce event location visibility in future APIs; authenticated addresses
   must not appear in public responses even when the event is public.
-- [ ] Resolve guest/account registration ownership, privacy, retention, and
+- [ ] Resolve participant registration ownership, privacy, retention, and
   authentication storage before subsequent account/registration implementation.
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
-Local account migration work is explicitly approved for Phase 2.4. Migration 0001
-was applied remotely in Phase 2.3; remote application of 0002 is not authorized.
+Local authentication migration work is explicitly approved for Phase 2.5. The owner
+confirms 0001 and 0002 are applied on DEV; remote application of 0003 is not authorized.
 Automatic migration execution remains unauthorized.
 
 ## Current UI decisions
@@ -58,8 +64,8 @@ Automatic migration execution remains unauthorized.
 - [ ] Add participant account tools at /account to view and adjust only their own
   event signups, and authorized organizer/moderator tools at /manage.
   These future routes are not implemented. Enforce permissions on the backend.
-- [ ] Decide how participants securely claim or edit registrations made without
-  an account. Keep public event registration independent of organizer login.
+- [ ] Require participant accounts for registration and enforce signup ownership
+  when editing. Keep public event registration independent of organizer privileges.
 - [ ] Define moderator permissions separately from administrator/organizer permissions
   if moderator roles are added. The Login label does not implement those roles.
 

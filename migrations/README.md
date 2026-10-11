@@ -3,11 +3,13 @@
 This directory is configured as migrations_dir for both Wrangler environments.
 `0001_create_event_structure.sql` creates locations, events, and event days and was
 applied and verified on Cloudflare DEV in Phase 2.3. It must not be edited.
-`0002_create_accounts.sql` creates name prefixes and user profiles; it is locally
-validated only and requires review/approval before remote application.
+`0002_create_accounts.sql` creates name prefixes and user profiles; the owner
+confirms it is applied and verified on Cloudflare DEV. It must not be edited.
+`0003_create_auth_credentials.sql` creates external identities and password
+credential storage. It is locally validated only, pending review/remote approval.
 
 Future schema changes must use versioned SQL files (for example,
-0003_create_auth_credentials.sql). Never edit an already-applied migration; add a new one.
+0004_create_authorization.sql). Never edit an already-applied migration; add a new one.
 Keep migrations free of secrets and real participant data.
 
 Test and review future migrations locally with explicit --env dev and --local
@@ -48,11 +50,12 @@ migrations automatically during builds, deployments, or CI.
 Install locked dependencies with `npm ci`, then run from the repository root:
 
 ```powershell
-node --test worker/tests/accounts.test.mjs worker/tests/event-structure.test.mjs
+node --test worker/tests/*.test.mjs
 ```
 
-The account tests apply 0001 followed by 0002 to a fresh local D1 simulator supplied by the
-installed Wrangler dependency, using fictional data and no remote bindings.
+The authentication tests apply 0001, 0002 and 0003 in order to a fresh local D1
+simulator supplied by the installed Wrangler dependency, using fictional data and
+no remote bindings. Existing event/account test suites remain independently runnable.
 They assert foreign-key enforcement is active. The simulator is disposed after
 the run. No additional test framework or dependency is installed.
 
@@ -93,9 +96,63 @@ does not authorize application to Cloudflare DEV or PROD.
   valid historical references; future APIs must filter new choices to active prefixes.
   `users_name_prefix_id_idx` covers prefix lookups; unique constraints supply their
   own indexes, so no duplicate email/label indexes are added.
-- Password and Google identities will reference `users` in future migrations;
-  credentials, permissions, registrations, and automatic merging are not included.
+- Password and Google identities reference `users` through migration 0003;
+  authentication workflows, permissions, registrations, and automatic merging are not included.
 - No reference data is seeded. The planned separate prefix catalogue is: Mr., Mrs.,
   Apache Helicopter, Pastafarier, TechnoViking, NPC, LAN Legend, and Chaos Goblin.
 - First/last names and emails remain private. Approve public display-name handling,
-  retention/deletion, and guest registration rules before using profiles in APIs.
+  retention/deletion, and participant registration ownership before using profiles in APIs.
+
+## Authentication schema decisions
+
+- `user_auth_providers` has text UUID `id`, required `user_id`, `provider`,
+  `identity_namespace`, `provider_subject`, integer `linked_at`, and nullable
+  integer `last_login_at`. Required identifiers reject empty/ASCII-whitespace-only
+  values. `(provider, identity_namespace, provider_subject)` is unique across users.
+- Multiple external identities may reference one profile. `user_id` has a lookup
+  index; the composite unique constraint supplies its own identity index.
+- The provider code excludes `password`, which belongs only in the password table.
+  Codes otherwise remain extensible; future Worker APIs initially allow only Google
+  and validate/canonicalize its trusted OpenID Connect issuer and stable subject.
+  Storage acceptance does not establish that an issuer/provider is trusted.
+- `user_password_credentials` has text `user_id` as primary/foreign key, required
+  nonblank text `password_hash`, and required integer `password_changed_at`,
+  `created_at`, `updated_at`. The primary key enforces one current credential and
+  covers user lookups without a redundant index.
+- Both tables are STRICT and restrict deletion/ID updates of referenced users.
+  No cascades, seeds, OAuth secrets or tokens are introduced. Accounts may have no
+  method during setup, Google only, password only, or both.
+- Timestamps are nonnegative UTC Unix seconds. `last_login_at >= linked_at` when
+  present; `created_at <= password_changed_at <= updated_at` for passwords.
+- Future Worker responsibilities: UUID/identity validation, explicit authenticated
+  and authorized linking, no merging by email, rejecting disabled users, private
+  handling of authentication internals, and appropriate per-password salted hashing
+  with an explicitly reviewed algorithm and cost configuration. The database
+  cannot establish that a string is a secure hash; dummy fixtures are not credentials.
+- Profiles remain separate from identity mappings and password hashes. Future
+  sessions/authentication workflows, password reset and revocation are Phase 3 work.
+  Every participant requires an account; organizer privileges remain separate.
+
+## Codex execution environment
+
+Normal coding, local tests and local migrations remain sandboxed. On Windows the
+Codex sandbox identity cannot read the owner's existing Wrangler OAuth credentials.
+Do not copy credentials, create replacement API tokens, change credential permissions
+or globally disable the sandbox. For an explicitly authorized remote operation,
+request approval for each specific command requiring execution outside the sandbox.
+One approval does not authorize other commands. Remote DEV writes require explicit
+authorization; production operations require separate explicit approval. Phase 2.5
+authorizes local work only and no external execution for remote Cloudflare operations.
+
+For sandboxed local Wrangler validation, set these process-only variables in a
+dedicated PowerShell session before the local commands above:
+
+```powershell
+$env:XDG_CONFIG_HOME = Join-Path (Get-Location) '.wrangler/sandbox-config'
+$env:WRANGLER_LOG_PATH = Join-Path (Get-Location) '.wrangler/logs'
+$env:WRANGLER_SEND_METRICS = 'false'
+```
+
+This uses ignored workspace storage for Wrangler preferences/logs, without copying
+OAuth credentials or changing the checked-in configuration. Close that session
+after validation; do not use this isolated configuration for remote operations.
