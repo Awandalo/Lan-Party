@@ -2,9 +2,40 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lan-party",
   "compatibility_date": "2026-10-11",
-  // Static-only deployment. Add main and API/D1 configuration when backend work begins.
+  // Default deployment is production; development requires --env dev.
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lan-party-prod",
+      "database_id": "9fbe3402-c26b-45fd-be67-71775e5e6a3e",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "env": {
+    "dev": {
+      "name": "lan-party-dev",
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api", "/api/*"]
+      },
+      // Bindings are not inherited; select the development database explicitly.
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lan-party-dev",
+          "database_id": "a3c4cea6-ceb7-43b8-b9b7-b374726b35b4",
+          "migrations_dir": "./migrations"
+        }
+      ]
+    }
   }
 }
