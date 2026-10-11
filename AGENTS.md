@@ -168,3 +168,28 @@ When completing development tasks:
 - Mention any tests that could not be performed or were not run.
 - Never create commits, push branches, merge PRs, or deploy automatically unless
   explicitly instructed by the project owner.
+
+## Preferred Git workflow
+
+- Codex may stage completed changes using `git add`, but must never create
+  commits, push, pull, merge, rebase, reset, or deploy unless explicitly instructed.
+- Before staging, inspect `git status` and the relevant unstaged and staged diffs.
+- Stage only files belonging to the completed task, using explicit file paths.
+  Never use `git add .` or `git add -A` automatically.
+- Do not stage unrelated changes, secrets, generated build output, or files
+  belonging to another unfinished task.
+- If a file contains changes from multiple tasks, do not stage the whole file
+  automatically. Ask for guidance or use selective staging.
+- After staging, verify the staged file list and staged diff.
+- Prepare a Conventional Commit title and an optional description for the staged
+  changes, following the conventions above.
+- Present the title and description separately so they can easily be copied into
+  GitKraken. Prefer a short description explaining what changed and why; do not
+  duplicate the title unnecessarily.
+- Never overwrite or remove changes that were already staged by the user.
+- If there are multiple independent changes, propose separate commits and prepare
+  them one at a time.
+- Always report which files are staged, which remain unstaged, and which checks
+  were performed.
+- Leave the final commit, push, and Pull Request operations to the user unless
+  explicitly instructed otherwise.
