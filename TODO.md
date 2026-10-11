@@ -34,6 +34,45 @@ Local authentication migration work is explicitly approved for Phase 2.5. The ow
 confirms 0001 and 0002 are applied on DEV; remote application of 0003 is not authorized.
 Automatic migration execution remains unauthorized.
 
+### Phase 2.8 — News Database Foundation
+
+- [ ] Create a versioned migration for a `news_articles` table in a separately
+  approved implementation task. This roadmap update does not implement the migration.
+
+Planned fields:
+
+| Field | Purpose |
+| --- | --- |
+| `id` | UUID primary key |
+| `title` | Required headline |
+| `slug` | Unique URL identifier |
+| `content` | Article body |
+| `excerpt` | Optional summary |
+| `cover_image_key` | Optional image storage reference |
+| `author_user_id` | Required foreign-key reference to `users` |
+| `updated_by_user_id` | Optional foreign-key reference to `users` |
+| `publication_status` | `draft`, `published` or `archived` |
+| `created_at` | UTC Unix timestamp |
+| `updated_at` | UTC Unix timestamp |
+| `published_at` | Nullable UTC Unix timestamp |
+
+Implementation requirements:
+
+- [ ] Follow existing SQLite STRICT, application-generated UUID, timestamp and
+  foreign-key conventions; preserve author attribution.
+- [ ] Enforce draft privacy and public readability of published articles in future
+  Worker APIs. Only authorized roles may create, edit or publish articles.
+- [ ] Keep image files outside D1 and store references only. Evaluate Cloudflare R2
+  when implementing image uploads; do not introduce upload infrastructure yet.
+
+## Phase 6 — News & Community
+
+- [ ] Add a public news listing and individual article pages.
+- [ ] Provide article creation and editing for authorized Admin/News Editor roles.
+- [ ] Support draft, publish and archive workflows.
+- [ ] Support optional cover images and inline article images.
+- [ ] Display author attribution and publication dates.
+
 ## Current UI decisions
 
 - Login replaces Admin in navigation and has a disabled login preview.
