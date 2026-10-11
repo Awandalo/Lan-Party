@@ -64,7 +64,7 @@ src/
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
 worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (no SQL migrations yet)
+migrations/      Versioned D1 migrations (first event schema validated locally)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -198,8 +198,9 @@ commands remain `npm run build` and `npx wrangler deploy`.
 
 ### Migration safety
 
-Both bindings use `./migrations`, ready for version-controlled SQL files but
-containing no application migrations yet. See `migrations/README.md`.
+Both bindings use `./migrations`. The first migration defines locations, events,
+and event days and has been validated only in disposable local storage. Remote
+application requires owner review. See `migrations/README.md` for local checks.
 
 - Use ordered, versioned migrations; never edit already-applied migrations.
 - Review and test future migrations on local development state first with

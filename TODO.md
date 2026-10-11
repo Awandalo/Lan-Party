@@ -3,6 +3,24 @@
 These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 
+## Phase 2 database progress
+
+- [x] Prepare `0001_create_event_structure.sql` for reusable locations, events,
+  and multi-day/overnight sessions with constraints and indexes.
+- [x] Validate the event schema with fictional data in disposable local D1 storage,
+  including foreign keys, deletion restrictions, dates, statuses, and timestamps.
+- [ ] Owner review before applying this migration to Cloudflare DEV.
+- [ ] Add server validation for publication readiness, UUIDs, timezones, and
+  attendance-date/session alignment when event APIs are approved.
+- [ ] Enforce event location visibility in future APIs; authenticated addresses
+  must not appear in public responses even when the event is public.
+- [ ] Resolve guest/account registration ownership, privacy, retention, and
+  authentication storage before subsequent account/registration implementation.
+- [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
+
+Local migration work is explicitly approved for Phase 2.2. Remote database
+changes and automatic migration execution remain unauthorized.
+
 ## Current UI decisions
 
 - Login replaces Admin in navigation and has a disabled login preview.

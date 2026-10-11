@@ -10,8 +10,10 @@ Typically there are two LAN parties per year, occasionally three. Traffic is ver
 low outside registration periods. Keep the implementation proportionate to this
 scale and independent of work infrastructure.
 
-The current task establishes documentation only. Application scaffolding,
-dependency installation, and implementation belong to later work.
+The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
+focuses on database design and backend foundation alongside the planned event UI.
+Phase 2.2 introduces the first event-structure migration and local-only validation;
+Phase 2 is not complete, and no remote schema application is authorized yet.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -123,6 +125,33 @@ Follow the styling boundaries in `AGENTS.md`: global rules belong in
 These proposals do not select an authentication provider, registration-editing
 method, final schema, or API contract.
 
+### Approved Phase 2 event database foundation
+
+- `migrations/0001_create_event_structure.sql` defines `locations`, `events`, and
+  `event_days`. Validate it locally before requesting review for Cloudflare DEV.
+- IDs are application-generated UUIDs stored as `TEXT`; instant timestamps are
+  integer UTC Unix seconds, and attendance dates are valid `YYYY-MM-DD` dates.
+- Reusable locations contain addresses. Events select `public` or `authenticated`
+  location visibility; future APIs must enforce this without hiding public events.
+- Draft events may omit a location. A database check requires published events to
+  reference a location, and the foreign key validates its existence. Future APIs
+  must also validate publication readiness. Publication states are `draft`,
+  `published`, `archived`, and `cancelled`; registration is independently
+  `closed` or `open`.
+- Event days are `scheduled` (selectable) or `cancelled` (retained for history).
+  Sessions may end after midnight. Each event has at most one attendance day per
+  local date; `(id, event_id)` is also unique for future composite foreign keys.
+- Referenced locations and events cannot be deleted; there are no cascading deletes.
+  Callers supply creation timestamps and maintain update timestamps.
+- Strict tables and checks enforce types, required fields, allowed values, and
+  timestamp ordering. UUID syntax, IANA timezone validation, session/date alignment,
+  publication readiness, and access control remain future server validation.
+- Local constraint tests live in `worker/tests/event-structure.test.mjs` and use
+  Node's built-in test runner with Wrangler's existing Miniflare dependency.
+  See `migrations/README.md` for isolated local verification commands.
+- Existing DEV/PROD Workers and D1 bindings are preserved. Migration application
+  remains separate from builds and deployment automation.
+
 ## Open architectural questions and recommendations for review
 
 1. **Organizer authentication:** Choose a secure approach suitable for a small number
@@ -150,8 +179,8 @@ method, final schema, or API contract.
 | Phase | Scope | Completion expectations |
 | --- | --- | --- |
 | 1 | Project foundation, tooling, and basic frontend | Establish React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics; validate types and build. |
-| 2 | Event pages and calendar | Implement event presentation and multi-day calendar behavior using fictional development data; check desktop, mobile, and accessibility. |
-| 3 | D1 database and registration system | Add versioned migrations, separate development storage, server validation, and selected-day registration; verify persistence and error handling. |
+| 2 | Database design and backend foundation; event pages and calendar | Establish and locally validate the event schema, then continue event presentation and multi-day calendar behavior using fictional development data; check desktop, mobile, and accessibility. Phase 2 remains in progress. |
+| 3 | D1 database and registration system | Extend the event foundation with registration migrations, separate development storage, server validation, and selected-day registration; verify persistence and error handling. |
 | 4 | Attendance overview and organizer administration | Show display names, per-day attendance, and totals; enable event lifecycle management and verify public/private data boundaries. |
 | 5 | Authentication, security, testing, and production readiness | Complete security review and authentication testing, unauthorized-edit tests, manual end-to-end checks, privacy decisions, and backup/recovery documentation. |
 | 6 | Cloudflare deployment and custom domain | Configure production and domain, verify deployed behavior, and obtain owner approval before replacing Jotform. |
