@@ -64,7 +64,7 @@ src/
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
 worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (0001–0004 on DEV; registrations local only)
+migrations/      Versioned D1 migrations (0001–0005 on DEV; RBAC seeds local only)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -203,11 +203,14 @@ event days and is applied on Cloudflare DEV. Migration 0002 defines prefixes and
 user profiles and is also applied on DEV, as confirmed by the owner. Migration 0003
 defines external identities and password credential storage and is applied/verified
 on DEV. Migration 0004 adds role and permission storage and is applied/verified on
-DEV. Migration 0005 adds registrations and selected days; it is local-only pending
-review/approval, with no seeds or registration APIs. Reference data is planned
-separately for migration 0006 with reviewed mappings. Worker authorization and
-transactional registration lifecycle remain future work. See `migrations/README.md`
-for local checks, cancellation/re-registration decisions and execution safety.
+DEV. Migration 0005 adds registrations and selected days and is applied/verified
+on DEV. Migration 0006 seeds active user/admin roles and thirteen permissions,
+granting all thirteen to admin and none to user; it is local-only pending review
+and remote approval. It creates no users or assignments. First-administrator
+provisioning remains a separately approved process. Worker authorization and the
+transactional registration lifecycle remain future work. Authenticated personal
+actions require ownership checks; administrative actions require explicit permissions
+with default deny. See `migrations/README.md` for seed, lifecycle and safety details.
 
 - Use ordered, versioned migrations; never edit already-applied migrations.
 - Review and test future migrations on local development state first with

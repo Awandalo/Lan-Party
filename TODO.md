@@ -21,16 +21,18 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 - [x] Apply and verify migration 0004 on Cloudflare DEV after approval (Phase 2.6).
 - [x] Implement and locally validate migration 0005 for registrations and selected
   days, including composite event-consistency FKs and cancellation state constraints.
-- [ ] Review Phase 2.7 and separately approve/apply/verify migration 0005 on DEV;
-  Phase 2.7 is not complete until that review and remote verification finish.
+- [x] Review, apply and verify migration 0005 on Cloudflare DEV after approval (Phase 2.7).
 - [ ] Implement authenticated participant registration lifecycle transactions,
   ownership/permission checks, event/day eligibility and minimum-one-day enforcement
   only in a separately approved Worker task. No guest registration or capacity logic.
 - [ ] Review full cancellation/re-registration audit requirements before APIs;
   retain selected days on cancellation and exclude cancelled registrations from counts.
-- [ ] Plan `0006_seed_reference_data.sql` for initial `user`/`admin` roles and the
-  explicit permission catalogue; review mappings before implementation. Preserve
-  extensibility for `news_editor` and `moderator`; create no administrator account.
+- [x] Implement and locally validate `0006_seed_reference_data.sql`: active `user`
+  and `admin` roles, exactly thirteen permissions, all thirteen granted to admin,
+  zero granted to user, stable UUIDs/timestamps, no accounts or user-role assignments.
+- [ ] Review and separately approve/apply/verify migration 0006 on DEV before
+  marking Phase 2.8 RBAC seeding complete.
+- [ ] Review future `news_editor`/`moderator` roles and least-privilege mappings.
 - [ ] Approve a controlled first-administrator provisioning process and audit design.
 - [ ] Implement default-deny Worker permission checks, active-role/disabled-user
   rules and protected role assignment only in a separately approved task.
@@ -48,12 +50,16 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
   authentication storage before subsequent account/registration implementation.
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
-Local registration schema work is explicitly approved for Phase 2.7. Migrations
-0001 through 0004 are applied and verified on DEV; remote application of 0005 is
+Local RBAC reference-data work is explicitly approved for Phase 2.8. Migrations
+0001 through 0005 are applied and verified on DEV; remote application of 0006 is
 not authorized by this task.
 Automatic migration execution remains unauthorized.
 
 ### Phase 2.8 — News Database Foundation
+
+This earlier backlog label is retained. The current approved Phase 2.8 task is
+RBAC reference-data seeding; confirm the future news phase numbering with the owner
+before implementing news. No news migration is authorized by the seed task.
 
 - [ ] Create a versioned migration for a `news_articles` table in a separately
   approved implementation task. This roadmap update does not implement the migration.

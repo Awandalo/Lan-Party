@@ -12,10 +12,10 @@ scale and independent of work infrastructure.
 
 The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
 focuses on database design and backend foundation alongside the planned event UI.
-Migrations 0001 through 0004 are applied and verified on Cloudflare DEV. Phase 2.7
-adds registration and attendance-day storage with local-only validation. Phase 2
-remains in progress; migration 0005 requires review and separate approval before
-remote application. No registration APIs or authorization middleware are implemented.
+Migrations 0001 through 0005 are applied and verified on Cloudflare DEV. Phase 2.8
+adds initial RBAC reference data with local-only validation. Phase 2 remains in
+progress; migration 0006 requires review and separate approval before remote
+application. No registration APIs or authorization middleware are implemented.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -233,9 +233,10 @@ The approved database and authentication decisions below supersede earlier propo
   approved audit design, including revocation history, before APIs are implemented.
 - Migration 0004 contains no seeds or administrator account. Reserve reference
   data for `0006_seed_reference_data.sql`: initial `user` and `admin` roles, with
-  room for later `news_editor` and `moderator` roles. Review all role-permission
-  mappings before seeds. Provision the first administrator through a separately
-  approved controlled process; never seed user privileges automatically.
+  room for later `news_editor` and `moderator` roles. Review future role-permission
+  mappings before additional seeds. The initial mapping is approved below.
+  Provision the first administrator through a separately approved controlled
+  process; never seed user privileges automatically.
 - The planned permission catalogue is `events.create`, `events.update`,
   `events.publish`, `events.cancel`, `events.manage_registrations`, `locations.manage`,
   `users.view`, `users.manage`, `roles.manage`, `news.create`, `news.update`,
@@ -249,8 +250,8 @@ The approved database and authentication decisions below supersede earlier propo
 ### Approved Phase 2 registration database foundation
 
 - `migrations/0005_create_registrations.sql` creates STRICT `registrations` and
-  `registration_days`; local validation is complete, but Phase 2.7 awaits review
-  and separate remote DEV application/verification. Migrations 0001–0004 are unchanged.
+  `registration_days`; it is applied and verified on Cloudflare DEV. Prior migrations
+  remain unchanged.
 - One durable registration per user/event is enforced by `UNIQUE(user_id, event_id)`.
   User and event references restrict deletion/ID changes. IDs are nonblank UUID text;
   UUID syntax remains future Worker validation. No guest registration is supported.
@@ -283,6 +284,36 @@ The approved database and authentication decisions below supersede earlier propo
   cover listings. The necessary registration composite unique key supports its FK.
   Selection primary keys cover registration lookups; one reverse composite index
   covers event-day references. No redundant standalone user/registration indexes.
+
+### Approved Phase 2 initial RBAC reference data
+
+- `migrations/0006_seed_reference_data.sql` contains reference-data INSERTs only.
+  It is validated locally; Phase 2.8 awaits review and separate remote DEV verification.
+  No schema changes or modifications to migrations 0001–0005 are included.
+- Seed active roles `user` (User; standard LAN Party participant) and `admin`
+  (Administrator; website administration). Seed exactly the thirteen permission
+  codes listed in the RBAC foundation above, with explicit grants of all thirteen
+  to admin and none to user. No wildcard or implicit role-name authorization.
+- Fixed version-four UUID literals are generated in application tooling once and
+  checked into the migration so all environments use the same identifiers. Every
+  seed timestamp is 1791763200 (2026-10-12 00:00:00 UTC), not execution-time metadata.
+- Plain INSERTs intentionally fail on unexpected existing IDs/codes/grants. Wrangler
+  migration history governs one-time application; raw SQL is not idempotent. No
+  ignore/upsert/replace behavior silently changes customized reference data.
+- No users, user-role assignments, prefixes, credentials or future roles are seeded.
+  The first administrator account must be authenticated/verified and granted access
+  through a separately approved controlled bootstrap process, not this migration.
+- Future trusted Worker permission resolution must use active users/roles and
+  explicit granted actions with default deny. Ordinary authenticated self-service
+  actions require ownership/eligibility checks; an empty administrative permission
+  set is not a blanket denial of personal registration actions. No public role
+  assignment or self-service privilege escalation is allowed.
+- Future `news_editor` and `moderator` roles and least-privilege mappings require
+  separate review. SQL resolution tests use disposable fictional profiles only;
+  no authentication or authorization endpoint is implemented.
+- The existing news backlog also used the Phase 2.8 label. Preserve that future
+  work; this approved Phase 2.8 task is RBAC seeding. Confirm later news numbering
+  with the owner before its implementation.
 
 ## Open architectural questions and recommendations for review
 

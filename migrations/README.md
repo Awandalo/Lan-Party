@@ -10,11 +10,13 @@ credential storage. It is applied and verified on Cloudflare DEV and must not be
 `0004_create_authorization.sql` creates roles, permissions and their junction tables;
 it is applied and verified on Cloudflare DEV and must not be edited.
 `0005_create_registrations.sql` creates registrations and selected attendance days;
+it is applied and verified on Cloudflare DEV and must not be edited.
+`0006_seed_reference_data.sql` inserts initial roles, permissions and admin grants;
 it is locally validated only, pending review and separate remote approval/verification.
 
 Future schema changes must use new versioned SQL files after separate approval.
-Never edit an already-applied migration. Reference-data seeds are reserved for
-the planned `0006_seed_reference_data.sql`, whose mappings require review first.
+Never edit an already-applied migration. Initial reference data is defined in
+0006 with the approved mapping; future reference data and mappings require review.
 Keep migrations free of secrets and real participant data.
 
 Test and review future migrations locally with explicit --env dev and --local
@@ -58,7 +60,7 @@ Install locked dependencies with `npm ci`, then run from the repository root:
 node --test worker/tests/*.test.mjs
 ```
 
-The registration tests apply 0001 through 0005 in order to a fresh local D1
+The reference-data tests apply 0001 through 0006 in order to a fresh local D1
 simulator supplied by the installed Wrangler dependency, using fictional data and
 no remote bindings. Existing event/account test suites remain independently runnable.
 They assert foreign-key enforcement is active. The simulator is disposed after
@@ -215,6 +217,37 @@ does not authorize application to Cloudflare DEV or PROD.
   authorization, privacy and lifecycle eligibility remain future Worker responsibilities.
   No registration endpoints, notifications, frontend forms or capacity management.
 
+## Initial reference data (0006)
+
+- Reference-data INSERTs only; no schema changes. Active roles: `user` / User /
+  Standard LAN Party participant, and `admin` / Administrator / Website administration.
+- Exactly thirteen permissions: `events.create`, `events.update`, `events.publish`,
+  `events.cancel`, `events.manage_registrations`, `locations.manage`, `users.view`,
+  `users.manage`, `roles.manage`, `news.create`, `news.update`, `news.publish`,
+  `news.archive`. Admin receives all thirteen explicit grants; user receives none.
+- Entity IDs are fixed application-generated version-four UUID literals. Their
+  values in 0006 are authoritative and reproducible across environments; never
+  replace them with SQLite-generated IDs. Role and permission IDs are globally unique.
+- All role creation/update, permission creation and grant timestamps use the fixed
+  constant 1791763200 (2026-10-12 00:00:00 UTC). This is reference-data metadata,
+  not the time of deployment; Wrangler records actual migration application time.
+- Use plain INSERTs, with no OR IGNORE/REPLACE or upsert. Migration history tracks
+  one-time application; manually re-executing the raw seed must fail on conflicts.
+  Unexpected custom IDs/codes/grants require review, not silent overwriting. Local
+  tests confirm conflicting custom roles/permissions preserve their data and leave
+  no partial seed records when the atomic batch fails.
+- No users, user_roles, prefixes or credentials are seeded. `news_editor` and
+  `moderator` are deferred. First-administrator provisioning requires a separately
+  approved controlled process with identity verification, authorization and audit.
+- Future Worker logic must resolve explicit permissions through user_roles and
+  role_permissions, reject disabled users/inactive roles, and default to deny
+  when no permission is granted. A role named admin does not itself grant access.
+- Ordinary authenticated participants use server-enforced ownership checks for
+  personal actions; administrative permissions do not replace those checks or
+  authorize unrestricted self-service assignments. No auth endpoints are implemented.
+- The focused tests temporarily use disposable fictional users to check permission
+  resolution, then remove those fixtures. This is not account provisioning.
+
 ## Codex execution environment
 
 Normal coding, local tests and local migrations remain sandboxed. On Windows the
@@ -223,7 +256,7 @@ Do not copy credentials, create replacement API tokens, change credential permis
 or globally disable the sandbox. For an explicitly authorized remote operation,
 request approval for each specific command requiring execution outside the sandbox.
 One approval does not authorize other commands. Remote DEV writes require explicit
-authorization; production operations require separate explicit approval. Phase 2.7
+authorization; production operations require separate explicit approval. Phase 2.8
 authorizes local work only and no external execution for remote Cloudflare operations.
 
 For sandboxed local Wrangler validation, set these process-only variables in a
