@@ -10,12 +10,12 @@ Typically there are two LAN parties per year, occasionally three. Traffic is ver
 low outside registration periods. Keep the implementation proportionate to this
 scale and independent of work infrastructure.
 
-The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
-focuses on database design and backend foundation alongside the planned event UI.
-Migrations 0001 through 0005 are applied and verified on Cloudflare DEV. Phase 2.8
-adds initial RBAC reference data with local-only validation. Phase 2 remains in
-progress; migration 0006 requires review and separate approval before remote
-application. No registration APIs or authorization middleware are implemented.
+The frontend and Cloudflare Workers foundation are implemented. Phase 2.1–2.7
+database foundations are complete on DEV; migrations 0001 through 0005 are applied
+and verified. Phase 2.8 initial RBAC reference data is locally validated, committed,
+and pushed to `dev`, but remote DEV verification remains pending. Phase 2.9 News
+database foundation is planned as `0007_create_news_articles.sql`, not implemented
+or complete. No registration APIs or authorization middleware are implemented.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -72,6 +72,10 @@ paid dependencies, and verify relevant platform limits before production deploym
 - Document database backup and recovery procedures before production use.
 
 ## Design direction
+
+Dream big. Build small. Expand when needed. Start with maintainable functionality,
+reuse existing systems, and keep later enhancements separate from initial scope.
+Preserve reasonable extension points without speculative tables, APIs, or infrastructure.
 
 - Modern, gaming-inspired appearance with a dark theme as the initial default.
 - Responsive desktop and mobile layouts.
@@ -311,9 +315,20 @@ The approved database and authentication decisions below supersede earlier propo
 - Future `news_editor` and `moderator` roles and least-privilege mappings require
   separate review. SQL resolution tests use disposable fictional profiles only;
   no authentication or authorization endpoint is implemented.
-- The existing news backlog also used the Phase 2.8 label. Preserve that future
-  work; this approved Phase 2.8 task is RBAC seeding. Confirm later news numbering
-  with the owner before its implementation.
+- Phase 2.8 is RBAC reference-data seeding, committed and pushed to `dev` but
+  pending remote DEV verification. Phase 2.9 is the planned News database foundation.
+
+### Planned Phase 2.9 News database foundation
+
+- Plan `0007_create_news_articles.sql` for the News table described in `TODO.md`;
+  no migration is created or applied by this planning decision. Phase 2.9 remains
+  planned until implementation, review, and required DEV verification are complete.
+- Preserve the planned author attribution, publication states, private drafts,
+  authorized editing, and image references outside D1.
+- Future feature migrations belong alongside their respective functionality,
+  not additional speculative Phase 2 work. Identify requirements during planning,
+  check existing migration numbers before assigning the next one, and never reuse
+  numbers. DEV and PROD execution remain separate; production requires explicit approval.
 
 ## Open architectural questions and recommendations for review
 
@@ -342,16 +357,20 @@ The approved database and authentication decisions below supersede earlier propo
 | Phase | Scope | Completion expectations |
 | --- | --- | --- |
 | 1 | Project foundation, tooling, and basic frontend | Establish React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics; validate types and build. |
-| 2 | Database design and backend foundation; event pages and calendar | Establish and locally validate the event schema, then continue event presentation and multi-day calendar behavior using fictional development data; check desktop, mobile, and accessibility. Phase 2 remains in progress. |
-| 3 | D1 database and registration system | Extend the event foundation with registration migrations, separate development storage, server validation, and selected-day registration; verify persistence and error handling. |
-| 4 | Attendance overview and organizer administration | Show display names, per-day attendance, and totals; enable event lifecycle management and verify public/private data boundaries. |
-| 5 | Authentication, security, testing, and production readiness | Complete security review and authentication testing, unauthorized-edit tests, manual end-to-end checks, privacy decisions, and backup/recovery documentation. |
-| 6 | Cloudflare deployment and custom domain | Configure production and domain, verify deployed behavior, and obtain owner approval before replacing Jotform. |
+| 2.1–2.7 | Database foundations: events, accounts, authentication, authorization, registrations | Complete on DEV; migrations 0001–0005 applied and verified. Functionality remains separate future work. |
+| 2.8 | Initial RBAC reference data | Migration 0006 locally validated, committed and pushed to `dev`; remote DEV verification pending. Do not mark complete until required review/application/verification finishes. |
+| 2.9 | News database foundation | Planned `0007_create_news_articles.sql`; implement, review and verify on DEV before marking complete. |
+| 3 | Authentication and account functionality | Implement reviewed authentication, sessions and account tools with secure ownership and permission checks; verify login and recovery behavior. |
+| 4 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
+| 5 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |
+| 6 | News and community features | Implement News after its database foundation, with authorized editing/publication and private drafts; keep additional future features in the backlog until separately approved. |
 
-Security is required throughout development. Although Phase 5 consolidates security
-and authentication verification, administration must be protected when introduced
-in Phase 4. Resolve its authentication design before implementation; do not expose
-unprotected administration while waiting for Phase 5.
+Security, behavior testing, accessibility, privacy decisions, and backup/recovery
+readiness apply throughout development. Phase 3 authentication and server-side
+authorization must protect registration and Phase 5 administration when introduced.
+Production deployment and custom-domain setup remain separately approved operational
+work, not an automatic consequence of completing a phase. Verify deployed behavior
+and obtain owner approval before replacing Jotform.
 
 Production data/schema changes and Codex deployments require explicit approval.
 Do not commit or push automatically. Compilation and builds are necessary checks
@@ -361,6 +380,14 @@ but must be accompanied by relevant behavior tests and documented manual checks.
 
 These are not immediate requirements and must not be implemented without approval:
 
+- Gamification and achievements: permanent ranks, Grand-LAN Master/streaks, First
+  Time LANner, participant-selected showcase, optional manual/secret achievements,
+  and a possible Hall of Fame.
+- Event pricing/cost sharing: minimum attendance, estimates, locking, adjustments,
+  first-time promotions, extras, and optional financial transparency.
+- LAN Idea Box: private suggestions and organizer review, shared contribution
+  achievements, and later consent-aware News integration/public curation.
+- Public website improvements: AI transparency, About This Project, and footer links.
 - Additional participant account tools beyond the required registration identity.
 - Waiting lists or participant capacity limits.
 - Event announcements.
@@ -369,3 +396,7 @@ These are not immediate requirements and must not be implemented without approva
 - Additional organizer tools.
 - Calendar subscriptions.
 - Improved attendance statistics.
+
+`TODO.md` retains the detailed feature requirements and dependencies. These ideas
+do not add numbered phases or authorize premature migrations. The initial Idea Box
+is private; public suggestions, voting, and News integration are later enhancements.

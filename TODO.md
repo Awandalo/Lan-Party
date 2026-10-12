@@ -2,8 +2,15 @@
 
 These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
+`PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
+Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
+Keep additional feature ideas in the unnumbered backlog below until separately
+approved. Plan their database needs now; implement migrations with their functionality.
 
 ## Phase 2 database progress
+
+Unchecked functionality follow-ups below belong to Phases 3–5; they do not expand
+Phase 2's database foundation scope.
 
 - [x] Prepare `0001_create_event_structure.sql` for reusable locations, events,
   and multi-day/overnight sessions with constraints and indexes.
@@ -51,18 +58,20 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
 Local RBAC reference-data work is explicitly approved for Phase 2.8. Migrations
-0001 through 0005 are applied and verified on DEV; remote application of 0006 is
-not authorized by this task.
+0001 through 0005 are applied and verified on DEV; Phase 2.1–2.7 foundations are
+complete on DEV. Phase 2.8 is locally validated, committed and pushed to `dev`,
+but remote DEV verification remains pending. This housekeeping task does not
+authorize remote application of 0006 or mark Phase 2.8 complete.
 Automatic migration execution remains unauthorized.
 
-### Phase 2.8 — News Database Foundation
+### Phase 2.9 — News Database Foundation
 
-This earlier backlog label is retained. The current approved Phase 2.8 task is
-RBAC reference-data seeding; confirm the future news phase numbering with the owner
-before implementing news. No news migration is authorized by the seed task.
+Planned only; implementation and required DEV verification are not complete.
+Phase 2.8 remains RBAC reference-data seeding.
 
-- [ ] Create a versioned migration for a `news_articles` table in a separately
-  approved implementation task. This roadmap update does not implement the migration.
+- [ ] Implement planned `0007_create_news_articles.sql` for a `news_articles` table
+  in a separately approved task. Check existing migrations before assigning the
+  number and never reuse one. This roadmap update creates no migration.
 
 Planned fields:
 
@@ -90,15 +99,33 @@ Implementation requirements:
 - [ ] Keep image files outside D1 and store references only. Evaluate Cloudflare R2
   when implementing image uploads; do not introduce upload infrastructure yet.
 
-## Phase 4 — Event Pricing, Cost Sharing & Optional Extras
+## Phase 6 — News & Community
 
-Future follow-up to Phase 4 event management and attendance work, dependent on
-event creation, registration, participant management, and registered attendance
-durations being implemented and tested. Plan this feature before participant
-payments or payment collection. Preserve existing priorities and phase numbering;
-the work packages below are backlog only, not implementation authorization.
+- [ ] Add a public news listing and individual article pages after the Phase 2.9
+  database foundation is implemented and verified.
+- [ ] Provide article creation and editing for authorized Admin/News Editor roles.
+- [ ] Support draft, publish and archive workflows, plus a reviewed removal workflow
+  for homepage news such as countdowns, practical reminders, and event updates.
+  Replace example content with published backend data; decide ordering and dates.
+- [ ] Support optional cover images and inline article images.
+- [ ] Display author attribution and publication dates.
 
-### Cost sharing and minimum attendance
+## Future feature backlog
+
+These ideas retain their agreed requirements but are not assigned new numbered
+phases. Dream big. Build small. Expand when needed: deliver maintainable initial
+scope, reuse existing systems, and defer additional infrastructure and enhancements.
+Plan database requirements here; implement versioned migrations only alongside
+separately approved functionality, checking existing numbers and never reusing them.
+
+### Event Pricing, Cost Sharing & Optional Extras
+
+Future feature dependent on Phase 4 registration/attendance durations and Phase 5
+event creation and participant management being implemented and tested. Plan it
+before participant payments or payment collection. These work packages are backlog
+only, not implementation authorization.
+
+#### Cost sharing and minimum attendance
 
 - [ ] Model the organization as non-profit and shared-cost: divide venue rental
   proportionally by registered participant-days. Calculate daily rate as total
@@ -122,7 +149,7 @@ the work packages below are backlog only, not implementation authorization.
   manual confirmation below the minimum with an explicit financial-impact warning;
   define the pricing-display behavior of this override during implementation planning.
 
-### First-time visitor promotion
+#### First-time visitor promotion
 
 - [ ] Add an event-level `First-time visitors attend free` setting, disabled by
   default. When enabled, eligible participants receive free base admission only;
@@ -136,7 +163,7 @@ the work packages below are backlog only, not implementation authorization.
   covers their waived admission: store the discount and organization-funded amount
   separately for financial reporting.
 
-### Reusable optional extras
+#### Reusable optional extras
 
 - [ ] Design reusable event extras, initially gaming chair rental, rather than
   hardcoded chairs. Allow future monitors, equipment, meals, and other services.
@@ -146,7 +173,7 @@ the work packages below are backlog only, not implementation authorization.
   quantities and availability server-side; calculate extras separately from base
   admission and include them in the total payable amount, including for free visitors.
 
-### Estimates and automatic price locking
+#### Estimates and automatic price locking
 
 - [ ] Clearly label pre-lock admission prices as estimates that may change with
   registrations, and distinguish them from finalized prices throughout the website.
@@ -165,7 +192,7 @@ the work packages below are backlog only, not implementation authorization.
   Handle registrations and cancellations after locking through explicit
   organizer-controlled adjustments.
 
-### Individual post-lock adjustments
+#### Individual post-lock adjustments
 
 - [ ] Allow authorized organizers to adjust an individual's billable attendance
   days and admission amount after locking, including on day three or after the event.
@@ -179,7 +206,7 @@ the work packages below are backlog only, not implementation authorization.
   for achievements. Support correction of mistaken adjustments with a proper audit
   history rather than overwriting the original adjustment.
 
-### Financial reporting and participant visibility
+#### Financial reporting and participant visibility
 
 - [ ] Add an optional second event-page tab, `Finances`, hidden from participants
   by default. Allow organizers to enable public visibility per event, showing only
@@ -194,7 +221,7 @@ the work packages below are backlog only, not implementation authorization.
   extras on the public event page; enforce appropriate access to participant-specific
   prices and never expose other participants' charges.
 
-### Backend, security, and verification
+#### Backend, security, and verification
 
 - [ ] Perform authoritative pricing and discount calculations on the backend;
   never trust client-submitted prices or discounts. Validate registration dates,
@@ -209,18 +236,10 @@ the work packages below are backlog only, not implementation authorization.
   timezone-aware locking, repeated locks, concurrent changes, cancellations,
   post-lock adjustments, audit corrections, and public/private permission boundaries.
 
-## Phase 6 — News & Community
-
-- [ ] Add a public news listing and individual article pages.
-- [ ] Provide article creation and editing for authorized Admin/News Editor roles.
-- [ ] Support draft, publish and archive workflows.
-- [ ] Support optional cover images and inline article images.
-- [ ] Display author attribution and publication dates.
-
 ### AI Development Transparency & About Page
 
-Small future frontend enhancement alongside the Phase 6 public-page work, not a
-separate development phase. This backlog entry does not authorize implementation;
+Small future frontend enhancement alongside public-page and layout polishing,
+not a separate development phase. This backlog entry does not authorize implementation;
 preserve existing priorities and reuse existing layout and footer conventions.
 
 - [ ] Add a small, unobtrusive footer section with an `About this project` link
@@ -244,9 +263,9 @@ preserve existing priorities and reuse existing layout and footer conventions.
 
 ### Gamification — LAN Ranks & Grand-LAN Master
 
-Future feature within Phase 6, scheduled after event management, registration,
-and confirmed attendance tracking are implemented and tested. This backlog entry
-does not authorize implementation or change the existing phase numbering.
+Future feature after event management, registration, and confirmed attendance
+tracking are implemented and tested. This backlog entry does not authorize
+implementation or assign a new numbered phase.
 
 Permanent LAN ranks:
 
@@ -288,15 +307,22 @@ Administration and technical requirements:
   excluded events, corrections, and threshold changes.
 - [ ] Include achievement badges on participant profiles and alongside usernames
   where appropriate, while preserving existing public/private data boundaries.
+- [ ] Plan First Time LANner and other fun achievements; define eligibility during
+  approved feature planning without speculative tables or APIs.
+- [ ] Plan a shared Achievement Showcase for bragging rights: participants may
+  select one unlocked achievement to display alongside their permanent LAN rank.
+  Reuse it for contribution achievements rather than building another showcase.
 
 Future enhancement:
 
+- [ ] Consider optional manual and secret achievements in later planning, with
+  authorized awards and auditable corrections through the shared achievement system.
 - [ ] Add a Hall of Fame showing current Grand-LAN Masters, longest attendance
   streaks, and LAN Legends.
 
 ### LAN Idea Box — Community Suggestions & Contribution Achievements
 
-Future feature within Phase 6, after authentication, participant account tools,
+Future feature after authentication, participant account tools,
 and server-side organizer authorization are implemented and tested. Keep the
 initial version private, simple, and practical for a small organizing team.
 The stages below belong to this feature, not new repository phase numbers;
@@ -328,7 +354,7 @@ Initial stage — Private LAN Idea Box:
 
 Contribution achievements — dependent on the shared achievement system:
 
-- [ ] Integrate with the planned Phase 6 achievement definitions, unlocking logic,
+- [ ] Integrate with the shared planned achievement definitions, unlocking logic,
   participant profiles, and showcase where possible. The achievement system is
   still future work: document this dependency rather than implementing it now or
   creating a separate suggestion-specific achievement engine.
@@ -343,8 +369,8 @@ Contribution achievements — dependent on the shared achievement system:
   Define correction handling for already-earned permanent achievements during
   implementation planning, keeping historical decisions distinct from future
   qualifying progress.
-- [ ] Support bragging rights through the shared participant showcase: participants
-  may choose one unlocked achievement to display alongside their permanent LAN rank.
+- [ ] Reuse the Achievement Showcase and participant-selected bragging rights
+  defined in the gamification backlog above.
 
 Deferred enhancement — News integration:
 
@@ -401,9 +427,6 @@ Technical and verification planning:
 - [ ] Decide storage compatible with the Cloudflare free-tier goal before implementing uploads.
   Validate file type and size on the server, review image rights/participant privacy,
   remove unnecessary image metadata, and enforce upload authorization.
-- [ ] Let organizers create, edit, publish, and remove homepage news, such as
-  countdowns, practical reminders, and event updates. Replace example content
-  with published backend data; decide ordering and publication dates.
 - [ ] Populate event listings from published backend events and distinguish
   upcoming and past events consistently using agreed Netherlands date/time rules.
 - [ ] Build individual event pages with registration and attendance day selection,

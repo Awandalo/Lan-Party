@@ -15,6 +15,13 @@ for requirements, architecture, roadmap, and decisions awaiting owner review.
 - Keep this personal project independent of work infrastructure and accounts.
 - Requirements in `PROJECT.md` are mandatory unless explicitly marked as proposals,
   open decisions, or future ideas. Future ideas do not authorize implementation.
+- Use `PROJECT.md` as the authoritative roadmap and `TODO.md` for detailed tasks
+  and the future feature backlog. Do not assign backlog ideas new numbered phases
+  prematurely or mark work complete without its required verification.
+- Dream big. Build small. Expand when needed. Prefer a maintainable first version,
+  reuse existing components and systems, and separate later enhancements from
+  initial scope. Keep reasonable extension points without speculative tables,
+  APIs, abstractions, or infrastructure.
 
 ## 1. Folder structure and styling
 
@@ -73,9 +80,16 @@ Use these locations when implementation begins:
 ## 4. Database management
 
 - Use versioned database migrations in `migrations/`.
-- Never modify production data or production schemas without explicit approval.
+- Identify future features' database requirements during planning, but design and
+  implement their migrations alongside their functionality, not prematurely in
+  Phase 2. Preserve the existing Phase 2 foundation scope, including planned News.
+- Check existing migrations before assigning the next number; follow established
+  naming/versioning conventions and never reuse migration numbers.
+- Never modify production data or production schemas, or execute production
+  migrations, without explicit approval.
 - Use parameterized queries, never SQL constructed from untrusted input.
-- Maintain a clear separation between development and production databases and configuration.
+- Maintain a clear separation between development and production databases,
+  configuration, and migration execution.
 - Design schema and data changes to preserve existing registrations.
 - Document backup and recovery procedures before production use.
 
