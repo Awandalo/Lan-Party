@@ -73,6 +73,58 @@ Implementation requirements:
 - [ ] Support optional cover images and inline article images.
 - [ ] Display author attribution and publication dates.
 
+### Gamification — LAN Ranks & Grand-LAN Master
+
+Future feature within Phase 6, scheduled after event management, registration,
+and confirmed attendance tracking are implemented and tested. This backlog entry
+does not authorize implementation or change the existing phase numbering.
+
+Permanent LAN ranks:
+
+- [ ] Award LAN Recruit (bronze) after 5 confirmed qualifying LAN attendances,
+  LAN Veteran (silver) after 10, and LAN Legend (gold) after 15.
+- [ ] Keep earned ranks permanent, even when participants miss future events.
+  Display the highest earned rank as a medal alongside the participant's name.
+
+Grand-LAN Master:
+
+- [ ] Award the active Grand-LAN Master title after 15 consecutive qualifying LAN
+  attendances. New participants may start a streak at any qualifying event;
+  attendance at earlier events is not required.
+- [ ] Missing a completed qualifying LAN resets the streak to zero and revokes
+  the active title. Participants may regain it with another 15-event streak.
+- [ ] Retain historical achievements and each participant's longest streak.
+  Missing an event must never revoke permanent ranks.
+
+Event configuration:
+
+- [ ] Add an `Achievements enabled` toggle to event creation and editing,
+  enabled by default, and display whether each event qualifies for achievements.
+- [ ] Disabled events contribute neither to permanent ranks nor to streaks and
+  cannot break an existing streak. Cancelled events and test events excluded from
+  achievements do not affect calculations.
+- [ ] Require explicit administrative action and recalculation for qualification
+  changes made after attendance finalization.
+
+Administration and technical requirements:
+
+- [ ] Make all four thresholds configurable through administrator settings:
+  Recruit, Veteran, Legend, and the Grand-LAN Master streak threshold.
+- [ ] Calculate achievements server-side from confirmed attendance, not
+  registrations, using chronological qualifying event order rather than database IDs.
+- [ ] Support authorized administrative attendance corrections and achievement
+  recalculation. Preserve earned permanent ranks when thresholds change.
+- [ ] Make calculations deterministic and cover them with automated tests,
+  including rank thresholds, streak resets and recovery, new participants,
+  excluded events, corrections, and threshold changes.
+- [ ] Include achievement badges on participant profiles and alongside usernames
+  where appropriate, while preserving existing public/private data boundaries.
+
+Future enhancement:
+
+- [ ] Add a Hall of Fame showing current Grand-LAN Masters, longest attendance
+  streaks, and LAN Legends.
+
 ## Current UI decisions
 
 - Login replaces Admin in navigation and has a disabled login preview.
