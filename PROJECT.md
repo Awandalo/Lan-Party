@@ -12,10 +12,10 @@ scale and independent of work infrastructure.
 
 The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
 focuses on database design and backend foundation alongside the planned event UI.
-Migrations 0001 and 0002 are applied and verified on Cloudflare DEV, as confirmed
-by the owner after Phase 2.4. Phase 2.5 adds authentication storage with local-only
-validation. Phase 2 remains in progress; migration 0003 requires review and separate
-approval before remote application.
+Migrations 0001 through 0003 are applied and verified on Cloudflare DEV. Phase 2.6
+adds the roles and permissions schema with local-only validation. Phase 2 remains
+in progress; migration 0004 requires review and separate approval before remote
+application. No authorization middleware is implemented yet.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -185,7 +185,7 @@ The approved database and authentication decisions below supersede earlier propo
 ### Approved Phase 2 authentication storage foundation
 
 - `migrations/0003_create_auth_credentials.sql` adds strict external identity and
-  password credential tables. It is local-only pending review and remote approval.
+  password credential tables. It is applied and verified on Cloudflare DEV.
 - `users` stores profiles; `user_auth_providers` maps external identities to profiles
   using unique `(provider, identity_namespace, provider_subject)` values. Google
   uses the validated OpenID Connect issuer and subject, never the provider email.
@@ -209,6 +209,42 @@ The approved database and authentication decisions below supersede earlier propo
   OAuth configuration, hashing implementation, secrets, sessions or endpoints are added.
 - `worker/tests/auth-credentials.test.mjs` validates all three migrations locally
   using fictional identities and deliberately unusable dummy hash-like values.
+
+### Approved Phase 2 roles and permissions foundation
+
+- `migrations/0004_create_authorization.sql` creates STRICT `roles`, `permissions`,
+  `user_roles` and `role_permissions` tables. It remains local-only pending review.
+- Roles group explicit permissions; users may hold multiple roles. Authorization
+  must resolve user -> assigned active roles -> granted permission, defaulting to
+  deny when no active role grants the requested action. Role names (including
+  `admin`) confer no implicit privileges. Disabled users must always be denied.
+- Roles have text UUID IDs, unique stable lowercase codes, required display names,
+  optional descriptions, boolean activity flags and ordered creation/update timestamps.
+  Permission IDs are text UUIDs, codes are unique lowercase `resource.action`
+  identifiers without wildcards, descriptions are required and creation is timestamped.
+- Junctions use composite primary keys, retain assignment/grant timestamps, and
+  optionally reference the assigning user. Every FK restricts deletion and ID changes.
+  Composite keys cover forward lookups; reverse FK and assigner lookups have indexes.
+- UUID syntax and stable-code management remain future API responsibilities.
+  Future trusted Worker logic must enforce least privilege, permission checks on
+  every protected action, no public unrestricted assignments, no self-service
+  privilege escalation, and authorization of the assigning user. FK metadata
+  alone does not prove authorization. Role changes/privileged actions need an
+  approved audit design, including revocation history, before APIs are implemented.
+- Migration 0004 contains no seeds or administrator account. Reserve reference
+  data for `0006_seed_reference_data.sql`: initial `user` and `admin` roles, with
+  room for later `news_editor` and `moderator` roles. Review all role-permission
+  mappings before seeds. Provision the first administrator through a separately
+  approved controlled process; never seed user privileges automatically.
+- The planned permission catalogue is `events.create`, `events.update`,
+  `events.publish`, `events.cancel`, `events.manage_registrations`, `locations.manage`,
+  `users.view`, `users.manage`, `roles.manage`, `news.create`, `news.update`,
+  `news.publish`, and `news.archive`. These codes do not authorize implementing APIs.
+- The existing documents previously specified separate seeds without a 0006 file
+  plan. This approved Phase 2.6 direction now records 0006 explicitly; it does not
+  create seed files or authorize intervening migrations.
+- Local authorization tests apply 0001 through 0004 to fresh disposable D1 storage,
+  preserving existing fictional data. No middleware, endpoints or interfaces are added.
 
 ## Open architectural questions and recommendations for review
 

@@ -6,10 +6,13 @@ applied and verified on Cloudflare DEV in Phase 2.3. It must not be edited.
 `0002_create_accounts.sql` creates name prefixes and user profiles; the owner
 confirms it is applied and verified on Cloudflare DEV. It must not be edited.
 `0003_create_auth_credentials.sql` creates external identities and password
-credential storage. It is locally validated only, pending review/remote approval.
+credential storage. It is applied and verified on Cloudflare DEV and must not be edited.
+`0004_create_authorization.sql` creates roles, permissions and their junction tables;
+it is locally validated only, pending review and separate remote approval.
 
-Future schema changes must use versioned SQL files (for example,
-0004_create_authorization.sql). Never edit an already-applied migration; add a new one.
+Future schema changes must use new versioned SQL files after separate approval.
+Never edit an already-applied migration. Reference-data seeds are reserved for
+the planned `0006_seed_reference_data.sql`, whose mappings require review first.
 Keep migrations free of secrets and real participant data.
 
 Test and review future migrations locally with explicit --env dev and --local
@@ -53,7 +56,7 @@ Install locked dependencies with `npm ci`, then run from the repository root:
 node --test worker/tests/*.test.mjs
 ```
 
-The authentication tests apply 0001, 0002 and 0003 in order to a fresh local D1
+The authorization tests apply 0001 through 0004 in order to a fresh local D1
 simulator supplied by the installed Wrangler dependency, using fictional data and
 no remote bindings. Existing event/account test suites remain independently runnable.
 They assert foreign-key enforcement is active. The simulator is disposed after
@@ -133,6 +136,44 @@ does not authorize application to Cloudflare DEV or PROD.
   sessions/authentication workflows, password reset and revocation are Phase 3 work.
   Every participant requires an account; organizer privileges remain separate.
 
+## Authorization schema decisions
+
+- Roles group explicit actions represented by permissions. Users receive permissions
+  through `user_roles` and `role_permissions`; multiple roles per user are supported.
+- `roles`: text UUID `id`, unique lowercase `code` (letter first, then letters,
+  digits or underscores), nonblank `name`, optional `description`, 0/1 `is_active`
+  defaulting to 1, nonnegative integer `created_at`, and `updated_at >= created_at`.
+  Role codes are stable API identifiers; future management logic must preserve them.
+- `permissions`: text UUID `id`, unique lowercase `resource.action` `code` with one
+  dot and letter-first segments, nonblank `description`, and nonnegative integer
+  `created_at`. Segments allow digits/underscores after the initial letter; wildcards
+  are rejected. No vague access levels or implicit administrator bypass exist.
+- `user_roles`: required `user_id`, `role_id`, nonnegative integer `assigned_at`,
+  nullable `assigned_by_user_id`; primary key `(user_id, role_id)`. All three FKs
+  restrict deletion and ID updates. Nullable assigner supports controlled provisioning;
+  populated metadata does not establish the assigner's authorization.
+- `role_permissions`: required `role_id`, `permission_id`, nonnegative integer
+  `granted_at`; primary key `(role_id, permission_id)`. Both FKs restrict deletion
+  and ID updates. All four tables are STRICT; identifiers reject blank values.
+- Primary and unique constraints supply their own indexes. Add only reverse FK
+  lookup indexes `user_roles_role_id_idx`, `user_roles_assigned_by_user_id_idx`,
+  and `role_permissions_permission_id_idx`; first-column lookups use composite keys.
+- The Worker must default to deny, require explicit permissions, ignore inactive
+  roles, reject disabled users, enforce least privilege, and authorize all assignments.
+  Neither an `admin` role name nor frontend state grants access. No public unrestricted
+  assignment or self-service privilege escalation is permitted. UUID validation and
+  audit/revocation history are future approved API/design work, not implemented here.
+- No reference data or user privileges are seeded in 0004. Reserve initial `user`
+  and `admin` roles for 0006; later `news_editor`/`moderator` remain possible.
+  Provision the first administrator via a separately approved controlled process.
+- Planned permissions for 0006 are: `events.create`, `events.update`, `events.publish`,
+  `events.cancel`, `events.manage_registrations`, `locations.manage`, `users.view`,
+  `users.manage`, `roles.manage`, `news.create`, `news.update`, `news.publish`,
+  `news.archive`. The proposed catalogue is unchanged; mappings require owner review.
+- Prior documents called for separate seeds but contained no explicit 0006 plan.
+  Phase 2.6 records that plan without creating a seed migration. No middleware,
+  authentication endpoints, administrator interfaces or frontend changes are included.
+
 ## Codex execution environment
 
 Normal coding, local tests and local migrations remain sandboxed. On Windows the
@@ -141,7 +182,7 @@ Do not copy credentials, create replacement API tokens, change credential permis
 or globally disable the sandbox. For an explicitly authorized remote operation,
 request approval for each specific command requiring execution outside the sandbox.
 One approval does not authorize other commands. Remote DEV writes require explicit
-authorization; production operations require separate explicit approval. Phase 2.5
+authorization; production operations require separate explicit approval. Phase 2.6
 authorizes local work only and no external execution for remote Cloudflare operations.
 
 For sandboxed local Wrangler validation, set these process-only variables in a

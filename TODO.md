@@ -15,7 +15,16 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 - [x] Owner confirms migration 0002 is applied and verified on Cloudflare DEV (Phase 2.4).
 - [x] Prepare and locally validate migration 0003 for external identities and password
   credential storage, preserving existing event and account records.
-- [ ] Review migration 0003 and obtain separate approval before applying it to DEV.
+- [x] Apply and verify migration 0003 on Cloudflare DEV after approval (Phase 2.5).
+- [x] Prepare and locally validate migration 0004 for roles, permissions, user-role
+  assignments and role-permission grants, without seeds or privileged assignments.
+- [ ] Review migration 0004 and separately approve any remote DEV application.
+- [ ] Plan `0006_seed_reference_data.sql` for initial `user`/`admin` roles and the
+  explicit permission catalogue; review mappings before implementation. Preserve
+  extensibility for `news_editor` and `moderator`; create no administrator account.
+- [ ] Approve a controlled first-administrator provisioning process and audit design.
+- [ ] Implement default-deny Worker permission checks, active-role/disabled-user
+  rules and protected role assignment only in a separately approved task.
 - [ ] Implement reviewed password hashing, trusted Google issuer/subject validation,
   explicit login-method linking, and disabled-account enforcement in future Worker logic.
 - [ ] Plan sessions, password reset and credential revocation for Phase 3.
@@ -30,8 +39,9 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
   authentication storage before subsequent account/registration implementation.
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
-Local authentication migration work is explicitly approved for Phase 2.5. The owner
-confirms 0001 and 0002 are applied on DEV; remote application of 0003 is not authorized.
+Local authorization schema work is explicitly approved for Phase 2.6. Migrations
+0001 through 0003 are applied and verified on DEV; remote application of 0004 is
+not authorized by this task.
 Automatic migration execution remains unauthorized.
 
 ### Phase 2.8 — News Database Foundation
