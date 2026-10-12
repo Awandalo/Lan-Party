@@ -254,6 +254,95 @@ Future enhancement:
 - [ ] Add a Hall of Fame showing current Grand-LAN Masters, longest attendance
   streaks, and LAN Legends.
 
+### LAN Idea Box — Community Suggestions & Contribution Achievements
+
+Future feature within Phase 6, after authentication, participant account tools,
+and server-side organizer authorization are implemented and tested. Keep the
+initial version private, simple, and practical for a small organizing team.
+The stages below belong to this feature, not new repository phase numbers;
+existing priorities and completed work remain unchanged. This is backlog planning
+only and does not authorize functionality, migrations, or configuration changes.
+
+Initial stage — Private LAN Idea Box:
+
+- [ ] Add an `Idea Box` section to the authenticated participant's account menu or
+  settings. Let registered participants submit a title, description, and category
+  through a simple form, view their own ideas and current statuses, and read
+  organizer responses when provided.
+- [ ] Support categories such as Website Features, LAN Event Improvements,
+  Games & Tournaments, and Other, covering website, event, and community suggestions.
+- [ ] Keep ideas visible only to the submitter and authorized organizers. Enforce
+  ownership on the backend so participants cannot access another participant's
+  private suggestions through either the frontend or API.
+- [ ] Support Submitted (awaiting review), Under Consideration (being evaluated),
+  Planned (approved for future work), Implemented (delivered), On Hold (temporarily
+  postponed), and Declined (not being pursued).
+- [ ] Let organizers update statuses and provide optional explanations visible to
+  the submitter. Track status changes and timestamps; keep internal organizer notes
+  separate from participant-visible responses.
+- [ ] Provide an organizer-only management interface to view ideas, filter by
+  status/category, review details, update status, mark ideas implemented, add
+  internal notes, and respond to submitters. Support marking submissions valid or
+  invalid for achievements and identifying duplicates or spam. Avoid complicated
+  approval chains or a ticketing system.
+
+Contribution achievements — dependent on the shared achievement system:
+
+- [ ] Integrate with the planned Phase 6 achievement definitions, unlocking logic,
+  participant profiles, and showcase where possible. The achievement system is
+  still future work: document this dependency rather than implementing it now or
+  creating a separate suggestion-specific achievement engine.
+- [ ] Plan four permanent achievements: Bright Spark for the first valid submitted
+  idea; Idea Machine for five valid submitted ideas; Game Changer when one valid
+  idea reaches Implemented; Mastermind when five valid ideas have reached Implemented.
+- [ ] Count only genuine, organizer-validated ideas. Duplicate, spam, invalid, or
+  rejected/Declined submissions must not contribute to future progress. Each
+  qualifying idea counts only once; repeated status changes must not grant duplicate
+  progress or achievement awards.
+- [ ] Retain an auditable record of eligibility decisions and corrections.
+  Define correction handling for already-earned permanent achievements during
+  implementation planning, keeping historical decisions distinct from future
+  qualifying progress.
+- [ ] Support bragging rights through the shared participant showcase: participants
+  may choose one unlocked achievement to display alongside their permanent LAN rank.
+
+Deferred enhancement — News integration:
+
+- [ ] After the private stage and the planned News feature are available, let
+  organizers link implemented ideas to news articles and let submitters view their
+  associated articles. Reuse the planned news foundation rather than rebuilding
+  suggestion storage for integration.
+- [ ] Allow optional contributor credit only with participant consent. Publishing
+  an article must not automatically reveal a private suggestion; review linked
+  content and attribution separately. Do not include integration in the initial stage.
+
+Deferred enhancement — Curated public community ideas:
+
+- [ ] Design suggestion status and visibility independently from the start so
+  later public curation does not require rebuilding the underlying system. Keep
+  suggestions private by default; authorized organizers must explicitly approve
+  publication of selected ideas. Implemented status must not make an idea public.
+- [ ] Allow contributors to choose whether their username is displayed. Review all
+  public content before publication; never expose private organizer notes or
+  personal information. Keep public and private API responses clearly separated.
+- [ ] Defer the public suggestion board beyond the initial private stage.
+  Community voting may be considered later and is not part of the initial scope.
+
+Technical and verification planning:
+
+- [ ] Require authenticated submissions and server-side authorization for every
+  read and modification, including organizer management and achievement decisions.
+- [ ] Validate and limit input lengths, safely render user-generated content to
+  prevent XSS, and introduce proportionate rate limiting and spam protection.
+- [ ] Plan versioned Cloudflare D1 migrations only when implementation is separately
+  approved. Follow existing React, TypeScript, Workers, D1, privacy, and DEV/PROD
+  conventions; avoid unnecessary complexity, dependencies, or external services.
+- [ ] Add tests for participant ownership, organizer permissions, status history,
+  internal-note privacy, duplicate/spam submissions, eligibility and corrections,
+  repeated-status idempotency, duplicate award prevention, and public/private
+  response boundaries. Include consent/publication checks when deferred features
+  are separately approved.
+
 ## Current UI decisions
 
 - Login replaces Admin in navigation and has a disabled login preview.
