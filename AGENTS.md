@@ -173,6 +173,11 @@ When completing development tasks:
 
 ## Preferred Git workflow
 
+- Follow [RELEASE.md](RELEASE.md) only when the user explicitly requests release
+  preparation or, separately, post-release housekeeping. Release preparation
+  authorizes creating or updating the `dev` to `main` PR after all pre-flight checks
+  pass; it does not authorize commits, pushes, merging, production deployment, or
+  production migrations. All existing protections remain in effect.
 - Codex may stage completed changes using `git add`, but must never create
   commits, push, pull, merge, rebase, reset, or deploy unless explicitly instructed.
   The documentation-only policy below is the sole standing exception for automatic
