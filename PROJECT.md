@@ -12,10 +12,10 @@ scale and independent of work infrastructure.
 
 The frontend and Cloudflare Workers foundation are implemented. Phase 2 now
 focuses on database design and backend foundation alongside the planned event UI.
-Migrations 0001 through 0003 are applied and verified on Cloudflare DEV. Phase 2.6
-adds the roles and permissions schema with local-only validation. Phase 2 remains
-in progress; migration 0004 requires review and separate approval before remote
-application. No authorization middleware is implemented yet.
+Migrations 0001 through 0004 are applied and verified on Cloudflare DEV. Phase 2.7
+adds registration and attendance-day storage with local-only validation. Phase 2
+remains in progress; migration 0005 requires review and separate approval before
+remote application. No registration APIs or authorization middleware are implemented.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -213,7 +213,7 @@ The approved database and authentication decisions below supersede earlier propo
 ### Approved Phase 2 roles and permissions foundation
 
 - `migrations/0004_create_authorization.sql` creates STRICT `roles`, `permissions`,
-  `user_roles` and `role_permissions` tables. It remains local-only pending review.
+  `user_roles` and `role_permissions` tables. It is applied and verified on Cloudflare DEV.
 - Roles group explicit permissions; users may hold multiple roles. Authorization
   must resolve user -> assigned active roles -> granted permission, defaulting to
   deny when no active role grants the requested action. Role names (including
@@ -245,6 +245,44 @@ The approved database and authentication decisions below supersede earlier propo
   create seed files or authorize intervening migrations.
 - Local authorization tests apply 0001 through 0004 to fresh disposable D1 storage,
   preserving existing fictional data. No middleware, endpoints or interfaces are added.
+
+### Approved Phase 2 registration database foundation
+
+- `migrations/0005_create_registrations.sql` creates STRICT `registrations` and
+  `registration_days`; local validation is complete, but Phase 2.7 awaits review
+  and separate remote DEV application/verification. Migrations 0001–0004 are unchanged.
+- One durable registration per user/event is enforced by `UNIQUE(user_id, event_id)`.
+  User and event references restrict deletion/ID changes. IDs are nonblank UUID text;
+  UUID syntax remains future Worker validation. No guest registration is supported.
+- Status is `registered` or `cancelled`, defaulting to registered. Timestamps are
+  integer UTC Unix seconds with creation <= original registration <= update and,
+  when cancelled, registration <= cancellation <= update. Registered records must
+  have null cancellation; cancelled records must have a cancellation timestamp.
+- Selected days use primary key `(registration_id, event_day_id)`. Both composite
+  FKs share `event_id`, referencing registration `(id, event_id)` and event-day
+  `(id, event_id)` keys. Cross-event selections are rejected by the database on
+  INSERT and UPDATE. All references restrict deletion and key updates.
+- Cancellation preserves the registration and selected days as historical intent.
+  Future attendance lists/counts must include only registered records and handle
+  cancelled event days according to approved lifecycle rules. Selections do not
+  establish actual confirmed attendance or achievement eligibility.
+- Re-registration reuses the registration ID, preserves `created_at` and original
+  `registered_at`, clears current `cancelled_at`, advances `updated_at`, and replaces
+  selections atomically. These fields store the current lifecycle state, not a full
+  sequence of cancellations/re-registrations; approve separate audit history before
+  APIs if that full history is required. No audit system is implemented here.
+- Future Worker logic requires an authenticated active participant, a published
+  event accepting registrations (including any time window), and at least one valid
+  scheduled day. Create the record and selections atomically; updates verify ownership
+  or explicit management permission and replace selections transactionally. The
+  database cannot guarantee an active record has at least one selected day.
+- Future APIs also maintain timestamp consistency, immutable ownership/event identity,
+  day eligibility, parameterized queries and privacy boundaries. No endpoints, forms,
+  automatic capacity logic, notifications or gamification are introduced.
+- Unique user/event keys cover user lookups; event/status and global status indexes
+  cover listings. The necessary registration composite unique key supports its FK.
+  Selection primary keys cover registration lookups; one reverse composite index
+  covers event-day references. No redundant standalone user/registration indexes.
 
 ## Open architectural questions and recommendations for review
 

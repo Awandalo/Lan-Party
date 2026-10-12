@@ -18,7 +18,16 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 - [x] Apply and verify migration 0003 on Cloudflare DEV after approval (Phase 2.5).
 - [x] Prepare and locally validate migration 0004 for roles, permissions, user-role
   assignments and role-permission grants, without seeds or privileged assignments.
-- [ ] Review migration 0004 and separately approve any remote DEV application.
+- [x] Apply and verify migration 0004 on Cloudflare DEV after approval (Phase 2.6).
+- [x] Implement and locally validate migration 0005 for registrations and selected
+  days, including composite event-consistency FKs and cancellation state constraints.
+- [ ] Review Phase 2.7 and separately approve/apply/verify migration 0005 on DEV;
+  Phase 2.7 is not complete until that review and remote verification finish.
+- [ ] Implement authenticated participant registration lifecycle transactions,
+  ownership/permission checks, event/day eligibility and minimum-one-day enforcement
+  only in a separately approved Worker task. No guest registration or capacity logic.
+- [ ] Review full cancellation/re-registration audit requirements before APIs;
+  retain selected days on cancellation and exclude cancelled registrations from counts.
 - [ ] Plan `0006_seed_reference_data.sql` for initial `user`/`admin` roles and the
   explicit permission catalogue; review mappings before implementation. Preserve
   extensibility for `news_editor` and `moderator`; create no administrator account.
@@ -39,8 +48,8 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
   authentication storage before subsequent account/registration implementation.
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
-Local authorization schema work is explicitly approved for Phase 2.6. Migrations
-0001 through 0003 are applied and verified on DEV; remote application of 0004 is
+Local registration schema work is explicitly approved for Phase 2.7. Migrations
+0001 through 0004 are applied and verified on DEV; remote application of 0005 is
 not authorized by this task.
 Automatic migration execution remains unauthorized.
 

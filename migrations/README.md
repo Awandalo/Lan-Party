@@ -8,7 +8,9 @@ confirms it is applied and verified on Cloudflare DEV. It must not be edited.
 `0003_create_auth_credentials.sql` creates external identities and password
 credential storage. It is applied and verified on Cloudflare DEV and must not be edited.
 `0004_create_authorization.sql` creates roles, permissions and their junction tables;
-it is locally validated only, pending review and separate remote approval.
+it is applied and verified on Cloudflare DEV and must not be edited.
+`0005_create_registrations.sql` creates registrations and selected attendance days;
+it is locally validated only, pending review and separate remote approval/verification.
 
 Future schema changes must use new versioned SQL files after separate approval.
 Never edit an already-applied migration. Reference-data seeds are reserved for
@@ -56,7 +58,7 @@ Install locked dependencies with `npm ci`, then run from the repository root:
 node --test worker/tests/*.test.mjs
 ```
 
-The authorization tests apply 0001 through 0004 in order to a fresh local D1
+The registration tests apply 0001 through 0005 in order to a fresh local D1
 simulator supplied by the installed Wrangler dependency, using fictional data and
 no remote bindings. Existing event/account test suites remain independently runnable.
 They assert foreign-key enforcement is active. The simulator is disposed after
@@ -174,6 +176,45 @@ does not authorize application to Cloudflare DEV or PROD.
   Phase 2.6 records that plan without creating a seed migration. No middleware,
   authentication endpoints, administrator interfaces or frontend changes are included.
 
+## Registration schema and lifecycle
+
+- `registrations`: text UUID `id`, required `user_id`/`event_id`, `status` default
+  `registered` (or `cancelled`), integer `registered_at`, nullable integer
+  `cancelled_at`, required integer `created_at`/`updated_at`. Required IDs reject
+  empty/ASCII-whitespace-only values. `UNIQUE(user_id, event_id)` survives cancellation.
+- Instants are nonnegative UTC Unix seconds. Enforce creation <= registration <=
+  update, and registration <= cancellation <= update when cancellation is present.
+  Registered rows require null cancellation; cancelled rows require a timestamp.
+- `registration_days`: required nonblank text `registration_id`, `event_id`,
+  `event_day_id`, nonnegative integer `selected_at`, composite primary key
+  `(registration_id, event_day_id)`. Both tables are STRICT and contain no seeds.
+- Composite FKs `(registration_id, event_id)` -> `registrations(id, event_id)` and
+  `(event_day_id, event_id)` -> `event_days(id, event_id)` ensure both parents share
+  the same event. The new registration composite UNIQUE key is necessary despite
+  its globally unique ID; 0001 already supplies the day composite key. No prior
+  migrations are changed. All FKs use RESTRICT for deletion and key updates.
+- Indexes: `registrations_event_status_idx`, `registrations_status_idx`, and
+  `registration_days_event_day_event_idx`. Unique user/event and selection primary
+  keys cover forward user/registration lookups; avoid duplicate standalone indexes.
+- New registrations require an authenticated active user, published/open event,
+  valid registration window and at least one scheduled eligible day. No guest
+  registration. Future Worker code creates both records and selections atomically.
+- Day updates verify ownership or `events.manage_registrations` as appropriate,
+  replace selections transactionally, and never leave an active registration empty.
+  Composite FKs complement these checks; the minimum-one-day rule is not a DB CHECK.
+- Cancel by retaining the record/selections, setting status/cancellation/update time.
+  Preserve selections as historical attendance intent; public attendance counts must
+  filter registered records and enforce event-day eligibility. Intent is not confirmed
+  attendance. No automatic capacity calculation or achievement behavior is added.
+- Re-register with the same ID, original registration/creation timestamps, cleared
+  current cancellation timestamp and advanced update time. Replace selections in the
+  same atomic batch/transaction. Full cycle history is not captured by these current
+  state fields; review future audit records before APIs if required. No audit system
+  is introduced. Local tests verify rollback when replacement includes an invalid day.
+- UUID validation, timestamp maintenance, immutable registration owner/event,
+  authorization, privacy and lifecycle eligibility remain future Worker responsibilities.
+  No registration endpoints, notifications, frontend forms or capacity management.
+
 ## Codex execution environment
 
 Normal coding, local tests and local migrations remain sandboxed. On Windows the
@@ -182,7 +223,7 @@ Do not copy credentials, create replacement API tokens, change credential permis
 or globally disable the sandbox. For an explicitly authorized remote operation,
 request approval for each specific command requiring execution outside the sandbox.
 One approval does not authorize other commands. Remote DEV writes require explicit
-authorization; production operations require separate explicit approval. Phase 2.6
+authorization; production operations require separate explicit approval. Phase 2.7
 authorizes local work only and no external execution for remote Cloudflare operations.
 
 For sandboxed local Wrangler validation, set these process-only variables in a
