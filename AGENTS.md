@@ -82,8 +82,9 @@ Use these locations when implementation begins:
 ## 5. Git and deployment
 
 - Work locally by default and keep changes focused and easy to review.
-- Do not create commits unless explicitly requested.
-- Do not push commits automatically.
+- Do not create commits unless explicitly requested or authorized by the
+  "Automatic Git Operations for Documentation-Only Changes" section below.
+- Do not push commits automatically except under that documentation-only policy.
 - Do not deploy from Codex without approval.
 - Explain significant architectural changes before implementation and ask the owner
   before making major architectural changes.
@@ -167,12 +168,15 @@ When completing development tasks:
 - Provide a short PR description summarizing the changes and tests performed.
 - Mention any tests that could not be performed or were not run.
 - Never create commits, push branches, merge PRs, or deploy automatically unless
-  explicitly instructed by the project owner.
+  explicitly instructed by the project owner. The documentation-only policy below
+  provides standing authorization for its limited commit and push workflow.
 
 ## Preferred Git workflow
 
 - Codex may stage completed changes using `git add`, but must never create
   commits, push, pull, merge, rebase, reset, or deploy unless explicitly instructed.
+  The documentation-only policy below is the sole standing exception for automatic
+  commits and pushes; it does not authorize the other operations.
 - Before staging, inspect `git status` and the relevant unstaged and staged diffs.
 - Stage only files belonging to the completed task, using explicit file paths.
   Never use `git add .` or `git add -A` automatically.
@@ -192,4 +196,50 @@ When completing development tasks:
 - Always report which files are staged, which remain unstaged, and which checks
   were performed.
 - Leave the final commit, push, and Pull Request operations to the user unless
-  explicitly instructed otherwise.
+  explicitly instructed otherwise or the documentation-only policy below applies.
+
+## Automatic Git Operations for Documentation-Only Changes
+
+Codex is authorized to automatically stage, commit, and push documentation-only
+changes directly to `origin/dev`, without creating a pull request or requesting
+additional user or workflow approval, only when all conditions below are satisfied.
+This narrow exception overrides the general prohibitions on automatic commits and
+pushes in this repository's instructions, including `PROJECT.md`. All other
+security, development, deployment, production protection, and Git rules remain
+in effect.
+
+### Eligible files and required checks
+
+1. Only the root-level `README.md` and `TODO.md` may contain changes. Either file
+   or both files may be modified, and the changes must be documentation-only.
+2. The active Git branch must be `dev`.
+3. The working tree must contain no other modified, staged, untracked, deleted,
+   or renamed files. Inspect both unstaged and staged changes and all untracked
+   files before proceeding.
+4. Before creating the documentation commit, verify that local `dev` is
+   synchronized with `origin/dev` using current remote information. Before pushing,
+   verify that the remote has not advanced and that the only local divergence is
+   the documentation commit created under this policy.
+5. Review the documentation changes for accidental inclusion of secrets,
+   credentials, personal information, or other sensitive data.
+6. Follow the existing Conventional Commit conventions, using the appropriate
+   documentation prefix, such as `docs:`.
+7. Stage only the changed eligible files, using explicit paths, and verify the
+   staged file list and staged diff as required by the standard workflow.
+
+### Restrictions and completion
+
+- This exception does not apply when any other file has changed, including
+  `AGENTS.md`, or when the active branch is not `dev`.
+- Never automatically push to `main` or any production branch.
+- Never force-push, rebase, reset, discard changes, or automatically resolve merge
+  conflicts under this policy.
+- Never bypass Git hooks, repository protection rules, sandbox restrictions, or
+  actual tool permission requirements. Standing workflow authorization does not
+  replace required tool permissions.
+- If authentication, synchronization, permissions, or any pre-flight check fails,
+  stop the automatic workflow and report the issue. Do not attempt an unauthorized
+  workaround; follow the standard Git workflow and request approval where required.
+- When all conditions are satisfied, complete the documentation-only workflow
+  automatically and report the commit hash and push result, along with the file
+  status and checks required by the standard workflow.
