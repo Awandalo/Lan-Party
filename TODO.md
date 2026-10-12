@@ -65,6 +65,125 @@ Implementation requirements:
 - [ ] Keep image files outside D1 and store references only. Evaluate Cloudflare R2
   when implementing image uploads; do not introduce upload infrastructure yet.
 
+## Phase 4 — Event Pricing, Cost Sharing & Optional Extras
+
+Future follow-up to Phase 4 event management and attendance work, dependent on
+event creation, registration, participant management, and registered attendance
+durations being implemented and tested. Plan this feature before participant
+payments or payment collection. Preserve existing priorities and phase numbering;
+the work packages below are backlog only, not implementation authorization.
+
+### Cost sharing and minimum attendance
+
+- [ ] Model the organization as non-profit and shared-cost: divide venue rental
+  proportionally by registered participant-days. Calculate daily rate as total
+  venue rental cost / total registered participant-days, then participant admission
+  as daily rate × that participant's registered days.
+- [ ] Round each participant's final base admission upward to the nearest €0.50;
+  never round the daily rate first. Calculate optional extras separately. Use
+  decimal-safe monetary calculations and consistent storage to avoid floating-point
+  errors; define safe behavior when there are no registered participant-days.
+- [ ] Verify the example: €1,000 venue rental, 20 participants, and 52 combined
+  participant-days produce €19.50 for one day and €58.00 for three days.
+- [ ] Add a configurable minimum participant count per event, measured in people,
+  not participant-days. Keep registration available before the minimum is reached,
+  hide calculated admission, and show a friendly explanation that pricing becomes
+  available once sufficient participants register.
+- [ ] Once the minimum is reached, show estimates based on actual registered
+  participant-days and recalculate when registrations or durations change until
+  prices lock. Eligible free first-time visitors count toward the minimum; cancelled
+  registrations count toward neither the minimum nor the pricing denominator.
+- [ ] Distinguish reaching the minimum from formal organizer confirmation. Allow
+  manual confirmation below the minimum with an explicit financial-impact warning;
+  define the pricing-display behavior of this override during implementation planning.
+
+### First-time visitor promotion
+
+- [ ] Add an event-level `First-time visitors attend free` setting, disabled by
+  default. When enabled, eligible participants receive free base admission only;
+  optional extras remain payable.
+- [ ] Base eligibility on previous confirmed LAN attendance recorded through the
+  website, not previous registrations. Define reliable eligibility verification,
+  reasonable duplicate-account abuse prevention, and authorized organizer corrections
+  during implementation planning; preserve existing account-linking security rules.
+- [ ] Include free visitors' registered days in the pricing denominator and count
+  them toward minimum attendance and achievements when applicable. The organization
+  covers their waived admission: store the discount and organization-funded amount
+  separately for financial reporting.
+
+### Reusable optional extras
+
+- [ ] Design reusable event extras, initially gaming chair rental, rather than
+  hardcoded chairs. Allow future monitors, equipment, meals, and other services.
+- [ ] Support name, description, price, optional quantity or availability limit,
+  pricing method (per event, per day, or per unit), and event-specific availability.
+- [ ] Let participants select available extras during registration. Validate
+  quantities and availability server-side; calculate extras separately from base
+  admission and include them in the total payable amount, including for free visitors.
+
+### Estimates and automatic price locking
+
+- [ ] Clearly label pre-lock admission prices as estimates that may change with
+  registrations, and distinguish them from finalized prices throughout the website.
+- [ ] Add global administrator lock-day/time settings, defaulting to the event's
+  second calendar day at 12:00 local event time. Allow per-event overrides and use
+  the configured event timezone. Define calendar-day interpretation and handling
+  of single-day events and invalid or ambiguous local times during planning.
+- [ ] Automatically finalize and persist participant prices at the configured
+  moment. Plan reliable server-side execution even when no visitor has the website
+  open, within existing Cloudflare Workers/D1 and free-tier constraints; this entry
+  does not authorize scheduler infrastructure or configuration changes.
+- [ ] Make locking idempotent and safe under repeated execution and concurrent
+  registration/cancellation changes. Preserve an auditable lock history; define
+  handling when the minimum or organizer confirmation is unresolved at lock time.
+- [ ] Do not automatically change other participants' locked prices afterward.
+  Handle registrations and cancellations after locking through explicit
+  organizer-controlled adjustments.
+
+### Individual post-lock adjustments
+
+- [ ] Allow authorized organizers to adjust an individual's billable attendance
+  days and admission amount after locking, including on day three or after the event.
+  Preserve the original locked price and record adjusted amount, difference, reason,
+  timestamp, and responsible administrator.
+- [ ] Verify the illness example: three-day locked admission €58.00, adjusted to
+  one-day admission €19.50, with the organization absorbing the €38.50 difference.
+- [ ] Never recalculate or increase other participants' locked admission amounts
+  because of an individual adjustment. Track resulting organizational shortfalls.
+- [ ] Keep billable-day adjustments separate from actual confirmed attendance used
+  for achievements. Support correction of mistaken adjustments with a proper audit
+  history rather than overwriting the original adjustment.
+
+### Financial reporting and participant visibility
+
+- [ ] Add an optional second event-page tab, `Finances`, hidden from participants
+  by default. Allow organizers to enable public visibility per event, showing only
+  aggregated financial information without individual payment details.
+- [ ] Report venue rental, participant contributions, organization-funded first-time
+  discounts, optional extras, adjustments, rounding differences, and estimated
+  surplus or shortfall. Clearly separate estimated from finalized figures.
+- [ ] Keep internal financial information available to authorized organizers when
+  the public tab is disabled. Enforce visibility and authorization in backend APIs;
+  never expose personal or sensitive financial information publicly.
+- [ ] By default, show only the relevant participant admission price and optional
+  extras on the public event page; enforce appropriate access to participant-specific
+  prices and never expose other participants' charges.
+
+### Backend, security, and verification
+
+- [ ] Perform authoritative pricing and discount calculations on the backend;
+  never trust client-submitted prices or discounts. Validate registration dates,
+  attendance durations, quantities, discounts, and adjustment permissions.
+- [ ] Protect all financial administration with server-side authorization. Handle
+  concurrent registrations and cancellations safely and retain auditable price-lock
+  and manual-adjustment histories.
+- [ ] Plan schema/storage changes through versioned migrations only when separately
+  approved implementation begins. Preserve existing registrations, DEV/PROD
+  separation, and Cloudflare Workers/D1 security and privacy conventions.
+- [ ] Add automated tests for rounding, minimum attendance, free visitors, extras,
+  timezone-aware locking, repeated locks, concurrent changes, cancellations,
+  post-lock adjustments, audit corrections, and public/private permission boundaries.
+
 ## Phase 6 — News & Community
 
 - [ ] Add a public news listing and individual article pages.
