@@ -211,6 +211,31 @@ the work packages below are backlog only, not implementation authorization.
 - [ ] Support optional cover images and inline article images.
 - [ ] Display author attribution and publication dates.
 
+### AI Development Transparency & About Page
+
+Small future frontend enhancement alongside the Phase 6 public-page work, not a
+separate development phase. This backlog entry does not authorize implementation;
+preserve existing priorities and reuse existing layout and footer conventions.
+
+- [ ] Add a small, unobtrusive footer section with an `About this project` link
+  and a link to the public source repository at
+  [GitHub](https://github.com/Awandalo/Lan-Party). Keep it clean, responsive,
+  accessible, and consistent with the existing website design.
+- [ ] Optionally include the subtle footer line:
+  "Built by humans. Assisted by AI. Powered by gamers. 🎮"
+- [ ] Plan a simple public `About this project` page accessible through the footer
+  without authentication. Briefly explain the website's purpose, its hobby-project
+  roots in the gaming community, and where to view its public source code on GitHub.
+- [ ] Explain that AI assists with brainstorming, programming, code reviews, and
+  development improvements, while project decisions, testing, and deployment
+  remain under human control and responsibility.
+- [ ] Use a friendly, natural tone matching the website, avoiding formal disclaimers,
+  legal terminology, or exaggerated AI claims. Do not imply that AI independently
+  operates the website or guarantees its security.
+- [ ] Exclude secrets, private infrastructure details, participant information,
+  and internal configuration. Do not add pop-ups, consent dialogs, or acknowledgment
+  requirements; keep this a small frontend enhancement.
+
 ### Gamification — LAN Ranks & Grand-LAN Master
 
 Future feature within Phase 6, scheduled after event management, registration,
