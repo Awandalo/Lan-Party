@@ -37,8 +37,8 @@ Phase 2's database foundation scope.
 - [x] Implement and locally validate `0006_seed_reference_data.sql`: active `user`
   and `admin` roles, exactly thirteen permissions, all thirteen granted to admin,
   zero granted to user, stable UUIDs/timestamps, no accounts or user-role assignments.
-- [ ] Review and separately approve/apply/verify migration 0006 on DEV before
-  marking Phase 2.8 RBAC seeding complete.
+- [x] Review, apply and verify migration 0006 on DEV after approval;
+  Phase 2.8 RBAC reference data is complete, as confirmed by the owner.
 - [ ] Review future `news_editor`/`moderator` roles and least-privilege mappings.
 - [ ] Approve a controlled first-administrator provisioning process and audit design.
 - [ ] Implement default-deny Worker permission checks, active-role/disabled-user
@@ -57,23 +57,25 @@ Phase 2's database foundation scope.
   authentication storage before subsequent account/registration implementation.
 - [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
 
-Local RBAC reference-data work is explicitly approved for Phase 2.8. Migrations
-0001 through 0005 are applied and verified on DEV; Phase 2.1–2.7 foundations are
-complete on DEV. Phase 2.8 is locally validated, committed and pushed to `dev`,
-but remote DEV verification remains pending. This housekeeping task does not
-authorize remote application of 0006 or mark Phase 2.8 complete.
-Automatic migration execution remains unauthorized.
+Migrations 0001 through 0006 are applied and verified on DEV; Phase 2.1–2.8
+foundations and RBAC reference data are complete on DEV. Phase 2.9 authorizes only
+local schema work, tests and documentation. Migration 0007 awaits review and
+separately approved remote DEV application/verification. Automatic migration
+execution remains unauthorized.
 
 ### Phase 2.9 — News Database Foundation
 
-Planned only; implementation and required DEV verification are not complete.
-Phase 2.8 remains RBAC reference-data seeding.
+Implemented and locally validated; review and remote DEV verification remain
+pending. Phase 2.9 is not complete. Phase 2.8 RBAC reference data is complete on DEV.
 
-- [ ] Implement planned `0007_create_news_articles.sql` for a `news_articles` table
-  in a separately approved task. Check existing migrations before assigning the
-  number and never reuse one. This roadmap update creates no migration.
+- [x] Implement `0007_create_news_articles.sql` for one STRICT `news_articles`
+  table, preserving migrations 0001–0006 and introducing no seed content.
+- [x] Validate all seven migrations locally, News constraints/lifecycle/indexes,
+  existing schemas and RBAC data, foreign keys and database integrity.
+- [ ] Review and separately approve/apply/verify migration 0007 on remote DEV
+  before marking Phase 2.9 complete.
 
-Planned fields:
+Implemented fields:
 
 | Field | Purpose |
 | --- | --- |
@@ -92,10 +94,13 @@ Planned fields:
 
 Implementation requirements:
 
-- [ ] Follow existing SQLite STRICT, application-generated UUID, timestamp and
+- [x] Follow existing SQLite STRICT, application-generated UUID, timestamp and
   foreign-key conventions; preserve author attribution.
-- [ ] Enforce draft privacy and public readability of published articles in future
-  Worker APIs. Only authorized roles may create, edit or publish articles.
+- [x] Constrain unique lowercase URL-safe slugs, nonblank titles, published content,
+  status/publication-time consistency and timestamp ordering; index listing and
+  author/editor lookups without duplicating primary or unique indexes.
+- [ ] Enforce draft/archive privacy and public readability of published articles in
+  future Worker APIs. Only authorized roles may create, edit, publish or archive articles.
 - [ ] Keep image files outside D1 and store references only. Evaluate Cloudflare R2
   when implementing image uploads; do not introduce upload infrastructure yet.
 
@@ -109,6 +114,14 @@ Implementation requirements:
   Replace example content with published backend data; decide ordering and dates.
 - [ ] Support optional cover images and inline article images.
 - [ ] Display author attribution and publication dates.
+- [ ] Enforce explicit News RBAC permissions and publication status in the Worker;
+  client-side controls are not a security boundary.
+- [ ] Decide Markdown versus rich text and prevent XSS when rendering content.
+- [ ] Generate slugs and handle collisions in trusted application logic. Preserve
+  original publication time on edits; review lifecycle transitions separately from
+  current visibility, without adding revision-history infrastructure prematurely.
+- [ ] Design authorized R2 image uploads and validate storage keys rather than
+  storing binaries or public image URLs in D1.
 
 ## Future feature backlog
 

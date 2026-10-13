@@ -12,7 +12,10 @@ it is applied and verified on Cloudflare DEV and must not be edited.
 `0005_create_registrations.sql` creates registrations and selected attendance days;
 it is applied and verified on Cloudflare DEV and must not be edited.
 `0006_seed_reference_data.sql` inserts initial roles, permissions and admin grants;
-it is locally validated only, pending review and separate remote approval/verification.
+it is applied and verified on Cloudflare DEV (Phase 2.8 complete) and must not be edited.
+`0007_create_news_articles.sql` creates the News article table; it is locally
+validated only, pending review and separately approved DEV application/verification.
+Phase 2.9 is not complete. No articles are seeded.
 
 Future schema changes must use new versioned SQL files after separate approval.
 Never edit an already-applied migration. Initial reference data is defined in
@@ -60,7 +63,7 @@ Install locked dependencies with `npm ci`, then run from the repository root:
 node --test worker/tests/*.test.mjs
 ```
 
-The reference-data tests apply 0001 through 0006 in order to a fresh local D1
+The News tests apply 0001 through 0007 in order to a fresh local D1
 simulator supplied by the installed Wrangler dependency, using fictional data and
 no remote bindings. Existing event/account test suites remain independently runnable.
 They assert foreign-key enforcement is active. The simulator is disposed after
@@ -248,6 +251,43 @@ does not authorize application to Cloudflare DEV or PROD.
 - The focused tests temporarily use disposable fictional users to check permission
   resolution, then remove those fixtures. This is not account provisioning.
 
+## News article schema and lifecycle (0007)
+
+- One STRICT table: required text UUID `id`, nonblank `title`, unique `slug`,
+  required `content`, optional `excerpt`/`cover_image_key`, required `author_user_id`,
+  optional `updated_by_user_id`, `publication_status` defaulting to draft, required
+  integer `created_at`/`updated_at`, and nullable integer `published_at`.
+- Slugs contain only lowercase a-z, digits and hyphens, without leading/trailing
+  or consecutive hyphens. SQL rejects invalid slugs rather than normalizing them.
+  UUID validation, slug generation/collisions and timestamp maintenance belong to
+  future trusted Worker logic. Blank checks follow existing ASCII whitespace rules.
+- Drafts may have empty content and require null publication time. Published
+  articles require nonblank content and publication time. Archived articles may
+  retain publication time or be archived without ever being published. Instants
+  are nonnegative UTC Unix seconds; update and publication cannot precede creation,
+  and a non-null publication time cannot follow the last update.
+- Original publication time normally survives edits and archiving. Status controls
+  current visibility, independently of whether publication happened in the past.
+  Current metadata is not a revision/transition history; preservation on edits and
+  permitted transitions remain API responsibilities. Reverting to draft requires
+  clearing publication time; review that history tradeoff before implementing APIs.
+- Both user foreign keys use RESTRICT on deletion and ID updates, retaining author
+  attribution and last-editor accountability. They do not establish authorization.
+- `news_articles_publication_date_idx` covers status and descending publication
+  time; author/editor lookup indexes support references. Primary/slug constraints
+  supply their own indexes; no redundant indexes or article seeds are added.
+- Optional cover keys reject blank values and STRICT text rejects binary values.
+  Keep images outside D1: future API key validation must reject public URLs, and
+  uploads require a separately designed authorized R2 workflow. No uploads added.
+- Phase 6 Worker APIs must expose only published articles publicly, keep drafts
+  and archives private, and require explicit `news.create`, `news.update`,
+  `news.publish` and `news.archive` permissions for protected actions. Browser
+  controls are not access control. Decide Markdown versus rich text later and
+  prevent XSS when rendering. No editor, frontend, API or revision system added.
+- `worker/tests/news-articles.test.mjs` applies all seven migrations locally,
+  validates constraints on INSERT/UPDATE, publication lifecycle, restrictive
+  references, indexes and preservation of all existing schemas and RBAC data.
+
 ## Codex execution environment
 
 Normal coding, local tests and local migrations remain sandboxed. On Windows the
@@ -256,7 +296,7 @@ Do not copy credentials, create replacement API tokens, change credential permis
 or globally disable the sandbox. For an explicitly authorized remote operation,
 request approval for each specific command requiring execution outside the sandbox.
 One approval does not authorize other commands. Remote DEV writes require explicit
-authorization; production operations require separate explicit approval. Phase 2.8
+authorization; production operations require separate explicit approval. Phase 2.9
 authorizes local work only and no external execution for remote Cloudflare operations.
 
 For sandboxed local Wrangler validation, set these process-only variables in a

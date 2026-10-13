@@ -10,12 +10,13 @@ Typically there are two LAN parties per year, occasionally three. Traffic is ver
 low outside registration periods. Keep the implementation proportionate to this
 scale and independent of work infrastructure.
 
-The frontend and Cloudflare Workers foundation are implemented. Phase 2.1–2.7
-database foundations are complete on DEV; migrations 0001 through 0005 are applied
-and verified. Phase 2.8 initial RBAC reference data is locally validated, committed,
-and pushed to `dev`, but remote DEV verification remains pending. Phase 2.9 News
-database foundation is planned as `0007_create_news_articles.sql`, not implemented
-or complete. No registration APIs or authorization middleware are implemented.
+The frontend and Cloudflare Workers foundation are implemented. Phase 2.1–2.8
+database foundations and RBAC reference data are complete on DEV; migrations 0001
+through 0006 are applied and verified, as confirmed by the owner. Phase 2.9 News
+database foundation is implemented and locally validated in
+`0007_create_news_articles.sql`, pending review and separately approved remote DEV
+application/verification. Phase 2.9 is not complete. No registration or News APIs
+or authorization middleware are implemented.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -292,7 +293,7 @@ The approved database and authentication decisions below supersede earlier propo
 ### Approved Phase 2 initial RBAC reference data
 
 - `migrations/0006_seed_reference_data.sql` contains reference-data INSERTs only.
-  It is validated locally; Phase 2.8 awaits review and separate remote DEV verification.
+  It is applied and verified on Cloudflare DEV; Phase 2.8 is complete.
   No schema changes or modifications to migrations 0001–0005 are included.
 - Seed active roles `user` (User; standard LAN Party participant) and `admin`
   (Administrator; website administration). Seed exactly the thirteen permission
@@ -315,16 +316,40 @@ The approved database and authentication decisions below supersede earlier propo
 - Future `news_editor` and `moderator` roles and least-privilege mappings require
   separate review. SQL resolution tests use disposable fictional profiles only;
   no authentication or authorization endpoint is implemented.
-- Phase 2.8 is RBAC reference-data seeding, committed and pushed to `dev` but
-  pending remote DEV verification. Phase 2.9 is the planned News database foundation.
+- Phase 2.8 is completed RBAC reference-data seeding on DEV. Phase 2.9 is the
+  current News database foundation, pending review and remote DEV verification.
 
-### Planned Phase 2.9 News database foundation
+### Approved Phase 2.9 News database foundation
 
-- Plan `0007_create_news_articles.sql` for the News table described in `TODO.md`;
-  no migration is created or applied by this planning decision. Phase 2.9 remains
-  planned until implementation, review, and required DEV verification are complete.
-- Preserve the planned author attribution, publication states, private drafts,
-  authorized editing, and image references outside D1.
+- `0007_create_news_articles.sql` adds one STRICT `news_articles` table and is
+  locally validated only. Review and separately approved remote DEV application
+  and verification are required before Phase 2.9 is complete. Migrations 0001–0006
+  remain unchanged; no articles are seeded.
+- Text UUID IDs and titles reject blank values. Slugs are unique lowercase
+  letters/digits/hyphens without leading, trailing or consecutive hyphens. Trusted
+  Worker logic will generate/validate UUIDs and slugs and handle slug collisions.
+- Required text content may be empty for drafts; published articles require
+  nonblank content. Excerpt and cover storage key are optional; a supplied key
+  cannot be blank. Keep images outside D1, storing keys rather than binaries or
+  public URLs; key validation and an R2 upload workflow require separate design.
+- Required author and optional last-editor references point to `users`, restricting
+  deletion and ID updates to preserve attribution and editorial accountability.
+- Status is `draft` (default), `published` or `archived`. Integer UTC Unix seconds
+  enforce nonnegative creation, update >= creation, and creation <= publication <= update
+  when present. Published articles require publication time; drafts require null.
+  Archived articles may retain original publication time or have never been published.
+- `published_at` represents original publication, normally preserved while editing;
+  current status determines visibility. Metadata is not a revision or transition
+  history. Future Worker logic maintains timestamps and lifecycle transitions.
+- A status/publication-date-descending index supports public listings; author and
+  editor lookup indexes support references. Primary/slug constraints supply their
+  own indexes. Local tests cover all seven migrations, constraints, lifecycle,
+  schema/reference-data preservation and integrity.
+- Phase 6 must expose only published articles publicly, keeping drafts and archives
+  private. Worker-enforced `news.create`, `news.update`, `news.publish` and
+  `news.archive` permissions protect editorial actions; browser controls do not
+  enforce security. Approve Markdown versus rich text and XSS-safe rendering later.
+  No APIs, editors, frontend pages, uploads or revision-history system are added.
 - Future feature migrations belong alongside their respective functionality,
   not additional speculative Phase 2 work. Identify requirements during planning,
   check existing migration numbers before assigning the next one, and never reuse
@@ -358,8 +383,8 @@ The approved database and authentication decisions below supersede earlier propo
 | --- | --- | --- |
 | 1 | Project foundation, tooling, and basic frontend | Establish React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics; validate types and build. |
 | 2.1–2.7 | Database foundations: events, accounts, authentication, authorization, registrations | Complete on DEV; migrations 0001–0005 applied and verified. Functionality remains separate future work. |
-| 2.8 | Initial RBAC reference data | Migration 0006 locally validated, committed and pushed to `dev`; remote DEV verification pending. Do not mark complete until required review/application/verification finishes. |
-| 2.9 | News database foundation | Planned `0007_create_news_articles.sql`; implement, review and verify on DEV before marking complete. |
+| 2.8 | Initial RBAC reference data | Complete on DEV; migration 0006 applied and verified. No accounts or role assignments created. |
+| 2.9 | News database foundation | Migration 0007 implemented and locally validated; pending review and separately approved DEV application/verification before completion. |
 | 3 | Authentication and account functionality | Implement reviewed authentication, sessions and account tools with secure ownership and permission checks; verify login and recovery behavior. |
 | 4 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
 | 5 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |

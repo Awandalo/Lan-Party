@@ -64,7 +64,7 @@ src/
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
 worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (0001–0005 on DEV; RBAC seeds local only)
+migrations/      Versioned D1 migrations (0001–0006 on DEV; News schema local only)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -205,12 +205,33 @@ defines external identities and password credential storage and is applied/verif
 on DEV. Migration 0004 adds role and permission storage and is applied/verified on
 DEV. Migration 0005 adds registrations and selected days and is applied/verified
 on DEV. Migration 0006 seeds active user/admin roles and thirteen permissions,
-granting all thirteen to admin and none to user; it is local-only pending review
-and remote approval. It creates no users or assignments. First-administrator
+granting all thirteen to admin and none to user; it is applied and verified on DEV
+(Phase 2.8 complete). It creates no users or assignments. Migration 0007 adds the
+STRICT News article schema and is locally validated only, pending review and
+separate remote DEV approval/application/verification; Phase 2.9 is not complete.
+It seeds no articles and leaves migrations 0001–0006 unchanged. First-administrator
 provisioning remains a separately approved process. Worker authorization and the
 transactional registration lifecycle remain future work. Authenticated personal
 actions require ownership checks; administrative actions require explicit permissions
 with default deny. See `migrations/README.md` for seed, lifecycle and safety details.
+
+News stores title, unique lowercase URL-safe slug, required body, optional excerpt
+and cover storage key, required author and optional last editor, publication status
+and UTC Unix timestamps. Drafts may have empty content and must have no publication
+time; published articles require content and publication time. Archives retain
+publication metadata but are private. Preserve original publication time on edits.
+Author/editor references restrict user deletion and ID changes. Listing and reference
+indexes support future queries; this phase adds no News API, editor or frontend.
+Phase 6 must enforce permissions and published-only public access in the Worker,
+prevent XSS, decide Markdown versus rich text, and design R2 uploads separately.
+Store image keys only, not binaries or public URLs; future API validation enforces
+key format, UUID generation/validation and slug generation/collision handling.
+
+Run the complete local database suite with `node --test worker/tests/*.test.mjs`,
+then `npm run typecheck` and `npm run build`. The News tests apply migrations
+0001–0007 to disposable Miniflare D1 storage with fictional data and verify
+constraints, lifecycle, previous schema/reference data and integrity. The migration
+README also documents fresh local Wrangler validation; no remote login is needed.
 
 - Use ordered, versioned migrations; never edit already-applied migrations.
 - Review and test future migrations on local development state first with
