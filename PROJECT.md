@@ -10,11 +10,13 @@ Typically there are two LAN parties per year, occasionally three. Traffic is ver
 low outside registration periods. Keep the implementation proportionate to this
 scale and independent of work infrastructure.
 
-Phase 1 configuration/infrastructure and Phase 2 database foundation are complete.
-All seven migrations (0001–0007), including RBAC reference data and News storage,
-are applied and verified on remote DEV. Production promotion is pending; PROD
-migration state is not verified and production migrations are not approved by
-this release audit. Phase 3 authentication/account functionality is next.
+Phase 1 configuration/infrastructure and Phase 2 database foundation are complete
+on DEV and PROD. The owner confirms that all seven migrations (0001–0007),
+including RBAC reference data and News storage, have been successfully applied
+and verified in both environments. This documentation update does not independently
+verify PROD migration state or complete the current post-release
+public website verification. Phase 3 Authentication & Accounts is the next active
+development phase.
 No registration or News APIs or authorization middleware are implemented.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
@@ -88,6 +90,36 @@ Follow the styling boundaries in `AGENTS.md`: global rules belong in
 `src/CSS/<PageName>_style.css` files.
 
 ## Architecture
+
+### Environment reference
+
+Use this table as the central environment reference for development, deployments
+and release verification. `wrangler.jsonc` defines the Worker and D1 mappings;
+the default configuration targets PROD and `--env dev` selects DEV.
+
+| Environment | Git branch | Cloudflare Worker | D1 database | Website |
+| --- | --- | --- | --- | --- |
+| DEV | `dev` | `lan-party-dev` | `lan-party-dev` | https://lan-party-dev.servok.workers.dev |
+| PROD | `main` | `lan-party` | `lan-party-prod` | https://lan-party.servok.workers.dev |
+
+- DEV is the testing and development environment. PROD is the publicly accessible
+  production environment.
+- DEV pushes trigger `.github/workflows/deploy-dev.yml`, which deploys with
+  `--env dev`. A merge into `main` is expected to trigger the production Worker
+  deployment through Cloudflare Git integration. No production deployment workflow
+  is checked into this repository; verify the Cloudflare Git integration
+  configuration and actual deployment evidence
+  rather than treating the merge itself as proof of deployment.
+- Deployments do not automatically apply D1 migrations. Production database
+  migrations require separate explicit owner approval; deployment or release
+  verification does not grant that approval.
+- Custom domains may be introduced later; do not assume one exists.
+- The existing health endpoint is `GET /api/health`, defined in `worker/index.ts`
+  and routed to the Worker by Wrangler's `/api` and `/api/*` rules. It returns
+  HTTP 200 with JSON `{"status":"ok"}` and checks liveness only, independently
+  of D1. A successful health response does not verify database migrations or
+  frontend behavior. Use [RELEASE.md](RELEASE.md#post-release-housekeeping-separate-explicit-request)
+  for post-release verification and reporting.
 
 ### Agreed responsibilities
 
@@ -316,14 +348,16 @@ The approved database and authentication decisions below supersede earlier propo
   separate review. SQL resolution tests use disposable fictional profiles only;
   no authentication or authorization endpoint is implemented.
 - Phase 2.8 RBAC reference data and Phase 2.9 News database foundation are complete
-  and verified on DEV. Production promotion remains separately controlled.
+  on DEV and PROD, as reported by the owner. Future production changes remain
+  separately controlled.
 
 ### Approved Phase 2.9 News database foundation
 
 - `0007_create_news_articles.sql` adds one STRICT `news_articles` table and is
-  reviewed, applied and verified on remote DEV. Phase 2.9 is complete on DEV.
-  All applied migrations are immutable; no articles are seeded. PROD application
-  requires its own preflight, recovery preparation and explicit approval.
+  reviewed, applied and verified on remote DEV. Phase 2.9 is complete on DEV and
+  PROD, as reported by the owner. All applied migrations are immutable; no articles
+  are seeded. Future PROD migrations require their own preflight, recovery
+  preparation and explicit approval.
 - Text UUID IDs and titles reject blank values. Slugs are unique lowercase
   letters/digits/hyphens without leading, trailing or consecutive hyphens. Trusted
   Worker logic will generate/validate UUIDs and slugs and handle slug collisions.
@@ -381,9 +415,9 @@ The approved database and authentication decisions below supersede earlier propo
 | Phase | Scope | Completion expectations |
 | --- | --- | --- |
 | 1 | Project foundation, tooling, and basic frontend | Complete: React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics established; types and build validated. |
-| 2.1–2.7 | Database foundations: events, accounts, authentication, authorization, registrations | Complete on DEV; migrations 0001–0005 applied and verified. Functionality remains separate future work. |
-| 2.8 | Initial RBAC reference data | Complete on DEV; migration 0006 applied and verified. No accounts or role assignments created. |
-| 2.9 | News database foundation | Complete on DEV; migration 0007 reviewed, applied and verified. Phase 2 development is complete; production promotion and separately approved PROD migrations remain pending. |
+| 2.1–2.7 | Database foundations: events, accounts, authentication, authorization, registrations | Complete on DEV and PROD (owner-reported); migrations 0001–0005 form the foundation. Functionality remains separate future work. |
+| 2.8 | Initial RBAC reference data | Complete on DEV and PROD (owner-reported); migration 0006 supplies reference data. No accounts or role assignments created. |
+| 2.9 | News database foundation | Complete on DEV and PROD (owner-reported); migration 0007 supplies News storage. Current post-release website verification remains separate; see the environment reference above and RELEASE.md. |
 | 3 | Authentication and account functionality | Implement reviewed authentication, sessions and account tools with secure ownership and permission checks; verify login and recovery behavior. |
 | 4 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
 | 5 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |

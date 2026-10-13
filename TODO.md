@@ -4,10 +4,20 @@ These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
 Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
+Phase 3 Authentication & Accounts is the next active development phase.
+Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
+for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
+deployment from `main`; no local GitHub Actions production deployment workflow is
+assumed. Worker deployment and D1 migrations remain separate operations, and
+production migrations still require separate explicit owner approval.
 Keep additional feature ideas in the unnumbered backlog below until separately
 approved. Plan their database needs now; implement migrations with their functionality.
 
-## Phase 2 database progress
+## Phase 2 Database Foundation — complete on DEV and PROD
+
+The owner confirms that migrations `0001` through `0007` have been successfully
+applied and verified in both DEV and PROD. Historical DEV milestones below remain
+recorded; Phase 2 completion does not imply implemented authentication or APIs.
 
 Unchecked functionality follow-ups below belong to Phases 3–5; they do not expand
 Phase 2's database foundation scope.
@@ -55,20 +65,24 @@ Phase 2's database foundation scope.
   must not appear in public responses even when the event is public.
 - [ ] Resolve participant registration ownership, privacy, retention, and
   authentication storage before subsequent account/registration implementation.
-- [x] Complete Phase 2 database development and verify all seven migrations on DEV.
-- [ ] Review and promote Phase 2 through the existing DEV-to-MAIN release workflow;
-  production migration state/approval remains separate and unverified by this audit.
+- [x] Complete Phase 2 database development and apply/verify all seven migrations
+  (`0001` through `0007`) on both DEV and PROD, as confirmed by the owner.
+- [x] Review and promote Phase 2 through the existing DEV-to-MAIN release workflow;
+  PROD database foundation completion is confirmed by the owner.
 
-Phase 1 configuration/infrastructure and Phase 2 database foundation are complete.
-Migrations 0001 through 0007 are applied and verified on remote DEV. Production
-promotion is pending; PROD migrations are neither verified nor approved by this
-audit. Phase 3 authentication/accounts is next; later phases and backlog remain
-unchanged. Automatic migration execution remains unauthorized.
+Phase 1 configuration/infrastructure and Phase 2 database foundation are complete
+on DEV and PROD. The owner confirms successful application and verification of
+migrations `0001` through `0007` in both environments. Phase 3 Authentication &
+Accounts is next; later phases and backlog remain unchanged. Public website
+verification remains separate under `RELEASE.md`. Automatic migration execution
+remains unauthorized, and existing release approvals and production protections
+remain unchanged.
 
 ### Phase 2.9 — News Database Foundation
 
-Reviewed, implemented, locally validated and verified on remote DEV. Phase 2.9
-and the Phase 2 database foundation are complete on DEV, not released to PROD.
+Reviewed, implemented and locally validated. The owner confirms migration 0007
+is applied and verified on remote DEV and PROD. Phase 2.9 and the Phase 2 database
+foundation are complete in both environments.
 
 - [x] Implement `0007_create_news_articles.sql` for one STRICT `news_articles`
   table, preserving migrations 0001–0006 and introducing no seed content.
