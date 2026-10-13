@@ -173,6 +173,20 @@ Examples:
 - `ci(github): add automated build verification`
 - `refactor(home): simplify news component structure`
 
+### Commit body requirements for Codex
+
+Every commit created by Codex must include a subject following the naming rules
+above and a meaningful body, separated by a blank line. This applies to both
+explicitly authorized commits and commits under the documentation-only policy.
+
+The body must explain what changed and, where useful, why. Include important
+limitations, verification results, or relevant considerations when appropriate;
+distinguish checks performed from checks not run. Keep the description proportional
+to the change: a small documentation update needs only a short explanation, not
+a repetition of the subject. Verify the subject and body of the created commit
+before pushing. These message requirements do not authorize any Git operation or
+change existing approval requirements.
+
 ### Completion guidance for Codex
 
 When completing development tasks:
@@ -204,8 +218,9 @@ When completing development tasks:
 - If a file contains changes from multiple tasks, do not stage the whole file
   automatically. Ask for guidance or use selective staging.
 - After staging, verify the staged file list and staged diff.
-- Prepare a Conventional Commit title and an optional description for the staged
-  changes, following the conventions above.
+- Prepare a Conventional Commit title and a meaningful description for the staged
+  changes, following the conventions above. Include that description as the body
+  whenever Codex is authorized to create the commit.
 - Present the title and description separately so they can easily be copied into
   GitKraken. Prefer a short description explaining what changed and why; do not
   duplicate the title unnecessarily.
