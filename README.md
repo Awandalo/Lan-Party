@@ -2,7 +2,11 @@
 
 A personal LAN party website built with React, TypeScript, and Vite. Phase 1
 provides the initial placeholder pages, shared navigation and a footer, and a responsive
-dark theme. The repository root is the application root.
+dark theme. Phase 1 configuration/infrastructure and Phase 2 database foundation
+are complete; migrations 0001–0007 are verified on remote DEV. Production promotion
+is pending, and PROD migration state/application is not verified or approved by
+the release audit. Phase 3 authentication/accounts is next. The repository root
+is the application root.
 
 ## Setup on Windows 11
 
@@ -50,7 +54,8 @@ these commands; no system-wide execution-policy change is needed.
 
 Run `npm run build` before `npm run preview`. Preview is a local verification
 server, not a production deployment. Cloudflare deployment configuration is in
-`wrangler.jsonc`; deployment remains a separate, explicitly approved action.
+`wrangler.jsonc`. Branch pushes trigger the deployment automation described below;
+manual deployments require explicit approval.
 
 ## Project structure
 
@@ -63,7 +68,7 @@ src/
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
 worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (no SQL migrations yet)
+migrations/      Versioned D1 migrations (0001–0007 verified on DEV)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -125,6 +130,39 @@ D1 binding. Development requires explicit `--env dev`. This foundation reference
 existing databases only; it creates no Cloudflare resources and performs no
 database queries or schema changes.
 
+### Automatic development deployment
+
+`.github/workflows/deploy-dev.yml` runs only on pushes to `dev`. It uses Node.js
+24 with npm caching, installs locked dependencies with `npm ci`, runs
+`npm run typecheck` and `npm run build`, then validates Wrangler with
+`npx wrangler deploy --dry-run --env dev`. If those checks pass, it runs
+`npx wrangler deploy --env dev` to deploy the existing `lan-party-dev` Worker.
+The explicit environment selects its `DB` binding to `lan-party-dev`
+(`a3c4cea6-ceb7-43b8-b9b7-b374726b35b4`). No migrations or SQL run automatically.
+
+In **Awandalo/Lan-Party → Settings → Secrets and variables → Actions**, configure:
+
+| GitHub configuration | Name | Value |
+| --- | --- | --- |
+| Repository secret (already created) | `CLOUDFLARE_API_TOKEN_DEV` | Authorized development deployment token |
+| Repository variable (add before the first push) | `CLOUDFLARE_ACCOUNT_ID` | Account ID from the Cloudflare dashboard for the development Worker |
+
+The deployment step passes these as `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. Keep the token in GitHub Secrets, never in files or
+frontend variables. The account ID is an identifier, not an API credential.
+The workflow's GitHub token has only `contents: read` permission.
+
+The `deploy-dev` concurrency group allows one active run at a time, with
+`cancel-in-progress: false` so a newer push does not interrupt an active deployment.
+GitHub can replace an older pending run with a newer one. Monitor results in the
+repository's **Actions** tab; an actual deployment requires the configuration above
+and valid Cloudflare permissions. Local dry runs cannot verify these credentials.
+
+This workflow does not run on `main`. Production continues through the existing
+Cloudflare Git integration from `main`, using the unchanged `npm run build` and
+`npx wrangler deploy` commands. Cloudflare preview builds remain disabled;
+development deployment uses this separate GitHub Actions workflow.
+
 ## Backend environments and local development
 
 | Wrangler environment | Worker | Binding | D1 database | Database UUID |
@@ -164,8 +202,41 @@ commands remain `npm run build` and `npx wrangler deploy`.
 
 ### Migration safety
 
-Both bindings use `./migrations`, ready for version-controlled SQL files but
-containing no application migrations yet. See `migrations/README.md`.
+Both bindings use `./migrations`. Migration 0001 defines locations, events, and
+event days and is applied on Cloudflare DEV. Migration 0002 defines prefixes and
+user profiles and is also applied on DEV, as confirmed by the owner. Migration 0003
+defines external identities and password credential storage and is applied/verified
+on DEV. Migration 0004 adds role and permission storage and is applied/verified on
+DEV. Migration 0005 adds registrations and selected days and is applied/verified
+on DEV. Migration 0006 seeds active user/admin roles and thirteen permissions,
+granting all thirteen to admin and none to user; it is applied and verified on DEV
+(Phase 2.8 complete). It creates no users or assignments. Migration 0007 adds the
+STRICT News article schema and is reviewed, applied and verified on remote DEV;
+Phase 2.9 and Phase 2 database development are complete. It seeds no articles.
+All seven applied migrations must remain unchanged. PROD application requires a
+separate approved preflight and recovery plan; source promotion does not apply SQL.
+First-administrator provisioning remains a separately approved process. Worker authorization and the
+transactional registration lifecycle remain future work. Authenticated personal
+actions require ownership checks; administrative actions require explicit permissions
+with default deny. See `migrations/README.md` for seed, lifecycle and safety details.
+
+News stores title, unique lowercase URL-safe slug, required body, optional excerpt
+and cover storage key, required author and optional last editor, publication status
+and UTC Unix timestamps. Drafts may have empty content and must have no publication
+time; published articles require content and publication time. Archives retain
+publication metadata but are private. Preserve original publication time on edits.
+Author/editor references restrict user deletion and ID changes. Listing and reference
+indexes support future queries; this phase adds no News API, editor or frontend.
+Phase 6 must enforce permissions and published-only public access in the Worker,
+prevent XSS, decide Markdown versus rich text, and design R2 uploads separately.
+Store image keys only, not binaries or public URLs; future API validation enforces
+key format, UUID generation/validation and slug generation/collision handling.
+
+Run the complete local database suite with `node --test worker/tests/*.test.mjs`,
+then `npm run typecheck` and `npm run build`. The News tests apply migrations
+0001–0007 to disposable Miniflare D1 storage with fictional data and verify
+constraints, lifecycle, previous schema/reference data and integrity. The migration
+README also documents fresh local Wrangler validation; no remote login is needed.
 
 - Use ordered, versioned migrations; never edit already-applied migrations.
 - Review and test future migrations on local development state first with
@@ -213,12 +284,14 @@ modified as part of this scaffold.
 
 Do not commit secrets, real participant data, or production exports. Local secret
 files, dependencies, build output, Workers local state, and database files are
-ignored. No environment variables are needed for this phase. Any future variable
+ignored. Local development needs no Cloudflare credentials; GitHub development
+deployment uses the secret and variable documented above. Any future variable
 prefixed with `VITE_` is exposed to the browser and must never contain a secret.
 
 Additional Worker APIs, D1 schema and queries will be introduced in later phases,
 with separate development/production databases and reviewed access controls.
-Commits, pushes, and deployments are not automatic.
+Commits and pushes remain owner-controlled. Pushing to `dev` triggers the
+development workflow; production deployment follows the existing `main` integration.
 
 ## UI follow-up notes
 
@@ -231,8 +304,9 @@ route have been removed; `/registration` now uses the missing-page fallback.
 `/login` is the shared sign-in entry point. Future `/account` tools will let
 participants view and adjust their own signups; future `/manage` tools will serve
 authorized organizers and moderators. Neither route is implemented yet. Backend
-permission checks must control access. Public registration can work without an
-account; securely claiming or editing such registrations remains an open decision.
+permission checks must control access. Phase 2.5 requires a participant account
+for registration, without organizer privileges. Login and signup ownership checks
+remain future Worker implementation work.
 
 The decorative `public/lan-hall.png` image was created using the built-in image
 generator. Prompt: a wide overhead LAN gaming hall overview, dense monitor rows,
