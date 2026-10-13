@@ -55,25 +55,26 @@ Phase 2's database foundation scope.
   must not appear in public responses even when the event is public.
 - [ ] Resolve participant registration ownership, privacy, retention, and
   authentication storage before subsequent account/registration implementation.
-- [ ] Continue remaining Phase 2 work; this migration does not complete the phase.
+- [x] Complete Phase 2 database development and verify all seven migrations on DEV.
+- [ ] Review and promote Phase 2 through the existing DEV-to-MAIN release workflow;
+  production migration state/approval remains separate and unverified by this audit.
 
-Migrations 0001 through 0006 are applied and verified on DEV; Phase 2.1–2.8
-foundations and RBAC reference data are complete on DEV. Phase 2.9 authorizes only
-local schema work, tests and documentation. Migration 0007 awaits review and
-separately approved remote DEV application/verification. Automatic migration
-execution remains unauthorized.
+Phase 1 configuration/infrastructure and Phase 2 database foundation are complete.
+Migrations 0001 through 0007 are applied and verified on remote DEV. Production
+promotion is pending; PROD migrations are neither verified nor approved by this
+audit. Phase 3 authentication/accounts is next; later phases and backlog remain
+unchanged. Automatic migration execution remains unauthorized.
 
 ### Phase 2.9 — News Database Foundation
 
-Implemented and locally validated; review and remote DEV verification remain
-pending. Phase 2.9 is not complete. Phase 2.8 RBAC reference data is complete on DEV.
+Reviewed, implemented, locally validated and verified on remote DEV. Phase 2.9
+and the Phase 2 database foundation are complete on DEV, not released to PROD.
 
 - [x] Implement `0007_create_news_articles.sql` for one STRICT `news_articles`
   table, preserving migrations 0001–0006 and introducing no seed content.
 - [x] Validate all seven migrations locally, News constraints/lifecycle/indexes,
   existing schemas and RBAC data, foreign keys and database integrity.
-- [ ] Review and separately approve/apply/verify migration 0007 on remote DEV
-  before marking Phase 2.9 complete.
+- [x] Review and separately approve/apply/verify migration 0007 on remote DEV.
 
 Implemented fields:
 

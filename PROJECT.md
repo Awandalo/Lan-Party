@@ -10,13 +10,12 @@ Typically there are two LAN parties per year, occasionally three. Traffic is ver
 low outside registration periods. Keep the implementation proportionate to this
 scale and independent of work infrastructure.
 
-The frontend and Cloudflare Workers foundation are implemented. Phase 2.1–2.8
-database foundations and RBAC reference data are complete on DEV; migrations 0001
-through 0006 are applied and verified, as confirmed by the owner. Phase 2.9 News
-database foundation is implemented and locally validated in
-`0007_create_news_articles.sql`, pending review and separately approved remote DEV
-application/verification. Phase 2.9 is not complete. No registration or News APIs
-or authorization middleware are implemented.
+Phase 1 configuration/infrastructure and Phase 2 database foundation are complete.
+All seven migrations (0001–0007), including RBAC reference data and News storage,
+are applied and verified on remote DEV. Production promotion is pending; PROD
+migration state is not verified and production migrations are not approved by
+this release audit. Phase 3 authentication/account functionality is next.
+No registration or News APIs or authorization middleware are implemented.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -316,15 +315,15 @@ The approved database and authentication decisions below supersede earlier propo
 - Future `news_editor` and `moderator` roles and least-privilege mappings require
   separate review. SQL resolution tests use disposable fictional profiles only;
   no authentication or authorization endpoint is implemented.
-- Phase 2.8 is completed RBAC reference-data seeding on DEV. Phase 2.9 is the
-  current News database foundation, pending review and remote DEV verification.
+- Phase 2.8 RBAC reference data and Phase 2.9 News database foundation are complete
+  and verified on DEV. Production promotion remains separately controlled.
 
 ### Approved Phase 2.9 News database foundation
 
 - `0007_create_news_articles.sql` adds one STRICT `news_articles` table and is
-  locally validated only. Review and separately approved remote DEV application
-  and verification are required before Phase 2.9 is complete. Migrations 0001–0006
-  remain unchanged; no articles are seeded.
+  reviewed, applied and verified on remote DEV. Phase 2.9 is complete on DEV.
+  All applied migrations are immutable; no articles are seeded. PROD application
+  requires its own preflight, recovery preparation and explicit approval.
 - Text UUID IDs and titles reject blank values. Slugs are unique lowercase
   letters/digits/hyphens without leading, trailing or consecutive hyphens. Trusted
   Worker logic will generate/validate UUIDs and slugs and handle slug collisions.
@@ -381,10 +380,10 @@ The approved database and authentication decisions below supersede earlier propo
 
 | Phase | Scope | Completion expectations |
 | --- | --- | --- |
-| 1 | Project foundation, tooling, and basic frontend | Establish React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics; validate types and build. |
+| 1 | Project foundation, tooling, and basic frontend | Complete: React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics established; types and build validated. |
 | 2.1–2.7 | Database foundations: events, accounts, authentication, authorization, registrations | Complete on DEV; migrations 0001–0005 applied and verified. Functionality remains separate future work. |
 | 2.8 | Initial RBAC reference data | Complete on DEV; migration 0006 applied and verified. No accounts or role assignments created. |
-| 2.9 | News database foundation | Migration 0007 implemented and locally validated; pending review and separately approved DEV application/verification before completion. |
+| 2.9 | News database foundation | Complete on DEV; migration 0007 reviewed, applied and verified. Phase 2 development is complete; production promotion and separately approved PROD migrations remain pending. |
 | 3 | Authentication and account functionality | Implement reviewed authentication, sessions and account tools with secure ownership and permission checks; verify login and recovery behavior. |
 | 4 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
 | 5 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |

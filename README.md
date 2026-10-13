@@ -2,7 +2,11 @@
 
 A personal LAN party website built with React, TypeScript, and Vite. Phase 1
 provides the initial placeholder pages, shared navigation and a footer, and a responsive
-dark theme. The repository root is the application root.
+dark theme. Phase 1 configuration/infrastructure and Phase 2 database foundation
+are complete; migrations 0001–0007 are verified on remote DEV. Production promotion
+is pending, and PROD migration state/application is not verified or approved by
+the release audit. Phase 3 authentication/accounts is next. The repository root
+is the application root.
 
 ## Setup on Windows 11
 
@@ -64,7 +68,7 @@ src/
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
 worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (0001–0006 on DEV; News schema local only)
+migrations/      Versioned D1 migrations (0001–0007 verified on DEV)
 public/          Static assets, including the generated LAN hall photograph
 ```
 
@@ -207,10 +211,11 @@ DEV. Migration 0005 adds registrations and selected days and is applied/verified
 on DEV. Migration 0006 seeds active user/admin roles and thirteen permissions,
 granting all thirteen to admin and none to user; it is applied and verified on DEV
 (Phase 2.8 complete). It creates no users or assignments. Migration 0007 adds the
-STRICT News article schema and is locally validated only, pending review and
-separate remote DEV approval/application/verification; Phase 2.9 is not complete.
-It seeds no articles and leaves migrations 0001–0006 unchanged. First-administrator
-provisioning remains a separately approved process. Worker authorization and the
+STRICT News article schema and is reviewed, applied and verified on remote DEV;
+Phase 2.9 and Phase 2 database development are complete. It seeds no articles.
+All seven applied migrations must remain unchanged. PROD application requires a
+separate approved preflight and recovery plan; source promotion does not apply SQL.
+First-administrator provisioning remains a separately approved process. Worker authorization and the
 transactional registration lifecycle remain future work. Authenticated personal
 actions require ownership checks; administrative actions require explicit permissions
 with default deny. See `migrations/README.md` for seed, lifecycle and safety details.

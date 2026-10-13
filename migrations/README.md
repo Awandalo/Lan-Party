@@ -13,9 +13,13 @@ it is applied and verified on Cloudflare DEV and must not be edited.
 it is applied and verified on Cloudflare DEV and must not be edited.
 `0006_seed_reference_data.sql` inserts initial roles, permissions and admin grants;
 it is applied and verified on Cloudflare DEV (Phase 2.8 complete) and must not be edited.
-`0007_create_news_articles.sql` creates the News article table; it is locally
-validated only, pending review and separately approved DEV application/verification.
-Phase 2.9 is not complete. No articles are seeded.
+`0007_create_news_articles.sql` creates the News article table; it is reviewed,
+applied and verified on remote DEV and must not be edited. Phase 2.9 and the
+Phase 2 database foundation are complete on DEV. No articles are seeded.
+Production promotion remains pending; PROD schema/history have not been inspected
+or migration application approved by this release audit. A MAIN merge/Worker
+deployment does not apply D1 migrations; follow `RELEASE.md` and obtain separate
+production preflight, recovery and migration approval.
 
 Future schema changes must use new versioned SQL files after separate approval.
 Never edit an already-applied migration. Initial reference data is defined in
@@ -296,8 +300,8 @@ Do not copy credentials, create replacement API tokens, change credential permis
 or globally disable the sandbox. For an explicitly authorized remote operation,
 request approval for each specific command requiring execution outside the sandbox.
 One approval does not authorize other commands. Remote DEV writes require explicit
-authorization; production operations require separate explicit approval. Phase 2.9
-authorizes local work only and no external execution for remote Cloudflare operations.
+authorization; production operations require separate explicit approval. Completion
+of Phase 2 on DEV does not authorize any additional remote operation.
 
 For sandboxed local Wrangler validation, set these process-only variables in a
 dedicated PowerShell session before the local commands above:
