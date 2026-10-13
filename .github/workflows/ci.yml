@@ -28,6 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Miniflare creates disposable local D1 databases with fictional fixtures.
+      - name: Validate database migrations
+        run: node --test worker/tests/*.test.mjs
+
       - name: Validate TypeScript
         run: npm run typecheck
 

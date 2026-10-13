@@ -29,6 +29,21 @@ Confirm the repository root, active branch, remote repository identity, and GitH
 authentication. `origin` must identify the intended personal GitHub repository.
 Stop if authentication, identity, or permissions cannot be verified.
 
+Use GitHub CLI or an authenticated, owner-approved GitHub integration. CLI commands
+in this document are examples, not a mandatory tool dependency. Before using an
+alternative, verify the signed-in identity, access to `Awandalo/Lan-Party`, and
+permissions for each required operation. Git fetch/push access alone does not
+prove access to checks, security results, protection policies, or PR operations.
+
+The selected interface must provide exact-SHA CI/status and security evidence,
+applicable branch protection/rulesets and required reviews, PR discovery/read/write,
+base/head repository identities and SHAs, and mergeability. Use supported structured
+operations; do not extract credentials, print tokens, invent missing evidence, or
+substitute unauthenticated public metadata for required authenticated access.
+If no approved interface can supply a required operation or evidence, report the
+specific blocker and stop. Missing CLI alone is not a blocker when a verified
+alternative provides all required capabilities. Record the interface and evidence.
+
 Use read-only inspection, including:
 
 ```powershell
@@ -40,8 +55,10 @@ git diff --cached --name-status
 git diff --check
 git diff --cached --check
 git ls-files --others --exclude-standard
-gh auth status
 ```
+
+For CLI authentication, use `gh auth status`; for an approved integration, use its
+supported identity and repository-permission inspection operations instead.
 
 Review the full staged and unstaged diffs privately for sensitive data. Inspect
 ignored-file names when needed to identify local configuration, databases, or
@@ -103,6 +120,25 @@ only with evidence and an explanation. A missing tool, pending check, inaccessib
 setting, or unavailable evidence is unverified, not passed. Any failed or unverified
 required pre-flight check stops the procedure before PR creation or update.
 
+Classify gates using verified workflow triggers and repository policy, rather than
+requiring a check for a PR that does not yet exist:
+
+| Stage | Required evidence and boundary |
+| --- | --- |
+| Before PR creation/update | Verified identity/permissions, clean synchronized DEV, recorded branch SHAs, local validation, sensitive-data/migration/configuration review, merge simulation (or existing PR mergeability), known protection/review policy, and successful applicable DEV-SHA CI/security checks. All required evidence must be available. |
+| After PR creation/update | Read back PR identity, same-repository `dev` to `main` targets and SHAs; inspect GitHub mergeability and PR-triggered CI/security results. Explicitly list verified PR-only checks as pending until they complete; never label them passed in advance. |
+| Before merging (owner action) | All required CI/security checks must pass for the current PR revision and applicable tested merge SHA, required reviews/approvals must be satisfied, and GitHub must report mergeability with all protection rules met. Production effects and separate operational approvals must remain explicit. Codex must not approve, enable auto-merge, or merge automatically. |
+
+Only checks proven to require a PR may be deferred to the post-creation stage.
+Unknown triggers, inaccessible protection/security policy, or missing required
+DEV-SHA evidence remain preflight blockers. Record each check's name, trigger,
+tested SHA, status and evidence. For PR merge-ref checks, tie the tested merge SHA
+to the recorded base/head revision; a result for another revision is insufficient.
+An existing PR's required checks already available must be verified before update.
+New pending PR-only checks block merging, not an otherwise verified initial PR
+creation. Preserve automatic creation/update after successful preflight under an
+explicit release-preparation request; no additional PR-creation approval is needed.
+
 - **Local validation:** Inspect `package.json`, the lockfile, CI workflows, and
   documented test commands before running scripts. Run the repository's available
   TypeScript, production build, and relevant behavior/database tests against the
@@ -115,10 +151,11 @@ required pre-flight check stops the procedure before PR creation or update.
   At the time this procedure was written, the safe local commands are
   `npm run typecheck`, `npm run build`, and
   `node --test worker/tests/*.test.mjs`; recheck their definitions each run.
-- **CI:** Inspect the actual GitHub workflows, branch protection/rulesets, and CI
-  results for the exact `origin/dev` SHA. All applicable required and release CI
-  checks must have completed successfully. A skipped, cancelled, pending, or absent
-  required check is a blocker. Verify any available existing PR checks and required
+- **CI and security:** Inspect the actual GitHub workflows, branch protection/rulesets,
+  and CI/security results (including applicable CodeQL scanning) for the exact
+  `origin/dev` SHA. All applicable pre-PR required and release checks must have
+  completed successfully. A skipped, cancelled, pending, or absent required
+  pre-PR check is a blocker. Verify any available existing PR checks and required
   review policy. Checks that can only run on a new PR must be identified as
   post-creation gates; they cannot substitute for pre-flight DEV validation.
 - **Mergeability:** For an existing matching PR, verify GitHub reports no conflicts
@@ -201,10 +238,13 @@ Include in the PR description:
 - Required owner actions, including review, protected merge, and any approved
   production steps. Do not imply that merging establishes deployed functionality.
 
-Read back the PR and verify its URL, base/head, description, and head SHA. Inspect
-GitHub mergeability and checks now available on the PR. Report pending or failed
-post-creation gates clearly; do not merge or bypass them. If the PR write fails,
-stop and report the error. For an uncertain creation outcome, inspect matching PRs
+Read back the PR through the selected authenticated interface and verify its URL,
+base/head repositories and branches, description, and base/head SHAs. Inspect
+GitHub mergeability and CI/security checks now available on the PR. Report pending,
+failed or unverified post-creation gates clearly and leave the PR unmerged; do not
+approve or bypass them. Recheck required review policy and report outstanding owner
+approvals. If a revision changes, invalidate affected evidence and revalidate it.
+If the PR write fails, stop and report the error. For an uncertain creation outcome, inspect matching PRs
 before retrying to avoid duplicates.
 
 ### 6. Refresh GitKraken information and report
