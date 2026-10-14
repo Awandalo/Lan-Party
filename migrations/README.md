@@ -15,9 +15,10 @@ it is applied and verified on Cloudflare DEV and must not be edited.
 it is applied and verified on Cloudflare DEV (Phase 2.8 complete) and must not be edited.
 `0007_create_news_articles.sql` creates the News article table; it is reviewed,
 applied and verified on remote DEV and must not be edited. Phase 2.9 and the
-Phase 2 database foundation are complete on DEV. No articles are seeded.
-Production promotion remains pending; PROD schema/history have not been inspected
-or migration application approved by this release audit. A MAIN merge/Worker
+Phase 2 database foundation are complete on DEV and PROD, as confirmed by the owner.
+The owner confirms migrations 0001–0007 are applied and verified in both environments;
+the DEV milestones below are retained as historical records. No articles are seeded.
+A MAIN merge/Worker
 deployment does not apply D1 migrations; follow `RELEASE.md` and obtain separate
 production preflight, recovery and migration approval.
 
@@ -34,6 +35,72 @@ The default Wrangler environment targets production. Never execute remote SQL or
 apply remote migrations without explicit approval. Confirm the environment,
 database name, and UUID before any approved remote operation. Do not apply
 migrations automatically during builds, deployments, or CI.
+
+## Authentication state (0008) — local review only
+
+`0008_create_authentication_state.sql` is prepared and tested locally. It has not
+been applied to remote DEV or PROD. Existing migrations 0001–0007 remain immutable.
+Use `PROJECT.md` for current account requirements and environment mappings.
+
+- `users` retains required private first/last names and email, existing UUIDs and
+  references. Only `auth_version` is added, defaulting to zero; no table rebuild.
+- `user_nicknames` has one row per user, preserved display capitalization and a
+  generated lowercase ASCII key with database uniqueness. Length is 3–24; allowed
+  characters are ASCII letters, digits, spaces, underscores and hyphens. Leading,
+  trailing, doubled and separator-adjacent spaces are rejected, as are reserved
+  Admin/Moderator/System variants with separator differences.
+- Existing non-null display names are copied unchanged. Null names remain
+  unclaimed. Invalid/reserved/duplicate names abort the entire migration and
+  preserve previous records; never invent or overwrite names to make it pass.
+  New signup must atomically create the profile, nickname and password credential.
+  `user_nicknames` is the canonical nickname source, not legacy `users.display_name`.
+- `nickname_changed_at` tracks participant changes; corrections can preserve it.
+  NULL allows the first change immediately. The tested participant adapter enforces
+  14 days after each change, counts case-only edits and preserves exact no-ops.
+  Public account routes and Phase 5 settings/admin storage remain unfinished.
+- `auth_sessions` and `auth_action_tokens` use application UUIDs, unique hex token
+  digests, current-account auth generations, constrained timestamps, restrictive
+  user FKs and user/expiry indexes. Tokens also have verification/reset purpose,
+  consumption and the verification email binding. No raw token is stored.
+- Verification tokens expire after 24 hours and reset tokens after 30 minutes.
+  Identity fields cannot be changed; consumption is single-use and revocation final.
+  Password changes/deletion, normalized-email changes and status changes advance
+  the account generation and revoke state. Email changes also clear verification.
+  New sessions cannot use an old generation after reset. Trusted adapters must
+  capture the generation alongside credential verification and preserve that
+  generation when issuing sessions; re-reading the new version after verifying
+  an old password would defeat the concurrency fence.
+- Password credential ownership is immutable: migration 0008 rejects a `user_id`
+  reassignment before any accompanying credential change can advance generations.
+  Regression tests cover moves with and without hash updates, preservation on
+  rejection and continued revocation on legitimate credential changes.
+- Local tests demonstrate guarded `D1Database.batch()` recipes: conditional token
+  consumption followed immediately by an account/credential mutation gated with
+  `changes()=1`. Failed mutations roll back consumption and concurrent attempts
+  have one winner. These are compatibility tests, not production adapters.
+  Before exposing flows, adapters must bind the presented token's digest and
+  purpose/user/current version and use an authoritative server timestamp.
+- Credential deletion advances generation using the profile's current timestamp;
+  any future deletion adapter must first maintain `users.updated_at` in the same
+  transaction so revocation audit timestamps describe the actual operation.
+
+Verification commands:
+
+```powershell
+node --test worker/tests/authentication-state.test.mjs worker/tests/account-rules.test.mjs
+node --test worker/tests/*.test.mjs
+```
+
+Tests start disposable local D1 databases, apply 0001–0007, preserve fictional
+profiles/credentials/identities/registrations/News/RBAC records, then apply 0008.
+They cover generated nickname keys, case collisions, invalid fields, STRICT/FKs,
+timestamps, TTL, reset and verification races, rollback and state invalidation.
+Wrangler's migration runner also successfully applied all eight migrations in
+fresh isolated local storage. No remote schema or data was accessed.
+
+Before remote consideration, obtain separate approval plus sanitized existing-name
+preflight/remediation and backup/recovery evidence. Unclaimed profiles need an
+approved onboarding rule; privacy, retention and deletion decisions remain open.
 
 ## Event schema decisions
 

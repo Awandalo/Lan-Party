@@ -15,9 +15,11 @@ on DEV and PROD. The owner confirms that all seven migrations (0001–0007),
 including RBAC reference data and News storage, have been successfully applied
 and verified in both environments. This documentation update does not independently
 verify PROD migration state or complete the current post-release
-public website verification. Phase 3 Authentication & Accounts is the next active
-development phase.
+public website verification. Phase 3 Authentication & Accounts is the active
+development phase, with Phase 3.2 persistent authentication services next.
 No registration or News APIs or authorization middleware are implemented.
+Phase 3.1 now contains local, tested authentication primitives and contracts;
+registration, login, persistence, email delivery and Google sign-in remain unfinished.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -390,15 +392,16 @@ The approved database and authentication decisions below supersede earlier propo
 
 ## Open architectural questions and recommendations for review
 
-1. **Organizer authentication:** Choose a secure approach suitable for a small number
-   of organizers and the free-tier constraint. Decide how organizer access is granted
-   and revoked before building administration endpoints.
+1. **Organizer authentication:** Use the approved shared account/session system
+   described below. Decide how organizer access is granted and revoked through
+   existing RBAC before building administration endpoints.
 2. **Registration editing:** Participant accounts are required by Phase 2.5. Define
    server-side signup ownership checks and the recovery/editing flow before APIs;
    email delivery, sessions, password reset and revocation are not implemented yet.
-3. **Registration fields and privacy:** Agree the minimum fields, whether any contact
-   information is necessary, and how participants are informed about public display
-   names and selected days. Set retention and deletion rules before launch.
+3. **Registration fields and privacy:** Account signup uses the approved nickname,
+   first name, last name, email and password fields below. Review any additional event contact fields
+   and how participants are informed about public nicknames and selected days.
+   Set retention and deletion rules before launch.
 4. **Event lifecycle and day changes:** Define closing behavior and how organizers can
    change event days after registrations exist while preserving existing registrations.
 5. **Duplicate registrations and abuse:** Agree duplicate handling and proportionate
@@ -411,6 +414,233 @@ The approved database and authentication decisions below supersede earlier propo
    data involved must stay out of Git. Define and approve the cutover after testing.
 
 ## Development roadmap
+
+### Phase 3.1 — Authentication foundation
+
+The approved direction is email/password first, then Google OpenID Connect using
+the same UUID accounts, sessions and authorization. Never automatically link an
+external identity to an account solely because email addresses match.
+
+Approved product requirements:
+
+- Account registration collects a nickname, required private first/last names,
+  required private email and a password for email/password signup. Preserve
+  nickname capitalization and enforce case-insensitive uniqueness in the database.
+  Email verification is required before event registration; unverified users may
+  log in and request verification again.
+- Default participant nickname change cooldown is 14 days. Later administrator
+  configuration, authorized overrides and corrections belong to future work.
+  Administrative corrections must preserve the participant's existing cooldown.
+  Reserve impersonation-prone names such as Admin, Moderator and System. Final
+  nickname policy is 3–24 ASCII letters, digits, spaces, underscores or hyphens.
+  Reject leading/trailing spaces, doubled spaces and spaces next to underscores
+  or hyphens; validation never silently rewrites the submitted display nickname.
+  Lowercase ASCII is the deterministic lookup key. Reserved-name comparison also
+  removes spaces/underscores/hyphens, rejecting separated Admin/Moderator/System.
+  Registration's initial selection does not start the cooldown; the first change
+  is immediately permitted. Every successful participant change, including case-only
+  edits, starts/restarts 14 days. Exact no-ops and administrative corrections preserve
+  the existing cooldown. Phase 5 may later add explicit resets/configuration.
+- Passwords require at least 12 characters, support 128 characters and have no
+  arbitrary character-class rules. Rate limiting and safe errors are required
+  before exposing authentication endpoints.
+- Resend Free is selected for future delivery, but is not configured. Introduce a
+  replaceable email-service interface when delivery is implemented, store keys in
+  Cloudflare secrets and prevent DEV from sending to arbitrary real recipients.
+- Verification links are single-use and expire after 24 hours. Password reset links
+  are single-use and expire after 30 minutes. Recovery responses must be generic;
+  a successful reset must invalidate all existing sessions.
+
+Repository assessment and implemented local foundation:
+
+- Migrations 0002/0003 already provide UUID profiles, normalized email uniqueness,
+  nullable verification timestamps, one password credential per account and unique
+  external `(provider, identity_namespace, provider_subject)` mappings. Migrations
+  0004/0006 provide explicit RBAC grants; role names do not confer permissions.
+  Reuse these records rather than introducing another account system.
+- `worker/auth/passwords.ts` uses Web Crypto PBKDF2-HMAC-SHA-256 with 600,000
+  iterations, a random 16-byte salt and a 32-byte result. Versioned records include
+  the algorithm and cost. Verification bounds stored costs to 600,000–1,000,000,
+  rejects malformed records and uses Workers' native timing-safe comparison.
+  Password lengths count Unicode code points (12–128); input is neither trimmed
+  nor truncated, and malformed surrogate sequences are rejected.
+  This cost follows [OWASP guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html);
+  runtime APIs follow [Cloudflare Web Crypto documentation](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/).
+- `worker/auth/tokens.ts` generates random 256-bit opaque tokens and purpose-bound
+  SHA-256 digests for sessions, email verification and password reset. Persist
+  digests only. Expiry checks reject future, expired or consumed records; digest
+  matching alone does not establish single-use consumption or authorize an action.
+- `worker/auth/contracts.ts` defines one shared session-store contract, an atomic
+  action-token consumption contract and a rate-limiter contract. Pure eligibility
+  helpers reject disabled/mismatched/revoked/expired sessions, permit unverified
+  account sessions and gate event registration on verification plus an approved
+  persisted nickname. Accounts lacking a nickname must complete onboarding. This account
+  gate does not replace event eligibility, ownership or RBAC checks. No persistent
+  session store, token consumption transaction, rate limiter or middleware exists.
+- `worker/auth/config.ts` records approved policy durations and validates explicit
+  DEV/PROD, a canonical HTTPS origin and a caller-selected session lifetime bounded
+  to one minute–thirty days; the approved default factory selects seven days.
+  `worker/auth/errors.ts` provides fixed,
+  non-cached public errors and a generic recovery response without internal details.
+- `worker/tests/auth-foundation.test.mjs` bundles a test-only fixture in memory
+  using Wrangler's existing esbuild/Miniflare dependencies. Tests execute the
+  modules in local workerd with the application's compatibility date, including
+  independent Node-generated PBKDF2/SHA-256 vectors. No dependencies or public
+  routes are added. Health and API 404 behavior remain unchanged.
+- `worker/auth/nicknames.ts` validates the approved ASCII nickname policy and
+  derives a lowercase key while preserving display capitalization.
+  `worker/auth/accounts.ts` validates all five required registration fields,
+  generates stable UUIDs and projects public accounts using an explicit allowlist
+  containing only UUID and nickname. These are helpers, not registration endpoints.
+  Private names are nonblank, well-formed strings of at most 100 code points without
+  ASCII control characters. Email validation supports common ASCII unquoted
+  addresses, preserves original spelling and lowercases the comparison key without
+  stripping dots or plus tags. Quoted/internationalized address support remains
+  outside this initial helper and requires review if needed.
+- `worker/auth/cookies.ts` creates/parses/clears the approved opaque session cookie:
+  `__Host-lan_session`, seven-day Max-Age, Secure, HttpOnly, SameSite=Lax, Path=/,
+  no Domain. Duplicate/malformed cookies fail closed. Clearing a cookie alone is
+  not logout; the future adapter must revoke its stored D1 digest.
+- `worker/auth/csrf.ts` validates exact configured HTTPS Origin, JSON content type,
+  `X-LAN-Request: 1` and a session-bound `X-CSRF-Token` for POST/PUT/PATCH/DELETE.
+  The token is an HMAC-SHA-256 of the session digest using a separate 256-bit server
+  secret, which remains unconfigured. Wrong origin/session/token/header/content
+  type and GET/HEAD/OPTIONS are rejected. These are tested helpers, not middleware
+  installed on public routes. Pre-login forms need a separate short-lived CSRF
+  context when implemented. Verification/reset links must render confirmation and
+  consume tokens only after explicit protected POST, never on a GET or link preview.
+- `worker/auth/nickname-state.ts` implements the participant update as one guarded
+  D1 UPDATE, preventing concurrent cooldown bypass. It validates the nickname,
+  requires an active account, preserves exact no-ops and uses a trusted server time.
+  The caller must obtain the owner ID from the authenticated session. The legacy
+  preflight helper reports missing/invalid/case-duplicate names by UUID/reason only,
+  without mutation. Actual conflicting records require owner-approved remediation.
+
+Personal-information purpose and restrictions:
+
+- Nicknames are publicly visible for participant identity and attendance. Real
+  first/last names support private participant administration and addressing attendees.
+  Email supports login, verification, recovery and necessary event communication.
+  Passwords are transient registration input; persist only reviewed salted hashes.
+- Public account responses must use the explicit nickname/UUID projection, never
+  raw `users` rows or registration input. Private profiles may be accessed by their
+  authenticated owner and organizers with an explicit need and existing authorized
+  permissions; role names or possession of a session alone are insufficient.
+  Contact details, real names, credential data and token records must not appear in
+  public attendance, logs or client-shipped configuration. No profile API exists yet.
+- Owner approval is still needed for the privacy notice, precise purposes and
+  justification for collecting real names, public nickname/attendance disclosure,
+  retention periods for profiles/auth state/events/backups, deletion versus retained
+  event history, account anonymization, participant request handling and Resend
+  processing arrangements. Existing restrictive FKs preserve history; they do not
+  settle privacy/deletion policy. Resolve these before production use.
+
+Local validation: all 150 tests passed (`node --test worker/tests/*.test.mjs`),
+including foundation/API, account-rule and migration 0008 tests. `npm run typecheck` and `npm run build`
+passed. This verifies primitives in local workerd and existing local migration
+constraints, not complete user authentication flows or a deployed CPU budget.
+
+Migration 0008 — implemented and validated locally, not remotely approved:
+
+- `migrations/0008_create_authentication_state.sql` is additive. Migrations 0001–0007
+  remain unchanged. Existing required real-name/email fields and all UUID references
+  are retained; there is no `users` rebuild or relaxation of personal-name constraints.
+- `user_nicknames` is the canonical public nickname source, with one row per user,
+  checked display text, database-generated `lower(nickname)` key and a unique key
+  constraint. The database enforces the same length/character/spacing/reserved rules.
+  New signup must atomically insert the profile, nickname and password credential.
+  Legacy users without a display name remain unclaimed; a future API must require
+  a nickname before treating onboarding as complete. Do not publish the old
+  optional `users.display_name` as a second nickname source.
+- Existing non-null `display_name` values are copied unchanged. Invalid, reserved
+  or duplicate legacy nicknames cause migration rollback; owner-approved remediation
+  and sanitized preflight evidence are required before any remote application.
+  The migration does not invent names or inspect/change any remote records.
+- Nullable `nickname_changed_at` records the last participant change. NULL means no
+  participant change yet, so the first change is immediate. The tested local adapter
+  enforces the approved cooldown/no-op/case-only rules atomically. Administrative
+  corrections preserve it. Phase 5 settings, cooldown
+  reset and moderation overrides are not implemented.
+- Migration 0008 creates `auth_sessions` referencing `users`, with unique token digests, creation,
+  expiry and revocation timestamps and indexes for user-wide revocation/expiry.
+  It creates `auth_action_tokens` referencing `users`, with unique purpose-bound digests,
+  explicit verification/reset purpose, creation/expiry/consumption timestamps and
+  indexes for user/purpose lookup and expiry. Use STRICT tables, nonnegative UTC
+  Unix seconds, application UUIDs where needed and restrictive foreign keys.
+- `users.auth_version` provides generation fencing. New sessions/action tokens
+  require the current active account version. Password changes/deletion, email
+  changes and status changes advance the generation and revoke existing state;
+  email changes also clear verification. Session/token identity is immutable and
+  revocation cannot be undone. Session eligibility helpers compare generations.
+  Migration 0008 also rejects password credential ownership reassignment, including
+  reassignment combined with a hash change. Regression tests prove failed moves
+  preserve the credential and original sessions/generation; legitimate credential
+  changes still advance generation and revoke sessions.
+- Action tokens store only unique 64-character hex digests, purpose, generation,
+  creation/expiry/consumption/revocation and the bound email for verification.
+  TTL constraints enforce 24-hour verification and 30-minute reset links. Consumption
+  cannot be repeated or cleared, and rejects stale/revoked/expired state.
+- Local tests exercise guarded D1 batches for consumption plus verification or
+  password change, using `changes()=1` to gate the next statement on the winning
+  consume. Triggers revoke all sessions/action tokens after credential change;
+  stale session insertion fails. Mutation failures roll back token use. Concurrent
+  attempts have one winner. These recipes validate storage compatibility; persistent
+  service adapters and live recovery flows are still not implemented.
+- Existing Google identity storage is sufficient; no new Google identity table is
+  required. Later OIDC validation, state/nonce/PKCE and explicit linking still need
+  separate implementation and provider configuration.
+
+Password benchmark: seven warm and three fresh-runtime samples per operation in
+local workerd measured median hash/verify process CPU of 140.625/156.250 ms;
+worst warm CPU was 156.250/171.875 ms. This is owned-process CPU, not Cloudflare
+per-invocation billing. Compared with the documented Free 10 ms CPU/request limit,
+the local evidence suggests the current design is unsuitable; edge suitability
+is not measured or approved. Keep the 600,000-iteration algorithm unchanged pending
+owner review of hosting/algorithm alternatives. See the
+[benchmark methodology, measurements and alternatives](worker/benchmarks/README.md).
+
+Password hashing and Workers Free compatibility are explicitly deferred to a
+separate owner decision. This security finalization does not change the PBKDF2
+implementation, iteration count, algorithm, dependencies or benchmark configuration,
+and does not deploy a benchmark. Free compatibility remains unresolved.
+
+Approved abuse-prevention design (not implemented): use D1 atomic fixed-window
+counters before password crypto or email delivery, keyed by HMAC-derived normalized
+account/IP identifiers using a separate server secret. Store no raw IP/email in
+counter keys or logs. Limit login, signup, resend and recovery separately, apply
+generic responses for both existing and missing accounts, avoid permanent account
+lockout, and fail closed if enforcement is unavailable. Bound key length/counter
+cardinality; expire windows and delete stale rows in capped batches with a defined
+retention deadline. The later adapter must reject expired counters as state, perform
+opportunistic cleanup and document a bounded scheduled cleanup if idle leftovers
+cannot otherwise meet the deadline. No counter table, secret, schedule or infrastructure
+is created here. Cloudflare's location-local binding is supplementary, not a strict
+global limiter. Thresholds, exact retention and cleanup execution need implementation
+review alongside this functionality.
+
+Remaining release gates: resolve password hosting/CPU suitability, implement persistent
+session/cookie and CSRF integration, distributed rate limiting, recovery enumeration/timing
+mitigations, token cleanup and delivery failure handling. Local workerd crypto tests
+do not prove a Workers Free deployed CPU budget or complete auth behavior.
+Do not weaken password cost to fit limits.
+No registration, login, verification, reset, email delivery or Google flow is marked
+complete. No remote database access, deployment or provider configuration is authorized
+by this foundation work.
+
+### Final Phase 3 milestone — required before public registration
+
+Publish participant privacy information describing public nickname/attendance and
+the approved purposes for private first/last names (participant administration and
+addressing attendees) and private email (account security and essential event
+communication). Document authorized access, retention, deletion and participant
+rights/request handling, with owner approval of unresolved policy details.
+Include a concise AI-assisted development disclosure and a public link to
+[Awandalo/Lan-Party](https://github.com/Awandalo/Lan-Party), reusing the existing
+About/footer backlog rather than creating another page system. These pages are
+not implemented by Phase 3.1. Complete a final security/privacy review and explicit
+owner approval before enabling public registration or replacing Jotform.
+
+### Overall roadmap
 
 | Phase | Scope | Completion expectations |
 | --- | --- | --- |

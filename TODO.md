@@ -4,7 +4,9 @@ These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
 Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
-Phase 3 Authentication & Accounts is the next active development phase.
+Phase 3 Authentication & Accounts is the active development phase; Phase 3.1
+provides local foundation primitives and migration 0008, with Phase 3.2 persistent
+authentication services next.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
 for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
 deployment from `main`; no local GitHub Actions production deployment workflow is
@@ -118,6 +120,95 @@ Implementation requirements:
   future Worker APIs. Only authorized roles may create, edit, publish or archive articles.
 - [ ] Keep image files outside D1 and store references only. Evaluate Cloudflare R2
   when implementing image uploads; do not introduce upload infrastructure yet.
+
+## Phase 3 — Authentication & Accounts
+
+### Phase 3.1 — Authentication Foundation
+
+- [x] Review migrations 0001–0007, existing Worker routes and local tests; reuse
+  shared UUID profiles, password/provider credentials and RBAC records.
+- [x] Implement local Web Crypto password hashing/verification, opaque token
+  generation/digests, expiry validation, configuration validation and safe errors.
+- [x] Define shared session/action-token/rate-limiter contracts and pure session
+  and verified-email eligibility checks. These contracts have no storage adapters.
+- [x] Test foundation primitives in local workerd, including independent crypto
+  vectors, password boundaries, malformed records, token purpose/expiry, session
+  eligibility and unchanged public API boundaries.
+- [x] Complete the existing full migration test suite, TypeScript validation and
+  production build for Phase 3.1 finalization: 150 tests passed, including foundation,
+  account-rule and migration tests; `npm run typecheck` and `npm run build` passed. Workers Free deployed
+  performance and complete auth flows remain unverified.
+
+### Phase 3.2 — Authentication State & Account Constraints (next)
+
+- [x] Prepare and locally validate `0008_create_authentication_state.sql`, preserving
+  migrations 0001–0007 and all prior records. No remote migration is authorized.
+- [x] Confirm required private first/last names and email remain compatible with
+  the existing profile schema. Add registration validation and public nickname/UUID projection.
+- [x] Implement approved 3–24-character ASCII nicknames, deterministic lowercase
+  keys, reserved-name/spacing rules and database-generated uniqueness. Preserve
+  capitalization and separate participant cooldown tracking from admin corrections.
+- [x] Add and locally validate shared session and single-use verification/reset
+  storage, guarded consumption batches, reset/session invalidation, stale-generation
+  fencing, concurrency and rollback on incompatible legacy nicknames.
+- [x] Benchmark 600,000-iteration PBKDF2 in local workerd with process CPU counters.
+  Local median CPU is 140.625 ms for hashing and 156.250 ms for verification,
+  above the documented 10 ms Free budget; edge suitability remains unverified.
+- [ ] Resolve the password hosting/CPU blocker with the owner before live password
+  functionality; review alternatives in `worker/benchmarks/README.md`. Keep security cost unchanged.
+- [ ] Implement persistent session and verification/reset services with generation
+  checks and guarded atomic state changes; current transaction recipes are tests only.
+- [x] Reject password credential reassignment in migration 0008 and regression-test
+  unchanged ownership/session generation after rejection and legitimate change revocation.
+- [x] Implement approved seven-day cookie helpers and session-bound CSRF helpers
+  with negative runtime tests. Public-route integration/logout adapters remain unfinished.
+- [x] Implement the participant nickname adapter: immediate first change, then
+  14-day cooldown; capitalization changes count, exact no-ops preserve state,
+  concurrent changes cannot bypass it and administrative corrections preserve state.
+- [x] Implement sanitized legacy nickname preflight reporting and require approved
+  nickname onboarding in the local event-registration account gate.
+- [ ] Obtain owner-approved handling of legacy null/invalid/duplicate nicknames
+  and sanitized preflight evidence before any separately approved remote migration.
+- [x] Record approved seven-day session/cookie, layered CSRF and D1-based persistent
+  rate-limiting designs. The distributed limiter, secret configuration and cleanup
+  are not implemented; Cloudflare's location-local binding is supplementary only.
+- [ ] Integrate cookie/session logout, CSRF middleware and explicit verification/reset
+  confirmation before token consumption. Never mutate through GET requests.
+- [ ] Implement the distributed limiter with secret-derived identifiers, atomic
+  counters, bounded retention/cleanup and limits before crypto/email. Agree thresholds,
+  cleanup execution and superseded-token/reissue behavior before live endpoints.
+- [ ] Approve privacy notice, real-name purposes/access, retention/deletion,
+  participant requests, backup retention and email-provider processing arrangements.
+
+Later Phase 3 functionality remains unfinished:
+
+- [ ] Implement registration and login only after account constraints and security
+  boundaries are reviewed; unverified users may log in but cannot register for events.
+- [ ] Implement Resend Free behind a replaceable service when delivery is needed;
+  use Cloudflare secrets and prevent arbitrary real-recipient delivery on DEV.
+- [ ] Implement 24-hour verification and 30-minute reset flows, single-use links,
+  generic recovery responses and revocation of all sessions after successful reset.
+- [ ] Implement later Google OIDC using shared accounts/sessions and trusted
+  issuer/subject checks, with no automatic linking based on matching email.
+- [ ] Integrate the tested participant nickname adapter into authenticated account
+  tools. Administrator settings/resets/overrides/corrections remain Phase 5 work;
+  ordinary administrative corrections must preserve participant cooldown state.
+
+Final Phase 3 milestone — before enabling public registration:
+
+- [ ] Publish participant privacy information: public nickname/attendance, private
+  first/last names for administration and addressing attendees, private email for
+  account security and essential event communication, authorized access, retention,
+  deletion and participant rights/request handling. Obtain outstanding owner policy approval.
+- [ ] Include AI-assisted development disclosure and the public
+  [GitHub repository link](https://github.com/Awandalo/Lan-Party), reusing the existing
+  About/footer backlog. About and Privacy pages are not implemented in this task.
+- [ ] Complete final security/privacy review and obtain owner approval before
+  enabling public registration or replacing the operational Jotform workflow.
+
+See `PROJECT.md` for approved requirements, implementation boundaries and the
+locally prepared migration. Live auth endpoints, email delivery, Google configuration and
+remote database changes are not implemented or authorized by Phase 3.1.
 
 ## Phase 6 — News & Community
 
