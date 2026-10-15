@@ -77,9 +77,18 @@ Use `PROJECT.md` for current account requirements and environment mappings.
 - Local tests demonstrate guarded `D1Database.batch()` recipes: conditional token
   consumption followed immediately by an account/credential mutation gated with
   `changes()=1`. Failed mutations roll back consumption and concurrent attempts
-  have one winner. These are compatibility tests, not production adapters.
-  Before exposing flows, adapters must bind the presented token's digest and
-  purpose/user/current version and use an authoritative server timestamp.
+  have one winner. `worker/auth/action-state.ts` now implements these batches;
+  `worker/auth/sessions.ts` implements generation-fenced session storage and
+  `worker/auth/database.ts` provides private credential/provider lookups. Their local
+  workerd/D1 tests cover real adapter behavior, concurrency and mutation rollback.
+  Completion uses RETURNING rows, because D1 change metadata includes trigger writes.
+  Public flows, delivery, abuse prevention and remote application remain separate gates.
+- The selected development password record `lp-pbkdf2-hmac-sha256-v2` fits existing
+  `user_password_credentials.password_hash` TEXT storage without schema changes.
+  Its pepper is a Worker secret, never a column or migration value. Legacy v1
+  records are neither deleted nor rewritten; see PROJECT.md for compatibility,
+  the approved development trade-off and the integrated DEV performance gate.
+  All SQL migrations 0001–0008 remain unchanged; no 0009 is necessary for these adapters.
 - Credential deletion advances generation using the profile's current timestamp;
   any future deletion adapter must first maintain `users.updated_at` in the same
   transaction so revocation audit timestamps describe the actual operation.

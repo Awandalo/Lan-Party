@@ -16,10 +16,12 @@ including RBAC reference data and News storage, have been successfully applied
 and verified in both environments. This documentation update does not independently
 verify PROD migration state or complete the current post-release
 public website verification. Phase 3 Authentication & Accounts is the active
-development phase, with Phase 3.2 persistent authentication services next.
+development phase. Phase 3.2 Authentication Database now has locally tested D1
+adapters; Phase 3.3 registration and public authentication remain future work.
 No registration or News APIs or authorization middleware are implemented.
 Phase 3.1 now contains local, tested authentication primitives and contracts;
-registration, login, persistence, email delivery and Google sign-in remain unfinished.
+registration, login, email delivery and Google sign-in remain unfinished. Persistence
+is implemented locally in the Phase 3.2 adapters described below.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -397,7 +399,8 @@ The approved database and authentication decisions below supersede earlier propo
    existing RBAC before building administration endpoints.
 2. **Registration editing:** Participant accounts are required by Phase 2.5. Define
    server-side signup ownership checks and the recovery/editing flow before APIs;
-   email delivery, sessions, password reset and revocation are not implemented yet.
+   email delivery and public flows remain unfinished. Local session/reset/revocation
+   storage adapters are implemented; HTTP flow integration is still required.
 3. **Registration fields and privacy:** Account signup uses the approved nickname,
    first name, last name, email and password fields below. Review any additional event contact fields
    and how participants are informed about public nicknames and selected days.
@@ -444,6 +447,8 @@ Approved product requirements:
 - Passwords require at least 12 characters, support 128 characters and have no
   arbitrary character-class rules. Rate limiting and safe errors are required
   before exposing authentication endpoints.
+- Optional TOTP MFA is approved for all accounts in a later Phase 3 authentication
+  stage. No MFA schema, enrollment, recovery or login challenge is implemented yet.
 - Resend Free is selected for future delivery, but is not configured. Introduce a
   replaceable email-service interface when delivery is implemented, store keys in
   Cloudflare secrets and prevent DEV from sending to arbitrary real recipients.
@@ -458,14 +463,31 @@ Repository assessment and implemented local foundation:
   external `(provider, identity_namespace, provider_subject)` mappings. Migrations
   0004/0006 provide explicit RBAC grants; role names do not confer permissions.
   Reuse these records rather than introducing another account system.
-- `worker/auth/passwords.ts` uses Web Crypto PBKDF2-HMAC-SHA-256 with 600,000
-  iterations, a random 16-byte salt and a 32-byte result. Versioned records include
-  the algorithm and cost. Verification bounds stored costs to 600,000–1,000,000,
-  rejects malformed records and uses Workers' native timing-safe comparison.
+- `worker/auth/passwords.ts` uses native Web Crypto PBKDF2-HMAC-SHA256 with
+  20,000 iterations, a random 16-byte salt and a 32-byte derived key, followed by
+  HMAC-SHA256 with a separate 256-bit server-side pepper. This owner-approved
+  development trade-off is below current password-storage recommendations and is
+  not equivalent to the former 600,000-iteration implementation.
+  Records use `lp-pbkdf2-hmac-sha256-v2$iterations$salt$verifier`; only the HMAC
+  verifier is stored with public algorithm/version/cost/salt metadata, never the
+  unpeppered derived key or pepper. Verification honors validated stored costs,
+  rejects malformed/unknown versions and uses Workers' native timing-safe comparison.
   Password lengths count Unicode code points (12–128); input is neither trimmed
   nor truncated, and malformed surrogate sequences are rejected.
-  This cost follows [OWASP guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html);
-  runtime APIs follow [Cloudflare Web Crypto documentation](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/).
+  Hash and verify require explicit pepper configuration: the future caller passes
+  `env.PASSWORD_PEPPER` from a Worker secret containing exactly 64 lowercase hex
+  characters (32 cryptographically random bytes). Missing/malformed configuration
+  throws a fixed error and cannot enable an unpeppered fallback. Use a different
+  secret from CSRF/rate limiting; never store it in D1 or frontend configuration.
+  No remote secret is installed by this work. D1-only compromise lacks the pepper;
+  compromise of D1 plus the pepper exposes the reduced work factor. Pepper rotation,
+  retention/recovery and key-version policy need owner review before public use.
+  Legacy `lp-pbkdf2-sha256-v1` records retain their explicit 600k–1m verification
+  path and are flagged for upgrade; no stored record is rewritten automatically.
+  Hosted legacy iteration-limit errors must be handled as authentication unavailable,
+  with controlled recovery, not misreported as an incorrect password. Future
+  work-factor upgrades can use stored metadata; no stronger v2 cost is flagged
+  for automatic reduction. Runtime guidance: [Cloudflare Web Crypto](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/).
 - `worker/auth/tokens.ts` generates random 256-bit opaque tokens and purpose-bound
   SHA-256 digests for sessions, email verification and password reset. Persist
   digests only. Expiry checks reject future, expired or consumed records; digest
@@ -475,8 +497,9 @@ Repository assessment and implemented local foundation:
   helpers reject disabled/mismatched/revoked/expired sessions, permit unverified
   account sessions and gate event registration on verification plus an approved
   persisted nickname. Accounts lacking a nickname must complete onboarding. This account
-  gate does not replace event eligibility, ownership or RBAC checks. No persistent
-  session store, token consumption transaction, rate limiter or middleware exists.
+  gate does not replace event eligibility, ownership or RBAC checks. The Phase 3.2
+  adapters below implement storage/atomic completion; rate limiting and HTTP
+  authentication middleware remain unfinished.
 - `worker/auth/config.ts` records approved policy durations and validates explicit
   DEV/PROD, a canonical HTTPS origin and a caller-selected session lifetime bounded
   to one minute–thirty days; the approved default factory selects seven days.
@@ -500,7 +523,7 @@ Repository assessment and implemented local foundation:
 - `worker/auth/cookies.ts` creates/parses/clears the approved opaque session cookie:
   `__Host-lan_session`, seven-day Max-Age, Secure, HttpOnly, SameSite=Lax, Path=/,
   no Domain. Duplicate/malformed cookies fail closed. Clearing a cookie alone is
-  not logout; the future adapter must revoke its stored D1 digest.
+  not logout; future HTTP integration must also call the stored D1 revocation service.
 - `worker/auth/csrf.ts` validates exact configured HTTPS Origin, JSON content type,
   `X-LAN-Request: 1` and a session-bound `X-CSRF-Token` for POST/PUT/PATCH/DELETE.
   The token is an HMAC-SHA-256 of the session digest using a separate 256-bit server
@@ -535,8 +558,8 @@ Personal-information purpose and restrictions:
   processing arrangements. Existing restrictive FKs preserve history; they do not
   settle privacy/deletion policy. Resolve these before production use.
 
-Local validation: all 150 tests passed (`node --test worker/tests/*.test.mjs`),
-including foundation/API, account-rule and migration 0008 tests. `npm run typecheck` and `npm run build`
+Local validation: all 156 tests passed (`node --test worker/tests/*.test.mjs`),
+including foundation/API, account-rule, migration 0008 and Phase 3.2 adapter tests. `npm run typecheck` and `npm run build`
 passed. This verifies primitives in local workerd and existing local migration
 constraints, not complete user authentication flows or a deployed CPU budget.
 
@@ -584,25 +607,64 @@ Migration 0008 — implemented and validated locally, not remotely approved:
   password change, using `changes()=1` to gate the next statement on the winning
   consume. Triggers revoke all sessions/action tokens after credential change;
   stale session insertion fails. Mutation failures roll back token use. Concurrent
-  attempts have one winner. These recipes validate storage compatibility; persistent
-  service adapters and live recovery flows are still not implemented.
+  attempts have one winner. Phase 3.2 now provides tested storage adapters for
+  these recipes. Live recovery flows remain unfinished.
 - Existing Google identity storage is sufficient; no new Google identity table is
   required. Later OIDC validation, state/nonce/PKCE and explicit linking still need
   separate implementation and provider configuration.
 
-Password benchmark: seven warm and three fresh-runtime samples per operation in
-local workerd measured median hash/verify process CPU of 140.625/156.250 ms;
-worst warm CPU was 156.250/171.875 ms. This is owned-process CPU, not Cloudflare
-per-invocation billing. Compared with the documented Free 10 ms CPU/request limit,
-the local evidence suggests the current design is unsuitable; edge suitability
-is not measured or approved. Keep the 600,000-iteration algorithm unchanged pending
-owner review of hosting/algorithm alternatives. See the
-[benchmark methodology, measurements and alternatives](worker/benchmarks/README.md).
+### Final password benchmark and development decision
 
-Password hashing and Workers Free compatibility are explicitly deferred to a
-separate owner decision. This security finalization does not change the PBKDF2
-implementation, iteration count, algorithm, dependencies or benchmark configuration,
-and does not deploy a benchmark. Free compatibility remains unresolved.
+The final controlled Cloudflare Workers Free experiment on 2026-10-14 measured
+PBKDF2-HMAC-SHA256 at 20,000 iterations followed by HMAC-SHA256 with an independent
+256-bit pepper, using actual invocation records for the private benchmark Worker.
+
+| Operation | Samples | Median CPU | Worst CPU |
+| --- | ---: | ---: | ---: |
+| Hash | 9 | 7 ms | 8 ms |
+| Verify | 10 | 7 ms | 8 ms |
+
+Baseline CPU was 1 ms (2 ms wall). Hash/verify wall median was 7 ms and worst was
+9 ms. All 20 attempts completed successfully without CPU-limit terminations or
+verification errors, and all had matched platform telemetry. Only one isolate
+was observed, with no observed cold start; full login/session overhead was not
+measured. Worst nominal headroom below 10 ms was only 2 ms. Baseline was not
+subtracted. The benchmark did not establish comfortable headroom for full auth.
+
+The owner subsequently selected this reduced-cost configuration **for development
+only**, accepting its security trade-off. It is not approved for public authentication.
+Temporary remote Workers/secrets were deleted and verified; local benchmark
+implementation, runners and disposable artifacts have been removed. This concise
+summary is the retained evidence. No further standalone password benchmark is planned.
+The next performance gate is separately approved integrated DEV authentication
+testing, including sessions, abuse controls and realistic runtime variation.
+
+### Phase 3.2 — Authentication Database (implemented locally)
+
+- `worker/auth/database.ts` reads private password credential snapshots and exact
+  Google issuer/subject mappings using parameterized queries. Credential verification
+  must preserve the same auth generation through session issuance. There is no
+  automatic email-based linking or OIDC-token validation in this repository layer.
+- `worker/auth/sessions.ts` implements the session-store contract, seven-day session
+  issuance, current-active-account resolution, individual revocation and user-wide
+  generation advancement. Raw session tokens are returned once and only digests are
+  stored. Logout-all fences concurrent stale logins as well as revoking existing state.
+- `worker/auth/action-state.ts` issues purpose-bound 24-hour verification and
+  30-minute reset tokens. Completion uses one guarded D1 batch, binding user, purpose,
+  current generation, active status, email and authoritative server time. Reset
+  requires an existing password credential; it cannot implicitly add a login method
+  to a Google-only account. The credential-change trigger revokes all sessions and
+  action tokens. Failed mutations roll back consumption; concurrent use has one winner.
+  A low-level `consume` is not reset/verification completion; future flows must use
+  the atomic completion methods after explicit protected confirmation.
+- Existing TEXT credential storage accepts v2 records. No new migration, table,
+  dependency or application route is required; all migrations 0001–0008 are unchanged.
+  Migration 0008 remains local and needs separate remote approval, legacy nickname
+  preflight/remediation and recovery evidence. Optional MFA remains a later stage.
+- Token reissue/supersession, retention/cleanup and delivery policy remain owner
+  decisions before endpoints: issuing a token currently leaves other valid tokens
+  until expiry or generation revocation. No mail is sent and no public flow is enabled.
+  These local adapters do not establish full authentication or public readiness.
 
 Approved abuse-prevention design (not implemented): use D1 atomic fixed-window
 counters before password crypto or email delivery, keyed by HMAC-derived normalized
@@ -618,11 +680,11 @@ is created here. Cloudflare's location-local binding is supplementary, not a str
 global limiter. Thresholds, exact retention and cleanup execution need implementation
 review alongside this functionality.
 
-Remaining release gates: resolve password hosting/CPU suitability, implement persistent
+Remaining release gates: verify integrated DEV password/authentication CPU headroom, implement
 session/cookie and CSRF integration, distributed rate limiting, recovery enumeration/timing
 mitigations, token cleanup and delivery failure handling. Local workerd crypto tests
 do not prove a Workers Free deployed CPU budget or complete auth behavior.
-Do not weaken password cost to fit limits.
+The owner-approved development work factor is fixed; further security changes need review.
 No registration, login, verification, reset, email delivery or Google flow is marked
 complete. No remote database access, deployment or provider configuration is authorized
 by this foundation work.

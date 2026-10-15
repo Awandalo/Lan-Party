@@ -5,8 +5,9 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
 Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
 Phase 3 Authentication & Accounts is the active development phase; Phase 3.1
-provides local foundation primitives and migration 0008, with Phase 3.2 persistent
-authentication services next.
+provides local foundation primitives and migration 0008. Phase 3.2 Authentication
+Database adapters are implemented locally; Phase 3.3 registration is the next
+development step, with public authentication still gated by review and DEV verification.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
 for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
 deployment from `main`; no local GitHub Actions production deployment workflow is
@@ -130,16 +131,18 @@ Implementation requirements:
 - [x] Implement local Web Crypto password hashing/verification, opaque token
   generation/digests, expiry validation, configuration validation and safe errors.
 - [x] Define shared session/action-token/rate-limiter contracts and pure session
-  and verified-email eligibility checks. These contracts have no storage adapters.
+  and verified-email eligibility checks. Phase 3.2 now implements storage adapters;
+  distributed rate limiting remains a contract/design awaiting implementation.
 - [x] Test foundation primitives in local workerd, including independent crypto
   vectors, password boundaries, malformed records, token purpose/expiry, session
   eligibility and unchanged public API boundaries.
 - [x] Complete the existing full migration test suite, TypeScript validation and
   production build for Phase 3.1 finalization: 150 tests passed, including foundation,
   account-rule and migration tests; `npm run typecheck` and `npm run build` passed. Workers Free deployed
-  performance and complete auth flows remain unverified.
+  integrated authentication performance and complete auth flows remain unverified;
+  see PROJECT.md for the completed standalone experiment and development decision.
 
-### Phase 3.2 — Authentication State & Account Constraints (next)
+### Phase 3.2 — Authentication Database (implemented locally)
 
 - [x] Prepare and locally validate `0008_create_authentication_state.sql`, preserving
   migrations 0001–0007 and all prior records. No remote migration is authorized.
@@ -151,13 +154,16 @@ Implementation requirements:
 - [x] Add and locally validate shared session and single-use verification/reset
   storage, guarded consumption batches, reset/session invalidation, stale-generation
   fencing, concurrency and rollback on incompatible legacy nicknames.
-- [x] Benchmark 600,000-iteration PBKDF2 in local workerd with process CPU counters.
-  Local median CPU is 140.625 ms for hashing and 156.250 ms for verification,
-  above the documented 10 ms Free budget; edge suitability remains unverified.
-- [ ] Resolve the password hosting/CPU blocker with the owner before live password
-  functionality; review alternatives in `worker/benchmarks/README.md`. Keep security cost unchanged.
-- [ ] Implement persistent session and verification/reset services with generation
-  checks and guarded atomic state changes; current transaction recipes are tests only.
+- [x] Close the standalone password investigation and remove temporary benchmark
+  infrastructure/artifacts. See PROJECT.md for the single retained final result summary.
+- [x] Implement the owner-selected development-only PBKDF2 20k + HMAC pepper
+  configuration, versioned records, fail-closed secret handling and explicit legacy compatibility.
+- [x] Implement local persistent session and verification/reset services with generation
+  fencing, atomic single-use completion, rollback, logout revocation and credential/provider lookups.
+- [x] Validate the complete local suite (156 tests), strict TypeScript and production
+  build, including fresh databases with migrations 0001–0008 and adapter concurrency/rollback.
+- [ ] Verify full integrated DEV authentication/session CPU overhead before public
+  authentication approval. No more standalone password benchmarks are planned.
 - [x] Reject password credential reassignment in migration 0008 and regression-test
   unchanged ownership/session generation after rejection and legitimate change revocation.
 - [x] Implement approved seven-day cookie helpers and session-bound CSRF helpers
@@ -182,6 +188,8 @@ Implementation requirements:
 
 Later Phase 3 functionality remains unfinished:
 
+- [ ] Phase 3.3: implement registration on the reviewed database adapters without
+  silently creating or linking credentials; obtain separate approval for remote changes.
 - [ ] Implement registration and login only after account constraints and security
   boundaries are reviewed; unverified users may log in but cannot register for events.
 - [ ] Implement Resend Free behind a replaceable service when delivery is needed;
@@ -190,6 +198,10 @@ Later Phase 3 functionality remains unfinished:
   generic recovery responses and revocation of all sessions after successful reset.
 - [ ] Implement later Google OIDC using shared accounts/sessions and trusted
   issuer/subject checks, with no automatic linking based on matching email.
+- [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;
+  review enrollment, challenges, recovery and storage alongside that functionality.
+- [ ] Approve pepper rotation/key-version and recovery procedures before public use;
+  configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account
   tools. Administrator settings/resets/overrides/corrections remain Phase 5 work;
   ordinary administrative corrections must preserve participant cooldown state.

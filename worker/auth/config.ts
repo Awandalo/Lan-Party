@@ -1,7 +1,8 @@
 export const AUTH_POLICY = Object.freeze({
   minimumPasswordCharacters: 12,
   maximumPasswordCharacters: 128,
-  passwordIterations: 600_000,
+  // Owner-approved development trade-off; public authentication still requires review.
+  passwordIterations: 20_000,
   maximumPasswordIterations: 1_000_000,
   emailVerificationSeconds: 24 * 60 * 60,
   passwordResetSeconds: 30 * 60,

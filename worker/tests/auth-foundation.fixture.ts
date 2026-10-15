@@ -3,7 +3,8 @@ import { AUTH_POLICY, expiresAt, validateAuthConfiguration } from '../auth/confi
 import { isAccountVerifiedForRegistration, isSessionUsable } from '../auth/contracts';
 import { toHex } from '../auth/encoding';
 import { authFailureResponse, passwordRecoveryResponse } from '../auth/errors';
-import { hashPassword, isValidPassword, verifyPassword } from '../auth/passwords';
+import { hashPassword as hashWithPepper, isValidPassword, verifyPassword as verifyWithPepper,
+  isCurrentPasswordRecord, passwordNeedsUpgrade } from '../auth/passwords';
 import { actionTokenExpiresAt, digestToken, generateToken, isTokenUsable, isValidToken, matchesToken } from '../auth/tokens';
 
 function check(condition: boolean, message: string): asserts condition {
@@ -22,19 +23,31 @@ async function rejects(action: () => Promise<unknown>): Promise<void> {
   check(caught, 'Expected invalid input to reject');
 }
 
+const pepper = '01'.repeat(32); // Fictional test fixture, never Worker configuration.
+const hashPassword = (password: string) => hashWithPepper(password, pepper);
+const verifyPassword = (password: string, record: string) => verifyWithPepper(password, record, pepper);
 const cases: Record<string, () => Promise<void>> = {
   async passwords() {
     const password = 'fictional password 🕹';
     const first = await hashPassword(password);
     const second = await hashPassword(password);
     check(first !== second, 'Unique random salts');
-    check(first.startsWith('lp-pbkdf2-sha256-v1$600000$'), 'Version and cost persisted');
+    check(first.split('$')[2] !== second.split('$')[2] && first.split('$')[2].length === 32, 'Independent 16-byte salts');
+    check(first.split('$')[3].length === 64, '32-byte peppered verifier');
+    check(first.startsWith('lp-pbkdf2-hmac-sha256-v2$20000$'), 'Version and cost persisted');
     check(await verifyPassword(password, first), 'Correct password');
     check(!await verifyPassword('wrong fictional password', first), 'Wrong password');
     check(!await verifyPassword(`${password} `, first), 'No whitespace trimming');
     const last = first.at(-1) === 'a' ? 'b' : 'a';
     check(!await verifyPassword(password, first.slice(0, -1) + last), 'Tampered hash');
-    check(!await verifyPassword(password, first.replace('$600000$', '$600001$')), 'Stored cost used');
+    check(!await verifyPassword(password, first.replace('$20000$', '$20001$')), 'Stored cost used');
+    check(isCurrentPasswordRecord(first) && !passwordNeedsUpgrade(first), 'Current record identified');
+    check(!first.includes(pepper), 'Pepper not stored');
+    check(!await verifyWithPepper(password, first, '02'.repeat(32)), 'Wrong pepper');
+    for (const invalid of [undefined, null, '', '00', 'g'.repeat(64), '01'.repeat(33), pepper + '\n', 123]) {
+      await rejects(() => hashWithPepper(password, invalid));
+      await rejects(() => verifyWithPepper(password, first, invalid));
+    }
   },
   async passwordPolicy() {
     check(!isValidPassword('a'.repeat(11)), 'Minimum enforced');
@@ -50,14 +63,16 @@ const cases: Record<string, () => Promise<void>> = {
     check(await verifyPassword(long, await hashPassword(long)), 'Long password not truncated');
   },
   async malformedHashes() {
-    const prefix = 'lp-pbkdf2-sha256-v1';
+    const prefix = 'lp-pbkdf2-hmac-sha256-v2';
     const salt = '00'.repeat(16);
     const hash = '00'.repeat(32);
     for (const record of ['', 'dummy-hash-like-test-value-not-a-credential',
-      `${prefix}$100000$${salt}$${hash}`, `${prefix}$1000001$${salt}$${hash}`,
-      `${prefix}$0600000$${salt}$${hash}`, `${prefix}$600000junk$${salt}$${hash}`,
-      `${prefix}$600000$short$${hash}`, `${prefix}$600000$${'GG'.repeat(16)}$${hash}`,
-      `${prefix}$600000$${salt}$${hash}$extra`, 'x'.repeat(10000)]) {
+      `${prefix}$19999$${salt}$${hash}`, `${prefix}$1000001$${salt}$${hash}`,
+      `${prefix}$020000$${salt}$${hash}`, `${prefix}$20000junk$${salt}$${hash}`,
+      `${prefix}$20000\n$${salt}$${hash}`,
+      `${prefix}$20000$short$${hash}`, `${prefix}$20000$${'GG'.repeat(16)}$${hash}`,
+      `${prefix}$20000$${salt}$${hash}$extra`, `${prefix.replace('v2', 'v3')}$20000$${salt}$${hash}`,
+      `lp-pbkdf2-sha256-v1$20000$${salt}$${hash}`, 'x'.repeat(10000)]) {
       check(!await verifyPassword('fictional password', record), 'Malformed hash fails closed');
     }
   },
@@ -67,9 +82,15 @@ const cases: Record<string, () => Promise<void>> = {
     const password = 'fictional vector password';
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
     const derived = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: AUTH_POLICY.passwordIterations }, key, 256);
-    const expected = VECTOR_HASH;
-    check(toHex(new Uint8Array(derived)) === expected, 'Independent PBKDF2 vector');
-    check(await verifyPassword(password, `lp-pbkdf2-sha256-v1$600000$${toHex(salt)}$${expected}`), 'Known record verified');
+    check(toHex(new Uint8Array(derived)) === VECTOR_DERIVED, 'Independent PBKDF2 vector');
+    check(await verifyPassword(password, `lp-pbkdf2-hmac-sha256-v2$20000$${toHex(salt)}$${VECTOR_HASH}`), 'Independent HMAC vector');
+    check(VECTOR_HASH !== VECTOR_DERIVED, 'Stored verifier differs from unpeppered derived output');
+    const legacy = `lp-pbkdf2-sha256-v1$600000$${toHex(salt)}$${VECTOR_LEGACY_HASH}`;
+    check(await verifyPassword(password, legacy), 'Legacy record remains explicitly readable');
+    check(passwordNeedsUpgrade(legacy) && !isCurrentPasswordRecord(legacy), 'Legacy upgrade identified');
+    const upgraded = `lp-pbkdf2-hmac-sha256-v2$30000$${toHex(salt)}$${VECTOR_UPGRADE_HASH}`;
+    check(await verifyPassword(password, upgraded), 'Independent higher-work-factor record verified');
+    check(!passwordNeedsUpgrade(upgraded), 'Never recommend lowering a stronger stored work factor');
   },
   async tokens() {
     const token = generateToken();
@@ -147,6 +168,9 @@ const cases: Record<string, () => Promise<void>> = {
 
 // Replaced by esbuild define, never configuration or a shipped credential.
 declare const VECTOR_HASH: string;
+declare const VECTOR_DERIVED: string;
+declare const VECTOR_LEGACY_HASH: string;
+declare const VECTOR_UPGRADE_HASH: string;
 declare const VECTOR_TOKEN_DIGEST: string;
 
 export default {
