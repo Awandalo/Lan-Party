@@ -17,10 +17,10 @@ and verified in both environments. This documentation update does not independen
 verify PROD migration state or complete the current post-release
 public website verification. Phase 3 Authentication & Accounts is the active
 development phase. Phase 3.2 Authentication Database now has locally tested D1
-adapters; Phase 3.3 registration and public authentication remain future work.
-No registration or News APIs or authorization middleware are implemented.
+adapters. Phase 3.3 registration is now implemented for local development only;
+public authentication, News APIs and authentication middleware remain unfinished.
 Phase 3.1 now contains local, tested authentication primitives and contracts;
-registration, login, email delivery and Google sign-in remain unfinished. Persistence
+public registration, login, email delivery and Google sign-in remain unfinished. Persistence
 is implemented locally in the Phase 3.2 adapters described below.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
@@ -558,7 +558,7 @@ Personal-information purpose and restrictions:
   processing arrangements. Existing restrictive FKs preserve history; they do not
   settle privacy/deletion policy. Resolve these before production use.
 
-Local validation: all 156 tests passed (`node --test worker/tests/*.test.mjs`),
+Phase 3.2 validation at completion: all 156 tests passed (`node --test worker/tests/*.test.mjs`),
 including foundation/API, account-rule, migration 0008 and Phase 3.2 adapter tests. `npm run typecheck` and `npm run build`
 passed. This verifies primitives in local workerd and existing local migration
 constraints, not complete user authentication flows or a deployed CPU budget.
@@ -666,28 +666,73 @@ testing, including sessions, abuse controls and realistic runtime variation.
   until expiry or generation revocation. No mail is sent and no public flow is enabled.
   These local adapters do not establish full authentication or public readiness.
 
-Approved abuse-prevention design (not implemented): use D1 atomic fixed-window
+Approved abuse-prevention design (registration-only local implementation below): use D1 atomic fixed-window
 counters before password crypto or email delivery, keyed by HMAC-derived normalized
 account/IP identifiers using a separate server secret. Store no raw IP/email in
 counter keys or logs. Limit login, signup, resend and recovery separately, apply
 generic responses for both existing and missing accounts, avoid permanent account
 lockout, and fail closed if enforcement is unavailable. Bound key length/counter
-cardinality; expire windows and delete stale rows in capped batches with a defined
-retention deadline. The later adapter must reject expired counters as state, perform
-opportunistic cleanup and document a bounded scheduled cleanup if idle leftovers
-cannot otherwise meet the deadline. No counter table, secret, schedule or infrastructure
-is created here. Cloudflare's location-local binding is supplementary, not a strict
-global limiter. Thresholds, exact retention and cleanup execution need implementation
-review alongside this functionality.
+cardinality; expire windows and delete stale rows in capped batches. Registration
+now implements these counters locally; other flows remain unfinished. Before hosted
+enablement, approve thresholds, retention and idle cleanup execution. No remote
+secret, schedule or infrastructure is created. Cloudflare's location-local binding
+is supplementary, not a strict global limiter.
+
+### Phase 3.3 — Registration (local only; not enabled on DEV/PROD)
+
+- `/register` has the five required account fields, privacy labels, nickname/password
+  guidance, pending state and accessible success/error feedback. Passwords are never
+  put in URLs, browser storage or application logs and the form clears them after
+  every attempt. The route and link are included only by Vite development builds.
+- `POST /api/auth/register` validates exact fields, the existing nickname/name/email/
+  password rules and a streamed 4096-byte JSON/UTF-8 body bound. One D1 batch creates
+  the UUID profile (email initially unverified), canonical nickname and v2 password
+  credential. Database uniqueness wins concurrent email/nickname races; any failure
+  rolls back the entire account. There is no implicit login, email delivery, provider
+  linking or role/privilege assignment.
+- The endpoint requires `REGISTRATION_MODE=local-only` AND an HTTP loopback request
+  URL. There is no hosted enablement mode in this implementation. Missing/malformed
+  independent pepper/limiter secrets fail closed, as does unavailable limiter storage.
+  Root Wrangler environments and remote secrets remain unchanged. Existing routes
+  and health behavior are preserved, and hosted requests receive 404.
+- Pre-login request protection requires exact configured loopback `Origin`, JSON,
+  `X-LAN-Request: 1` and same-origin Fetch Metadata when supplied. Other methods,
+  encoded bodies and query parameters are rejected; no CORS is granted. Registration
+  grants no ambient session authority; authenticated mutation CSRF remains a later
+  integration. These checks do not replace abuse limits for non-browser clients.
+- Migration `0009_create_registration_rate_limits.sql` is prepared and tested ONLY
+  locally. Registration uses atomic D1 fixed-window HMAC-keyed counters before password
+  hashing: global 30/hour first, IP 5/15 minutes, normalized email 3/hour. These are
+  conservative local development defaults requiring owner review before DEV enablement.
+  Raw IP/email identifiers are never stored in counters. Global admission bounds new
+  IP/email keys to at most 61/hour, including its own key. Windows expire after at
+  most one hour; each eligible request deletes at most 100 expired rows. Idle rows
+  remain until another request; a reviewed idle-cleanup/retention operation is required
+  before public use. No scheduler is created. Hosted client-IP trust/canonicalization
+  and IPv6 abuse policy must be reviewed when adding any hosted mode.
+- Success and duplicate email/nickname attempts receive the same generic 202 response
+  after password hashing. No profile, email, name, password record or token is returned;
+  this avoids an explicit account-existence oracle. Storage failures return sanitized
+  503, bad inputs 400 and limits 429 without retries. This does not claim constant-time
+  network/database behavior. Users are told that existing details may be unavailable.
+- Local browser submission through Vite's loopback-only `/api` proxy was verified
+  with fictional details and disposable in-memory data, including validation feedback,
+  password clearing, title and desktop/mobile layout. All 171 application tests,
+  strict TypeScript and the production build passed; production frontend output was
+  checked to exclude registration UI and server-secret names. Local setup is in
+  README.md. Integrated DEV CPU, privacy approval,
+  remote migrations 0008/0009, secrets, abuse policy and explicit hosted enablement
+  remain separate gates. The owner approved finalizing the local registration implementation.
 
 Remaining release gates: verify integrated DEV password/authentication CPU headroom, implement
 session/cookie and CSRF integration, distributed rate limiting, recovery enumeration/timing
 mitigations, token cleanup and delivery failure handling. Local workerd crypto tests
 do not prove a Workers Free deployed CPU budget or complete auth behavior.
 The owner-approved development work factor is fixed; further security changes need review.
-No registration, login, verification, reset, email delivery or Google flow is marked
-complete. No remote database access, deployment or provider configuration is authorized
-by this foundation work.
+Only the local registration flow and storage primitives are implemented. No public
+registration, login, verification, reset, delivery or Google flow is marked complete.
+No remote database access, manual deployment or provider configuration is authorized
+by this local implementation.
 
 ### Final Phase 3 milestone — required before public registration
 

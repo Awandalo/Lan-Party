@@ -1,12 +1,10 @@
 # LAN Party
 
-A personal LAN party website built with React, TypeScript, and Vite. Phase 1
-provides the initial placeholder pages, shared navigation and a footer, and a responsive
-dark theme. Phase 1 configuration/infrastructure and Phase 2 database foundation
-are complete; migrations 0001–0007 are verified on remote DEV. Production promotion
-is pending, and PROD migration state/application is not verified or approved by
-the release audit. Phase 3 authentication/accounts is next. The repository root
-is the application root.
+A personal LAN party website built with React, TypeScript, and Vite. Phase 1 and
+Phase 2 are complete on DEV/PROD (owner-confirmed). Phase 3.2 authentication storage
+and Phase 3.3 registration are implemented locally; registration is disabled on
+hosted Workers. See PROJECT.md for authoritative requirements, environment URLs,
+security decisions and the roadmap. The repository root is the application root.
 
 ## Setup on Windows 11
 
@@ -57,18 +55,51 @@ server, not a production deployment. Cloudflare deployment configuration is in
 `wrangler.jsonc`. Branch pushes trigger the deployment automation described below;
 manual deployments require explicit approval.
 
+## Local registration development
+
+Use fictional participant details and disposable passwords only. No email is sent
+and login is not yet implemented. The local form lives at `http://127.0.0.1:5173/register`;
+production builds omit it. The API additionally requires HTTP loopback and explicit
+local-only configuration, so deploying source does not enable public registration.
+
+1. Copy `.dev.vars.example` to ignored `.dev.vars.dev` without overwriting any
+   existing configuration. Replace both secret placeholders with DIFFERENT random
+   32-byte values encoded as 64 lowercase hex characters. Never reuse production
+   values. Invalid placeholders fail closed; test fixtures use fictional secrets.
+2. Apply migrations only to separate disposable local storage:
+
+   ```powershell
+   node node_modules/wrangler/bin/wrangler.js d1 migrations apply lan-party-dev --env dev --local --persist-to .wrangler/registration-dev
+   ```
+
+3. Start the local Worker, and Vite in a second terminal:
+
+   ```powershell
+   npm run dev:worker -- --persist-to .wrangler/registration-dev
+   npm run dev
+   ```
+
+   Vite listens on loopback port 5173 and proxies `/api` to the loopback Worker on
+   port 8787. Keep the example's exact origin; no CORS access is enabled. Follow the
+   sandbox-local configuration guidance in migrations/README.md if needed.
+
+Success and duplicate details intentionally return the same generic response.
+Names/email stay private and email remains unverified. Registration uses the
+development password configuration and local persistent request limits described
+in PROJECT.md. This setup authorizes no remote migration, secret change or deployment.
+
 ## Project structure
 
 ```text
 src/
-  pages/         Home, Events, and Login
+  pages/         Home, Events, Login, and local-only Registration
   CSS/           main.css and <PageName>_style.css
   components/    Shared header, footer, and route focus handling
   lib/           Shared frontend utilities and typed temporary public content
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
-worker/          TypeScript Worker entry point and health API
-migrations/      Versioned D1 migrations (0001–0007 verified on DEV)
+worker/          Health API, local registration and authentication storage
+migrations/      Versioned D1 migrations (0008/0009 local only)
 public/          Static assets, including the generated LAN hall photograph
 ```
 

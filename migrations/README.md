@@ -111,6 +111,25 @@ Before remote consideration, obtain separate approval plus sanitized existing-na
 preflight/remediation and backup/recovery evidence. Unclaimed profiles need an
 approved onboarding rule; privacy, retention and deletion decisions remain open.
 
+## Registration rate limits (0009) — local only
+
+`0009_create_registration_rate_limits.sql` adds one STRICT counter table with a
+64-character HMAC digest primary key, bounded integer hits (1–30), nonnegative UTC
+expiry and an expiry index. It contains no participant identifiers, secrets or seeds.
+The application caps global admission before allocating per-IP/email keys, uses
+atomic conditional upserts and deletes up to 100 expired rows per eligible request.
+See PROJECT.md for local thresholds and the required hosted retention/idle-cleanup
+review. No remote migration or scheduler is authorized. Migrations 0001–0008 remain
+unchanged; the earlier statement that Phase 3.2 needed no 0009 applies to those
+storage adapters, not the new registration-specific limiter.
+
+Local registration tests apply all nine migrations to fresh disposable D1 databases
+and cover account atomicity, uniqueness, password storage, FK integrity and limits:
+
+```powershell
+node --test worker/tests/registration.test.mjs
+```
+
 ## Event schema decisions
 
 - UUID generation and validation remain future Worker API responsibilities.

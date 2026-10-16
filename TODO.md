@@ -6,8 +6,8 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
 Phase 3 Authentication & Accounts is the active development phase; Phase 3.1
 provides local foundation primitives and migration 0008. Phase 3.2 Authentication
-Database adapters are implemented locally; Phase 3.3 registration is the next
-development step, with public authentication still gated by review and DEV verification.
+Database adapters and Phase 3.3 registration are implemented locally. Hosted
+registration remains disabled; login/logout is the next development step after review.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
 for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
 deployment from `main`; no local GitHub Actions production deployment workflow is
@@ -176,22 +176,38 @@ Implementation requirements:
 - [ ] Obtain owner-approved handling of legacy null/invalid/duplicate nicknames
   and sanitized preflight evidence before any separately approved remote migration.
 - [x] Record approved seven-day session/cookie, layered CSRF and D1-based persistent
-  rate-limiting designs. The distributed limiter, secret configuration and cleanup
-  are not implemented; Cloudflare's location-local binding is supplementary only.
+  rate-limiting designs. Registration has a local D1 limiter in Phase 3.3; other
+  limiters and remote secret/cleanup configuration remain unfinished.
 - [ ] Integrate cookie/session logout, CSRF middleware and explicit verification/reset
   confirmation before token consumption. Never mutate through GET requests.
-- [ ] Implement the distributed limiter with secret-derived identifiers, atomic
-  counters, bounded retention/cleanup and limits before crypto/email. Agree thresholds,
-  cleanup execution and superseded-token/reissue behavior before live endpoints.
+- [ ] Extend distributed rate limiting to login/recovery/delivery when implemented.
+  Agree hosted thresholds, idle cleanup and superseded-token/reissue behavior before live endpoints.
 - [ ] Approve privacy notice, real-name purposes/access, retention/deletion,
   participant requests, backup retention and email-provider processing arrangements.
 
+### Phase 3.3 — Registration (local implementation complete; hosted access disabled)
+
+- [x] Implement the local registration form with required public nickname/private
+  names/email, password guidance, pending state and accessible generic feedback.
+- [x] Add the default-disabled, loopback-only API with strict Origin/custom-header/
+  JSON/body validation and server-side account rules.
+- [x] Atomically insert UUID profile, unique canonical nickname and peppered password;
+  keep email unverified, do not log in automatically or grant client-supplied privileges.
+- [x] Prepare local-only migration 0009 and persistent HMAC-keyed global/IP/email
+  registration limits before hashing, atomic concurrency protection and bounded cleanup.
+- [x] Verify successful/invalid/duplicate/concurrent registration, storage rollback,
+  independent password verification, privacy, configuration gates and limiter behavior.
+- [x] Pass all 171 tests, strict TypeScript, production build and diff checks. Check
+  the local form in-browser, validation feedback/password clearing, desktop/mobile
+  layout and exclusion from production frontend output.
+- [x] Obtain owner approval to finalize and push the locally verified Phase 3.3 implementation.
+- [ ] Approve hosted enablement, remote 0008/0009 preflight, secrets,
+  abuse/idle-cleanup policy and DEV performance separately.
+
 Later Phase 3 functionality remains unfinished:
 
-- [ ] Phase 3.3: implement registration on the reviewed database adapters without
-  silently creating or linking credentials; obtain separate approval for remote changes.
-- [ ] Implement registration and login only after account constraints and security
-  boundaries are reviewed; unverified users may log in but cannot register for events.
+- [ ] Implement working login/logout using the existing session, cookie and CSRF
+  helpers plus persistent abuse controls; preserve unverified-account login but gate event signup.
 - [ ] Implement Resend Free behind a replaceable service when delivery is needed;
   use Cloudflare secrets and prevent arbitrary real-recipient delivery on DEV.
 - [ ] Implement 24-hour verification and 30-minute reset flows, single-use links,

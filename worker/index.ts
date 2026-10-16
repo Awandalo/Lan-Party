@@ -1,4 +1,7 @@
-interface Env {
+import { registerAccount } from './auth/registration';
+import type { RegistrationEnvironment } from './auth/registration';
+
+interface Env extends RegistrationEnvironment {
   ASSETS: Fetcher;
   DB: D1Database;
 }
@@ -6,6 +9,8 @@ interface Env {
 export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
+
+    if (pathname === '/api/auth/register') return registerAccount(request, env);
 
     if (pathname === '/api/health') {
       if (request.method !== 'GET') {

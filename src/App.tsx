@@ -5,6 +5,7 @@ import RouteFocus from './components/RouteFocus';
 import Home from './pages/Home';
 import Events from './pages/Events';
 import Login from './pages/Login';
+import Registration from './pages/Registration';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
           <Route path="/login" element={<Login />} />
+          {import.meta.env.DEV && <Route path="/register" element={<Registration />} />}
           <Route path="*" element={
             <section className="page-section">
               <p className="eyebrow">404</p>

@@ -1,0 +1,7 @@
+# Local development only. Copy to ignored .dev.vars without overwriting existing values.
+# Replace both placeholders with DIFFERENT cryptographically random 32-byte values,
+# encoded as 64 lowercase hex characters. These placeholders deliberately fail closed.
+REGISTRATION_MODE=local-only
+AUTH_PUBLIC_ORIGIN=http://127.0.0.1:5173
+PASSWORD_PEPPER=REPLACE_WITH_LOCAL_ONLY_64_CHARACTER_HEX_VALUE
+AUTH_RATE_LIMIT_SECRET=REPLACE_WITH_DIFFERENT_LOCAL_ONLY_64_CHARACTER_HEX_VALUE
