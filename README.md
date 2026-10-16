@@ -2,7 +2,7 @@
 
 A personal LAN party website built with React, TypeScript, and Vite. Phase 1 and
 Phase 2 are complete on DEV/PROD (owner-confirmed). Phase 3.2 authentication storage
-and Phase 3.3 registration are implemented locally; registration is disabled on
+and Phase 3.3 registration plus login/logout are implemented locally; authentication is disabled on
 hosted Workers. See PROJECT.md for authoritative requirements, environment URLs,
 security decisions and the roadmap. The repository root is the application root.
 
@@ -55,17 +55,20 @@ server, not a production deployment. Cloudflare deployment configuration is in
 `wrangler.jsonc`. Branch pushes trigger the deployment automation described below;
 manual deployments require explicit approval.
 
-## Local registration development
+## Local authentication development
 
 Use fictional participant details and disposable passwords only. No email is sent
-and login is not yet implemented. The local form lives at `http://127.0.0.1:5173/register`;
-production builds omit it. The API additionally requires HTTP loopback and explicit
-local-only configuration, so deploying source does not enable public registration.
+and email verification is not yet implemented. Start at `http://127.0.0.1:5173/register`,
+then `/login` and `/account`. Production builds omit active forms/account routes.
+The APIs additionally require HTTP loopback and explicit local-only configuration,
+so deploying source does not enable public authentication.
 
 1. Copy `.dev.vars.example` to ignored `.dev.vars.dev` without overwriting any
    existing configuration. Replace both secret placeholders with DIFFERENT random
    32-byte values encoded as 64 lowercase hex characters. Never reuse production
    values. Invalid placeholders fail closed; test fixtures use fictional secrets.
+   Both `REGISTRATION_MODE` and `AUTH_SESSION_MODE` must be `local-only`.
+   The limiter secret also signs domain-separated session CSRF proofs; never reuse the pepper.
 2. Apply migrations only to separate disposable local storage:
 
    ```powershell
@@ -88,17 +91,27 @@ Names/email stay private and email remains unverified. Registration uses the
 development password configuration and local persistent request limits described
 in PROJECT.md. This setup authorizes no remote migration, secret change or deployment.
 
+Login creates a seven-day Secure/HttpOnly/SameSite=Lax `__Host-lan_session` cookie.
+The tested local browser accepts it on loopback; do not strip Secure or the host
+prefix if another browser rejects it. The local flow is unavailable in that browser;
+trusted local HTTPS support needs a separately reviewed setup/handler change.
+`/account` displays only
+the nickname and provides CSRF-protected logout, which revokes the D1 session before
+clearing its cookie. Reload restores the session. Missing/expired sessions redirect
+to login. No password/session token is stored in browser storage or URLs.
+Use fictional data only; event signup, verification email and recovery remain unavailable.
+
 ## Project structure
 
 ```text
 src/
-  pages/         Home, Events, Login, and local-only Registration
+  pages/         Home, Events, Login, and local-only Registration/Account
   CSS/           main.css and <PageName>_style.css
   components/    Shared header, footer, and route focus handling
   lib/           Shared frontend utilities and typed temporary public content
   App.tsx        Client-side routes and shared layout
   main.tsx       React application entry point
-worker/          Health API, local registration and authentication storage
+worker/          Health API, local registration/login/logout and authentication storage
 migrations/      Versioned D1 migrations (0008/0009 local only)
 public/          Static assets, including the generated LAN hall photograph
 ```

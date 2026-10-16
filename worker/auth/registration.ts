@@ -15,11 +15,11 @@ const accepted = { message: 'Registration request processed. If the details were
 function reply(status: number, body: object, headers: Record<string, string> = {}) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 }
-function loopback(url: URL): boolean {
+export function loopback(url: URL): boolean {
   return url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
 }
 
-async function readInput(request: Request): Promise<unknown> {
+export async function readInput(request: Request): Promise<unknown> {
   const declared = request.headers.get('Content-Length');
   if (declared !== null && (!/^[0-9]+$/.test(declared) || Number(declared) > 4096)) throw new Error('Invalid body size');
   if (!request.body) throw new Error('Missing body');

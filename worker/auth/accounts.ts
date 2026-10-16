@@ -18,7 +18,7 @@ function privateName(value: unknown): string {
   return value;
 }
 
-function emailAddress(value: unknown): string {
+export function emailAddress(value: unknown): string {
   if (typeof value !== 'string' || value.length > 254 || !/^[\x21-\x7e]+$/.test(value)) {
     throw new Error('Invalid email address');
   }

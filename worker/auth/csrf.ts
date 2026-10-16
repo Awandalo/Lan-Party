@@ -16,6 +16,21 @@ export async function isValidMutationRequest(request: Request, trustedOrigin: st
   sessionDigest: string, csrfSecret: string): Promise<boolean> {
   const origin = new URL(trustedOrigin);
   if (origin.protocol !== 'https:' || origin.origin !== trustedOrigin) throw new Error('Invalid trusted origin');
+  return checkMutation(request, trustedOrigin, sessionDigest, csrfSecret);
+}
+
+// Explicit loopback-only variant for the local handler; the HTTPS helper's contract
+// remains unchanged. The handler must also gate the request URL and configuration.
+export async function isValidLocalMutationRequest(request: Request, trustedOrigin: string,
+  sessionDigest: string, csrfSecret: string): Promise<boolean> {
+  const origin = new URL(trustedOrigin);
+  if (origin.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
+    || origin.origin !== trustedOrigin) throw new Error('Invalid local trusted origin');
+  return checkMutation(request, trustedOrigin, sessionDigest, csrfSecret);
+}
+
+async function checkMutation(request: Request, trustedOrigin: string,
+  sessionDigest: string, csrfSecret: string): Promise<boolean> {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
     || request.headers.get('Origin') !== trustedOrigin
     || request.headers.get('X-LAN-Request') !== '1'

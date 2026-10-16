@@ -1,14 +1,14 @@
 import '../CSS/Login_style.css';
-import { Link } from 'react-router';
+import LocalLogin from '../components/LocalLogin';
 
 export default function Login() {
+  if (import.meta.env.DEV) return <LocalLogin />;
   return (
     <section className="page-section login-page">
       <div className="panel login-card">
         <p className="eyebrow">Welcome back</p>
         <h1>Login</h1>
         <p>A future sign-in for participants, moderators, and organizers.</p>
-        {import.meta.env.DEV && <p><Link to="/register">Create an account locally</Link></p>}
         <div className="login-preview" aria-describedby="login-notice">
           <label htmlFor="login-email">Email address</label>
           <input id="login-email" type="email" placeholder="Email address" disabled />

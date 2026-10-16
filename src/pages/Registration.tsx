@@ -25,7 +25,7 @@ export default function Registration() {
       });
       if (response.status === 202) {
         setSuccessful(true);
-        setFeedback('Request processed. If your details were available, your account was created with unverified email. If you already have an account, use it instead; otherwise try a different nickname. Email delivery and login are not available in this local build.');
+        setFeedback('Request processed. If your details were available, your account was created with unverified email. You can now try logging in. If you already have an account, use it instead; otherwise try a different nickname. Email delivery is not available in this local build.');
         form.reset();
       } else if (response.status === 400) {
         setFeedback('Please check all five fields. Follow the nickname rules shown with the form, avoid spaces around names or email, and use a password of 12–128 characters.');
@@ -53,7 +53,7 @@ export default function Registration() {
         <p className="eyebrow">Join the party</p>
         <h1>Create your account</h1>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
-        <p className="registration-local-notice">Local development only. Use fictional details and a disposable password. Email verification and login come later.</p>
+        <p className="registration-local-notice">Local development only. Use fictional details and a disposable password. Email verification comes later; unverified accounts can log in but cannot register for events.</p>
         <form onSubmit={submit} aria-busy={busy}>
           <fieldset disabled={busy}>
             <legend className="registration-legend">All five fields are required</legend>

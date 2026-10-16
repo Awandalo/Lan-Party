@@ -7,7 +7,8 @@ Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
 Phase 3 Authentication & Accounts is the active development phase; Phase 3.1
 provides local foundation primitives and migration 0008. Phase 3.2 Authentication
 Database adapters and Phase 3.3 registration are implemented locally. Hosted
-registration remains disabled; login/logout is the next development step after review.
+registration/login remain disabled; the next local login/logout step is implemented
+and approved for finalization. Email verification remains unfinished.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
 for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
 deployment from `main`; no local GitHub Actions production deployment workflow is
@@ -178,9 +179,10 @@ Implementation requirements:
 - [x] Record approved seven-day session/cookie, layered CSRF and D1-based persistent
   rate-limiting designs. Registration has a local D1 limiter in Phase 3.3; other
   limiters and remote secret/cleanup configuration remain unfinished.
-- [ ] Integrate cookie/session logout, CSRF middleware and explicit verification/reset
-  confirmation before token consumption. Never mutate through GET requests.
-- [ ] Extend distributed rate limiting to login/recovery/delivery when implemented.
+- [x] Integrate local cookie/session login/logout and session-bound CSRF protection.
+- [ ] Integrate explicit verification/reset confirmation before token consumption.
+  Never mutate through GET requests.
+- [ ] Extend distributed rate limiting to recovery/delivery when implemented.
   Agree hosted thresholds, idle cleanup and superseded-token/reissue behavior before live endpoints.
 - [ ] Approve privacy notice, real-name purposes/access, retention/deletion,
   participant requests, backup retention and email-provider processing arrangements.
@@ -204,10 +206,28 @@ Implementation requirements:
 - [ ] Approve hosted enablement, remote 0008/0009 preflight, secrets,
   abuse/idle-cleanup policy and DEV performance separately.
 
+### Login/logout milestone (implemented locally; approved for finalization)
+
+- [x] Add loopback-only/default-disabled email/password login using the existing
+  peppered verifier, credential-generation fencing and seven-day D1 sessions.
+- [x] Add separate HMAC login limits before crypto, generic missing/disabled/wrong
+  credential failures and synthetic verification for missing/disabled accounts.
+- [x] Preserve Secure/HttpOnly/SameSite=Lax/Path=/ host-only cookies and integrate
+  session-bound CSRF logout with D1 revocation before clearing the cookie.
+- [x] Add development-only login/account UI, nickname display, navigation states,
+  unauthenticated redirects and reload persistence without browser token storage.
+- [x] Test the full fictional registration → login → account → logout browser flow,
+  incorrect-password feedback, password clearing and mobile account layout.
+- [x] Pass all 185 automated tests, strict TypeScript, production build and diff
+  checks; verify hosted endpoint rejection and production bundle exclusion of active
+  authentication UI/API calls. Migrations 0001–0009 and deployment configuration are unchanged.
+- [x] Obtain owner approval to finalize and push this locally verified login/logout step.
+- [ ] Obtain separate approval before enabling hosted authentication.
+
 Later Phase 3 functionality remains unfinished:
 
-- [ ] Implement working login/logout using the existing session, cookie and CSRF
-  helpers plus persistent abuse controls; preserve unverified-account login but gate event signup.
+- [ ] Implement email verification separately. Unverified accounts may log in;
+  event signup remains unavailable and must require verified email when implemented.
 - [ ] Implement Resend Free behind a replaceable service when delivery is needed;
   use Cloudflare secrets and prevent arbitrary real-recipient delivery on DEV.
 - [ ] Implement 24-hour verification and 30-minute reset flows, single-use links,
@@ -558,7 +578,8 @@ Technical and verification planning:
 
 ## Current UI decisions
 
-- Login replaces Admin in navigation and has a disabled login preview.
+- Login replaces Admin in navigation. Hosted builds retain the disabled preview;
+  development builds have working Login/Account navigation and local logout.
 - The temporary /admin redirect has been removed; /login is the shared sign-in entry.
 - The obsolete standalone Registration page and /registration route have been removed.
 - Registration should eventually start from the selected event page, including day selection.

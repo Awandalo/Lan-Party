@@ -1,7 +1,9 @@
 import { Link, NavLink } from 'react-router';
 import './Header.css';
+import { useAuth } from '../lib/auth';
 
 export default function Header() {
+  const { session } = useAuth();
   return (
     <header className="site-header">
       <div className="container header-inner">
@@ -12,7 +14,9 @@ export default function Header() {
         <nav className="site-nav" aria-label="Main navigation">
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/events">Events</NavLink>
-          <NavLink to="/login">Login</NavLink>
+          {import.meta.env.DEV && session
+            ? <NavLink to="/account">Account</NavLink>
+            : <NavLink to="/login">Login</NavLink>}
         </nav>
       </div>
     </header>

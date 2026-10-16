@@ -5,7 +5,7 @@ export type TokenPurpose = 'session' | 'email-verification' | 'password-reset';
 const encoder = new TextEncoder();
 
 export function isValidToken(token: string): boolean {
-  return typeof token === 'string' && /^[0-9a-f]{64}$/.test(token);
+  return typeof token === 'string' && token.length === 64 && /^[0-9a-f]{64}$/.test(token);
 }
 
 function validatePurpose(purpose: TokenPurpose): void {

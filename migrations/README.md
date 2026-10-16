@@ -118,6 +118,9 @@ approved onboarding rule; privacy, retention and deletion decisions remain open.
 expiry and an expiry index. It contains no participant identifiers, secrets or seeds.
 The application caps global admission before allocating per-IP/email keys, uses
 atomic conditional upserts and deletes up to 100 expired rows per eligible request.
+Local login now reuses this table with distinct domain-separated HMAC keys and its
+own limits. Registration and login budgets do not share buckets. No migration 0010
+is needed for login/logout; no existing migration, including 0009, is edited.
 See PROJECT.md for local thresholds and the required hosted retention/idle-cleanup
 review. No remote migration or scheduler is authorized. Migrations 0001–0008 remain
 unchanged; the earlier statement that Phase 3.2 needed no 0009 applies to those

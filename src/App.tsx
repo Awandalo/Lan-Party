@@ -6,10 +6,12 @@ import Home from './pages/Home';
 import Events from './pages/Events';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
+import Account from './pages/Account';
+import { AuthProvider } from './lib/auth';
 
 export default function App() {
   return (
-    <div className="site-shell">
+    <AuthProvider><div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <Header />
       <main id="main-content" className="container main-content" tabIndex={-1}>
@@ -18,6 +20,7 @@ export default function App() {
           <Route path="/events" element={<Events />} />
           <Route path="/login" element={<Login />} />
           {import.meta.env.DEV && <Route path="/register" element={<Registration />} />}
+          {import.meta.env.DEV && <Route path="/account" element={<Account />} />}
           <Route path="*" element={
             <section className="page-section">
               <p className="eyebrow">404</p>
@@ -30,7 +33,7 @@ export default function App() {
       </main>
       <Footer />
       <RouteFocus />
-    </div>
+    </div></AuthProvider>
   );
 }
 

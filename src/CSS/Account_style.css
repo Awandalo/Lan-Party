@@ -1,0 +1,5 @@
+.account-page { display: grid; place-items: center; }
+.account-card { width: min(100%, 38rem); overflow-wrap: anywhere; }
+.account-card h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); }
+.account-card button { font: inherit; cursor: pointer; margin-top: 1rem; }
+.account-card button:disabled { cursor: wait; opacity: .7; }

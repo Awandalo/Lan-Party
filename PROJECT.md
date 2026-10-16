@@ -17,10 +17,10 @@ and verified in both environments. This documentation update does not independen
 verify PROD migration state or complete the current post-release
 public website verification. Phase 3 Authentication & Accounts is the active
 development phase. Phase 3.2 Authentication Database now has locally tested D1
-adapters. Phase 3.3 registration is now implemented for local development only;
-public authentication, News APIs and authentication middleware remain unfinished.
+adapters. Phase 3.3 registration and the next local login/logout step are implemented
+for local development only; hosted authentication and News APIs remain unfinished.
 Phase 3.1 now contains local, tested authentication primitives and contracts;
-public registration, login, email delivery and Google sign-in remain unfinished. Persistence
+public registration/login, email delivery and Google sign-in remain unfinished. Persistence
 is implemented locally in the Phase 3.2 adapters described below.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
@@ -400,7 +400,8 @@ The approved database and authentication decisions below supersede earlier propo
 2. **Registration editing:** Participant accounts are required by Phase 2.5. Define
    server-side signup ownership checks and the recovery/editing flow before APIs;
    email delivery and public flows remain unfinished. Local session/reset/revocation
-   storage adapters are implemented; HTTP flow integration is still required.
+   storage adapters and local login/logout HTTP integration are implemented;
+   hosted flows and event authorization integration are still required.
 3. **Registration fields and privacy:** Account signup uses the approved nickname,
    first name, last name, email and password fields below. Review any additional event contact fields
    and how participants are informed about public nicknames and selected days.
@@ -523,14 +524,16 @@ Repository assessment and implemented local foundation:
 - `worker/auth/cookies.ts` creates/parses/clears the approved opaque session cookie:
   `__Host-lan_session`, seven-day Max-Age, Secure, HttpOnly, SameSite=Lax, Path=/,
   no Domain. Duplicate/malformed cookies fail closed. Clearing a cookie alone is
-  not logout; future HTTP integration must also call the stored D1 revocation service.
+  not logout; local HTTP logout now calls the stored D1 revocation service below.
 - `worker/auth/csrf.ts` validates exact configured HTTPS Origin, JSON content type,
   `X-LAN-Request: 1` and a session-bound `X-CSRF-Token` for POST/PUT/PATCH/DELETE.
   The token is an HMAC-SHA-256 of the session digest using a separate 256-bit server
-  secret, which remains unconfigured. Wrong origin/session/token/header/content
+  secret independent from the pepper (locally supplied by the domain-separated
+  limiter/CSRF secret; remote configuration remains unconfigured). Wrong origin/session/token/header/content
   type and GET/HEAD/OPTIONS are rejected. These are tested helpers, not middleware
-  installed on public routes. Pre-login forms need a separate short-lived CSRF
-  context when implemented. Verification/reset links must render confirmation and
+  installed on public routes. Anonymous local registration/login enforce exact
+  Origin, JSON/custom header and no CORS; hosted pre-login context remains a review
+  gate. Verification/reset links must render confirmation and
   consume tokens only after explicit protected POST, never on a GET or link preview.
 - `worker/auth/nickname-state.ts` implements the participant update as one guarded
   D1 UPDATE, preventing concurrent cooldown bypass. It validates the nickname,
@@ -698,8 +701,8 @@ is supplementary, not a strict global limiter.
 - Pre-login request protection requires exact configured loopback `Origin`, JSON,
   `X-LAN-Request: 1` and same-origin Fetch Metadata when supplied. Other methods,
   encoded bodies and query parameters are rejected; no CORS is granted. Registration
-  grants no ambient session authority; authenticated mutation CSRF remains a later
-  integration. These checks do not replace abuse limits for non-browser clients.
+  grants no ambient session authority; authenticated logout uses the session-bound
+  CSRF integration below. These checks do not replace abuse limits for non-browser clients.
 - Migration `0009_create_registration_rate_limits.sql` is prepared and tested ONLY
   locally. Registration uses atomic D1 fixed-window HMAC-keyed counters before password
   hashing: global 30/hour first, IP 5/15 minutes, normalized email 3/hour. These are
@@ -724,13 +727,70 @@ is supplementary, not a strict global limiter.
   remote migrations 0008/0009, secrets, abuse policy and explicit hosted enablement
   remain separate gates. The owner approved finalizing the local registration implementation.
 
-Remaining release gates: verify integrated DEV password/authentication CPU headroom, implement
-session/cookie and CSRF integration, distributed rate limiting, recovery enumeration/timing
+### Next Phase 3 step — Login/logout and account experience (local only)
+
+- `POST /api/auth/login` validates exact email/password fields, a bounded JSON body,
+  trusted Origin/custom header/Fetch Metadata and the existing password policy.
+  Normalized email lookup and PBKDF2 20k + pepper verification reuse the foundation.
+  Missing and disabled accounts perform synthetic native 20k verification work and
+  receive the same generic 401 as incorrect passwords. This mitigates the obvious
+  missing-account timing difference; it does not promise constant-time network/SQL
+  behavior. Legacy hash verification remains explicit; no silent hash upgrade or
+  password/security policy change is introduced.
+- Login reuses migration 0009 counters with separate `login` HMAC domain keys:
+  global 30/hour, IP 5/15 minutes, normalized account 5/hour, before verification.
+  Invalid input consumes global/IP admission. Limits include successful attempts,
+  do not permanently lock accounts and fail closed on storage errors. Registration
+  limits are unchanged. Each action admits at most 61 keys/hour (122 combined);
+  capped expiry cleanup and the outstanding idle-retention/hosted-IP review apply
+  to both. The rate-limit secret also signs CSRF proofs using the existing distinct
+  `lan-party:csrf:v1` HMAC domain; it remains independent from the password pepper.
+- D1 creates a fresh seven-day session with a hashed random 256-bit token and the
+  credential generation captured before password verification. Generation fencing
+  prevents stale credentials issuing a session after a password/status change.
+  Successful re-login revokes the presented prior session. The only raw session
+  token response is `Set-Cookie: __Host-lan_session=…; Max-Age=604800; Secure;
+  HttpOnly; SameSite=Lax; Path=/`; there is no Domain attribute, token URL,
+  browser storage or client-readable session-token payload.
+- `GET /api/auth/session` validates cookie format/uniqueness, expiry, revocation,
+  active account and credential generation. Its explicit response projection is
+  only UUID/nickname plus a separate session-bound CSRF proof. Private names/email,
+  password records and session tokens are excluded. Invalid sessions return 401
+  and expire the cookie. All authentication responses are `no-store`, with no CORS.
+- `POST /api/auth/logout` requires a valid session, exact trusted request origin,
+  JSON/custom header and the existing session-bound CSRF proof, then revokes the D1
+  digest before expiring the cookie with matching attributes. Storage failures
+  report unavailability instead of claiming logout. GET never mutates D1 authentication state.
+- New endpoints additionally require `AUTH_SESSION_MODE=local-only` AND an HTTP
+  loopback request URL. Hosted requests always receive 404, even with that flag.
+  The original HTTPS-only CSRF helper is unchanged in contract; an explicit
+  loopback-only variant shares its verification logic for this gated local flow.
+  Secure cookie attributes are never weakened for local use. The tested browser
+  accepts Secure cookies on loopback. If another browser rejects them, this local
+  flow is unavailable there; supporting trusted local HTTPS requires a separately
+  reviewed setup/handler change, not removal of cookie protections.
+- Development builds provide a working login form, nickname-only account page,
+  Login/Account navigation states, logout, session restoration on reload and login
+  redirects for unauthenticated account visits. Passwords clear after attempts;
+  errors have accessible feedback. Production builds keep the disabled login preview
+  and omit local registration/account routes and active forms.
+- The local browser flow registration → incorrect login → login → account → reload
+  → logout → unauthenticated account redirect passed with fictional participants
+  and disposable in-memory D1/secrets. Desktop/mobile layout was checked, including
+  390 px width without horizontal overflow. Automated route tests cover cookie
+  attributes, hashed storage, expiry, revocation, CSRF, limits, generic failures,
+  private-data projections and hosted/configuration rejection. No migrations or
+  deployment configuration changed. All 185 tests, strict TypeScript, production
+  build and diff checks passed, including safe logout storage failure behavior.
+  The owner approved finalizing this locally verified login/logout milestone.
+
+Remaining release gates: verify integrated DEV password/authentication CPU headroom, review
+hosted session/cookie and CSRF integration, abuse policy, recovery enumeration/timing
 mitigations, token cleanup and delivery failure handling. Local workerd crypto tests
 do not prove a Workers Free deployed CPU budget or complete auth behavior.
 The owner-approved development work factor is fixed; further security changes need review.
-Only the local registration flow and storage primitives are implemented. No public
-registration, login, verification, reset, delivery or Google flow is marked complete.
+Local registration, login/logout, account UI and storage primitives are implemented.
+No public registration/login, verification, reset, delivery or Google flow is marked complete.
 No remote database access, manual deployment or provider configuration is authorized
 by this local implementation.
 

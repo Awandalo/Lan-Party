@@ -1,7 +1,8 @@
 import { registerAccount } from './auth/registration';
-import type { RegistrationEnvironment } from './auth/registration';
+import { authentication } from './auth/http';
+import type { AuthenticationEnvironment } from './auth/http';
 
-interface Env extends RegistrationEnvironment {
+interface Env extends AuthenticationEnvironment {
   ASSETS: Fetcher;
   DB: D1Database;
 }
@@ -11,6 +12,7 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/api/auth/register') return registerAccount(request, env);
+    if (['/api/auth/login', '/api/auth/session', '/api/auth/logout'].includes(pathname)) return authentication(request, env);
 
     if (pathname === '/api/health') {
       if (request.method !== 'GET') {

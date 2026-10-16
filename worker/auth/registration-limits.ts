@@ -5,7 +5,8 @@ import { serverTime } from './database';
 export const REGISTRATION_LIMITS = Object.freeze({ global: 30, ip: 5, account: 3 });
 export class RegistrationRateLimit extends Error {}
 
-export async function registrationLimiter(db: D1Database, secret: string, now: number) {
+export async function registrationLimiter(db: D1Database, secret: string, now: number,
+  action: 'registration' | 'login' = 'registration') {
   serverTime(now);
   const bytes = fromHex(secret, 32);
   if (!bytes) throw new Error('Registration limiter unavailable');
@@ -20,10 +21,11 @@ export async function registrationLimiter(db: D1Database, secret: string, now: n
     const seconds = scope === 'ip' ? 900 : 3600;
     const window = Math.floor(now / seconds) * seconds;
     const digest = await crypto.subtle.sign('HMAC', key,
-      new TextEncoder().encode(`lan-party:registration:v1:${scope}:${window}:${identifier}`));
+      new TextEncoder().encode(`lan-party:${action}:v1:${scope}:${window}:${identifier}`));
     const allowed = await db.prepare(`INSERT INTO registration_rate_limits (key_hash,hits,expires_at) VALUES (?,1,?)
       ON CONFLICT(key_hash) DO UPDATE SET hits=hits+1 WHERE hits<? RETURNING hits`)
-      .bind(toHex(new Uint8Array(digest)), window + seconds, REGISTRATION_LIMITS[scope]).first<{ hits: number }>();
+      .bind(toHex(new Uint8Array(digest)), window + seconds,
+        action === 'login' && scope === 'account' ? 5 : REGISTRATION_LIMITS[scope]).first<{ hits: number }>();
     if (!allowed) throw new RegistrationRateLimit('Registration rate limit reached');
   };
 }
