@@ -108,8 +108,26 @@ Use these locations when implementation begins:
 
 ## 6. Testing and verification
 
-- Run relevant checks after changes, including TypeScript validation and production
-  builds when applicable.
+- Default to risk-based, targeted testing: inspect the Git diff first, identify
+  changed files, affected components and risks, and select the smallest sufficient
+  test set covering modified functionality and its direct dependencies. Include
+  integration tests for behavior crossing components.
+- Run strict TypeScript and build checks when compilation, imports, routing or
+  bundling could be affected. Run broader regressions for shared authentication,
+  sessions, authorization, database schemas, security boundaries or other widely
+  reused components. Run the full suite before production release and whenever
+  impact cannot be confidently isolated. Follow stricter RELEASE.md and CI requirements.
+- Never reduce necessary coverage solely to save credits for authentication,
+  authorization, password recovery, email verification, database integrity, secrets
+  or deployment security. Targeted tests are acceptable when they adequately cover
+  the risk; high-risk changes require broader verification.
+- Reuse successful tests and browser evidence while the code affecting those results
+  remains unchanged. After a small correction, rerun failed and newly affected tests,
+  rather than automatically repeating successful suites. CI results are valid
+  verification evidence when they correspond to the exact commit under review.
+- Batch checks where practical, avoid repeatedly reading unchanged files and keep
+  test output concise. Run browser tests when relevant behavior or UI changes.
+  Report tests run and intentionally omitted, explaining why omissions are appropriate.
 - Report failures clearly and distinguish tested behavior from assumptions.
 - Do not claim functionality works unless it has been tested.
 - Document manual testing requirements, including responsive layouts, accessibility,
