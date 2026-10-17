@@ -296,10 +296,22 @@ real email/integrated CPU verification remain separately approved operations.
   with a prominent login action; preserve token, rate-limit and delivery protections.
 - [ ] Confirm Resend click/open tracking is disabled before separately approved
   real-email/client rendering tests. Local fixtures do not establish inbox rendering.
-- [ ] Temporary DEV test-account reset remains a proposal: uncommitted local utility,
-  dry-run by default, explicit per-deletion approval and fresh recovery checkpoint;
-  refuse protected dependencies, preserve member-number tombstones and sending limits,
-  then remove the utility after testing. No reset utility or deletion is implemented.
+- [x] Remove the temporary ignored DEV reset/retirement investigation tools after
+  the owner completed account retirement manually; preserve unrelated recovery data.
+- [x] Remove permanent verification/resend links from login and registration forms.
+- [x] Show verification assistance after valid credentials for an unverified account,
+  preserving authentication, enumeration resistance and abuse controls.
+- [x] Show a friendly verification-pending success screen after registration.
+- [x] Replace the visible long action URL in HTML emails with a descriptive hyperlink;
+  retain the complete fallback URL in plain text.
+- [x] Add friendly organizer support copy without inventing contact links; actual
+  contact destinations remain an owner decision.
+- [x] Owner confirms Gmail and Microsoft 365/Mimecast registration, verification
+  and login passed; no additional live email test was performed for this polish.
+- [x] Locally polish verification pending/error/success states, remove the main route
+  focus outline while retaining control focus indicators, and add a reset-success login action.
+- [ ] Owner review the updated hosted DEV screens after separately approved deployment;
+  perform the real password-recovery test separately.
 
 Final Phase 3 milestone — before enabling public registration:
 
@@ -648,6 +660,10 @@ Technical and verification planning:
 - The homepage has a news section between Up next and the three feature cards.
 
 ## Future administration work
+
+- [ ] Phase 5 idea: manually assisted account verification with appropriate identity
+  checks, backend authorization and audit logging. No bootstrap or verification bypass
+  is authorized by this backlog item.
 
 - [ ] Let authorized organizers upload and replace the left/right LAN background photos.
   Support image selection, preview, cropping/position, and removal.

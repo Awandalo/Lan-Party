@@ -8,13 +8,14 @@ export default function LocalLogin() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const [verificationRequired, setVerificationRequired] = useState(false);
   if (session) return <Navigate to="/account" replace />;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     const form = event.currentTarget, data = new FormData(form);
     const input = { email: String(data.get('email') ?? ''), password: String(data.get('password') ?? '') };
-    setBusy(true); setFeedback('');
+    setBusy(true); setFeedback(''); setVerificationRequired(false);
     try {
       const response = await fetch('/api/auth/login', { method: 'POST', credentials: 'same-origin', redirect: 'error',
         headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1' }, body: JSON.stringify(input),
@@ -24,7 +25,12 @@ export default function LocalLogin() {
         else setFeedback('Login could not be confirmed. Check that your browser accepts secure cookies, then reload.');
       } else if ([400, 401].includes(response.status)) setFeedback('Email or password is incorrect.');
       else if (response.status === 429) setFeedback('Too many login attempts. Please wait up to one hour before trying again.');
-      else if (response.status === 403) setFeedback('Request rejected. Reload this page and try again.');
+      else if (response.status === 403) {
+        const result = await response.json();
+        if (result.code === 'verification_required') {
+          setVerificationRequired(true); setFeedback('Your password is correct. Please verify your email before signing in.');
+        } else setFeedback('Request rejected. Reload this page and try again.');
+      }
       else setFeedback('Login is temporarily unavailable. Please try again later.');
     } catch { setFeedback('We could not confirm your login. Reload before trying again. No automatic retry was made.'); }
     finally {
@@ -36,7 +42,7 @@ export default function LocalLogin() {
   }
   return <section className="page-section login-page"><div className="panel login-card">
     <p className="eyebrow">Welcome back</p><h1>Login</h1>
-    <p>Verify your email before logging in.</p>
+    <p>Sign in to your LAN Party account.</p>
     {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
     <form onSubmit={submit} aria-busy={busy}>
       <fieldset className="login-fields" disabled={busy || status === 'loading'}>
@@ -49,7 +55,7 @@ export default function LocalLogin() {
       </fieldset>
     </form>
     <div className="login-feedback" ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
-    <p><Link to="/verify-email">Verify email or request another link</Link></p>
+    {verificationRequired && <p><Link to="/verify-email">Request a verification email</Link></p>}
     <p><Link to="/register">Create an account</Link></p>
     <p><Link to="/forgot-password">Forgot your password?</Link></p>
   </div></section>;

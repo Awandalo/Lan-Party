@@ -69,7 +69,7 @@ test('offline hosted DEV register → verify → login/logout → reset uses gua
   const body = await registration.text(); for (const value of Object.values(profile)) assert.equal(body.includes(value), false);
   assert.equal(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
   const login = password => request('login', { email: profile.email, password });
-  const denied = await login(profile.password); assert.equal(denied.status, 401); assert.equal(denied.headers.get('set-cookie'), null);
+  const denied = await login(profile.password); assert.equal(denied.status, 403); assert.equal(denied.headers.get('set-cookie'), null);
   const verification = (await mails())[0]; assert.equal(verification.from, 'noreply@auth.lan-party.club');
   assert.equal((await request('verify-email', proof(verification))).status, 200);
   assert.equal((await request('verify-email', proof(verification))).status, 400);
@@ -129,7 +129,7 @@ test('password recovery never verifies an address or lets an unverified account 
   const reset = proof((await mails())[1]), password = 'fictional replacement password';
   assert.equal((await request('reset-password', { ...reset, password })).status, 200);
   assert.equal(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
-  assert.equal((await request('login', { email: profile.email, password })).status, 401);
+  assert.equal((await request('login', { email: profile.email, password })).status, 403);
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'), 0);
   assert.equal((await request('resend-verification', { email: profile.email })).status, 202);
   assert.equal((await request('verify-email', proof((await mails())[2]))).status, 200);

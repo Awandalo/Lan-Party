@@ -218,6 +218,10 @@ test('failed logout storage does not expire the cookie or falsely report revocat
 
  test('unverified credentials cannot create a session', () => local(async ({ db, request, register }) => {
  await register(); await db.prepare('UPDATE users SET email_verified_at=NULL').run();
- const response=await request('login', credentials); assert.equal(response.status,401); assert.equal(response.headers.get('set-cookie'),null);
+ const wrong = await request('login', { ...credentials, password: 'wrong fictional password' });
+ assert.equal(wrong.status, 401); assert.deepEqual(await wrong.json(), { error: 'Email or password is incorrect.' });
+ const response=await request('login', credentials); assert.equal(response.status,403);
+ assert.deepEqual(await response.json(), { code: 'verification_required', error: 'Verify your email before logging in.' });
+ assert.equal(response.headers.get('cache-control'), 'no-store'); assert.equal(response.headers.get('set-cookie'),null);
  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'),0);
 }));

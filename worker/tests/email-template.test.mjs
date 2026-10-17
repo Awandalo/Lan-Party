@@ -26,6 +26,9 @@ test('verification and recovery share branded HTML and explicit plain text witho
     for (const color of ['#101317', '#171c22', '#8de2bd']) assert.ok(result.html.includes(color));
     assert.doesNotMatch(result.html, /<img|<script|<link|<iframe|@import|url\(/i);
     assert.equal((result.html.match(/href=/g) ?? []).length, 2);
+    assert.ok(result.html.includes(`${action} securely</a>`));
+    assert.doesNotMatch(result.html.replace(/<[^>]*>/g, ''), /https:\/\//);
+    for (const body of [result.text, result.html]) assert.ok(body.includes('Contact the LAN Party organizers'));
   }
 });
 

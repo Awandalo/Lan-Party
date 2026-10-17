@@ -29,6 +29,8 @@ p:last-child { margin-bottom: 0; }
 .site-shell { display: flex; flex-direction: column; min-height: 100dvh; overflow-x: clip; }
 .container { width: min(1120px, calc(100% - 3rem)); margin-inline: auto; }
 .main-content { flex: 1; }
+/* Route/skip-link focus announces the destination without outlining the layout. */
+.main-content:focus { outline: none; }
 .page-section { padding-block: clamp(3rem, 7vw, 5rem); }
 .page-intro { max-width: 42rem; font-size: 1.1rem; }
 .eyebrow { color: var(--accent); font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }

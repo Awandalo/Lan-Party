@@ -56,6 +56,6 @@ export default function ResetPassword() {
     </fieldset></form>}
     {!proof && !complete && <p>No reset confirmation is loaded. Open your latest reset message or request a new link.</p>}
     <div className="reset-password-feedback" ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
-    <p><Link to="/login">Log in</Link> · <Link to="/forgot-password">Request a new reset link</Link></p>
+    <p><Link className={complete ? 'button' : undefined} to="/login">{complete ? 'Continue to login' : 'Log in'}</Link>{!complete && <> · <Link to="/forgot-password">Request a new reset link</Link></>}</p>
   </div></section>;
 }

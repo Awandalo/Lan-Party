@@ -160,7 +160,8 @@ test('generic resend responses cover missing, unverified, verified, disabled and
 
 test('unverified accounts must verify before login; anonymous resend recovers access without private data', () => local(async ({ request, register, mail, proof }) => {
   await register();
-  const denied = await request('login', { email: profile.email, password: profile.password }); assert.equal(denied.status, 401);
+  const denied = await request('login', { email: profile.email, password: profile.password }); assert.equal(denied.status, 403);
+  assert.equal((await denied.json()).code, 'verification_required');
   assert.equal(denied.headers.get('set-cookie'), null);
   assert.equal((await request('resend-verification', { email: profile.email })).status, 202);
   assert.equal((await request('verify-email', proof(await mail()))).status, 200);

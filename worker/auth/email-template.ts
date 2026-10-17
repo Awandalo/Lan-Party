@@ -21,10 +21,11 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
   const expiry = `This link expires in ${reset ? '30 minutes' : '24 hours'} and works once.`;
   const action = reset ? 'Reset password' : 'Continue verification';
   const security = 'If you did not request this, ignore this email.';
+  const support = 'Need a hand? Contact the LAN Party organizers if this link does not work.';
   const href = escapeHTML(url.href);
   return {
     subject,
-    text: `LAN / PARTY\n\n${heading}\n\n${explanation} ${expiry}\n\n${action}:\n${url.href}\n\n${security}`,
+    text: `LAN / PARTY\n\n${heading}\n\n${explanation} ${expiry}\n\n${action}:\n${url.href}\n\n${support}\n\n${security}`,
     html: `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHTML(subject)}</title></head>
 <body style="margin:0;padding:0;background-color:#101317;color:#edf1f5;font-family:'Segoe UI',Arial,sans-serif;">
@@ -35,8 +36,9 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
 <p style="margin:0 0 12px;color:#aeb9c7;font-size:16px;line-height:1.6;">${escapeHTML(explanation)}</p>
 <p style="margin:0 0 24px;color:#aeb9c7;font-size:16px;line-height:1.6;">${escapeHTML(expiry)}</p>
 <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#8de2bd" style="border-radius:8px;"><a href="${href}" style="display:inline-block;padding:16px 24px;color:#101317;font-size:16px;font-weight:bold;text-decoration:none;">${escapeHTML(action)}</a></td></tr></table>
-<p style="margin:24px 0 8px;color:#aeb9c7;font-size:14px;line-height:1.6;">If the button does not work, copy this link into your browser:</p>
-<p style="margin:0 0 24px;font-size:13px;line-height:1.6;overflow-wrap:anywhere;word-break:break-all;"><a href="${href}" style="color:#8de2bd;">${href}</a></p>
+<p style="margin:24px 0 8px;color:#aeb9c7;font-size:14px;line-height:1.6;">If the button does not work, use this link:</p>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.6;"><a href="${href}" style="color:#8de2bd;">${escapeHTML(action)} securely</a></p>
+<p style="margin:0 0 24px;color:#aeb9c7;font-size:14px;line-height:1.6;">${escapeHTML(support)}</p>
 <p style="margin:0;padding-top:20px;border-top:1px solid #333d49;color:#aeb9c7;font-size:13px;line-height:1.6;">${escapeHTML(security)} Never share this link. LAN Party will never ask you to send your password by email.</p>
 </td></tr></table></td></tr></table></body></html>`,
   };

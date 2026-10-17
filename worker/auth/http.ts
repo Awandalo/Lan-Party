@@ -59,7 +59,9 @@ export async function authentication(request: Request, env: AuthenticationEnviro
       await limit('account', email);
       const credential = await findPasswordCredential(env.DB, email);
       const verified = await verifyPassword(password, credential?.passwordHash ?? dummyRecord, env.PASSWORD_PEPPER);
-      if (!verified || !credential || credential.emailVerifiedAt === null) return reply(401, invalid);
+      if (!verified || !credential) return reply(401, invalid);
+      // Disclose verification state only after password proof; do not issue a session.
+      if (credential.emailVerifiedAt === null) return reply(403, { code: 'verification_required', error: 'Verify your email before logging in.' });
       // Keep the generation read BEFORE verification: D1 fences concurrent credential changes.
       const session = await issueSession(store, credential, now);
       const previous = readSessionCookie(request);

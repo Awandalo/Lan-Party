@@ -832,6 +832,12 @@ is supplementary, not a strict global limiter.
   Phase 3.8 adds one shared branded HTML/plain-text template for verification and
   recovery, with canonical DEV action links and no external assets. Verification
   retains explicit POST confirmation, followed by a success page and login action.
+  Local Phase 3.8 polish hides resend controls during confirmation, shows a generic
+  registration-pending screen, and offers verification help only after a correct
+  password for an unverified account (no session issued). HTML uses descriptive
+  action links; plain text retains the full URL. Organizer support copy has no
+  unapproved contact destinations. The owner confirms Gmail and Microsoft 365/
+  Mimecast registration, verification and login passed before this local polish.
   Provider click/open tracking must be confirmed disabled before separately approved
   live template tests; local fixtures do not prove rendering in email clients.
   The Resend adapter uses a bounded request, a digest-derived idempotency key,

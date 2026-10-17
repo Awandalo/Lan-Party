@@ -25,7 +25,7 @@ export default function Registration() {
       });
       if (response.status === 202) {
         setSuccessful(true);
-        setFeedback('Request processed. If your details were available, your account was created with unverified email and a verification message was attempted. Check your email messages. If delivery was unavailable, request another verification email before logging in. Existing account details may be unavailable; try your existing login or another nickname.');
+        setFeedback('Check your inbox and spam folder. If your details were available, we attempted to send a verification email. Open the message and confirm your email before signing in.');
         form.reset();
       } else if (response.status === 400) {
         setFeedback('Please check all five fields. Follow the nickname rules shown with the form, avoid spaces around names or email, and use a password of 12–128 characters.');
@@ -51,7 +51,8 @@ export default function Registration() {
     <section className="page-section registration-page">
       <div className="panel registration-card">
         <p className="eyebrow">Join the party</p>
-        <h1>Create your account</h1>
+        <h1>{successful ? 'Check your email' : 'Create your account'}</h1>
+        {!successful && <>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
         <p className="registration-local-notice">{import.meta.env.DEV ? 'Use fictional .test details and a disposable password. ' : 'DEV testing is limited to approved test addresses. '}Verify your email before logging in.</p>
         <form onSubmit={submit} aria-busy={busy}>
@@ -72,11 +73,12 @@ export default function Registration() {
             <p id="password-rules" className="registration-hint">12–128 characters. Passphrases and Unicode are supported. Your password is never trimmed.</p>
             <button className="button" type="submit">{busy ? 'Creating account…' : 'Create account'}</button>
           </fieldset>
-        </form>
+        </form></>}
         <div ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite"
           className={`registration-feedback${successful ? ' registration-success' : ''}`}>{feedback}</div>
         <p><Link to="/login">Back to login</Link></p>
-        <p>{import.meta.env.DEV && <><Link to="/local-mail">Restricted local mailbox</Link> · </>}<Link to="/verify-email">Request a new verification email</Link></p>
+        {successful && <p>No message yet? Delivery may be unavailable, or your details may already be in use. <Link to="/verify-email">Get verification help</Link> or try your existing login.</p>}
+        {import.meta.env.DEV && <p><Link to="/local-mail">Restricted local mailbox</Link></p>}
       </div>
     </section>
   );
