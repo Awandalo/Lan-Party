@@ -47,10 +47,10 @@ export default function VerifyEmail() {
     finally { setBusy(false); requestAnimationFrame(() => feedbackRef.current?.focus()); }
   }
   return <section className="page-section verification-page"><div className="panel verification-card" aria-busy={busy}>
-    <p className="eyebrow">Account security</p><h1 id={verified ? 'verification-success' : undefined} tabIndex={verified ? -1 : undefined}>{verified ? 'Email verified!' : 'Verify your email'}</h1>
+    <p className="eyebrow">Account security</p><h1 id={verified ? 'verification-success' : undefined} tabIndex={verified ? -1 : undefined}>{verified ? 'Email verified!' : proof ? "One last step before you're connected!" : 'Verify your email'}</h1>
     {verified ? <><p>Your LAN Party account is ready. You can now sign in and join the party!</p>
       <Link className="button" to="/login">Continue to login</Link></>
-      : <p>Opening this link does not verify your account. Select Verify my email to confirm. Links expire after 24 hours and work once.</p>}
+      : proof && <p>Click the button below to confirm your email and activate your LAN Party account. This link is valid for 24 hours.</p>}
     {proof && !verified && <button className="button" onClick={confirm} disabled={busy}>{busy ? 'Verifying…' : 'Verify my email'}</button>}
     {!proof && !verified && <p>No pending confirmation is loaded. Open your latest verification message or request a new one.</p>}
     <div ref={feedbackRef} className="verification-feedback" tabIndex={-1} role="status" aria-live="polite">{feedback}</div>

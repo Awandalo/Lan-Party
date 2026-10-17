@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
+import PasswordInput from '../components/PasswordInput';
 import '../CSS/Registration_style.css';
 
 export default function Registration() {
@@ -25,7 +26,7 @@ export default function Registration() {
       });
       if (response.status === 202) {
         setSuccessful(true);
-        setFeedback('Check your inbox and spam folder. If your details were available, we attempted to send a verification email. Open the message and confirm your email before signing in.');
+        setFeedback('Check your inbox (and spam folder) for your verification email. If your details were available, we attempted to send it. Follow the link to finish setting up your account and join the party!');
         form.reset();
       } else if (response.status === 400) {
         setFeedback('Please check all five fields. Follow the nickname rules shown with the form, avoid spaces around names or email, and use a password of 12–128 characters.');
@@ -51,7 +52,7 @@ export default function Registration() {
     <section className="page-section registration-page">
       <div className="panel registration-card">
         <p className="eyebrow">Join the party</p>
-        <h1>{successful ? 'Check your email' : 'Create your account'}</h1>
+        <h1>{successful ? "You're almost connected!" : 'Create your account'}</h1>
         {!successful && <>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
         <p className="registration-local-notice">{import.meta.env.DEV ? 'Use fictional .test details and a disposable password. ' : 'DEV testing is limited to approved test addresses. '}Verify your email before logging in.</p>
@@ -69,7 +70,7 @@ export default function Registration() {
             <label htmlFor="registration-email">Email address <span>(private)</span></label>
             <input id="registration-email" name="email" type="email" required maxLength={254} autoComplete="email" autoCapitalize="none" />
             <label htmlFor="registration-password">Password</label>
-            <input id="registration-password" name="password" type="password" required autoComplete="new-password" aria-describedby="password-rules" />
+            <PasswordInput id="registration-password" name="password" required autoComplete="new-password" aria-describedby="password-rules" />
             <p id="password-rules" className="registration-hint">12–128 characters. Passphrases and Unicode are supported. Your password is never trimmed.</p>
             <button className="button" type="submit">{busy ? 'Creating account…' : 'Create account'}</button>
           </fieldset>

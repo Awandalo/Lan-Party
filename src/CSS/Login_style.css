@@ -17,4 +17,7 @@
 .login-fields button { margin-top: 1rem; font: inherit; cursor: pointer; }
 .login-fields:disabled { opacity: .7; }
 .login-feedback { color: var(--warning); line-height: 1.7; overflow-wrap: anywhere; }
+.login-feedback:not(:empty) { padding: .85rem 1rem; margin-block: 1rem 1.5rem; border: 1px solid var(--warning); border-radius: .5rem; background: var(--warning-dim); }
+.login-feedback:focus { outline: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--warning); }
+.login-card .login-fields > .button { margin-top: .75rem; }
 

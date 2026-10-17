@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
+import PasswordInput from './PasswordInput';
 
 export default function LocalLogin() {
   const { session, status, refresh } = useAuth();
@@ -45,12 +46,11 @@ export default function LocalLogin() {
     <p>Sign in to your LAN Party account.</p>
     {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
     <form onSubmit={submit} aria-busy={busy}>
-      <fieldset className="login-fields" disabled={busy || status === 'loading'}>
-        <legend>Email and password</legend>
+      <fieldset className="login-fields" disabled={busy || status === 'loading'} aria-label="Login credentials">
         <label htmlFor="login-email">Email address</label>
         <input id="login-email" name="email" type="email" required maxLength={254} autoComplete="username" autoCapitalize="none" />
         <label htmlFor="login-password">Password</label>
-        <input id="login-password" name="password" type="password" required autoComplete="current-password" />
+        <PasswordInput id="login-password" name="password" required autoComplete="current-password" />
         <button className="button" type="submit">{busy ? 'Logging in…' : 'Log in'}</button>
       </fieldset>
     </form>

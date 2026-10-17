@@ -2,6 +2,7 @@ import { AUTH_UI_AVAILABLE, authUIEnabled } from '../lib/auth-mode';
 import { Link, NavLink } from 'react-router';
 import './Header.css';
 import { useAuth } from '../lib/auth';
+import AccountMenu from './AccountMenu';
 
 export default function Header() {
   const { session } = useAuth();
@@ -16,7 +17,7 @@ export default function Header() {
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/events">Events</NavLink>
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && session
-            ? <NavLink to="/account">Account</NavLink>
+            ? <AccountMenu nickname={session.account.nickname} />
             : <NavLink to="/login">Login</NavLink>}
         </nav>
       </div>

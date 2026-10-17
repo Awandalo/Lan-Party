@@ -313,6 +313,21 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner review the updated hosted DEV screens after separately approved deployment;
   perform the real password-recovery test separately.
 
+### Phase 3.8.1 — Final authentication GUI polish
+
+- [x] Add friendly registration-pending and verification-confirmation copy while
+  preserving generic responses and explicit token confirmation; keep verified success unchanged.
+- [x] Add an accessible account navigation disclosure with nickname/account access,
+  clearly disabled future options and the existing secure logout flow.
+- [x] Share hidden-by-default Show/Hide password controls across login, registration
+  and reset, retaining autofill and exact password input, including Unicode and spaces.
+- [x] Simplify recovery to a generic request-confirmation screen, one reset-password
+  field using the unchanged API, contextual fresh-link assistance and dedicated success copy.
+- [x] Polish login errors, spacing and responsive layouts; locally check keyboard
+  navigation, Escape/focus handling, logout failure, visibility and fictional form states.
+- [ ] Owner perform the final hosted DEV authentication walkthrough after deployment.
+  No live email, account or database operation is part of the local GUI checks.
+
 Final Phase 3 milestone — before enabling public registration:
 
 - [ ] Publish participant privacy information: public nickname/attendance, private
