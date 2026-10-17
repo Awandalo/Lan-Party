@@ -22,7 +22,7 @@ before(async () => {
   [providers, service, actions] = await Promise.all([moduleFrom('../auth/email.ts'),
     moduleFrom('../auth/verification-service.ts'), moduleFrom('../auth/action-state.ts')]);
   migrations = [];
-  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^000[1-9]_.*\.sql$/.test(x)).sort()) {
+  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
     let rest = (await readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).replace(/--[^\n]*/g, '').trim();
     const statements = [];
     while (rest) {
@@ -167,7 +167,7 @@ test('unverified accounts must verify before login; anonymous resend recovers ac
   const login = await request('login', { email: profile.email, password: profile.password }); assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie').split(';')[0];
   const after = await (await request('session', undefined, { Cookie: cookie })).json(); assert.equal(after.emailVerified, true);
-  assert.deepEqual(Object.keys(after.account).sort(), ['nickname', 'userId']);
+  assert.deepEqual(Object.keys(after.account).sort(), ['memberNumber', 'nickname', 'userId']);
   for (const value of [profile.email, profile.firstName, profile.lastName, profile.password]) assert.equal(JSON.stringify(after).includes(value), false);
 }));
 

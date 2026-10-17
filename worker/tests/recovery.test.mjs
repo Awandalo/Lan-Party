@@ -23,7 +23,7 @@ before(async () => {
   [service, providers, links] = await Promise.all([moduleFrom('../auth/verification-service.ts'), moduleFrom('../auth/email.ts'),
     moduleFrom('../../src/lib/verification-link.ts', { 'import.meta.env.DEV': 'true' })]);
   migrations = [];
-  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^000[1-9]_.*\.sql$/.test(x)).sort()) {
+  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
     let rest = (await readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).replace(/--[^\n]*/g, '').trim();
     const statements = [];
     while (rest) {

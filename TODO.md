@@ -268,6 +268,12 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Configure the hosted frontend flag only in the DEV deployment build step;
   preserve hostname guards and default production previews. Backend activation and
   real email testing remain separate approvals.
+- [x] Implement permanent cosmetic member numbers locally: reserved slots 1–10,
+  regular allocation from 11, atomic 64-bit issuance, immutable deletion tombstones,
+  public nickname display and internal administrator-only new-account provisioning.
+- [ ] Review local migration 0011 and compatible code, then separately approve DEV
+  application/deployment before auth activation. Approve actual organization account
+  identities and reserved slots separately; no accounts or assignments were created.
 - [x] Verify the uncommitted local password-recovery flow with focused combined
   regressions, preserving single-use links, generic feedback and session revocation.
 - [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)

@@ -16,7 +16,7 @@ before(async () => {
   script = (await build({ entryPoints: [fileURLToPath(new URL('../index.ts', import.meta.url))],
     bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
   migrations = [];
-  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^000[1-9]_.*\.sql$/.test(x)).sort()) {
+  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
     let rest = (await readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).replace(/--[^\n]*/g, '').trim();
     const sql = [];
     while (rest) {
@@ -34,7 +34,7 @@ async function local(run, overrides = {}, omitLimits = false) {
       PASSWORD_PEPPER: pepper, AUTH_RATE_LIMIT_SECRET: rateSecret, ...overrides } }));
   try {
     const db = await instance.getD1Database('DB');
-    for (const statements of omitLimits ? migrations.slice(0, -1) : migrations) await db.batch(statements.map(s => db.prepare(s)));
+    for (const statements of omitLimits ? migrations.filter((_, index) => index !== 8) : migrations) await db.batch(statements.map(s => db.prepare(s)));
     let ordinal = 0;
     const submit = (input = original, options = {}) => {
       const { headers = {}, ...rest } = options;
@@ -59,6 +59,7 @@ test('registration creates a private unverified account, unique nickname and ind
   assert.equal(user.first_name, original.firstName); assert.equal(user.last_name, original.lastName);
   assert.equal(user.email, original.email); assert.equal(user.email_normalized, 'player@example.test');
   assert.equal(user.email_verified_at, null); assert.equal(user.status, 'active'); assert.equal(user.auth_version, 0);
+  assert.equal(await db.prepare('SELECT CAST(member_number AS TEXT) AS value FROM member_numbers WHERE user_id=?').bind(user.id).first('value'), '11');
   const nickname = await db.prepare('SELECT * FROM user_nicknames').first();
   assert.equal(nickname.nickname, original.nickname); assert.equal(nickname.nickname_key, 'player one');
   assert.equal(nickname.nickname_changed_at, null);
@@ -79,6 +80,9 @@ test('registration creates a private unverified account, unique nickname and ind
 }));
 
 test('registration rejects invalid, reserved and unexpected fields without account writes', () => local(async ({ db, submit }) => {
+  for (const input of [{ ...original, memberNumber: '1' }, { ...original, member_number: 1 }]) {
+    assert.equal((await submit(input)).status, 400);
+  }
   for (const input of [{ ...original, nickname: ' Admin ' }, { ...original, nickname: 'System' },
     { ...original, nickname: 'Two  Spaces' }, { ...original, nickname: 'Jo' },
     { ...original, firstName: '' }, { ...original, lastName: ' Leading' },
@@ -111,6 +115,7 @@ test('credential insert failure atomically rolls back profile and nickname', () 
   const response = await submit(); assert.equal(response.status, 503);
   assert.equal((await response.text()).includes('storage'), false);
   for (const table of ['users', 'user_nicknames', 'user_password_credentials']) assert.equal(await count(db, table), 0);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM member_numbers WHERE registered=1').first('n'), 0);
 }));
 
 test('strict origin, method, content and body boundaries reject cross-site or oversized submissions', () => local(async ({ db, submit, instance }) => {

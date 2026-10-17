@@ -18,7 +18,7 @@ before(async () => {
   script = (await build({ entryPoints: [fileURLToPath(new URL('../index.ts', import.meta.url))],
     bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
   migrations = [];
-  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^000[1-9]_.*\.sql$/.test(x)).sort()) {
+  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
     let rest = (await readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).replace(/--[^\n]*/g, '').trim();
     const statements = [];
     while (rest) {
@@ -36,7 +36,7 @@ async function local(run, overrides = {}, omitLimits = false) {
       PASSWORD_PEPPER: '11'.repeat(32), AUTH_RATE_LIMIT_SECRET: '22'.repeat(32), ...overrides } }));
   try {
     const db = await instance.getD1Database('DB');
-    for (const statements of omitLimits ? migrations.slice(0, -1) : migrations) await db.batch(statements.map(s => db.prepare(s)));
+    for (const statements of omitLimits ? migrations.filter((_, index) => index !== 8) : migrations) await db.batch(statements.map(s => db.prepare(s)));
     let ip = 0;
     const request = (action, input, headers = {}, options = {}) => instance.dispatchFetch(base + action, {
       method: input === undefined ? 'GET' : 'POST', ...(input === undefined ? {} : { body: JSON.stringify(input) }),
@@ -66,8 +66,9 @@ test('registration → login → private account → CSRF logout revokes the dig
   const body = await response.json();
   assert.deepEqual(Object.keys(body).sort(), ['account', 'csrfToken', 'emailVerified']);
   assert.equal(body.emailVerified, true);
-  assert.deepEqual(Object.keys(body.account).sort(), ['nickname', 'userId']);
+  assert.deepEqual(Object.keys(body.account).sort(), ['memberNumber', 'nickname', 'userId']);
   assert.equal(body.account.nickname, profile.nickname);
+  assert.equal(body.account.memberNumber, '11');
   for (const value of [profile.firstName, profile.lastName, profile.email, profile.password, token]) assert.equal(JSON.stringify(body).includes(value), false);
   assert.notEqual(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
   const logout = await request('logout', {}, { Cookie: cookie, 'X-CSRF-Token': body.csrfToken });

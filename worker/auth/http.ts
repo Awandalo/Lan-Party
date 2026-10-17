@@ -83,7 +83,10 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     const nickname = await env.DB.prepare('SELECT nickname FROM user_nicknames WHERE user_id=?')
       .bind(account.userId).first<string>('nickname');
     if (!nickname) throw new Error('Account nickname unavailable');
-    return reply(200, { account: publicAccount({ userId: account.userId, nickname }), emailVerified: account.emailVerifiedAt !== null,
+    const memberNumber = await env.DB.prepare('SELECT CAST(member_number AS TEXT) AS value FROM member_numbers WHERE user_id=? AND registered=1')
+      .bind(account.userId).first<string>('value');
+    if (!memberNumber) throw new Error('Account member number unavailable');
+    return reply(200, { account: publicAccount({ userId: account.userId, nickname, memberNumber }), emailVerified: account.emailVerifiedAt !== null,
       csrfToken: await sessionCsrfToken(digest, env.AUTH_RATE_LIMIT_SECRET) });
   } catch (error) {
     if (error instanceof RegistrationRateLimit) return reply(429,

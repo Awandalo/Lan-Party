@@ -517,7 +517,7 @@ Repository assessment and implemented local foundation:
   derives a lowercase key while preserving display capitalization.
   `worker/auth/accounts.ts` validates all five required registration fields,
   generates stable UUIDs and projects public accounts using an explicit allowlist
-  containing only UUID and nickname. These are helpers, not registration endpoints.
+  containing UUID, nickname and the cosmetic member number. These are helpers, not registration endpoints.
   Private names are nonblank, well-formed strings of at most 100 code points without
   ASCII control characters. Email validation supports common ASCII unquoted
   addresses, preserves original spelling and lowercases the comparison key without
@@ -550,7 +550,7 @@ Personal-information purpose and restrictions:
   first/last names support private participant administration and addressing attendees.
   Email supports login, verification, recovery and necessary event communication.
   Passwords are transient registration input; persist only reviewed salted hashes.
-- Public account responses must use the explicit nickname/UUID projection, never
+- Public account responses must use the explicit nickname/UUID/member-number projection, never
   raw `users` rows or registration input. Private profiles may be accessed by their
   authenticated owner and organizers with an explicit need and existing authorized
   permissions; role names or possession of a session alone are insufficient.
@@ -758,7 +758,7 @@ is supplementary, not a strict global limiter.
   browser storage or client-readable session-token payload.
 - `GET /api/auth/session` validates cookie format/uniqueness, expiry, revocation,
   active account and credential generation. Its explicit response projection is
-  only UUID/nickname, a verification-status boolean and a separate session-bound CSRF proof. Private names/email,
+  only UUID/nickname/member number, a verification-status boolean and a separate session-bound CSRF proof. Private names/email,
   password records and session tokens are excluded. Invalid sessions return 401
   and expire the cookie. All authentication responses are `no-store`, with no CORS.
 - `POST /api/auth/logout` requires a valid session, exact trusted request origin,
@@ -774,7 +774,7 @@ is supplementary, not a strict global limiter.
   accepts Secure cookies on loopback. If another browser rejects them, this local
   flow is unavailable there; supporting trusted local HTTPS requires a separately
   reviewed setup/handler change, not removal of cookie protections.
-- Development builds provide a working login form, nickname-only account page,
+- Development builds provide a working login form, nickname/member-number account page,
   Login/Account navigation states, logout, session restoration on reload and login
   redirects for unauthenticated account visits. Passwords clear after attempts;
   errors have accessible feedback. Production builds keep the disabled login preview
@@ -893,6 +893,50 @@ recovery verification is retained; real provider delivery, live hosted browser
 behavior and integrated Worker CPU headroom still require controlled DEV testing.
 Migrations 0001–0009 and deployment configuration remain unchanged; 0010 is new
 local preparation only. No hosted activation or remote migration is included.
+
+### Permanent cosmetic member numbers — local migration 0011
+
+Every account keeps its existing UUID identity and gains a public permanent member
+number. Regular allocation starts at 11. Slots 1–10 are reserved for organization
+members; three are planned, with no accounts or actual assignments created here.
+Numbers never grant roles or permissions. Public account projection includes only
+UUID, nickname and decimal-string `memberNumber`; private names/email stay private.
+The account page renders `Nickname #0011`, with minimum four digits and no truncation.
+
+`0011_create_member_numbers.sql` adds a STRICT append-only issuance ledger and
+transactional account-insert triggers. SQLite INTEGER PRIMARY KEY AUTOINCREMENT
+serializes concurrent allocation, retains the high-water mark and fails closed at
+SQLite's signed 64-bit limit. D1 reads cast numbers to TEXT; JSON and formatting
+never pass through JavaScript Number. Existing accounts backfill by ascending
+`created_at`, then UUID, all starting at 11; no organization status is inferred.
+Failed account transactions roll back allocation. Issued rows cannot be changed,
+deleted, replaced or recycled; nickname/role changes do not affect them.
+
+The ledger deliberately has no FK to the deletable account: it retains the original
+UUID, issue time and (for reserved provisioning) actor UUID as immutable tombstones,
+without names, email or credentials. Existing account FKs and deletion restrictions
+are unchanged. This is not an account-deletion implementation; pseudonymous ledger
+retention must be covered by the eventual privacy/deletion policy before public use.
+
+`createOrganizationAccount` is an internal, unexposed provisioning adapter. It
+requires a current verified administrator session, an active admin role AND explicit
+`users.manage` permission, rechecked atomically while claiming an unused slot and
+creating the normal profile/nickname/password credential. It assigns no roles,
+does not verify email and sends no mail. Only new accounts can receive a reserved
+number; existing issued numbers cannot be exchanged. A future HTTP wrapper must
+add normal CSRF/request protection. No admin API or UI is introduced now.
+It requires an already provisioned administrator; the existing separately approved
+first-administrator bootstrap is not replaced by a low member number or special bypass.
+
+Before hosted activation: approve/review this local change, apply 0011 to DEV only
+after a fresh preflight/recovery checkpoint, deploy compatible code, and separately
+approve any actual organization identities/slot mapping and controlled provisioning.
+No remote migration, assignment, deployment or Git operation is authorized here.
+Local validation: 97 focused member-number, registration/login, account projection,
+verification, recovery, hosted-DEV and RBAC tests passed, plus strict TypeScript,
+default/hosted-DEV builds and diff checks. Reserved-field denial and 0011's strengthened
+REPLACE protection were verified with focused reruns. Unrelated suites and browser
+flows were not repeated; this does not verify hosted operation with 0011.
 
 ### Hosted DEV email policy
 

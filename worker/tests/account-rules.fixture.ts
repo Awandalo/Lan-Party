@@ -42,10 +42,10 @@ export default {
         rejects(() => validateRegistration({ ...input, firstName: 'A'.repeat(101) }));
         const userId = newAccountId();
         check(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(userId));
-        const privateAccount = { userId, nickname: parsed.nickname, firstName: parsed.firstName,
+        const privateAccount = { userId, memberNumber: '11', nickname: parsed.nickname, firstName: parsed.firstName,
           lastName: parsed.lastName, email: parsed.email, password: parsed.password };
         const visible = publicAccount(privateAccount);
-        check(JSON.stringify(Object.keys(visible).sort()) === JSON.stringify(['nickname', 'userId']));
+        check(JSON.stringify(Object.keys(visible).sort()) === JSON.stringify(['memberNumber', 'nickname', 'userId']));
         check(visible.userId === userId && visible.nickname === input.nickname);
       } else return new Response('Unknown local test', { status: 404 });
       return Response.json({ passed: true });

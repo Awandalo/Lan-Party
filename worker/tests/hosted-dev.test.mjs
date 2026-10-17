@@ -77,7 +77,7 @@ test('offline hosted DEV register → verify → login/logout → reset uses gua
   const cookie = signedIn.headers.get('set-cookie').split(';')[0];
   assert.match(signedIn.headers.get('set-cookie'), /Secure; HttpOnly; SameSite=Lax; Path=\/$/);
   const session = await (await request('session', undefined, { Cookie: cookie })).json();
-  assert.deepEqual(Object.keys(session.account).sort(), ['nickname', 'userId']); assert.equal(session.emailVerified, true);
+  assert.deepEqual(Object.keys(session.account).sort(), ['memberNumber', 'nickname', 'userId']); assert.equal(session.emailVerified, true);
   assert.equal((await request('logout', {}, { Cookie: cookie })).status, 403);
   assert.equal((await request('logout', {}, { Cookie: cookie, 'X-CSRF-Token': session.csrfToken })).status, 200);
   const oldCookie = (await login(profile.password)).headers.get('set-cookie').split(';')[0];

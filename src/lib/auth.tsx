@@ -2,8 +2,9 @@ import { AUTH_UI_AVAILABLE, authUIEnabled } from './auth-mode';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
+import { isMemberNumber } from './member-number';
 
-interface Session { account: { userId: string; nickname: string }; csrfToken: string; emailVerified: boolean }
+interface Session { account: { userId: string; nickname: string; memberNumber: string }; csrfToken: string; emailVerified: boolean }
 interface Authentication {
   session: Session | null;
   status: 'loading' | 'ready' | 'error';
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error('Session unavailable');
       const value: Session = await response.json();
       if (typeof value.account?.userId !== 'string' || typeof value.account?.nickname !== 'string'
+        || !isMemberNumber(value.account?.memberNumber)
         || typeof value.emailVerified !== 'boolean'
         || !/^[0-9a-f]{64}$/.test(value.csrfToken)) throw new Error('Invalid session response');
       setSession(value); setStatus('ready'); return true;

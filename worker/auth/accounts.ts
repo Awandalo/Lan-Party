@@ -1,5 +1,6 @@
 import { validateNickname } from './nicknames';
 import { isValidPassword } from './passwords';
+import { isMemberNumber } from '../../src/lib/member-number';
 
 export interface RegistrationInput {
   nickname: unknown;
@@ -52,6 +53,7 @@ export function newAccountId(): string {
 }
 
 // Explicit allowlist prevents private profile fields from leaking through object spreads.
-export function publicAccount(account: { userId: string; nickname: string }): { userId: string; nickname: string } {
-  return { userId: account.userId, nickname: validateNickname(account.nickname).display };
+export function publicAccount(account: { userId: string; nickname: string; memberNumber: string }) {
+  if (!isMemberNumber(account.memberNumber)) throw new Error('Account member number unavailable');
+  return { userId: account.userId, nickname: validateNickname(account.nickname).display, memberNumber: account.memberNumber };
 }

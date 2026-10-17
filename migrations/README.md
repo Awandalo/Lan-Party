@@ -153,6 +153,28 @@ all ten migrations to disposable D1 and checks atomic quotas, constraints,
 day/month boundaries and fake-provider failure behavior. Existing migration files
 0001–0009 remain unchanged.
 
+## Permanent cosmetic member numbers (0011) — local only
+
+`0011_create_member_numbers.sql` adds an immutable STRICT issuance ledger, reserves
+1–10 without creating accounts, then backfills existing users by `created_at,id`
+starting at 11. Account-insert triggers allocate inside the same transaction as
+profile/credential creation. AUTOINCREMENT and retained rows prevent reuse;
+UPDATE/DELETE/REPLACE protections preserve issued mappings after account deletion.
+Existing UUID keys, relationships, RBAC, migrations 0001–0010 and remote data are unchanged.
+
+The ledger intentionally retains UUID tombstones without a user FK so account
+deletion cannot erase issuance history. Public reads cast INTEGER to TEXT for
+lossless 64-bit JSON; the only numeric ceiling is SQLite's supported range.
+Reserved provisioning is new-account-only through the verified-session/admin/
+explicit-permission internal adapter. No public endpoint or actual assignment exists.
+See [PROJECT.md](../PROJECT.md#permanent-cosmetic-member-numbers--local-migration-0011)
+for privacy/retention implications and the separately approved remote sequence.
+
+Focused check: `node --test worker/tests/member-numbers.test.mjs` applies all eleven
+migrations to disposable local D1, including legacy backfill, concurrent allocation,
+immutability, reserved provisioning, rollback and 64-bit/exhaustion behavior.
+Do not apply remotely or deploy dependent code before owner approval and recovery preflight.
+
 ## Phase 3.4 email verification — no new migration
 
 Phase 3.4 email verification also needs no new migration. It reuses 0008's

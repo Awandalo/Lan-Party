@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
 import '../CSS/Account_style.css';
+import { formatMemberNumber } from '../lib/member-number';
 
 export default function Account() {
   const { session, status, logout } = useAuth();
@@ -30,7 +31,7 @@ export default function Account() {
     finally { setBusy(false); }
   }
   return <section className="page-section account-page"><div className="panel account-card">
-    <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname}</h1>
+    <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
     <p>You are signed in. Your private name and email are not shown here.</p>
     <p>Email status: <strong>{session.emailVerified ? 'Verified' : 'Unverified'}</strong></p>
     <p>Event registration remains unavailable. Verified email will be required when it is implemented.</p>
