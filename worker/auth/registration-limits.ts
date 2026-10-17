@@ -6,7 +6,7 @@ export const REGISTRATION_LIMITS = Object.freeze({ global: 30, ip: 5, account: 3
 export class RegistrationRateLimit extends Error {}
 
 export async function registrationLimiter(db: D1Database, secret: string, now: number,
-  action: 'registration' | 'login' | 'email-resend' | 'email-confirm' = 'registration') {
+  action: 'registration' | 'login' | 'email-resend' | 'email-confirm' | 'password-forgot' | 'password-reset' = 'registration') {
   serverTime(now);
   const bytes = fromHex(secret, 32);
   if (!bytes) throw new Error('Registration limiter unavailable');
@@ -19,7 +19,7 @@ export async function registrationLimiter(db: D1Database, secret: string, now: n
   return async (scope: keyof typeof REGISTRATION_LIMITS, identifier: string) => {
     // Resend prefixes the normalized email to separate email and UUID buckets.
     // Preserve the full approved 254-character email boundary plus that prefix.
-    if (identifier.length > (action === 'email-resend' ? 260 : 254)) throw new Error('Invalid limiter identifier');
+    if (identifier.length > (['email-resend', 'password-forgot'].includes(action) ? 260 : 254)) throw new Error('Invalid limiter identifier');
     const seconds = scope === 'ip' ? 900 : 3600;
     const window = Math.floor(now / seconds) * seconds;
     const digest = await crypto.subtle.sign('HMAC', key,

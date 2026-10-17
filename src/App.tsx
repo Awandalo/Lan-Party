@@ -1,3 +1,4 @@
+import { AUTH_UI_AVAILABLE, authUIEnabled } from './lib/auth-mode';
 import { Route, Routes, Link } from 'react-router';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -9,6 +10,8 @@ import Registration from './pages/Registration';
 import Account from './pages/Account';
 import VerifyEmail from './pages/VerifyEmail';
 import LocalMail from './pages/LocalMail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import { AuthProvider } from './lib/auth';
 
 export default function App() {
@@ -21,10 +24,12 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
           <Route path="/login" element={<Login />} />
-          {import.meta.env.DEV && <Route path="/register" element={<Registration />} />}
-          {import.meta.env.DEV && <Route path="/account" element={<Account />} />}
-          {import.meta.env.DEV && <Route path="/verify-email" element={<VerifyEmail />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/register" element={<Registration />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account" element={<Account />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/verify-email" element={<VerifyEmail />} />}
           {import.meta.env.DEV && <Route path="/local-mail" element={<LocalMail />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/forgot-password" element={<ForgotPassword />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/reset-password" element={<ResetPassword />} />}
           <Route path="*" element={
             <section className="page-section">
               <p className="eyebrow">404</p>

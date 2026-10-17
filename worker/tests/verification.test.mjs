@@ -158,14 +158,14 @@ test('generic resend responses cover missing, unverified, verified, disabled and
     WHERE u.email_normalized='fictional@example.invalid' AND t.revoked_at IS NULL`).first('n'), 0);
 }));
 
-test('unverified accounts can log in, request protected resend and see refreshed verified status without private data', () => local(async ({ request, register, mail, proof }) => {
+test('unverified accounts must verify before login; anonymous resend recovers access without private data', () => local(async ({ request, register, mail, proof }) => {
   await register();
+  const denied = await request('login', { email: profile.email, password: profile.password }); assert.equal(denied.status, 401);
+  assert.equal(denied.headers.get('set-cookie'), null);
+  assert.equal((await request('resend-verification', { email: profile.email })).status, 202);
+  assert.equal((await request('verify-email', proof(await mail()))).status, 200);
   const login = await request('login', { email: profile.email, password: profile.password }); assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie').split(';')[0];
-  const before = await (await request('session', undefined, { Cookie: cookie })).json(); assert.equal(before.emailVerified, false);
-  assert.equal((await request('resend-verification', {}, { Cookie: cookie })).status, 403);
-  assert.equal((await request('resend-verification', {}, { Cookie: cookie, 'X-CSRF-Token': before.csrfToken })).status, 202);
-  assert.equal((await request('verify-email', proof(await mail()))).status, 200);
   const after = await (await request('session', undefined, { Cookie: cookie })).json(); assert.equal(after.emailVerified, true);
   assert.deepEqual(Object.keys(after.account).sort(), ['nickname', 'userId']);
   for (const value of [profile.email, profile.firstName, profile.lastName, profile.password]) assert.equal(JSON.stringify(after).includes(value), false);

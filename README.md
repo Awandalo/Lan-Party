@@ -61,8 +61,9 @@ Use fictional `.test` participant details and disposable passwords only. No real
 email is sent. Start at `http://127.0.0.1:5173/register`, retrieve a message through
 `/local-mail`, open it and explicitly confirm on `/verify-email`, then use `/login`
 and `/account`. Production builds omit active forms/account routes.
-The APIs additionally require HTTP loopback and explicit local-only configuration,
-so deploying source does not enable public authentication.
+This local setup requires HTTP loopback and explicit local-only configuration.
+The separately gated [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
+is implemented locally but not activated; deploying source alone does not enable it.
 
 1. Copy `.dev.vars.example` to ignored `.dev.vars.dev` without overwriting any
    existing configuration. Replace all three secret placeholders with DIFFERENT random
@@ -103,7 +104,8 @@ trusted local HTTPS support needs a separately reviewed setup/handler change.
 the nickname and provides CSRF-protected logout, which revokes the D1 session before
 clearing its cookie. Reload restores the session. Missing/expired sessions redirect
 to login. No password/session token is stored in browser storage or URLs.
-Use fictional data only; event signup, real email delivery and recovery remain unavailable.
+Use fictional data only. Local recovery is available through `/forgot-password` and
+the restricted mailbox; event signup and hosted delivery remain disabled.
 
 The restricted `/local-mail` page requires the exact fictional `.test` email and
 your separate disposable mailbox secret. It retrieves one usable message and clears
@@ -114,15 +116,17 @@ proof. Messages expire after 24 hours, are removed on retrieval and are lost on
 Worker restart. If needed, request a new email on `/verify-email` or from the
 unverified account page (CSRF protected). Resend supersedes earlier links; requests
 are rate limited and never automatically retried. Registration/delivery outcomes
-use generic feedback; an account can remain usable but unverified after delivery failure.
+use generic feedback. An unverified account cannot log in; request another verification
+message after delivery failure. Password recovery does not verify an email address.
 
 Resend has a prepared adapter behind the shared transport contract, tested with fake
 HTTP against its [documented API](https://resend.com/docs/api-reference/emails/send-email).
-It is intentionally not wired to application routes, and selecting `resend` does
-not enable sending. Later approved hosted integration needs Worker-secret
-`RESEND_API_KEY`, approved sender/domain and HTTPS origin, DEV recipient restrictions,
-quota/failure policy and privacy/retention approval. No account, domain, API key,
-remote secret or real sending is configured here. Never debug by logging verification links.
+Its guarded DEV wrapper is integrated locally; selecting `resend` alone cannot
+enable hosted authentication. The owner prepared the sending domain and DEV-only API key.
+Use the central [hosted DEV email policy](PROJECT.md#hosted-dev-email-policy) for
+provider limits, the internal testing allowance, dated approvals, allowlisting and
+the prepared guarded transport. No hosted delivery is enabled by this local work.
+Never debug by logging account-action links.
 
 ## Project structure
 

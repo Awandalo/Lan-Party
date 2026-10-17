@@ -18,7 +18,8 @@ verify PROD migration state or complete the current post-release
 public website verification. Phase 3 Authentication & Accounts is the active
 development phase. Phase 3.2 Authentication Database now has locally tested D1
 adapters. Phase 3.3 registration, login/logout and Phase 3.4 email verification are
-implemented locally; hosted authentication, real email delivery and News APIs remain unfinished.
+implemented locally. Phase 3.6 password recovery and guarded DEV email integration
+are locally complete; hosted activation, live delivery verification and News APIs remain unfinished.
 Phase 3.1 now contains local, tested authentication primitives and contracts;
 public registration/login, real email delivery and Google sign-in remain unfinished. Persistence
 is implemented locally in the Phase 3.2 adapters described below.
@@ -450,10 +451,10 @@ Approved product requirements:
   before exposing authentication endpoints.
 - Optional TOTP MFA is approved for all accounts in a later Phase 3 authentication
   stage. No MFA schema, enrollment, recovery or login challenge is implemented yet.
-- Resend Free is selected for future hosted delivery, but is not configured. Phase
-  3.4 provides a replaceable email-service interface and an unwired Resend adapter.
-  Future live integration must store keys in Cloudflare secrets and prevent DEV
-  from sending to arbitrary real recipients.
+- Resend is prepared for DEV: the owner confirms the auth sending domain is verified
+  and its domain-restricted sending key is installed only on the DEV Worker.
+  Application delivery is integrated locally; hosted authentication remains disabled. Use the
+  [DEV email policy](#hosted-dev-email-policy) below for sending limits and configuration.
 - Verification links are single-use and expire after 24 hours. Password reset links
   are single-use and expire after 30 minutes. Recovery responses must be generic;
   a successful reset must invalidate all existing sessions.
@@ -696,11 +697,11 @@ is supplementary, not a strict global limiter.
   rolls back the entire account. There is no implicit login, provider linking or
   role/privilege assignment. Phase 3.4 now attempts local verification delivery
   after a successful creation, as described below.
-- The endpoint requires `REGISTRATION_MODE=local-only` AND an HTTP loopback request
-  URL. There is no hosted enablement mode in this implementation. Missing/malformed
+- The initial local endpoint requires `REGISTRATION_MODE=local-only` AND an HTTP loopback request
+  URL. The separately guarded hosted DEV mode is documented below. Missing/malformed
   independent pepper/limiter secrets fail closed, as does unavailable limiter storage.
   Root Wrangler environments and remote secrets remain unchanged. Existing routes
-  and health behavior are preserved, and hosted requests receive 404.
+  and health behavior are preserved; hosted access remains disabled until explicitly configured.
 - Pre-login request protection requires exact configured loopback `Origin`, JSON,
   `X-LAN-Request: 1` and same-origin Fetch Metadata when supplied. Other methods,
   encoded bodies and query parameters are rejected; no CORS is granted. Registration
@@ -765,7 +766,8 @@ is supplementary, not a strict global limiter.
   digest before expiring the cookie with matching attributes. Storage failures
   report unavailability instead of claiming logout. GET never mutates D1 authentication state.
 - New endpoints additionally require `AUTH_SESSION_MODE=local-only` AND an HTTP
-  loopback request URL. Hosted requests always receive 404, even with that flag.
+  loopback request URL. Hosted requests receive 404 with that flag; the new explicit
+  hosted DEV mode is documented below and is not configured remotely.
   The original HTTPS-only CSRF helper is unchanged in contract; an explicit
   loopback-only variant shares its verification logic for this gated local flow.
   Secure cookie attributes are never weakened for local use. The tested browser
@@ -788,7 +790,7 @@ is supplementary, not a strict global limiter.
   Finalized on `dev` in commit `da9e93df838a1ed57cad3973d77821f4bb6f6307`;
   automatic DEV deployment and GitHub CI passed. Hosted authentication stays disabled.
 
-### Phase 3.4 — Email verification (local implementation; pending owner review)
+### Phase 3.4 — Email verification (committed local implementation; hosted access disabled)
 
 - New registrations attempt a purpose-bound 24-hour verification using the existing
   migration 0008 action-token store. Only domain-separated SHA-256 digests, UUID,
@@ -829,10 +831,9 @@ is supplementary, not a strict global limiter.
   based on the [official send-email API](https://resend.com/docs/api-reference/emails/send-email).
   The Resend adapter uses a bounded request, a digest-derived idempotency key,
   sanitized failures and no retries. Its tests inject fake HTTP; no real email is
-  sent. It is deliberately not selectable by application routes in this phase.
-  Later approved integration needs Worker-secret `RESEND_API_KEY`, an approved
-  sender/domain, canonical HTTPS verification origin, DEV recipient allowlist,
-  quota policy and provider/privacy approval. No Resend account/domain/secret is configured.
+  sent. The locally implemented hosted DEV mode now selects its guarded wrapper;
+  see the integration and email policy below. The owner completed the Resend
+  domain/key setup; the remaining configuration and activation require approval.
 - Local mail requires `AUTH_EMAIL_TRANSPORT=local`; its bounded volatile mailbox
   accepts only fictional `.test` recipients and at most 50 messages, purging expired
   messages opportunistically. `/local-mail` retrieves one usable message via a
@@ -841,15 +842,15 @@ is supplementary, not a strict global limiter.
   and removes the returned message from memory; restart loses all mail. The secret
   is manually entered, cleared after retrieval and never shipped in frontend configuration.
   No D1 table stores mail bodies/raw tokens, and no extra infrastructure is created.
-- Verification/mailbox APIs require explicit `AUTH_SESSION_MODE=local-only`, local
-  transport AND an HTTP loopback request URL. Hosted requests always get 404,
-  regardless of configured flags. Local-only routes/forms are removed by production
-  builds. Existing local registration setups without a transport issue then revoke
+- Local verification/mailbox APIs require explicit `AUTH_SESSION_MODE=local-only`, local
+  transport AND an HTTP loopback request URL. The mailbox remains exclusively local;
+  verification also supports the guarded hosted DEV mode below. Default production
+  builds omit authentication forms. Existing local registration setups without a transport issue then revoke
   an undeliverable token and remain unverified; configure the local transport and
   explicitly resend. All authentication/verification responses use `no-store`.
 - Account pages now display verified/unverified status and a protected resend
   action for unverified accounts, without exposing private email/names. Unverified
-  participants may still log in; event signup is unavailable and its future APIs
+  participants cannot log in; legacy unverified sessions are also rejected. Event signup is unavailable and its future APIs
   must use the existing verified-account eligibility gate plus ownership/event checks.
 - No new migration is necessary. Migrations 0001–0009, remote secrets, Wrangler and
   deployment configuration remain unchanged. Migrations 0008/0009 are still local only.
@@ -873,6 +874,120 @@ mitigations, token cleanup and delivery failure handling. Local workerd crypto t
 do not prove a Workers Free deployed CPU budget or complete auth behavior.
 The owner-approved development work factor is fixed; further security changes need review.
 Local registration, login/logout, email verification, account UI and storage primitives are implemented.
+
+### Phase 3.6 — Password recovery (locally complete; hosted activation pending)
+
+`/forgot-password` and `/reset-password` reuse persistent abuse controls, the
+restricted fictional mailbox and guarded DEV Resend transport. Requests return
+generic account-neutral feedback. Reset proofs expire after 30 minutes; only
+purpose-bound digests are persisted. Atomic consumption/password replacement has
+one winner under concurrency, rejects stale/replayed/crossover proofs and revokes
+all previous sessions through the existing credential-generation triggers.
+Passwords retain the approved 20,000-iteration PBKDF2 plus independent pepper and
+12–128-character policy. Recovery does not verify email or grant account permissions.
+
+Finalization checks: 231 Worker/application/migration tests plus 16 existing DNS
+safety tests passed (247 total), strict TypeScript, default production and hosted
+DEV builds, and diff checks passed. Previously completed fictional local browser
+recovery verification is retained; real provider delivery, live hosted browser
+behavior and integrated Worker CPU headroom still require controlled DEV testing.
+Migrations 0001–0009 and deployment configuration remain unchanged; 0010 is new
+local preparation only. No hosted activation or remote migration is included.
+
+### Hosted DEV email policy
+
+- [Resend Free currently advertises](https://resend.com/pricing) **3,000 emails/month
+  and 100/day**. These provider/account limits may change and require account-level
+  verification; they are not the application's testing allowance.
+- The owner-approved default is **60 provider-send attempts per UTC day**, shared
+  by registration verification, verification resends and password recovery. Reserve
+  atomically before delivery; failed/uncertain attempts count, with no refunds or
+  automatic retries. Exhaustion prevents further sends. Local fictional mail is separate.
+- Only a separately recorded owner approval may add **5–10 attempts for one specific
+  UTC day**. It never raises the permanent default. **No extension is approved or
+  seeded.** There is no limiter-disable or arbitrary daily-limit configuration.
+- Missing/empty/invalid recipient allowlists must deny hosted registration before
+  account creation and deny provider sending. No recipients are configured by this task.
+- Local preparation in `worker/auth/dev-email.ts` validates the canonical origin
+  `https://dev.lan-party.club`, sender `noreply@auth.lan-party.club`, explicit
+  `AUTH_ENVIRONMENT=dev`, `AUTH_EMAIL_TRANSPORT=resend`, Worker-secret `RESEND_API_KEY`,
+  and a JSON-array `AUTH_DEV_RECIPIENT_ALLOWLIST` (keep private addresses out of Git).
+  Hosted registration reuses its recipient check before account creation.
+- `AUTH_EMAIL_PROVIDER_DAILY_LIMIT` and `AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT` must be
+  explicit positive, operator-verified allocations, no higher than advertised Free
+  limits. Lower account limits/remaining quota and other account users must be
+  accounted for; a sending-only key cannot independently inspect account usage.
+  These values cannot raise the internal allowance. Provider rejection still fails
+  safely without retry; no successful delivery is inferred from budget admission.
+- New **local-only migration 0010** stores aggregate daily attempts and separately
+  referenced dated approvals, without recipient data. It enforces atomic daily and
+  calendar-month admission. It is not applied remotely; migrations 0001–0009 stay
+  unchanged. Retain current-month counts so cleanup cannot reset the monthly cap.
+- The guarded transport is integrated locally across verification, resends and
+  recovery. Deployment, activation and real email tests each require separate approval.
+
+### Hosted DEV integration — implemented locally, disabled remotely
+
+The backend requires `AUTH_ENVIRONMENT=dev`, `REGISTRATION_MODE=hosted-dev` and
+`AUTH_SESSION_MODE=hosted-dev`, with `AUTH_EMAIL_TRANSPORT=resend` and canonical
+`AUTH_PUBLIC_ORIGIN=https://dev.lan-party.club`. Only that exact HTTPS hostname
+is accepted. PROD and workers.dev aliases receive 404; unset modes remain disabled.
+No Wrangler configuration, remote binding or secret is changed by this implementation.
+
+Registration checks the private allowlist before creating an account. Denied
+recipients receive generic feedback without account creation. All provider sends
+use the single budget policy above. Unverified accounts cannot log in or retain
+usable sessions; password recovery does not verify an address. Anonymous verification
+resend remains available from the login page. Secure/HttpOnly/SameSite cookies,
+exact-origin JSON/custom-header checks, session-bound CSRF, persistent abuse limits
+and fail-closed trusted client-IP handling apply. Provider errors remain sanitized;
+no retries, token logging or new cleanup/retention behavior is introduced.
+
+Frontend forms require a DEV build using public `VITE_AUTH_MODE=hosted-dev` plus
+the exact DEV hostname at runtime. This is presentation configuration, not access
+control; backend gates are independent. Default production builds omit active auth
+forms. The fictional mailbox remains local development only in both frontend/backend.
+
+Offline tests use disposable D1 databases and an intercepted provider transport;
+they cover registration, verification, login/logout, recovery, session revocation,
+allowlist denial, shared-budget exhaustion and environment boundaries. They do not
+establish real email delivery, deployed CPU headroom or live hosted browser behavior.
+
+Remaining owner-approved operations: inspect/backup DEV and preflight legacy accounts;
+approve migrations 0008–0010 individually with their dependencies; configure private
+test recipients, verified provider allocations, independent `PASSWORD_PEPPER` and
+`AUTH_RATE_LIMIT_SECRET`; review the DEV build/configuration and deployment sequence
+with auth disabled first, then separately approve activation and controlled email
+testing. No such operation is authorized by local development. Privacy/retention and
+final public security review remain release gates; MFA remains optional for all roles.
+
+Before approved activation, capture a current DEV recovery point/export and Worker
+version, recheck pending migration order, and retain sanitized evidence privately.
+On failure, disable both auth modes and withdraw DEV forms via the approved release
+process; preserve account/session/budget data. Worker rollback does not undo D1
+migrations. Database restore or destructive schema rollback needs separate approval;
+never erase sending counters to regain allowance.
+
+The later integrated test uses one approved allowlisted fictional participant and
+a small fixed, sequential/no-retry plan: register/verify, rejected unverified login,
+login/session/logout, resend and forgot/reset with old-password/session rejection.
+Reserve every provider attempt under the shared allowance. Collect actual platform
+CPU/wall/outcome records for each auth route, including crypto, D1, CSRF and delivery
+overhead; do not substitute browser elapsed time or rerun isolated hash benchmarks.
+Stop on missing telemetry, CPU-limit errors, unexpected mail, session/privacy failures
+or exhausted allowance. No email, telemetry setup or activation occurs in this task.
+
+Read-only DEV preflight (2026-10-17): `lan-party-dev` binds database
+`a3c4cea6-ceb7-43b8-b9b7-b374726b35b4`. Migration history confirms 0001–0007;
+0008–0010 are pending. `quick_check` is `ok`, foreign-key checks are empty and
+there are no existing users or legacy nickname conflicts. A Time Travel bookmark
+is available; refresh/capture recovery evidence immediately before any approved
+migration. Only ASSETS, DB and RESEND_API_KEY bindings are present. Authentication
+mode/origin/allowlist/provider allocations and pepper/rate-limit secrets still need
+separately approved DEV configuration. DEV HTTPS/health respond 200; the disabled
+session API responds 404. Resend domain/key readiness is owner-confirmed; actual
+account allocation, delivery and integrated platform telemetry remain unverified.
+
 No public registration/login, verification, reset, delivery or Google flow is marked complete.
 No remote database access, manual deployment or provider configuration is authorized
 by this local implementation.

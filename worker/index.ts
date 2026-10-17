@@ -2,6 +2,7 @@ import { registerAccount } from './auth/registration';
 import { authentication } from './auth/http';
 import type { AuthenticationEnvironment } from './auth/http';
 import { verification } from './auth/verification';
+import { passwordRecovery } from './auth/recovery';
 
 interface Env extends AuthenticationEnvironment {
   ASSETS: Fetcher;
@@ -15,6 +16,7 @@ export default {
     if (pathname === '/api/auth/register') return registerAccount(request, env);
     if (['/api/auth/login', '/api/auth/session', '/api/auth/logout'].includes(pathname)) return authentication(request, env);
     if (['/api/auth/verify-email', '/api/auth/resend-verification', '/api/auth/local-mail'].includes(pathname)) return verification(request, env);
+    if (['/api/auth/forgot-password', '/api/auth/reset-password'].includes(pathname)) return passwordRecovery(request, env);
 
     if (pathname === '/api/health') {
       if (request.method !== 'GET') {

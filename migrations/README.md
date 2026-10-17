@@ -133,6 +133,26 @@ and cover account atomicity, uniqueness, password storage, FK integrity and limi
 node --test worker/tests/registration.test.mjs
 ```
 
+## Authentication email budget (0010) — local preparation only
+
+`0010_create_authentication_email_budget.sql` adds two STRICT tables: aggregate
+UTC-day attempt counts, and empty-by-default day-specific extension approvals with
+an approval reference and UTC timestamp. No recipient, message, credential or token
+data is stored. The policy is centralized in
+[PROJECT.md](../PROJECT.md#hosted-dev-email-policy).
+
+The existing 0009 hit constraint cannot accommodate the approved email allowance;
+do not edit it. Apply 0010 only after 0001–0009, after separate DEV preflight,
+recovery capture and owner approval. Nothing has been applied remotely. No rollback
+should drop authentication tables or erase budget history to permit further sending.
+Preserve current-month daily rows for monthly admission accounting. No cleanup
+job, extension-management endpoint or seeded approval is included.
+
+Focused local check: `node --test worker/tests/dev-email-budget.test.mjs` applies
+all ten migrations to disposable D1 and checks atomic quotas, constraints,
+day/month boundaries and fake-provider failure behavior. Existing migration files
+0001–0009 remain unchanged.
+
 ## Phase 3.4 email verification — no new migration
 
 Phase 3.4 email verification also needs no new migration. It reuses 0008's

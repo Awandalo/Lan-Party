@@ -42,7 +42,9 @@ async function local(run, overrides = {}, omitLimits = false) {
       method: input === undefined ? 'GET' : 'POST', ...(input === undefined ? {} : { body: JSON.stringify(input) }),
       ...options, headers: { Origin: origin, 'X-LAN-Request': '1', 'Content-Type': 'application/json',
         'CF-Connecting-IP': `203.0.113.${++ip}`, ...headers } });
-    const register = async () => assert.equal((await request('register', profile)).status, 202);
+    // Session tests start with a verified fictional account; verification has dedicated HTTP tests.
+    const register = async () => { assert.equal((await request('register', profile)).status, 202);
+      await db.prepare('UPDATE users SET email_verified_at=unixepoch(),updated_at=unixepoch()').run(); };
     const login = async () => {
       const response = await request('login', credentials); assert.equal(response.status, 200);
       return response.headers.get('set-cookie').split(';')[0];
@@ -63,11 +65,11 @@ test('registration → login → private account → CSRF logout revokes the dig
   assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
   const body = await response.json();
   assert.deepEqual(Object.keys(body).sort(), ['account', 'csrfToken', 'emailVerified']);
-  assert.equal(body.emailVerified, false);
+  assert.equal(body.emailVerified, true);
   assert.deepEqual(Object.keys(body.account).sort(), ['nickname', 'userId']);
   assert.equal(body.account.nickname, profile.nickname);
   for (const value of [profile.firstName, profile.lastName, profile.email, profile.password, token]) assert.equal(JSON.stringify(body).includes(value), false);
-  assert.equal(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
+  assert.notEqual(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
   const logout = await request('logout', {}, { Cookie: cookie, 'X-CSRF-Token': body.csrfToken });
   assert.equal(logout.status, 200);
   assert.match(logout.headers.get('set-cookie'), /Max-Age=0; Secure; HttpOnly; SameSite=Lax; Path=\/$/);
@@ -211,4 +213,10 @@ test('failed logout storage does not expire the cookie or falsely report revocat
   assert.equal(response.status, 503); assert.equal(response.headers.has('set-cookie'), false);
   assert.equal((await response.text()).includes('private'), false);
   assert.equal(await db.prepare('SELECT revoked_at FROM auth_sessions').first('revoked_at'), null);
+}));
+
+ test('unverified credentials cannot create a session', () => local(async ({ db, request, register }) => {
+ await register(); await db.prepare('UPDATE users SET email_verified_at=NULL').run();
+ const response=await request('login', credentials); assert.equal(response.status,401); assert.equal(response.headers.get('set-cookie'),null);
+ assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'),0);
 }));

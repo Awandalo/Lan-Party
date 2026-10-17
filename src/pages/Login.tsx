@@ -1,8 +1,9 @@
+import { AUTH_UI_AVAILABLE, authUIEnabled } from '../lib/auth-mode';
 import '../CSS/Login_style.css';
 import LocalLogin from '../components/LocalLogin';
 
 export default function Login() {
-  if (import.meta.env.DEV) return <LocalLogin />;
+  if ((AUTH_UI_AVAILABLE && authUIEnabled())) return <LocalLogin />;
   return (
     <section className="page-section login-page">
       <div className="panel login-card">

@@ -14,7 +14,6 @@ export class D1ActionTokenStore implements ActionTokenStore {
 
   async issue(account: AccountIdentity, purpose: ActionPurpose, now: number, replaceOutstanding = false) {
     accountVersion(account); purposeCheck(purpose); serverTime(now);
-    if (replaceOutstanding && purpose !== 'email-verification') throw new Error('Unsupported token replacement');
     const token = generateToken(), digest = await digestToken(token, purpose), expiry = actionTokenExpiresAt(purpose, now);
     const insert = this.db.prepare(`INSERT INTO auth_action_tokens
       (id,user_id,purpose,token_digest,auth_version,email_normalized,created_at,expires_at)
@@ -30,10 +29,11 @@ export class D1ActionTokenStore implements ActionTokenStore {
       // prevents a stale snapshot revoking tokens when it cannot issue a replacement.
       const result = await this.db.batch([
         this.db.prepare(`UPDATE auth_action_tokens SET revoked_at=max(created_at,?)
-          WHERE user_id=? AND purpose='email-verification' AND consumed_at IS NULL AND revoked_at IS NULL
+          WHERE user_id=? AND purpose=? AND consumed_at IS NULL AND revoked_at IS NULL
           AND EXISTS (SELECT 1 FROM users WHERE id=? AND status='active' AND auth_version=?
-            AND email_verified_at IS NULL AND updated_at<=?)`)
-          .bind(now, account.userId, account.userId, account.authVersion, now),
+            AND updated_at<=? AND ((?='email-verification' AND email_verified_at IS NULL)
+              OR (?='password-reset' AND EXISTS (SELECT 1 FROM user_password_credentials WHERE user_id=users.id))))`)
+          .bind(now, account.userId, purpose, account.userId, account.authVersion, now, purpose, purpose),
         insert,
       ]);
       created = result[1].results.length === 1;

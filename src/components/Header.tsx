@@ -1,3 +1,4 @@
+import { AUTH_UI_AVAILABLE, authUIEnabled } from '../lib/auth-mode';
 import { Link, NavLink } from 'react-router';
 import './Header.css';
 import { useAuth } from '../lib/auth';
@@ -14,7 +15,7 @@ export default function Header() {
         <nav className="site-nav" aria-label="Main navigation">
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/events">Events</NavLink>
-          {import.meta.env.DEV && session
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && session
             ? <NavLink to="/account">Account</NavLink>
             : <NavLink to="/login">Login</NavLink>}
         </nav>

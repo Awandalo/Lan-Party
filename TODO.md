@@ -227,14 +227,14 @@ Implementation requirements:
   history, successful GitHub CI and automatic DEV deployment; keep hosted auth disabled.
 - [ ] Obtain separate approval before enabling hosted authentication.
 
-### Phase 3.4 — Email verification (implemented locally; pending review)
+### Phase 3.4 — Email verification (committed locally; hosted activation pending)
 
 - [x] Issue digest-only, purpose/email/generation-bound verification tokens after
   new registration, with 24-hour expiry and no token in the ordinary API response.
 - [x] Reuse atomic D1 consumption to verify the correct account exactly once;
   protect against replay, expiry, crossover, concurrent confirmation and storage failures.
 - [x] Add a shared email transport contract, bounded fictional-only local mailbox
-  protected by a third independent secret, and an unwired Resend adapter with fake-HTTP tests.
+  protected by a third independent secret, and a Resend adapter with fake-HTTP tests.
 - [x] Add generic resend with persistent global/IP/email/account limits, authenticated
   CSRF protection, transactional supersession and safe explicit recovery after delivery failure.
 - [x] Add development-only verification/secret-protected mailbox pages, immediate
@@ -247,15 +247,28 @@ Implementation requirements:
   exclude active authentication/verification/mailbox UI and API calls.
 - [x] Obtain owner approval to finalize and push locally verified Phase 3.4.
 - [ ] Hosted enablement still needs
-  remote 0008/0009 approval/preflight, secrets, performance, sender/allowlist, abuse/idle
+  remote 0008–0010 approval/preflight, missing secrets, performance, allowlist, abuse/idle
   cleanup, token/provider retention, privacy and delivery/reissue reliability decisions.
 
 Later Phase 3 functionality remains unfinished:
 
-- [ ] Integrate approved real email delivery through the prepared Resend adapter;
-  use Cloudflare secrets and prevent arbitrary real-recipient delivery on DEV.
-- [ ] Implement the 30-minute password-reset flow, single-use links,
-  generic recovery responses and revocation of all sessions after successful reset.
+Phase 3.6 password recovery and guarded DEV email integration are locally complete.
+Finalization passed all 247 tests (231 application/migration and 16 DNS safety),
+strict TypeScript, default/hosted-DEV builds and diff checks. Hosted activation and
+real email/integrated CPU verification remain separately approved operations.
+
+- [x] Prepare and locally test a persistent shared email budget and guarded DEV
+  transport. Use the single [policy reference](PROJECT.md#hosted-dev-email-policy);
+  recipient configuration and hosted activation remain pending.
+- [x] Integrate the guarded Resend transport locally for registration verification,
+  resends and recovery; deny unapproved registration before writes and enforce the
+  shared atomic allowance. Add exact DEV hostname/mode, HTTPS/CSRF and trusted-IP guards.
+- [x] Require verified email before login and reject legacy unverified sessions;
+  recovery never verifies an address. Add optional DEV-build forms without enabling PROD.
+- [x] Verify the uncommitted local password-recovery flow with focused combined
+  regressions, preserving single-use links, generic feedback and session revocation.
+- [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
+  configuration, migrations, deployment/activation and controlled email test separately.
 - [ ] Implement later Google OIDC using shared accounts/sessions and trusted
   issuer/subject checks, with no automatic linking based on matching email.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;

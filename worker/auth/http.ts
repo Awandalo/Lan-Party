@@ -2,13 +2,14 @@ import { emailAddress, publicAccount } from './accounts';
 import { fromHex } from './encoding';
 import { findPasswordCredential } from './database';
 import { isValidPassword, verifyPassword } from './passwords';
-import { loopback, readInput } from './registration';
+import { readInput } from './registration';
+import { authClientIP, authOrigin, authRouteEnabled, validAuthMutation } from './environment';
 import type { RegistrationEnvironment } from './registration';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
 import { D1SessionStore, issueSession, resolveSession, revokeSession } from './sessions';
 import { clearSessionCookie, readSessionCookie, sessionCookie } from './cookies';
 import { digestToken } from './tokens';
-import { isValidLocalMutationRequest, sessionCsrfToken } from './csrf';
+import { sessionCsrfToken } from './csrf';
 
 export interface AuthenticationEnvironment extends RegistrationEnvironment { AUTH_SESSION_MODE?: string }
 const invalid = { error: 'Email or password is incorrect.' };
@@ -22,14 +23,13 @@ function unauthorized() { return reply(401, { error: 'Please log in.' }, { 'Set-
 
 export async function authentication(request: Request, env: AuthenticationEnvironment): Promise<Response> {
   const url = new URL(request.url);
-  if (env.AUTH_SESSION_MODE !== 'local-only' || !loopback(url)) return reply(404, { error: 'Not found' });
+  if (!authRouteEnabled(request, env, env.AUTH_SESSION_MODE)) return reply(404, { error: 'Not found' });
   const action = url.pathname.split('/').pop();
   const method = action === 'session' ? 'GET' : 'POST';
   if (request.method !== method) return reply(405, { error: 'Method not allowed' }, { Allow: method });
   try {
-    const origin = new URL(env.AUTH_PUBLIC_ORIGIN ?? '');
-    if (!loopback(origin) || origin.origin !== env.AUTH_PUBLIC_ORIGIN
-      || !env.PASSWORD_PEPPER || !fromHex(env.PASSWORD_PEPPER, 32)
+    const origin = authOrigin(request, env);
+    if (!env.PASSWORD_PEPPER || !fromHex(env.PASSWORD_PEPPER, 32)
       || !env.AUTH_RATE_LIMIT_SECRET || !fromHex(env.AUTH_RATE_LIMIT_SECRET, 32)
       || env.PASSWORD_PEPPER === env.AUTH_RATE_LIMIT_SECRET) throw new Error('Unavailable configuration');
     // JSON/custom headers, exact Origin on mutations and no CORS also prevent login CSRF.
@@ -44,7 +44,7 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     if (action === 'login') {
       const limit = await registrationLimiter(env.DB, env.AUTH_RATE_LIMIT_SECRET, now, 'login');
       await limit('global', 'all');
-      const ip = request.headers.get('CF-Connecting-IP') ?? 'loopback';
+      const ip = authClientIP(request, env);
       if (ip.length > 45 || (ip !== 'loopback' && !/^[0-9a-fA-F:.]+$/.test(ip))) return reply(400, invalid);
       await limit('ip', ip.toLowerCase());
       let email: string, password: string;
@@ -59,7 +59,7 @@ export async function authentication(request: Request, env: AuthenticationEnviro
       await limit('account', email);
       const credential = await findPasswordCredential(env.DB, email);
       const verified = await verifyPassword(password, credential?.passwordHash ?? dummyRecord, env.PASSWORD_PEPPER);
-      if (!verified || !credential) return reply(401, invalid);
+      if (!verified || !credential || credential.emailVerifiedAt === null) return reply(401, invalid);
       // Keep the generation read BEFORE verification: D1 fences concurrent credential changes.
       const session = await issueSession(store, credential, now);
       const previous = readSessionCookie(request);
@@ -68,10 +68,10 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     }
     const token = readSessionCookie(request);
     const account = token ? await resolveSession(env.DB, token, now) : null;
-    if (!token || !account) return unauthorized();
+    if (!token || !account || account.emailVerifiedAt === null) return unauthorized();
     const digest = await digestToken(token, 'session');
     if (action === 'logout') {
-      if (!await isValidLocalMutationRequest(request, origin.origin, digest, env.AUTH_RATE_LIMIT_SECRET)) {
+      if (!await validAuthMutation(request, origin.origin, digest, env.AUTH_RATE_LIMIT_SECRET)) {
         return reply(403, { error: 'Request rejected. Reload the page and try again.' });
       }
       let input;

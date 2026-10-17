@@ -21,11 +21,11 @@ export default function LocalLogin() {
         signal: AbortSignal.timeout(15000) });
       if (response.ok) {
         if (await refresh()) navigate('/account', { replace: true });
-        else setFeedback('Login could not be confirmed. Check that your browser accepts secure loopback cookies, then reload.');
+        else setFeedback('Login could not be confirmed. Check that your browser accepts secure cookies, then reload.');
       } else if ([400, 401].includes(response.status)) setFeedback('Email or password is incorrect.');
       else if (response.status === 429) setFeedback('Too many login attempts. Please wait up to one hour before trying again.');
       else if (response.status === 403) setFeedback('Request rejected. Reload this page and try again.');
-      else setFeedback('Login is temporarily unavailable. Check the local server configuration.');
+      else setFeedback('Login is temporarily unavailable. Please try again later.');
     } catch { setFeedback('We could not confirm your login. Reload before trying again. No automatic retry was made.'); }
     finally {
       input.password = '';
@@ -36,8 +36,8 @@ export default function LocalLogin() {
   }
   return <section className="page-section login-page"><div className="panel login-card">
     <p className="eyebrow">Welcome back</p><h1>Login</h1>
-    <p>Local development only. Use your fictional account details.</p>
-    {status === 'error' && <p role="status">Session service unavailable. Check the local server and reload.</p>}
+    <p>Verify your email before logging in.</p>
+    {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
     <form onSubmit={submit} aria-busy={busy}>
       <fieldset className="login-fields" disabled={busy || status === 'loading'}>
         <legend>Email and password</legend>
@@ -49,6 +49,8 @@ export default function LocalLogin() {
       </fieldset>
     </form>
     <div className="login-feedback" ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
-    <p><Link to="/register">Create an account locally</Link></p>
+    <p><Link to="/verify-email">Verify email or request another link</Link></p>
+    <p><Link to="/register">Create an account</Link></p>
+    <p><Link to="/forgot-password">Forgot your password?</Link></p>
   </div></section>;
 }

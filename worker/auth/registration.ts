@@ -2,7 +2,9 @@ import { validateRegistration, newAccountId } from './accounts';
 import { hashPassword } from './passwords';
 import { fromHex } from './encoding';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
-import { localMailbox } from './email';
+import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hostedDev } from './environment';
+import { assertDevEmailRecipient } from './dev-email';
+export { loopback } from './environment';
 import type { EmailEnvironment } from './email';
 import { deliverVerification } from './verification-service';
 
@@ -18,10 +20,6 @@ const accepted = { message: 'Registration request processed. If the details were
 function reply(status: number, body: object, headers: Record<string, string> = {}) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 }
-export function loopback(url: URL): boolean {
-  return url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
-}
-
 export async function readInput(request: Request): Promise<unknown> {
   const declared = request.headers.get('Content-Length');
   if (declared !== null && (!/^[0-9]+$/.test(declared) || Number(declared) > 4096)) throw new Error('Invalid body size');
@@ -44,17 +42,15 @@ export async function readInput(request: Request): Promise<unknown> {
 }
 
 export async function registerAccount(request: Request, env: RegistrationEnvironment): Promise<Response> {
-  // There is deliberately no remote enablement value in this phase. Neither an
-  // accidental DEV deployment nor an arbitrary feature flag exposes registration.
-  if (env.REGISTRATION_MODE !== 'local-only' || !loopback(new URL(request.url))) {
+  // Default off; hosted mode also requires an explicit DEV marker and exact hostname.
+  if (!authRouteEnabled(request, env, env.REGISTRATION_MODE)) {
     return reply(404, { error: 'Not found' });
   }
   if (request.method !== 'POST') return reply(405, { error: 'Method not allowed' }, { Allow: 'POST' });
   let origin: URL;
   try {
-    origin = new URL(env.AUTH_PUBLIC_ORIGIN ?? '');
-    if (!loopback(origin) || origin.origin !== env.AUTH_PUBLIC_ORIGIN
-      || !env.PASSWORD_PEPPER || !fromHex(env.PASSWORD_PEPPER, 32)
+    origin = authOrigin(request, env);
+    if (!env.PASSWORD_PEPPER || !fromHex(env.PASSWORD_PEPPER, 32)
       || !env.AUTH_RATE_LIMIT_SECRET || !fromHex(env.AUTH_RATE_LIMIT_SECRET, 32)
       || env.AUTH_RATE_LIMIT_SECRET === env.PASSWORD_PEPPER) throw new Error('Unavailable configuration');
   } catch { return reply(503, { error: 'Registration is temporarily unavailable.' }); }
@@ -70,9 +66,9 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
     const now = Math.floor(Date.now() / 1000);
     const limit = await registrationLimiter(env.DB, env.AUTH_RATE_LIMIT_SECRET!, now);
     await limit('global', 'all'); // Admission first: bounds downstream key cardinality.
-    // CF-Connecting-IP is platform-supplied in a future hosted integration, never
+    // CF-Connecting-IP is platform-supplied in hosted DEV, never
     // X-Forwarded-For. Local requests without it share a conservative loopback bucket.
-    const ip = request.headers.get('CF-Connecting-IP') ?? 'loopback';
+    const ip = authClientIP(request, env);
     if (ip.length > 45 || (ip !== 'loopback' && !/^[0-9a-fA-F:.]+$/.test(ip))) return reply(400, { error: 'Invalid registration request.' });
     await limit('ip', ip.toLowerCase());
     let input;
@@ -83,6 +79,11 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
       input = validateRegistration(raw as Parameters<typeof validateRegistration>[0]);
     } catch { return reply(400, { error: 'Check your nickname, first and last name, email and password. Nicknames must follow the displayed rules; passwords need 12–128 characters.' }); }
     await limit('account', input.emailNormalized);
+    if (hostedDev(request, env)) {
+      // Deny before hashing or writing personal data, without revealing the allowlist.
+      try { assertDevEmailRecipient(env, input.emailNormalized); emailTransport(request, env); }
+      catch { return reply(202, accepted); }
+    }
     const passwordHash = await hashPassword(input.password, env.PASSWORD_PEPPER);
     const id = newAccountId();
     let created = false;
@@ -107,10 +108,8 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
     if (created) {
       try {
         await deliverVerification(env.DB, { userId: id, status: 'active', authVersion: 0, emailVerifiedAt: null },
-          input.email, origin.origin, env.AUTH_EMAIL_TRANSPORT === 'local' ? localMailbox : {
-            async send() { throw new Error('Local delivery unavailable'); },
-          }, now);
-      } catch { /* Account stays unverified. Authenticated resend safely recovers. */ }
+          input.email, origin.origin, emailTransport(request, env), now);
+      } catch { /* Account stays unverified. Explicit anonymous resend can recover. */ }
     }
     return reply(202, accepted); // No private profile, credential, session or token response.
   } catch (error) {

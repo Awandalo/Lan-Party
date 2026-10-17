@@ -1,3 +1,4 @@
+import { AUTH_UI_AVAILABLE, authUIEnabled } from './auth-mode';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
@@ -12,10 +13,10 @@ interface Authentication {
 const Context = createContext<Authentication | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [status, setStatus] = useState<Authentication['status']>(import.meta.env.DEV ? 'loading' : 'ready');
+  const [status, setStatus] = useState<Authentication['status']>((AUTH_UI_AVAILABLE && authUIEnabled()) ? 'loading' : 'ready');
   const { pathname } = useLocation();
   const refresh = useCallback(async () => {
-    if (!import.meta.env.DEV) return false;
+    if (!(AUTH_UI_AVAILABLE && authUIEnabled())) return false;
     try {
       const response = await fetch('/api/auth/session', { credentials: 'same-origin', redirect: 'error',
         headers: { 'X-LAN-Request': '1' }, signal: AbortSignal.timeout(15000) });
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => { void refresh(); }, [refresh, pathname]);
   const logout = async () => {
-    if (!session || !import.meta.env.DEV) return false;
+    if (!session || !(AUTH_UI_AVAILABLE && authUIEnabled())) return false;
     try {
       const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', redirect: 'error',
         headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1', 'X-CSRF-Token': session.csrfToken },
