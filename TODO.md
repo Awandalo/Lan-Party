@@ -265,6 +265,9 @@ real email/integrated CPU verification remain separately approved operations.
   shared atomic allowance. Add exact DEV hostname/mode, HTTPS/CSRF and trusted-IP guards.
 - [x] Require verified email before login and reject legacy unverified sessions;
   recovery never verifies an address. Add optional DEV-build forms without enabling PROD.
+- [x] Configure the hosted frontend flag only in the DEV deployment build step;
+  preserve hostname guards and default production previews. Backend activation and
+  real email testing remain separate approvals.
 - [x] Verify the uncommitted local password-recovery flow with focused combined
   regressions, preserving single-use links, generic feedback and session revocation.
 - [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)

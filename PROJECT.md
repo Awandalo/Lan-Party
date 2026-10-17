@@ -947,6 +947,9 @@ Frontend forms require a DEV build using public `VITE_AUTH_MODE=hosted-dev` plus
 the exact DEV hostname at runtime. This is presentation configuration, not access
 control; backend gates are independent. Default production builds omit active auth
 forms. The fictional mailbox remains local development only in both frontend/backend.
+The DEV deployment workflow sets this flag only on its frontend build step; CI and
+production build commands retain the default. Backend modes remain unset, so the
+hosted forms show unavailable-service feedback until separately approved activation.
 
 Offline tests use disposable D1 databases and an intercepted provider transport;
 they cover registration, verification, login/logout, recovery, session revocation,
