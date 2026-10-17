@@ -7,6 +7,19 @@ import { before, test } from 'node:test';
 const require = createRequire(import.meta.url), wr = createRequire(require.resolve('wrangler/package.json'));
 const { Miniflare, convertV4MiniflareOptions } = wr('miniflare'), { build } = wr('esbuild');
 let policy, migrations;
+// Reviewed history, not a count derived from whatever files happen to be present.
+// New migrations require an explicit update so missing/extra/renamed files fail.
+const expectedHistory = [
+  '0001_create_event_structure.sql', '0002_create_accounts.sql',
+  '0003_create_auth_credentials.sql', '0004_create_authorization.sql',
+  '0005_create_registrations.sql', '0006_seed_reference_data.sql',
+  '0007_create_news_articles.sql', '0008_create_authentication_state.sql',
+  '0009_create_registration_rate_limits.sql', '0010_create_authentication_email_budget.sql',
+  '0011_create_member_numbers.sql',
+];
+function assertMigrationHistory(names) {
+  assert.deepEqual(names, expectedHistory, 'Discovered SQL migrations must match the reviewed history');
+}
 const day = Date.UTC(2026, 9, 17) / 1000;
 const env = { AUTH_ENVIRONMENT: 'dev', AUTH_EMAIL_TRANSPORT: 'resend',
   AUTH_PUBLIC_ORIGIN: 'https://dev.lan-party.club', RESEND_API_KEY: 'fictional-provider-key',
@@ -18,8 +31,11 @@ before(async () => {
   const code = (await build({ entryPoints: [fileURLToPath(new URL('../auth/dev-email.ts', import.meta.url))],
     bundle: true, write: false, format: 'esm', platform: 'node', target: 'es2022' })).outputFiles[0].text;
   policy = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+  const names = (await readdir(new URL('../../migrations/', import.meta.url)))
+    .filter(name => name.toLowerCase().endsWith('.sql')).sort();
+  assertMigrationHistory(names);
   migrations = [];
-  for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
+  for (const name of names) {
     let rest = (await readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).replace(/--[^\n]*/g, '').trim();
     const statements = [];
     while (rest) {
@@ -43,8 +59,15 @@ async function local(run) {
 const reserve = (db, now = day + 60, daily = 100, monthly = 3000) => policy.reserveDevEmailAttempt(db, now, daily, monthly);
 const count = db => db.prepare('SELECT COALESCE(SUM(attempts),0) AS n FROM auth_email_daily_budget').first('n');
 
-test('all ten migrations apply locally with STRICT, empty, non-PII budget tables', () => local(async db => {
-  assert.equal(migrations.length, 10); assert.equal(await count(db), 0);
+test('migration discovery rejects missing, unexpected and renamed SQL files', () => {
+  assertMigrationHistory([...expectedHistory]);
+  assert.throws(() => assertMigrationHistory(expectedHistory.slice(0, -1)));
+  assert.throws(() => assertMigrationHistory([...expectedHistory, '0012_unreviewed.sql']));
+  assert.throws(() => assertMigrationHistory([...expectedHistory.slice(0, -1), 'unexpected.sql']));
+});
+
+test('reviewed migrations apply locally with STRICT, empty, non-PII budget tables', () => local(async db => {
+  assert.equal(await count(db), 0);
   assert.equal(await db.prepare('SELECT count(*) AS n FROM auth_email_budget_extensions').first('n'), 0);
   for (const name of ['auth_email_daily_budget', 'auth_email_budget_extensions']) {
     assert.equal((await db.prepare('PRAGMA table_list').all()).results.find(x => x.name === name).strict, 1);
