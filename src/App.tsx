@@ -7,6 +7,8 @@ import Events from './pages/Events';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
 import Account from './pages/Account';
+import VerifyEmail from './pages/VerifyEmail';
+import LocalMail from './pages/LocalMail';
 import { AuthProvider } from './lib/auth';
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           {import.meta.env.DEV && <Route path="/register" element={<Registration />} />}
           {import.meta.env.DEV && <Route path="/account" element={<Account />} />}
+          {import.meta.env.DEV && <Route path="/verify-email" element={<VerifyEmail />} />}
+          {import.meta.env.DEV && <Route path="/local-mail" element={<LocalMail />} />}
           <Route path="*" element={
             <section className="page-section">
               <p className="eyebrow">404</p>

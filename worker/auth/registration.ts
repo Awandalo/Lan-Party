@@ -2,8 +2,11 @@ import { validateRegistration, newAccountId } from './accounts';
 import { hashPassword } from './passwords';
 import { fromHex } from './encoding';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
+import { localMailbox } from './email';
+import type { EmailEnvironment } from './email';
+import { deliverVerification } from './verification-service';
 
-export interface RegistrationEnvironment {
+export interface RegistrationEnvironment extends EmailEnvironment {
   DB: D1Database;
   REGISTRATION_MODE?: string;
   AUTH_PUBLIC_ORIGIN?: string;
@@ -82,6 +85,7 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
     await limit('account', input.emailNormalized);
     const passwordHash = await hashPassword(input.password, env.PASSWORD_PEPPER);
     const id = newAccountId();
+    let created = false;
     try {
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO users (id,first_name,last_name,email,email_normalized,created_at,updated_at)
@@ -91,10 +95,22 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
         env.DB.prepare(`INSERT INTO user_password_credentials (user_id,password_hash,password_changed_at,created_at,updated_at)
           VALUES (?,?,?,?,?)`).bind(id, passwordHash, now, now, now),
       ]);
+      created = true;
     } catch (error) {
       // A uniqueness failure rolls back the entire batch. Return the SAME response
       // as success for both existing emails and nicknames; never reveal an account.
       if (!(error instanceof Error) || !/UNIQUE constraint failed: (users\.email_normalized|user_nicknames\.nickname_key)/.test(error.message)) throw error;
+    }
+    // Preserve the same response for creation, duplicates and delivery failure.
+    // Legacy local setups without a transport remain unverified and can resend
+    // once the explicit local transport has been configured; never send real email.
+    if (created) {
+      try {
+        await deliverVerification(env.DB, { userId: id, status: 'active', authVersion: 0, emailVerifiedAt: null },
+          input.email, origin.origin, env.AUTH_EMAIL_TRANSPORT === 'local' ? localMailbox : {
+            async send() { throw new Error('Local delivery unavailable'); },
+          }, now);
+      } catch { /* Account stays unverified. Authenticated resend safely recovers. */ }
     }
     return reply(202, accepted); // No private profile, credential, session or token response.
   } catch (error) {

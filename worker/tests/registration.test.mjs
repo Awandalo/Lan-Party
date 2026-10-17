@@ -70,7 +70,11 @@ test('registration creates a private unverified account, unique nickname and ind
   assert.notEqual(derived.toString('hex'), verifier);
   assert.equal(JSON.stringify(credential).includes(original.password), false);
   assert.equal(JSON.stringify(credential).includes(pepper), false);
-  assert.equal(await count(db, 'auth_sessions'), 0); assert.equal(await count(db, 'auth_action_tokens'), 0);
+  assert.equal(await count(db, 'auth_sessions'), 0);
+  const action = await db.prepare('SELECT * FROM auth_action_tokens').first();
+  assert.equal(action.purpose, 'email-verification'); assert.equal(action.expires_at - action.created_at, 86400);
+  assert.equal(action.consumed_at, null); // Transport absent in this legacy fixture: fails safely, remains unverified.
+  assert.notEqual(action.revoked_at, null);
   assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results, []);
 }));
 

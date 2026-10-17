@@ -133,6 +133,17 @@ and cover account atomicity, uniqueness, password storage, FK integrity and limi
 node --test worker/tests/registration.test.mjs
 ```
 
+## Phase 3.4 email verification — no new migration
+
+Phase 3.4 email verification also needs no new migration. It reuses 0008's
+purpose-bound action tokens and atomic consumption, with transactional replacement
+in the adapter, plus separate resend/confirmation HMAC counter keys in 0009.
+Only digests are stored in D1; local test messages/raw links are bounded volatile
+memory. All 0001–0009 migration files remain unchanged. 0008/0009 still require
+separate remote preflight/application approval. Token expiry is enforced on use;
+deletion of expired/consumed/revoked records and idle-counter cleanup need an
+owner-approved retention/operations policy before hosted use.
+
 ## Event schema decisions
 
 - UUID generation and validation remain future Worker API responsibilities.

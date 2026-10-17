@@ -17,10 +17,10 @@ and verified in both environments. This documentation update does not independen
 verify PROD migration state or complete the current post-release
 public website verification. Phase 3 Authentication & Accounts is the active
 development phase. Phase 3.2 Authentication Database now has locally tested D1
-adapters. Phase 3.3 registration and the next local login/logout step are implemented
-for local development only; hosted authentication and News APIs remain unfinished.
+adapters. Phase 3.3 registration, login/logout and Phase 3.4 email verification are
+implemented locally; hosted authentication, real email delivery and News APIs remain unfinished.
 Phase 3.1 now contains local, tested authentication primitives and contracts;
-public registration/login, email delivery and Google sign-in remain unfinished. Persistence
+public registration/login, real email delivery and Google sign-in remain unfinished. Persistence
 is implemented locally in the Phase 3.2 adapters described below.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
@@ -146,8 +146,8 @@ the default configuration targets PROD and `--env dev` selects DEV.
 - Future `/account` tools will let participants view and adjust their own signups.
 - Future `/manage` tools will serve authorized organizers and moderators; backend
   permission checks must enforce access and role boundaries.
-- The temporary `/admin` redirect has been removed. `/account` and `/manage` are
-  reserved names, not implemented routes. Account interfaces and moderator roles
+- The temporary `/admin` redirect has been removed. `/account` is implemented only
+  in local development builds; `/manage`, event-account tools and moderator roles
   remain future implementation work.
 - Phase 2.5 requires participant accounts for registration. Organizer privileges
   are separate; secure signup ownership and editing must be enforced by future APIs.
@@ -399,7 +399,7 @@ The approved database and authentication decisions below supersede earlier propo
    existing RBAC before building administration endpoints.
 2. **Registration editing:** Participant accounts are required by Phase 2.5. Define
    server-side signup ownership checks and the recovery/editing flow before APIs;
-   email delivery and public flows remain unfinished. Local session/reset/revocation
+   real email delivery and public flows remain unfinished. Local session/reset/revocation
    storage adapters and local login/logout HTTP integration are implemented;
    hosted flows and event authorization integration are still required.
 3. **Registration fields and privacy:** Account signup uses the approved nickname,
@@ -450,9 +450,10 @@ Approved product requirements:
   before exposing authentication endpoints.
 - Optional TOTP MFA is approved for all accounts in a later Phase 3 authentication
   stage. No MFA schema, enrollment, recovery or login challenge is implemented yet.
-- Resend Free is selected for future delivery, but is not configured. Introduce a
-  replaceable email-service interface when delivery is implemented, store keys in
-  Cloudflare secrets and prevent DEV from sending to arbitrary real recipients.
+- Resend Free is selected for future hosted delivery, but is not configured. Phase
+  3.4 provides a replaceable email-service interface and an unwired Resend adapter.
+  Future live integration must store keys in Cloudflare secrets and prevent DEV
+  from sending to arbitrary real recipients.
 - Verification links are single-use and expire after 24 hours. Password reset links
   are single-use and expire after 30 minutes. Recovery responses must be generic;
   a successful reset must invalidate all existing sessions.
@@ -666,7 +667,8 @@ testing, including sessions, abuse controls and realistic runtime variation.
   preflight/remediation and recovery evidence. Optional MFA remains a later stage.
 - Token reissue/supersession, retention/cleanup and delivery policy remain owner
   decisions before endpoints: issuing a token currently leaves other valid tokens
-  until expiry or generation revocation. No mail is sent and no public flow is enabled.
+  until expiry or generation revocation. These Phase 3.2 adapters alone send no mail;
+  Phase 3.4 adds local transport below. No public flow is enabled.
   These local adapters do not establish full authentication or public readiness.
 
 Approved abuse-prevention design (registration-only local implementation below): use D1 atomic fixed-window
@@ -691,8 +693,9 @@ is supplementary, not a strict global limiter.
   password rules and a streamed 4096-byte JSON/UTF-8 body bound. One D1 batch creates
   the UUID profile (email initially unverified), canonical nickname and v2 password
   credential. Database uniqueness wins concurrent email/nickname races; any failure
-  rolls back the entire account. There is no implicit login, email delivery, provider
-  linking or role/privilege assignment.
+  rolls back the entire account. There is no implicit login, provider linking or
+  role/privilege assignment. Phase 3.4 now attempts local verification delivery
+  after a successful creation, as described below.
 - The endpoint requires `REGISTRATION_MODE=local-only` AND an HTTP loopback request
   URL. There is no hosted enablement mode in this implementation. Missing/malformed
   independent pepper/limiter secrets fail closed, as does unavailable limiter storage.
@@ -727,7 +730,7 @@ is supplementary, not a strict global limiter.
   remote migrations 0008/0009, secrets, abuse policy and explicit hosted enablement
   remain separate gates. The owner approved finalizing the local registration implementation.
 
-### Next Phase 3 step — Login/logout and account experience (local only)
+### Login/logout milestone — finalized locally
 
 - `POST /api/auth/login` validates exact email/password fields, a bounded JSON body,
   trusted Origin/custom header/Fetch Metadata and the existing password policy.
@@ -754,7 +757,7 @@ is supplementary, not a strict global limiter.
   browser storage or client-readable session-token payload.
 - `GET /api/auth/session` validates cookie format/uniqueness, expiry, revocation,
   active account and credential generation. Its explicit response projection is
-  only UUID/nickname plus a separate session-bound CSRF proof. Private names/email,
+  only UUID/nickname, a verification-status boolean and a separate session-bound CSRF proof. Private names/email,
   password records and session tokens are excluded. Invalid sessions return 401
   and expire the cookie. All authentication responses are `no-store`, with no CORS.
 - `POST /api/auth/logout` requires a valid session, exact trusted request origin,
@@ -782,14 +785,94 @@ is supplementary, not a strict global limiter.
   private-data projections and hosted/configuration rejection. No migrations or
   deployment configuration changed. All 185 tests, strict TypeScript, production
   build and diff checks passed, including safe logout storage failure behavior.
-  The owner approved finalizing this locally verified login/logout milestone.
+  Finalized on `dev` in commit `da9e93df838a1ed57cad3973d77821f4bb6f6307`;
+  automatic DEV deployment and GitHub CI passed. Hosted authentication stays disabled.
+
+### Phase 3.4 — Email verification (local implementation; pending owner review)
+
+- New registrations attempt a purpose-bound 24-hour verification using the existing
+  migration 0008 action-token store. Only domain-separated SHA-256 digests, UUID,
+  generation, normalized-email binding and timestamps go into D1; raw tokens go
+  only to the trusted delivery transport. Duplicate registration does not resend,
+  rotate credentials/tokens or reveal an existing account. Delivery/token-issuance
+  failure leaves the complete account unverified and keeps the generic registration
+  response; explicit resend can recover without recreating the account.
+- `POST /api/auth/verify-email` accepts only a UUID and a well-formed token. It
+  checks purpose, account/email/generation binding, active status, expiry, revocation
+  and single use through the existing atomic consume-and-mark-verified D1 batch.
+  Concurrent confirmations have one winner; failures roll back consumption. GET
+  cannot consume links. Confirmation neither logs the user in nor grants roles.
+- Verification links use `/verify-email#user=…&token=…`. The local frontend captures
+  the proof in memory and replaces the history entry with `/verify-email` before
+  React/router initialization. Fragments are not sent in HTTP/referrers. An explicit
+  confirmation button sends the bounded JSON POST; merely opening a link does not
+  verify it. The proof is cleared after an attempt or leaving the page. Reloading
+  before confirming loses the proof intentionally; request another email if needed.
+  No verification tokens appear in ordinary registration/session/resend responses, DOM text,
+  application logs or browser storage. The restricted mailbox response is the
+  deliberate development-only exception for obtaining disposable verification links.
+- `POST /api/auth/resend-verification` accepts an anonymous normalized email, or
+  an authenticated empty-body request with the existing session-bound CSRF proof.
+  Unknown/disabled/verified/unverified accounts and delivery failures receive the
+  same generic 202. Persistent separate `email-resend` counters enforce global
+  30/hour, IP 5/15 minutes, email 3/hour and eligible UUID account 3/hour before
+  issuance. Confirmation has separate `email-confirm` global/IP/account counters
+  at 30/hour, 5/15 minutes and 3/hour. Rate-limited requests return 429 without
+  retries. Across registration/login/resend/confirmation, admission bounds new keys
+  to at most 274/hour (61 + 61 + 91 + 61). The shared expiry/idle-cleanup gate remains.
+- Replacement revokes outstanding verification tokens and inserts the replacement
+  in one D1 transaction, guarded by the current unverified account generation.
+  Failed inserts roll back revocation. Failed/uncertain delivery revokes that new
+  digest only, with no automatic retry; another deliberate request is required.
+  Superseded mail cannot verify an account, even if delivery completion reorders.
+- `EmailTransport` has a safe local transport and a prepared Resend REST adapter,
+  based on the [official send-email API](https://resend.com/docs/api-reference/emails/send-email).
+  The Resend adapter uses a bounded request, a digest-derived idempotency key,
+  sanitized failures and no retries. Its tests inject fake HTTP; no real email is
+  sent. It is deliberately not selectable by application routes in this phase.
+  Later approved integration needs Worker-secret `RESEND_API_KEY`, an approved
+  sender/domain, canonical HTTPS verification origin, DEV recipient allowlist,
+  quota policy and provider/privacy approval. No Resend account/domain/secret is configured.
+- Local mail requires `AUTH_EMAIL_TRANSPORT=local`; its bounded volatile mailbox
+  accepts only fictional `.test` recipients and at most 50 messages, purging expired
+  messages opportunistically. `/local-mail` retrieves one usable message via a
+  POST guarded by a THIRD independent 256-bit `AUTH_LOCAL_MAIL_SECRET`, exact
+  Origin/custom header, JSON and no CORS. Retrieval discards superseded D1 tokens
+  and removes the returned message from memory; restart loses all mail. The secret
+  is manually entered, cleared after retrieval and never shipped in frontend configuration.
+  No D1 table stores mail bodies/raw tokens, and no extra infrastructure is created.
+- Verification/mailbox APIs require explicit `AUTH_SESSION_MODE=local-only`, local
+  transport AND an HTTP loopback request URL. Hosted requests always get 404,
+  regardless of configured flags. Local-only routes/forms are removed by production
+  builds. Existing local registration setups without a transport issue then revoke
+  an undeliverable token and remain unverified; configure the local transport and
+  explicitly resend. All authentication/verification responses use `no-store`.
+- Account pages now display verified/unverified status and a protected resend
+  action for unverified accounts, without exposing private email/names. Unverified
+  participants may still log in; event signup is unavailable and its future APIs
+  must use the existing verified-account eligibility gate plus ownership/event checks.
+- No new migration is necessary. Migrations 0001–0009, remote secrets, Wrangler and
+  deployment configuration remain unchanged. Migrations 0008/0009 are still local only.
+  Browser verification with fictional participants passed register → restricted
+  message → explicit verification → login → verified account → reload → logout →
+  protected redirect, including mobile verification layout without horizontal overflow.
+  All 201 automated tests, strict TypeScript, production build and final diff checks
+  passed, including the maximum-length resend email regression. The owner approved
+  finalizing this locally verified Phase 3.4 milestone; hosted access remains disabled.
+- Owner decisions before hosted use: sender/domain and DEV delivery allowlist;
+  delivery quotas, failure/reissue messaging and any durable retry/outbox policy;
+  expiry/consumed/revoked-token deletion and provider-log retention; idle limiter
+  cleanup and participant retention/deletion/privacy notice. Raw links necessarily
+  reach the chosen email provider/mailbox in a future real delivery flow; approve
+  its processing arrangements. Current local limits/volatile mail are not a hosted
+  reliability or privacy policy. No scheduler, webhook or real-recipient delivery is added.
 
 Remaining release gates: verify integrated DEV password/authentication CPU headroom, review
 hosted session/cookie and CSRF integration, abuse policy, recovery enumeration/timing
 mitigations, token cleanup and delivery failure handling. Local workerd crypto tests
 do not prove a Workers Free deployed CPU budget or complete auth behavior.
 The owner-approved development work factor is fixed; further security changes need review.
-Local registration, login/logout, account UI and storage primitives are implemented.
+Local registration, login/logout, email verification, account UI and storage primitives are implemented.
 No public registration/login, verification, reset, delivery or Google flow is marked complete.
 No remote database access, manual deployment or provider configuration is authorized
 by this local implementation.

@@ -8,7 +8,7 @@ Phase 3 Authentication & Accounts is the active development phase; Phase 3.1
 provides local foundation primitives and migration 0008. Phase 3.2 Authentication
 Database adapters and Phase 3.3 registration are implemented locally. Hosted
 registration/login remain disabled; the next local login/logout step is implemented
-and approved for finalization. Email verification remains unfinished.
+and finalized on `dev`. Phase 3.4 email verification is implemented locally and pending review.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
 for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
 deployment from `main`; no local GitHub Actions production deployment workflow is
@@ -177,12 +177,13 @@ Implementation requirements:
 - [ ] Obtain owner-approved handling of legacy null/invalid/duplicate nicknames
   and sanitized preflight evidence before any separately approved remote migration.
 - [x] Record approved seven-day session/cookie, layered CSRF and D1-based persistent
-  rate-limiting designs. Registration has a local D1 limiter in Phase 3.3; other
-  limiters and remote secret/cleanup configuration remain unfinished.
+  rate-limiting designs. Registration, login, verification/resend have local D1
+  limits; recovery limits and remote secret/cleanup configuration remain unfinished.
 - [x] Integrate local cookie/session login/logout and session-bound CSRF protection.
-- [ ] Integrate explicit verification/reset confirmation before token consumption.
+- [x] Integrate explicit local email-verification confirmation before token consumption.
+- [ ] Integrate explicit reset confirmation before token consumption.
   Never mutate through GET requests.
-- [ ] Extend distributed rate limiting to recovery/delivery when implemented.
+- [ ] Extend distributed rate limiting to recovery when implemented and review hosted delivery quotas.
   Agree hosted thresholds, idle cleanup and superseded-token/reissue behavior before live endpoints.
 - [ ] Approve privacy notice, real-name purposes/access, retention/deletion,
   participant requests, backup retention and email-provider processing arrangements.
@@ -206,7 +207,7 @@ Implementation requirements:
 - [ ] Approve hosted enablement, remote 0008/0009 preflight, secrets,
   abuse/idle-cleanup policy and DEV performance separately.
 
-### Login/logout milestone (implemented locally; approved for finalization)
+### Login/logout milestone (finalized on dev)
 
 - [x] Add loopback-only/default-disabled email/password login using the existing
   peppered verifier, credential-generation fencing and seven-day D1 sessions.
@@ -222,15 +223,38 @@ Implementation requirements:
   checks; verify hosted endpoint rejection and production bundle exclusion of active
   authentication UI/API calls. Migrations 0001–0009 and deployment configuration are unchanged.
 - [x] Obtain owner approval to finalize and push this locally verified login/logout step.
+- [x] Commit/push `da9e93df838a1ed57cad3973d77821f4bb6f6307`, verify matching remote
+  history, successful GitHub CI and automatic DEV deployment; keep hosted auth disabled.
 - [ ] Obtain separate approval before enabling hosted authentication.
+
+### Phase 3.4 — Email verification (implemented locally; pending review)
+
+- [x] Issue digest-only, purpose/email/generation-bound verification tokens after
+  new registration, with 24-hour expiry and no token in the ordinary API response.
+- [x] Reuse atomic D1 consumption to verify the correct account exactly once;
+  protect against replay, expiry, crossover, concurrent confirmation and storage failures.
+- [x] Add a shared email transport contract, bounded fictional-only local mailbox
+  protected by a third independent secret, and an unwired Resend adapter with fake-HTTP tests.
+- [x] Add generic resend with persistent global/IP/email/account limits, authenticated
+  CSRF protection, transactional supersession and safe explicit recovery after delivery failure.
+- [x] Add development-only verification/secret-protected mailbox pages, immediate
+  URL-fragment removal, explicit confirmation and private account verification status/resend UI.
+- [x] Verify the full fictional browser flow register → local message → verify →
+  login → verified account → reload → logout → unauthenticated redirect, plus mobile layout.
+- [x] Pass all 201 automated tests, strict TypeScript, production build and final
+  diff checks. Verify the resend key allows a 254-character email plus its 6-character
+  prefix, with a registration/resend/verification regression test. Production bundles
+  exclude active authentication/verification/mailbox UI and API calls.
+- [x] Obtain owner approval to finalize and push locally verified Phase 3.4.
+- [ ] Hosted enablement still needs
+  remote 0008/0009 approval/preflight, secrets, performance, sender/allowlist, abuse/idle
+  cleanup, token/provider retention, privacy and delivery/reissue reliability decisions.
 
 Later Phase 3 functionality remains unfinished:
 
-- [ ] Implement email verification separately. Unverified accounts may log in;
-  event signup remains unavailable and must require verified email when implemented.
-- [ ] Implement Resend Free behind a replaceable service when delivery is needed;
+- [ ] Integrate approved real email delivery through the prepared Resend adapter;
   use Cloudflare secrets and prevent arbitrary real-recipient delivery on DEV.
-- [ ] Implement 24-hour verification and 30-minute reset flows, single-use links,
+- [ ] Implement the 30-minute password-reset flow, single-use links,
   generic recovery responses and revocation of all sessions after successful reset.
 - [ ] Implement later Google OIDC using shared accounts/sessions and trusted
   issuer/subject checks, with no automatic linking based on matching email.

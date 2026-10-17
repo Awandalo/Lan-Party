@@ -25,7 +25,7 @@ export default function Registration() {
       });
       if (response.status === 202) {
         setSuccessful(true);
-        setFeedback('Request processed. If your details were available, your account was created with unverified email. You can now try logging in. If you already have an account, use it instead; otherwise try a different nickname. Email delivery is not available in this local build.');
+        setFeedback('Request processed. If your details were available, your account was created with unverified email and a verification message was attempted. Check the restricted local mailbox. If delivery was unavailable, log in and request another email. Existing account details may be unavailable; try your existing login or another nickname.');
         form.reset();
       } else if (response.status === 400) {
         setFeedback('Please check all five fields. Follow the nickname rules shown with the form, avoid spaces around names or email, and use a password of 12–128 characters.');
@@ -53,7 +53,7 @@ export default function Registration() {
         <p className="eyebrow">Join the party</p>
         <h1>Create your account</h1>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
-        <p className="registration-local-notice">Local development only. Use fictional details and a disposable password. Email verification comes later; unverified accounts can log in but cannot register for events.</p>
+        <p className="registration-local-notice">Local development only. Use fictional .test details and a disposable password. Verify through the restricted local mailbox. Unverified accounts can log in but cannot register for events.</p>
         <form onSubmit={submit} aria-busy={busy}>
           <fieldset disabled={busy}>
             <legend className="registration-legend">All five fields are required</legend>
@@ -76,6 +76,7 @@ export default function Registration() {
         <div ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite"
           className={`registration-feedback${successful ? ' registration-success' : ''}`}>{feedback}</div>
         <p><Link to="/login">Back to login</Link></p>
+        <p><Link to="/local-mail">Restricted local mailbox</Link> · <Link to="/verify-email">Request a new verification email</Link></p>
       </div>
     </section>
   );

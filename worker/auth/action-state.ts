@@ -12,19 +12,34 @@ function purposeCheck(purpose: ActionPurpose): void {
 export class D1ActionTokenStore implements ActionTokenStore {
   constructor(private readonly db: D1Database) {}
 
-  async issue(account: AccountIdentity, purpose: ActionPurpose, now: number) {
+  async issue(account: AccountIdentity, purpose: ActionPurpose, now: number, replaceOutstanding = false) {
     accountVersion(account); purposeCheck(purpose); serverTime(now);
+    if (replaceOutstanding && purpose !== 'email-verification') throw new Error('Unsupported token replacement');
     const token = generateToken(), digest = await digestToken(token, purpose), expiry = actionTokenExpiresAt(purpose, now);
-    const created = await this.db.prepare(`INSERT INTO auth_action_tokens
+    const insert = this.db.prepare(`INSERT INTO auth_action_tokens
       (id,user_id,purpose,token_digest,auth_version,email_normalized,created_at,expires_at)
       SELECT ?,id,?,?,auth_version,CASE WHEN ?='email-verification' THEN email_normalized ELSE NULL END,?,?
       FROM users WHERE id=? AND status='active' AND auth_version=? AND updated_at<=?
         AND ((?='email-verification' AND email_verified_at IS NULL) OR
           (?='password-reset' AND EXISTS (SELECT 1 FROM user_password_credentials WHERE user_id=users.id))) RETURNING id`)
       .bind(crypto.randomUUID(), purpose, digest, purpose, now, expiry, account.userId, account.authVersion, now,
-        purpose, purpose).first<{ id: string }>();
+        purpose, purpose);
+    let created: boolean;
+    if (replaceOutstanding) {
+      // One D1 transaction serializes replacement races. The eligibility guard
+      // prevents a stale snapshot revoking tokens when it cannot issue a replacement.
+      const result = await this.db.batch([
+        this.db.prepare(`UPDATE auth_action_tokens SET revoked_at=max(created_at,?)
+          WHERE user_id=? AND purpose='email-verification' AND consumed_at IS NULL AND revoked_at IS NULL
+          AND EXISTS (SELECT 1 FROM users WHERE id=? AND status='active' AND auth_version=?
+            AND email_verified_at IS NULL AND updated_at<=?)`)
+          .bind(now, account.userId, account.userId, account.authVersion, now),
+        insert,
+      ]);
+      created = result[1].results.length === 1;
+    } else created = (await insert.first<{ id: string }>()) !== null;
     if (!created) throw new Error('Authentication account changed or is unavailable');
-    return { token, expiresAt: expiry }; // Only digests are stored; delivery is not implemented.
+    return { token, expiresAt: expiry }; // Raw token is for the trusted delivery adapter only.
   }
 
   private consumption(digest: string, userId: string, purpose: ActionPurpose, now: number) {

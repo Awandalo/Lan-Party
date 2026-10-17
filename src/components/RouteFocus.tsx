@@ -5,7 +5,8 @@ const titles: Record<string, string> = {
   '/': 'Home',
   '/events': 'Events',
   '/login': 'Login',
-  ...(import.meta.env.DEV ? { '/register': 'Create account', '/account': 'Account' } : {}),
+  ...(import.meta.env.DEV ? { '/register': 'Create account', '/account': 'Account',
+    '/verify-email': 'Verify email', '/local-mail': 'Local mailbox' } : {}),
 };
 
 export default function RouteFocus() {

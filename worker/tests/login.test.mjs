@@ -62,7 +62,8 @@ test('registration → login → private account → CSRF logout revokes the dig
   const response = await request('session', undefined, { Cookie: cookie });
   assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
   const body = await response.json();
-  assert.deepEqual(Object.keys(body).sort(), ['account', 'csrfToken']);
+  assert.deepEqual(Object.keys(body).sort(), ['account', 'csrfToken', 'emailVerified']);
+  assert.equal(body.emailVerified, false);
   assert.deepEqual(Object.keys(body.account).sort(), ['nickname', 'userId']);
   assert.equal(body.account.nickname, profile.nickname);
   for (const value of [profile.firstName, profile.lastName, profile.email, profile.password, token]) assert.equal(JSON.stringify(body).includes(value), false);
