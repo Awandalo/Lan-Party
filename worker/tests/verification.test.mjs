@@ -246,7 +246,7 @@ test('delivery failure revokes its attempt and explicit resend recovers; failed 
 }));
 
 test('Resend adapter uses only the documented API through a fake transport and sanitizes failures without retry', async () => {
-  const mail = { to: 'fictional@example.test', url: 'https://example.test/verify-email#fictional-proof', expiresAt: 2000000000, idempotencyKey: 'fictional-unique-id' };
+  const mail = { to: 'fictional@example.test', url: 'https://dev.lan-party.club/verify-email#fictional-proof', expiresAt: 2000000000, idempotencyKey: 'fictional-unique-id' };
   let calls = 0;
   const adapter = new providers.ResendEmailTransport('fictional-api-key', 'sender@example.test', async (url, init) => {
     calls++; assert.equal(url, 'https://api.resend.com/emails'); assert.equal(init.method, 'POST');

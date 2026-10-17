@@ -829,6 +829,11 @@ is supplementary, not a strict global limiter.
   Superseded mail cannot verify an account, even if delivery completion reorders.
 - `EmailTransport` has a safe local transport and a prepared Resend REST adapter,
   based on the [official send-email API](https://resend.com/docs/api-reference/emails/send-email).
+  Phase 3.8 adds one shared branded HTML/plain-text template for verification and
+  recovery, with canonical DEV action links and no external assets. Verification
+  retains explicit POST confirmation, followed by a success page and login action.
+  Provider click/open tracking must be confirmed disabled before separately approved
+  live template tests; local fixtures do not prove rendering in email clients.
   The Resend adapter uses a bounded request, a digest-derived idempotency key,
   sanitized failures and no retries. Its tests inject fake HTTP; no real email is
   sent. The locally implemented hosted DEV mode now selects its guarded wrapper;

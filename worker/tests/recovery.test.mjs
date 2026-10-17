@@ -255,7 +255,7 @@ test('prepared Resend adapter renders reset-specific content using fake HTTP onl
     assert.equal(mail.text.includes('24 hours'), false); assert.equal(mail.text.includes('fictional-key'), false);
     return new Response('{}');
   });
-  await adapter.send({ to: profile.email, url: 'https://example.test/reset-password#synthetic-proof', expiresAt: 1800,
+  await adapter.send({ to: profile.email, url: 'https://dev.lan-party.club/reset-password#synthetic-proof', expiresAt: 1800,
     purpose: 'password-reset', idempotencyKey: 'fictional-reset-key' });
   assert.equal(attempts, 1);
 });

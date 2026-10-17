@@ -288,6 +288,19 @@ real email/integrated CPU verification remain separately approved operations.
   tools. Administrator settings/resets/overrides/corrections remain Phase 5 work;
   ordinary administrative corrections must preserve participant cooldown state.
 
+### Phase 3.8 — Authentication email and verification polish
+
+- [x] Add shared branded HTML/plain-text verification and recovery templates, with
+  canonical DEV links, escaping, expiry information and no external assets.
+- [x] Keep explicit POST confirmation and add accessible verification success copy
+  with a prominent login action; preserve token, rate-limit and delivery protections.
+- [ ] Confirm Resend click/open tracking is disabled before separately approved
+  real-email/client rendering tests. Local fixtures do not establish inbox rendering.
+- [ ] Temporary DEV test-account reset remains a proposal: uncommitted local utility,
+  dry-run by default, explicit per-deletion approval and fresh recovery checkpoint;
+  refuse protected dependencies, preserve member-number tombstones and sending limits,
+  then remove the utility after testing. No reset utility or deletion is implemented.
+
 Final Phase 3 milestone — before enabling public registration:
 
 - [ ] Publish participant privacy information: public nickname/attendance, private

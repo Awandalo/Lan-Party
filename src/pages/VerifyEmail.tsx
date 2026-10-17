@@ -46,10 +46,12 @@ export default function VerifyEmail() {
     } catch { setFeedback('The result could not be confirmed. No automatic retry was made.'); }
     finally { setBusy(false); requestAnimationFrame(() => feedbackRef.current?.focus()); }
   }
-  return <section className="page-section verification-page"><div className="panel verification-card">
-    <p className="eyebrow">Account security</p><h1>Verify your email</h1>
-    <p>Links expire after 24 hours and work once. Opening a link does not verify your account until you confirm.</p>
-    {proof && <button className="button" onClick={confirm} disabled={busy}>{busy ? 'Confirming…' : 'Confirm email verification'}</button>}
+  return <section className="page-section verification-page"><div className="panel verification-card" aria-busy={busy}>
+    <p className="eyebrow">Account security</p><h1>{verified ? 'Email verified!' : 'Verify your email'}</h1>
+    {verified ? <><p>Your LAN Party account is ready. You can now sign in and join the party!</p>
+      <Link className="button" to="/login">Continue to login</Link></>
+      : <p>Links expire after 24 hours and work once. Select Verify my email to confirm your account.</p>}
+    {proof && !verified && <button className="button" onClick={confirm} disabled={busy}>{busy ? 'Verifying…' : 'Verify my email'}</button>}
     {!proof && !verified && <p>No pending confirmation is loaded. Open your latest verification message or request a new one.</p>}
     <div ref={feedbackRef} className="verification-feedback" tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
     {!verified && <form onSubmit={resend}><fieldset disabled={busy}>
@@ -58,6 +60,6 @@ export default function VerifyEmail() {
       <input id="verification-email" name="email" type="email" required maxLength={254} autoComplete="email" />
       <button className="button" type="submit">Request verification email</button>
     </fieldset></form>}
-    <p><Link to="/login">Log in</Link> · <Link to="/account">Your account</Link>{import.meta.env.DEV && <> · <Link to="/local-mail">Restricted local mailbox</Link></>}</p>
+    {!verified && <p><Link to="/login">Log in</Link> · <Link to="/account">Your account</Link>{import.meta.env.DEV && <> · <Link to="/local-mail">Restricted local mailbox</Link></>}</p>}
   </div></section>;
 }

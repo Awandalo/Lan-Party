@@ -1,4 +1,5 @@
 import { emailAddress } from './accounts';
+import { authenticationEmail } from './email-template';
 
 export interface AccountMail { to: string; url: string; expiresAt: number; idempotencyKey: string;
   purpose?: 'email-verification' | 'password-reset' }
@@ -57,9 +58,8 @@ export class ResendEmailTransport implements EmailTransport {
   }
   async send(mail: AccountMail): Promise<void> {
     emailAddress(mail.to);
-    if (new URL(mail.url).protocol !== 'https:') throw new Error('HTTPS verification link required');
-    const reset = mail.purpose === 'password-reset';
     try {
+      const template = authenticationEmail(mail.url, mail.purpose);
       // Native Workers fetch must not receive this transport as its receiver.
       const sendRequest = this.sendRequest;
       const response = await sendRequest('https://api.resend.com/emails', {
@@ -67,8 +67,7 @@ export class ResendEmailTransport implements EmailTransport {
         method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000),
         headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json',
           'Idempotency-Key': mail.idempotencyKey },
-        body: JSON.stringify({ from: this.from, to: [mail.to], subject: reset ? 'Reset your LAN Party password' : 'Verify your LAN Party email',
-          text: `${reset ? 'Reset your LAN Party password using this link (valid for 30 minutes)' : 'Confirm your LAN Party account email using this link (valid for 24 hours)'}:\n\n${mail.url}\n\nIf you did not request this, ignore this message.` }),
+        body: JSON.stringify({ from: this.from, to: [mail.to], ...template }),
       });
       await response.body?.cancel(); // Never log or propagate provider payloads.
       if (!response.ok) throw new Error('Delivery failed');
