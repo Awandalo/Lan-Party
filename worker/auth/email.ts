@@ -60,8 +60,11 @@ export class ResendEmailTransport implements EmailTransport {
     if (new URL(mail.url).protocol !== 'https:') throw new Error('HTTPS verification link required');
     const reset = mail.purpose === 'password-reset';
     try {
-      const response = await this.sendRequest('https://api.resend.com/emails', {
-        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+      // Native Workers fetch must not receive this transport as its receiver.
+      const sendRequest = this.sendRequest;
+      const response = await sendRequest('https://api.resend.com/emails', {
+        // Workers supports manual redirects; never forward credentials elsewhere.
+        method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000),
         headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json',
           'Idempotency-Key': mail.idempotencyKey },
         body: JSON.stringify({ from: this.from, to: [mail.to], subject: reset ? 'Reset your LAN Party password' : 'Verify your LAN Party email',
