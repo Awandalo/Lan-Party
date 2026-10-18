@@ -6,7 +6,7 @@ export const REGISTRATION_LIMITS = Object.freeze({ global: 30, ip: 5, account: 3
 export class RegistrationRateLimit extends Error {}
 
 export async function registrationLimiter(db: D1Database, secret: string, now: number,
-  action: 'registration' | 'login' | 'email-resend' | 'email-confirm' | 'password-forgot' | 'password-reset' = 'registration') {
+  action: 'registration' | 'login' | 'email-resend' | 'email-confirm' | 'password-forgot' | 'password-reset' | 'password-add' = 'registration') {
   serverTime(now);
   const bytes = fromHex(secret, 32);
   if (!bytes) throw new Error('Registration limiter unavailable');

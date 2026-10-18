@@ -14,6 +14,7 @@ import { deliverVerification } from './verification-service';
 import type { AccountIdentity } from './contracts';
 import { googleProof as proofDigest } from './google-proof';
 import { encodeGoogleProfile, decodeGoogleProfile } from './google-profile';
+import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
@@ -86,7 +87,7 @@ async function passwordNotice(request: Request, env: GoogleEnvironment, account:
     await emailTransport(request,env).send({to:row.email,url:authOrigin(request,env).origin+'/account/security',
       expiresAt:now()+86400,purpose,idempotencyKey:`security-${purpose}-${account.userId}-${account.authVersion+1}`});
     return 'attempted';
-  }catch{return 'unconfirmed';}
+  }catch{console.warn('auth.password_notification_unconfirmed');return 'unconfirmed';}
 }
 async function flowFor(request: Request, env: GoogleEnvironment, phase: string, state?: string) {
   const browser=browserToken(request); if (!browser) throw new Error('Missing transaction');
@@ -125,7 +126,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           if (!linked) throw new Error('Wrong identity');
           await grant(env.DB,session.account,session.digest,'google',identity.authenticatedAt);
           await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=?`).bind(flow.state_digest).run();
-          return redirect('/account/security');
+          return redirect('/account/security#add-password');
         }
         await recent(env.DB,session.account,session.digest);
         // A different account owning this email is never silently merged.
@@ -286,50 +287,28 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       ]);
       return result[0].results.length===1?reply(200,{next:'/login'},{'Set-Cookie':clearSessionCookie()}):reply(400,{error:'Keep another usable sign-in method.'});
     }
-    if (action==='request-password') {
-      if (Object.keys(input).length) return reply(400,{error:'Invalid request'});
-      await recent(env.DB,account,digest,'google');
-      const row=await env.DB.prepare(`SELECT email,email_normalized FROM users WHERE id=? AND auth_version=? AND status='active'
-        AND NOT EXISTS(SELECT 1 FROM user_password_credentials WHERE user_id=users.id)
-        AND EXISTS(SELECT 1 FROM user_auth_providers WHERE user_id=users.id AND provider='google')`).bind(account.userId,account.authVersion).first<{email:string;email_normalized:string}>();
-      if (!row || !recipientAllowed(request,env,row.email)) throw new Error('Unavailable');
-      // Reuse the existing persistent delivery limiter and shared budget wrapper.
-      const {registrationLimiter}=await import('./registration-limits');
-      const limit=await registrationLimiter(env.DB,env.AUTH_RATE_LIMIT_SECRET!,now(),'password-forgot');
-      await limit('global','all');await limit('ip',authClientIP(request,env));await limit('account',row.email_normalized);
-      const token=generateToken(),hash=await proofDigest(token),time=now();
-      await env.DB.batch([
-        env.DB.prepare('UPDATE auth_password_setup SET revoked_at=max(created_at,?) WHERE user_id=? AND revoked_at IS NULL').bind(time,account.userId),
-        env.DB.prepare(`INSERT INTO auth_password_setup(token_digest,user_id,session_digest,auth_version,email_normalized,created_at,expires_at)
-          VALUES (?,?,?,?,?,?,?)`).bind(hash,account.userId,digest,account.authVersion,row.email_normalized,time,time+600),
-      ]);
-      try { await emailTransport(request,env).send({to:row.email,url:origin.origin+'/account/security#setup='+token,
-        expiresAt:time+600,idempotencyKey:'password-setup-'+hash,purpose:'password-setup'}); }
-      catch {await env.DB.prepare('UPDATE auth_password_setup SET revoked_at=? WHERE token_digest=?').bind(now(),hash).run();}
-      return reply(202,{message:'If eligible, a confirmation email was requested. No automatic retry was made.'});
-    }
+    if (action==='request-password') return reply(404,{error:'Not found'});
     if (action==='add-password') {
       await recent(env.DB,account,digest,'google');
-      if (Object.keys(input).sort().join(',')!=='password,token' || typeof input.token!=='string' || !isValidToken(input.token)
-        || typeof input.password!=='string' || !isValidPassword(input.password)) return reply(400,{error:'Use a valid confirmation and a 12–128 character password.'});
-      const time=now(),tokenHash=await proofDigest(input.token);
-      const guard=`token_digest=? AND user_id=? AND session_digest=? AND auth_version=? AND expires_at>?
-        AND consumed_at IS NULL AND revoked_at IS NULL AND email_normalized=(SELECT email_normalized FROM users WHERE id=?)`;
-      const args=[tokenHash,account.userId,digest,account.authVersion,time,account.userId];
-      if (!await env.DB.prepare(`SELECT token_digest FROM auth_password_setup WHERE ${guard}`).bind(...args).first()) return reply(400,{error:'Confirmation unavailable'});
+      if (Object.keys(input).join(',')!=='password' || typeof input.password!=='string' || !isValidPassword(input.password))
+        return reply(400,{error:'Use a 12–128 character password.'});
+      const limit=await registrationLimiter(env.DB,env.AUTH_RATE_LIMIT_SECRET!,now(),'password-add');
+      await limit('global','all');await limit('ip',authClientIP(request,env));await limit('account',account.userId);
       const hash=await hashPassword(input.password,env.PASSWORD_PEPPER);
       const result=await env.DB.batch([
-        env.DB.prepare(`UPDATE auth_password_setup SET consumed_at=? WHERE ${guard}
-          AND EXISTS(SELECT 1 FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
-            WHERE r.session_digest=? AND r.method='google' AND r.expires_at>? AND r.authenticated_at>? AND r.authenticated_at<=? AND s.revoked_at IS NULL AND s.expires_at>?)
-          AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=? AND status='active')
-          AND NOT EXISTS(SELECT 1 FROM user_password_credentials WHERE user_id=?) RETURNING token_digest`)
-          .bind(now(),...args.slice(0,4),now(),account.userId,digest,now(),now()-googleFreshnessSeconds,now(),now(),account.userId,account.authVersion,account.userId),
         env.DB.prepare(`INSERT INTO user_password_credentials(user_id,password_hash,password_changed_at,created_at,updated_at)
-          SELECT ?,?,?,?,? WHERE changes()=1`).bind(account.userId,hash,now(),now(),now()),
+          SELECT id,?,?,?,? FROM users u WHERE id=? AND auth_version=? AND status='active' AND email_verified_at IS NOT NULL
+          AND EXISTS(SELECT 1 FROM user_auth_providers p WHERE p.user_id=u.id AND p.provider='google'
+            AND p.identity_namespace IN ('https://accounts.google.com','accounts.google.com') AND p.provider_subject IS NOT NULL)
+          AND EXISTS(SELECT 1 FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
+            WHERE r.session_digest=? AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.method='google'
+              AND r.expires_at>? AND r.authenticated_at>? AND r.authenticated_at<=?
+              AND s.user_id=u.id AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?)
+          AND NOT EXISTS(SELECT 1 FROM user_password_credentials c WHERE c.user_id=u.id) RETURNING user_id`)
+          .bind(hash,now(),now(),now(),account.userId,account.authVersion,digest,now(),now()-googleFreshnessSeconds,now(),now()),
         env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),account.userId),
       ]);
-      if(result[0].results.length!==1)return reply(400,{error:'Confirmation unavailable'});
+      if(result[0].results.length!==1)return reply(409,{error:'Password setup is no longer available. Sign in again and check your login methods.'});
       const notification=await passwordNotice(request,env,account,'password-added');
       return reply(200,{next:'/login',notification},{'Set-Cookie':clearSessionCookie()});
     }
@@ -341,6 +320,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     if (error instanceof LoginChallenge) return reply(403,{code:error.invalid?'challenge_failed':'challenge_required',siteKey:error.siteKey,error:'Complete the security check.'});
     if (error instanceof LoginLimited) return reply(429,{error:'Try again later'},{'Retry-After':String(error.retryAfter)});
     if (error instanceof LoginBusy) return reply(503,{error:'Another check is pending'},{'Retry-After':'1'});
+    if (action==='add-password' && error instanceof RegistrationRateLimit) return reply(429,{error:'Too many password setup attempts. Try again later.'});
     return reply(503,{error:'Google or account security is unavailable. Sign in again or retry explicitly later.'});
   }
 }

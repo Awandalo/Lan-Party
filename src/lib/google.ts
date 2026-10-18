@@ -3,13 +3,12 @@ export async function googleRequest(action: string, input?: object, csrf?: strin
     headers:{'X-LAN-Request':'1',...(input?{'Content-Type':'application/json'}:{}),...(csrf?{'X-CSRF-Token':csrf}:{})},
     ...(input?{body:JSON.stringify(input)}:{}),signal:AbortSignal.timeout(15000)});
 }
-let setup: string|null=null;
+let setupRequested=false;
 export function capturePasswordSetup() {
   if(window.location.pathname!=='/account/security')return;
-  const params=new URLSearchParams(window.location.hash.slice(1));
-  const value=params.get('setup');
+  setupRequested=window.location.hash==='#add-password';
   window.history.replaceState(null,'','/account/security');
-  if([...params.keys()].length===1 && value && /^[0-9a-f]{64}$/.test(value))setup=value;
 }
-export function passwordSetupToken(){return setup;}
-export function clearPasswordSetup(){setup=null;}
+// A display hint only. No password/token/proof is persisted across OAuth redirects.
+export function passwordSetupRequested(){return setupRequested;}
+export function clearPasswordSetup(){setupRequested=false;}

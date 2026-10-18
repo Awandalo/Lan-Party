@@ -307,8 +307,11 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Phase 3.7.6: simplify Google signup and ownership-proven conflict guidance;
   add inline password setup/change, two-minute Google assurance policy, guarded
   security notification attempts, and correct hosted password-setup URL handling.
-- [ ] Owner manually verify Phase 3.7.6 Google-only signup, email-confirmed password
-  setup and password changes on DEV; check real notification delivery separately.
+- [x] Phase 3.7.7: replace first-password email confirmation with two-minute,
+  server-verified Google assurance, atomic setup and a notification after success;
+  simplify Add/Change password fields and place Add password on its method row.
+- [ ] Owner manually verify Phase 3.7.7 fresh/stale Google password setup and password
+  changes on DEV; check real notification delivery separately. No setup approval email.
 - [ ] Decide whether durable security-notification delivery is required; an outbox
   and any schema changes require separate approval. Cross-redirect password
   preservation is not implemented; passwords must be re-entered after navigation.

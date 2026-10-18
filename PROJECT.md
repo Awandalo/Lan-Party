@@ -1130,7 +1130,8 @@ must also avoid recording callback query strings before hosted enablement.
 
 Migration `0012_create_oidc_transactions.sql` adds 10-minute OIDC transactions,
 five-minute session/generation-bound recent-authentication proofs, and 10-minute
-digest-only first-password email confirmations. Existing provider storage is reused;
+digest-only first-password email confirmations (legacy storage, unused by Phase 3.7.7).
+Existing provider storage is reused;
 partial unique indexes enforce one Google identity per account and one account per
 Google subject across issuer aliases. Unexpected historical duplicates fail migration
 preflight rather than being merged. Transactions are atomically claimed before code
@@ -1161,9 +1162,11 @@ a retained password credential on an active verified account; last-method remova
 refused. No password removal or email-changing feature is introduced.
 
 Google-only accounts cannot use ordinary forgot-password recovery. Adding a first
-password requires the same active session, recent Google proof and a separate
-single-use email confirmation; email possession alone cannot add credentials.
-Delivery uses the existing allowlist, shared atomic 60-attempt budget and no retries.
+password requires the same active session and server-verified Google assurance
+less than two minutes old. The Phase 3.7.7 owner decision explicitly replaces the
+previous independent email confirmation with recent Google authentication for this
+operation only. Email possession alone cannot add credentials. Security notifications
+use the existing allowlist, shared atomic 60-attempt budget and no retries.
 Loss of Google access before adding a password has no self-service recovery; manual
 identity recovery is a separate owner/security decision, not an implemented bypass.
 
@@ -1246,8 +1249,8 @@ password form; Confirm & disconnect first verifies the password server-side, the
 invokes the existing session-bound, recent-password-protected unlink operation.
 Wrong passwords never invoke unlink. Each step rechecks the active session, and an
 uncertain outcome is reported without automatic retry. Google-only users cannot
-disconnect their last method; Add password reveals the existing Google reauthentication
-and independent email-confirmation flow. Adding a password never disconnects Google.
+disconnect their last method; Add password uses recent Google authentication under
+the Phase 3.7.7 policy below. Adding a password never disconnects Google.
 Pending controls ignore repeat submissions and remain disabled through successful
 navigation. Email verification is a separate status row, not a password-method status.
 
@@ -1260,7 +1263,7 @@ Other email claims keep generic conflict handling. Matching email never links ac
 Private name suggestions remain editable; existing-member guidance is collapsed.
 
 Connected accounts → Email & password contains inline Add/Change password forms
-with confirmation, Cancel, accessible focus and preserved fields on recoverable
+with Cancel, accessible focus and preserved fields on recoverable
 errors. Password change verifies the current password with the existing persistent
 limiter/Turnstile controls, then uses one guarded credential update. Existing triggers
 advance the authentication generation and invalidate sessions/tokens. Both methods
@@ -1270,16 +1273,28 @@ A fresh, fully validated Google application sign-in grants server-side assurance
 the new session. Google assurance must be less than **120 seconds** old when used;
 password proofs retain their existing five-minute policy. The schema's five-minute
 assurance storage lifetime is unchanged; the stricter Google age is checked by the
-application and again in atomic first-password consumption. This is recent sign-in
+application and again in atomic first-password creation. This is recent sign-in
 to LAN Party, not a claim that Google prompted for credentials within two minutes.
 Explicit Google reauthentication still validates provider `auth_time` and identity.
 
-First-password setup retains the ten-minute, single-use, account/session/generation-
-bound independent email proof and recent Google requirement. The form requests one
-confirmation email and shows a waiting state; no password is persisted early. Passwords
-stay only in form memory. A new tab or OAuth redirect requires re-entry; if Google proof
-expires after opening the email, reauthenticate then reopen the same unconsumed email
-link. Seamless secret preservation across these transitions is not implemented.
+Phase 3.7.7 replaces first-password email approval with the approved recent-Google
+policy. Add password is on the Email & password row and hides while its inline form
+is expanded. Add/change password use one new-password field with visibility control;
+changing a password still requires the current password. Fresh Google proof saves
+the first password immediately. Stale proof prompts the existing subject-validated
+Google reauthentication flow and returns to `/account/security#add-password`, which
+opens the form without submitting it. The fragment is a display hint, never proof.
+Passwords stay in form memory and must be re-entered after a redirect.
+The atomic insert checks current account/generation, active session, recent Google
+assurance ownership, a trusted Google provider mapping, and absence of a credential.
+The UUID credential key and guarded generation update prevent concurrent duplicates.
+Setup uses the existing persistent limiter in a separate `password-add` namespace
+with the existing admission thresholds; recovery limits are not shared or changed.
+The obsolete request-password endpoint returns 404; old email setup tokens no longer
+authorize credential creation. Applied migration 0012 and its legacy setup table,
+cleanup/revocation triggers and historical template support are retained unchanged.
+Registration verification, recovery, Google linking/disconnection and MFA policy
+are unchanged by this exception.
 Successful password additions/changes keep the established sign-out-all-sessions
 policy and return to login; sign in again to review Connected accounts in Settings.
 
@@ -1287,8 +1302,9 @@ Successful settings password additions/changes request a branded security notifi
 to the verified address, after the guarded write succeeds. Only the winning operation
 sends, with a generation-based provider idempotency key. Recipient restrictions and
 the shared 60-attempt UTC-day budget include these notifications; there are no automatic
-retries. The DEV wrapper now accepts the existing Security-page setup link and token-free
-notification URLs. Notification failure never reverses a completed password change;
+retries. The DEV wrapper accepts token-free Security-page notification URLs.
+Notification failure emits only the static `auth.password_notification_unconfirmed`
+event, with no account, recipient, password, token or provider payload, and never reverses a completed password change;
 the login feedback distinguishes requested from unconfirmed delivery. There is **no
 durable outbox**: a crash/provider failure can lose a notification. Guaranteed eventual
 delivery would require a separately approved design/migration. Recovery notifications

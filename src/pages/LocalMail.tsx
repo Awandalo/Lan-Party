@@ -37,7 +37,7 @@ export default function LocalMail() {
       <label htmlFor="mail-email">Fictional email address</label>
       <input id="mail-email" name="email" type="email" autoComplete="off" required maxLength={254} />
       <label htmlFor="mail-purpose">Message type</label>
-      <select id="mail-purpose" name="purpose"><option value="email-verification">Email verification</option><option value="password-reset">Password reset</option><option value="password-setup">First password confirmation</option></select>
+      <select id="mail-purpose" name="purpose"><option value="email-verification">Email verification</option><option value="password-reset">Password reset</option></select>
       <label htmlFor="mail-secret">Local mailbox secret</label>
       <input id="mail-secret" name="secret" type="password" autoComplete="off" required />
       <button className="button" type="submit">{busy ? 'Retrieving…' : 'Retrieve local message'}</button>

@@ -22,5 +22,5 @@
 .account-security-card fieldset > .button { margin-top: .5rem; }
 .account-security-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .connected-methods .security-method-controls { flex-basis: 100%; min-width: 0; color: var(--text); }
-.security-method-controls > .button { margin-top: .75rem; }
+.security-method-action { margin-left: .75rem; }
 .security-method-controls .account-confirmation { margin-top: 1rem; }

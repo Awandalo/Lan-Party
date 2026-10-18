@@ -110,22 +110,20 @@ test('third-party Google email remains unverified and receives only local verifi
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM auth_action_tokens').first('n'),before);
  const again=await callback(await start());assert.equal(again.headers.get('location'),'/verify-email');
 }));
-test('Google recent authentication and separate email proof add first password atomically, invalidate sessions and prevent replay',()=>local(async({instance,db,start,callback,complete,session,request})=>{
+test('recent Google proof adds the first password atomically without email confirmation and prevents replay',()=>local(async({instance,db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
  const originalId=await db.prepare('SELECT id FROM users').first('id');
  assert.deepEqual(await(await request('google/methods',undefined,headers)).json(),{password:false,google:true});
  assert.equal(await db.prepare('SELECT expires_at-authenticated_at n FROM auth_recent_authentication').first('n'),300);
  await db.prepare('DELETE FROM auth_recent_authentication').run();
- assert.equal((await request('google/request-password',{},headers)).status,428);
+ assert.equal((await request('google/add-password',{password:'fictional new password'},headers)).status,428);
+ assert.equal((await request('google/request-password',{},headers)).status,404);
  const recent=await start('reauth',headers);assert.equal(recent.url.searchParams.get('max_age'),'0');
- assert.equal((await callback(recent,{}, {Cookie:recent.Cookie+'; '+headers.Cookie})).headers.get('location'),'/account/security');
+ assert.equal((await callback(recent,{}, {Cookie:recent.Cookie+'; '+headers.Cookie})).headers.get('location'),'/account/security#add-password');
  const assurance=await db.prepare('SELECT method,assurance_level,mfa_verified FROM auth_recent_authentication').first();assert.deepEqual(assurance,{method:'google',assurance_level:1,mfa_verified:0});
  assert.equal((await request('google/unlink',{},headers)).status,428);
- assert.equal((await request('google/request-password',{},headers)).status,202);
- const mail=await(await request('local-mail',{email:'google@example.test',purpose:'password-setup'},{Authorization:'Bearer '+'33'.repeat(32)})).json();assert.ok(mail.mail);
- const token=new URLSearchParams(new URL(mail.mail.url).hash.slice(1)).get('setup');
  const password='fictional new password';
- const results=await Promise.all([request('google/add-password',{token,password},headers),request('google/add-password',{token,password},headers)]);
+ const results=await Promise.all([request('google/add-password',{password},headers),request('google/add-password',{password},headers)]);
  assert.equal(results.filter(r=>r.status===200).length,1);assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),1);
  assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:true,changed:false});
  assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
@@ -136,7 +134,8 @@ test('Google recent authentication and separate email proof add first password a
  assert.deepEqual(await(await request('google/methods',undefined,passwordSession)).json(),{password:true,google:true});
  assert.equal(await db.prepare('SELECT id FROM users').first('id'),originalId);
  assert.equal(await db.prepare('SELECT COUNT(*) FROM user_auth_providers WHERE user_id=?').bind(originalId).first('COUNT(*)'),1);
- assert.equal((await request('google/add-password',{token,password},passwordSession)).status,428);
+ assert.equal((await request('google/add-password',{password},passwordSession)).status,428);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM auth_password_setup').first('n'),0);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));
 
@@ -157,14 +156,47 @@ test('Google-only account cannot unlink even with a fabricated recent password a
  assert.equal((await request('session',undefined,headers)).status,200);
 }));
 
-test('fresh Google app authentication permits password confirmation requests for two minutes only',()=>local(async({db,start,callback,complete,session,request})=>{
+test('first-password setup accepts fresh Google authentication and rejects the two-minute boundary',()=>local(async({db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
- assert.equal((await request('google/request-password',{},headers)).status,202);
- await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=unixepoch()-121,expires_at=unixepoch()+179').run();
- assert.equal((await request('google/request-password',{},headers)).status,428);
+ assert.equal((await request('google/add-password',{password:'short'},headers)).status,400);
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=unixepoch()-120,expires_at=unixepoch()+180').run();
+ assert.equal((await request('google/add-password',{password:'fictional new password'},headers)).status,428);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),0);
  const login=await callback(await start());const newHeaders=await session(login);
  assert.equal((await request('google/unlink',{},newHeaders)).status,428);
+ assert.equal((await request('google/add-password',{password:'fictional new password'},newHeaders)).status,200);
+}));
+
+test('first-password setup rejects mismatched assurance ownership and missing Google mappings',()=>local(async({db,start,callback,complete,session,request})=>{
+ const flow=await start();await callback(flow);const headers=await session(await complete(flow)),password='fictional new password';
+ const owner=await db.prepare('SELECT id FROM users').first('id');
+ await db.prepare("UPDATE user_auth_providers SET identity_namespace='https://untrusted.example.test'").run();
+ assert.equal((await request('google/add-password',{password},headers)).status,409);
+ await db.prepare("UPDATE user_auth_providers SET identity_namespace='https://accounts.google.com'").run();
+ await request('register',{nickname:'Different Player',firstName:'Fictional',lastName:'Tester',email:'different@example.test',password:'fictional other password'});
+ const other=await db.prepare('SELECT id FROM users WHERE id<>?').bind(owner).first('id');
+ await db.prepare('UPDATE auth_recent_authentication SET user_id=?').bind(other).run();
+ assert.equal((await request('google/add-password',{password},headers)).status,428);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials WHERE user_id=?').bind(owner).first('n'),0);
+}));
+
+test('first-password setup validates input, supports 128 characters and does not depend on notification delivery',()=>local(async({db,start,callback,complete,session,request})=>{
+ const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ for(const password of ['short','x'.repeat(129),null])assert.equal((await request('google/add-password',{password},headers)).status,400);
+ const password='x'.repeat(128),result=await request('google/add-password',{password},headers);
+ assert.equal(result.status,200);assert.equal((await result.json()).notification,'unconfirmed');
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal((await request('login',{email:'google@example.test',password})).status,200);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),1);
+},{AUTH_EMAIL_TRANSPORT:'unavailable'}));
+
+test('first-password attempts retain persistent limits without consuming recovery buckets',()=>local(async({db,start,callback,complete,session,request})=>{
+ const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ await db.exec("CREATE TRIGGER fixture_add_failure BEFORE INSERT ON user_password_credentials BEGIN SELECT RAISE(ABORT,'fictional'); END;");
+ for(let i=0;i<3;i++)assert.equal((await request('google/add-password',{password:'fictional new password'},headers)).status,503);
+ assert.equal((await request('google/add-password',{password:'fictional new password'},headers)).status,429);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),0);
+ assert.equal((await request('forgot-password',{email:'google@example.test'},headers)).status,202);
 }));
 
 test('password changes require the current password, fence races, revoke sessions and notify only once',()=>local(async({instance,db,request,session})=>{
@@ -331,6 +363,7 @@ test('Google reauthentication rejects old or missing auth_time and a different p
   assert.equal((await callback(reauth,claims,{Cookie:reauth.Cookie+'; '+headers.Cookie})).headers.get('location'),'/login?google=unavailable');
  }
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM auth_recent_authentication').first('n'),0);
+ assert.equal((await request('google/add-password',{password:'fictional new password'},headers)).status,428);
 }));
 
 test('Google initiation uses conditional server-validated challenge; missing or replayed proofs never bypass it',()=>local(async({request})=>{
@@ -350,19 +383,17 @@ test('expired or stale recent proof and changed callback account generation reje
  assert.equal((await callback(flow,{}, {Cookie:flow.Cookie+'; '+headers.Cookie})).headers.get('location'),'/login?google=unavailable');
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),0);
 }));
-test('first-password failure rolls back proof consumption; crossover and expired email proofs fail safely',()=>local(async({request,start,callback,session,complete,db})=>{
+test('first-password failure rolls back creation; old token payloads cannot authorize setup',()=>local(async({instance,request,start,callback,session,complete,db})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
  const reauth=await start('reauth',headers);await callback(reauth,{}, {Cookie:reauth.Cookie+'; '+headers.Cookie});
- await request('google/request-password',{},headers);
- const mail=await(await request('local-mail',{email:'google@example.test',purpose:'password-setup'},{Authorization:'Bearer '+'33'.repeat(32)})).json();
- const token=new URLSearchParams(new URL(mail.mail.url).hash.slice(1)).get('setup'),password='fictional new password';
- assert.equal((await request('reset-password',{userId:await db.prepare('SELECT id FROM users').first('id'),token,password})).status,400);
+ const token='ab'.repeat(32),password='fictional new password';
+ assert.equal((await request('google/add-password',{token,password},headers)).status,400);
  await db.exec("CREATE TRIGGER fixture_setup_failure BEFORE INSERT ON user_password_credentials BEGIN SELECT RAISE(ABORT,'fixture'); END;");
- assert.equal((await request('google/add-password',{token,password},headers)).status,503);
- assert.equal(await db.prepare('SELECT consumed_at FROM auth_password_setup').first('consumed_at'),null);
+ assert.equal((await request('google/add-password',{password},headers)).status,503);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),0);
  await db.exec('DROP TRIGGER fixture_setup_failure;');
- await db.prepare('UPDATE auth_password_setup SET created_at=0,expires_at=600').run();
- assert.equal((await request('google/add-password',{token,password},headers)).status,400);
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=0,expires_at=300').run();
+ assert.equal((await request('google/add-password',{password},headers)).status,428);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));
