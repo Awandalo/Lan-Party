@@ -3,15 +3,17 @@ import { fromHex } from './encoding';
 import { findPasswordCredential } from './database';
 import { isValidPassword, verifyPassword } from './passwords';
 import { readInput } from './registration';
-import { authClientIP, authOrigin, authRouteEnabled, validAuthMutation } from './environment';
+import { authClientIP, authOrigin, authRouteEnabled, validAuthMutation, hostedDev } from './environment';
 import type { RegistrationEnvironment } from './registration';
-import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
+import { LoginLimiter, LoginLimited, LoginBusy } from './login-limits';
+import { LoginChallenge, turnstileConfiguration, verifyLoginChallenge } from './turnstile';
+import type { TurnstileEnvironment } from './turnstile';
 import { D1SessionStore, issueSession, resolveSession, revokeSession } from './sessions';
 import { clearSessionCookie, readSessionCookie, sessionCookie } from './cookies';
 import { digestToken } from './tokens';
 import { sessionCsrfToken } from './csrf';
 
-export interface AuthenticationEnvironment extends RegistrationEnvironment { AUTH_SESSION_MODE?: string }
+export interface AuthenticationEnvironment extends RegistrationEnvironment, TurnstileEnvironment { AUTH_SESSION_MODE?: string }
 const invalid = { error: 'Email or password is incorrect.' };
 // A public, synthetic, deliberately nonmatching record performs the same native
 // 20k verification work for missing/disabled accounts. It is never persisted.
@@ -42,31 +44,41 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     }
     const now = Math.floor(Date.now() / 1000), store = new D1SessionStore(env.DB);
     if (action === 'login') {
-      const limit = await registrationLimiter(env.DB, env.AUTH_RATE_LIMIT_SECRET, now, 'login');
-      await limit('global', 'all');
+      // Do not deploy hosted login without the challenge configuration ready.
+      if (hostedDev(request, env)) turnstileConfiguration(env);
       const ip = authClientIP(request, env);
       if (ip.length > 45 || (ip !== 'loopback' && !/^[0-9a-fA-F:.]+$/.test(ip))) return reply(400, invalid);
-      await limit('ip', ip.toLowerCase());
-      let email: string, password: string;
+      const limiter = await LoginLimiter.create(env.DB, env.AUTH_RATE_LIMIT_SECRET, ip.toLowerCase());
+      const challengeRequired = await limiter.observe();
+      let email: string, password: string, challengeToken: unknown;
       try {
         const input = await readInput(request);
         if (!input || typeof input !== 'object' || Array.isArray(input)
-          || Object.keys(input).length !== 2 || !('email' in input) || !('password' in input)) throw new Error('Invalid input');
+          || !Object.keys(input).every(key => ['email', 'password', 'turnstileToken'].includes(key))
+          || !('email' in input) || !('password' in input)) throw new Error('Invalid input');
         email = emailAddress(input.email).toLowerCase();
         if (typeof input.password !== 'string' || !isValidPassword(input.password)) throw new Error('Invalid password');
         password = input.password;
+        challengeToken = 'turnstileToken' in input ? input.turnstileToken : undefined;
+        if (challengeToken !== undefined && (typeof challengeToken !== 'string' || challengeToken.length > 2048)) throw new Error('Invalid proof');
       } catch { return reply(400, invalid); }
-      await limit('account', email);
-      const credential = await findPasswordCredential(env.DB, email);
-      const verified = await verifyPassword(password, credential?.passwordHash ?? dummyRecord, env.PASSWORD_PEPPER);
-      if (!verified || !credential) return reply(401, invalid);
-      // Disclose verification state only after password proof; do not issue a session.
-      if (credential.emailVerifiedAt === null) return reply(403, { code: 'verification_required', error: 'Verify your email before logging in.' });
-      // Keep the generation read BEFORE verification: D1 fences concurrent credential changes.
-      const session = await issueSession(store, credential, now);
-      const previous = readSessionCookie(request);
-      if (previous) await revokeSession(store, previous, now);
-      return reply(200, { message: 'Logged in.' }, { 'Set-Cookie': sessionCookie(session.token) });
+      if (challengeRequired || challengeToken !== undefined) await verifyLoginChallenge(env.DB, env, challengeToken, origin.hostname);
+      const reservation = await limiter.reserve(email);
+      let finalized = false;
+      try {
+        const credential = await findPasswordCredential(env.DB, email);
+        const verified = await verifyPassword(password, credential?.passwordHash ?? dummyRecord, env.PASSWORD_PEPPER);
+        if (!await reservation.finish(!verified || !credential)) throw new Error('Expired sign-in check');
+        finalized = true;
+        if (!verified || !credential) return reply(401, invalid);
+        // Disclose verification state only after password proof; do not issue a session.
+        if (credential.emailVerifiedAt === null) return reply(403, { code: 'verification_required', error: 'Verify your email before logging in.' });
+        // Keep the generation read BEFORE verification: D1 fences concurrent credential changes.
+        const session = await issueSession(store, credential, now);
+        const previous = readSessionCookie(request);
+        if (previous) await revokeSession(store, previous, now);
+        return reply(200, { message: 'Logged in.' }, { 'Set-Cookie': sessionCookie(session.token) });
+      } finally { if (!finalized) await reservation.finish(false); }
     }
     const token = readSessionCookie(request);
     const account = token ? await resolveSession(env.DB, token, now) : null;
@@ -91,8 +103,11 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     return reply(200, { account: publicAccount({ userId: account.userId, nickname, memberNumber }), emailVerified: account.emailVerifiedAt !== null,
       csrfToken: await sessionCsrfToken(digest, env.AUTH_RATE_LIMIT_SECRET) });
   } catch (error) {
-    if (error instanceof RegistrationRateLimit) return reply(429,
-      { error: 'Too many login attempts. Please wait before trying again.' }, { 'Retry-After': '3600' });
+    if (error instanceof LoginLimited) return reply(429,
+      { error: 'Too many login attempts. Please wait before trying again.' }, { 'Retry-After': String(error.retryAfter) });
+    if (error instanceof LoginBusy) return reply(503, { code: 'login_busy', error: 'Another sign-in check is in progress. Try again shortly.' }, { 'Retry-After': '1' });
+    if (error instanceof LoginChallenge) return reply(403, { code: error.invalid ? 'challenge_failed' : 'challenge_required',
+      error: 'Complete the security check before trying again.', siteKey: error.siteKey });
     return reply(503, { error: 'Authentication is temporarily unavailable.' });
   }
 }

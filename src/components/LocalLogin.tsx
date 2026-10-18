@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
+import LoginChallenge from './LoginChallenge';
 import PasswordInput from './PasswordInput';
 
 export default function LocalLogin() {
@@ -10,12 +11,16 @@ export default function LocalLogin() {
   const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
   const feedbackRef = useRef<HTMLDivElement>(null);
   const [verificationRequired, setVerificationRequired] = useState(false);
+  const [siteKey, setSiteKey] = useState(''), [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [challengeAttempt, setChallengeAttempt] = useState(0);
   if (session) return <Navigate to="/account" replace />;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    if (siteKey && !challengeToken) { setFeedback('Complete the security check before signing in.'); return; }
     const form = event.currentTarget, data = new FormData(form);
-    const input = { email: String(data.get('email') ?? ''), password: String(data.get('password') ?? '') };
+    const input = { email: String(data.get('email') ?? ''), password: String(data.get('password') ?? ''),
+      ...(challengeToken ? { turnstileToken: challengeToken } : {}) };
     setBusy(true); setFeedback(''); setVerificationRequired(false);
     try {
       const response = await fetch('/api/auth/login', { method: 'POST', credentials: 'same-origin', redirect: 'error',
@@ -25,17 +30,27 @@ export default function LocalLogin() {
         if (await refresh()) navigate('/account', { replace: true });
         else setFeedback('Login could not be confirmed. Check that your browser accepts secure cookies, then reload.');
       } else if ([400, 401].includes(response.status)) setFeedback('Email or password is incorrect.');
-      else if (response.status === 429) setFeedback('Too many login attempts. Please wait up to one hour before trying again.');
+      else if (response.status === 429) {
+        const seconds = Number(response.headers.get('Retry-After'));
+        setFeedback(Number.isInteger(seconds) && seconds > 0 && seconds <= 3600
+          ? `Too many login attempts. Please wait ${seconds} seconds before trying again.`
+          : 'Too many login attempts. Please wait before trying again.');
+      }
       else if (response.status === 403) {
         const result = await response.json();
-        if (result.code === 'verification_required') {
+        if (['challenge_required', 'challenge_failed'].includes(result.code) && typeof result.siteKey === 'string' && result.siteKey.length <= 200) {
+          setSiteKey(result.siteKey);
+          setFeedback('Please complete the security check, then re-enter your password and select Log in. No automatic retry was made.');
+        } else if (result.code === 'verification_required') {
           setVerificationRequired(true); setFeedback('Your password is correct. Please verify your email before signing in.');
         } else setFeedback('Request rejected. Reload this page and try again.');
       }
-      else setFeedback('Login is temporarily unavailable. Please try again later.');
+      else setFeedback('Login or its security check is temporarily unavailable. Please try again later.');
     } catch { setFeedback('We could not confirm your login. Reload before trying again. No automatic retry was made.'); }
     finally {
       input.password = '';
+      if ('turnstileToken' in input) input.turnstileToken = '';
+      setChallengeToken(null); setChallengeAttempt(value => value + 1);
       const password = form.elements.namedItem('password');
       if (password instanceof HTMLInputElement) password.value = '';
       setBusy(false); requestAnimationFrame(() => feedbackRef.current?.focus());
@@ -51,6 +66,7 @@ export default function LocalLogin() {
         <input id="login-email" name="email" type="email" required maxLength={254} autoComplete="username" autoCapitalize="none" />
         <label htmlFor="login-password">Password</label>
         <PasswordInput id="login-password" name="password" required autoComplete="current-password" />
+        {siteKey && <LoginChallenge key={challengeAttempt} siteKey={siteKey} onToken={setChallengeToken} />}
         <button className="button" type="submit">{busy ? 'Logging in…' : 'Log in'}</button>
       </fieldset>
     </form>

@@ -33,7 +33,8 @@ async function local(run, overrides = {}, omitLimits = false) {
   const instance = new Miniflare(convertV4MiniflareOptions({ modules: true, script, cf: false,
     compatibilityDate: '2026-10-11', d1Databases: { DB: randomUUID() },
     bindings: { REGISTRATION_MODE: 'local-only', AUTH_SESSION_MODE: 'local-only', AUTH_PUBLIC_ORIGIN: origin,
-      PASSWORD_PEPPER: '11'.repeat(32), AUTH_RATE_LIMIT_SECRET: '22'.repeat(32), ...overrides } }));
+      PASSWORD_PEPPER: '11'.repeat(32), AUTH_RATE_LIMIT_SECRET: '22'.repeat(32),
+      AUTH_TURNSTILE_SITE_KEY: 'synthetic-site-key', TURNSTILE_SECRET_KEY: 'synthetic-only-turnstile-secret', ...overrides } }));
   try {
     const db = await instance.getD1Database('DB');
     for (const statements of omitLimits ? migrations.filter((_, index) => index !== 8) : migrations) await db.batch(statements.map(s => db.prepare(s)));
@@ -163,26 +164,27 @@ test('login rejects cross-origin, unsupported methods, unsafe content, query str
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'), 0);
 }));
 
-test('repeated login failures have persistent per-account limits independent of registration buckets', () => local(async ({ db, request, register }) => {
+test('repeated login failures have persistent email+IP limits independent of registration buckets', () => local(async ({ db, request, register }) => {
   await register();
-  for (let i = 0; i < 5; i++) assert.equal((await request('login', { ...credentials, password: 'incorrect fictional password' })).status, 401);
-  const response = await request('login', credentials); assert.equal(response.status, 429);
-  assert.equal(response.headers.get('retry-after'), '3600');
+  for (let i = 0; i < 5; i++) assert.equal((await request('login', { ...credentials, password: 'incorrect fictional password' }, { 'CF-Connecting-IP': '203.0.113.50' })).status, 401);
+  const response = await request('login', credentials, { 'CF-Connecting-IP': '203.0.113.50' }); assert.equal(response.status, 429);
+  assert.ok(Number(response.headers.get('retry-after')) > 0 && Number(response.headers.get('retry-after')) <= 900);
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'), 0);
   const rows = JSON.stringify((await db.prepare('SELECT * FROM registration_rate_limits').all()).results);
   assert.equal(rows.includes(profile.email), false); assert.equal(rows.includes('203.0.113'), false);
 }));
 
-test('concurrent per-IP login admission is bounded before password verification', () => local(async ({ request }) => {
+test('distinct unknown emails sharing one IP do not receive a blanket five-request lockout', () => local(async ({ request }) => {
   const responses = await Promise.all(Array.from({ length: 8 }, (_, i) => request('login',
     { email: `missing${i}@example.test`, password: profile.password }, { 'CF-Connecting-IP': '203.0.113.50' })));
-  assert.equal(responses.filter(r => r.status === 401).length, 5);
-  assert.equal(responses.filter(r => r.status === 429).length, 3);
+  assert.equal(responses.filter(r => r.status === 401).length, 8);
+  assert.equal(responses.filter(r => r.status === 429).length, 0);
 }));
 
-test('login global limit bounds malformed requests and all auth endpoints stay disabled on hosted URLs', () => local(async ({ request, instance }) => {
-  for (let i = 0; i < 30; i++) assert.equal((await request('login', null)).status, 400);
-  assert.equal((await request('login', credentials)).status, 429);
+test('shared malformed-request volume triggers a generic challenge and hosted aliases stay disabled', () => local(async ({ request, instance }) => {
+  for (let i = 0; i < 60; i++) assert.equal((await request('login', null)).status, 400);
+  const challenge = await request('login', credentials); assert.equal(challenge.status, 403);
+  assert.equal((await challenge.json()).code, 'challenge_required');
   for (const action of ['login', 'session', 'logout']) {
     assert.equal((await instance.dispatchFetch(`https://lan-party-dev.servok.workers.dev/api/auth/${action}`)).status, 404);
   }

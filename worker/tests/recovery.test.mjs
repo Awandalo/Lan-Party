@@ -271,3 +271,18 @@ test('reset link bootstrap strips the proof before rendering and keeps verificat
     globalThis.window.location.hash += '&token=' + token; links.captureVerificationLink(); assert.equal(links.getResetLink(), null);
   } finally { links.clearResetLink(); if (previous === undefined) delete globalThis.window; else globalThis.window = previous; }
 });
+
+test('same-password reset rotates generation, revokes the old session and preserves login after earlier failures and repeated logout',()=>local(async({db,request,register,forgot,login,snapshot})=>{
+ await register();const old=await login(),cookie=old.headers.get('set-cookie').split(';')[0];
+ const ip={'CF-Connecting-IP':'203.0.113.70'};
+ assert.equal((await request('login',{email:profile.email,password:'incorrect fictional password'},ip)).status,401);
+ const before=await db.prepare('SELECT password_hash FROM user_password_credentials').first('password_hash');
+ assert.equal((await request('reset-password',{...await forgot(),password:profile.password})).status,200);
+ const after=await db.prepare('SELECT password_hash FROM user_password_credentials').first('password_hash');assert.equal(before!==after,true);
+ assert.equal((await snapshot()).authVersion,1);assert.equal((await request('session',undefined,{Cookie:cookie})).status,401);
+ for(let i=0;i<6;i++){
+  const response=await request('login',{email:profile.email,password:profile.password},ip);assert.equal(response.status,200);
+  const Cookie=response.headers.get('set-cookie').split(';')[0],session=await(await request('session',undefined,{Cookie})).json();
+  assert.equal((await request('logout',{}, {Cookie,'X-CSRF-Token':session.csrfToken})).status,200);
+ }
+}));

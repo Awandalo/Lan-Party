@@ -21,6 +21,8 @@
   "env": {
     "dev": {
       "name": "lan-party-dev",
+      // Public DEV sitekey is configuration-managed; encrypted secrets stay in Cloudflare.
+      "vars": { "AUTH_TURNSTILE_SITE_KEY": "0x4AAAAAAFaMzRB_kUUn7MuZ" },
       "assets": {
         "directory": "./dist",
         "binding": "ASSETS",

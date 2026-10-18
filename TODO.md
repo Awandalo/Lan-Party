@@ -338,10 +338,28 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Reproduce cumulative successful-login limits, shared-IP limits and same-password
   reset behavior using three fictional local tests. See PROJECT.md for the existing
   policy and cooldown-reporting limitation; no remote accounts/counters were changed.
-- [ ] Owner decide whether to separately approve precise remaining-cooldown reporting.
+- [x] Owner approve precise remaining-cooldown reporting and the revised Phase 3.8.3 policy.
   Do not change login thresholds or clear counters as a testing workaround.
 - [ ] Owner review the deployed GUI and Keeper integration in the normal browser;
   no live login/email test is part of this assignment.
+
+### Phase 3.8.3 — Login rate-limit improvements
+
+- [x] Implement rolling email+IP confirmed-failure protection and fenced atomic
+  pending leases using existing D1 storage; keep success separate from failures.
+- [x] Replace shared login hard lockouts with conditional server-validated Turnstile
+  challenges and actual retry durations. See PROJECT.md for thresholds and contracts.
+- [x] Validate 100 users sharing one IP plus mistakes, unknown accounts, concurrency,
+  lease expiry, rollback, replay, provider failures, reset/session compatibility and
+  same-password reset using fictional local fixtures; run strict TypeScript/builds.
+- [x] Locally check lazy script loading, blocked-script/expiry feedback, explicit
+  challenge submission and accurate cooldown presentation with intercepted assets.
+- [x] Owner create the DEV widget and configure both Turnstile bindings; read-only
+  metadata verified and public sitekey declared in DEV Wrangler configuration.
+  See PROJECT.md for required widget settings and pending live validation.
+- [x] Owner approve commit/push and automatic DEV deployment after configuration preflight.
+- [ ] Verify automatic DEV deployment and live challenge integration without forcing
+  shared thresholds or writing remote D1 data; report any test limitation explicitly.
 
 Final Phase 3 milestone — before enabling public registration:
 

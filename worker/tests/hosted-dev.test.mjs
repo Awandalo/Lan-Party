@@ -45,6 +45,7 @@ async function local(run, overrides = {}) {
     bindings: { AUTH_ENVIRONMENT: 'dev', REGISTRATION_MODE: 'hosted-dev', AUTH_SESSION_MODE: 'hosted-dev',
       AUTH_PUBLIC_ORIGIN: origin, AUTH_EMAIL_TRANSPORT: 'resend', RESEND_API_KEY: 'fictional-test-key',
       PASSWORD_PEPPER: '11'.repeat(32), AUTH_RATE_LIMIT_SECRET: '22'.repeat(32),
+      AUTH_TURNSTILE_SITE_KEY: 'synthetic-site-key', TURNSTILE_SECRET_KEY: 'synthetic-only-turnstile-secret',
       AUTH_DEV_RECIPIENT_ALLOWLIST: '["hosted@example.test"]',
       AUTH_EMAIL_PROVIDER_DAILY_LIMIT: '100', AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT: '3000', ...overrides } }));
   try {
@@ -145,3 +146,9 @@ test('hosted missing trusted IP fails closed and an unverified legacy session is
   await db.prepare('UPDATE users SET email_verified_at=NULL').run();
   assert.equal((await request('session', undefined, { Cookie: cookie })).status, 401);
 }));
+
+test('hosted login fails closed until both Turnstile bindings are configured',async()=>{
+ for(const overrides of [{AUTH_TURNSTILE_SITE_KEY:''},{TURNSTILE_SECRET_KEY:''}])await local(async({request})=>{
+  assert.equal((await request('login',{email:profile.email,password:profile.password})).status,503);
+ },overrides);
+});

@@ -741,7 +741,7 @@ is supplementary, not a strict global limiter.
   missing-account timing difference; it does not promise constant-time network/SQL
   behavior. Legacy hash verification remains explicit; no silent hash upgrade or
   password/security policy change is introduced.
-- Login reuses migration 0009 counters with separate `login` HMAC domain keys:
+- Deployed pre-Phase-3.8.3 login policy reuses migration 0009 counters with separate `login` HMAC domain keys:
   global 30/hour, IP 5/15 minutes, normalized account 5/hour, before verification.
   Invalid input consumes global/IP admission. Limits include successful attempts,
   do not permanently lock accounts and fail closed on storage errors. Registration
@@ -759,6 +759,62 @@ is supplementary, not a strict global limiter.
   429 response does not identify the exhausted scope and always sends Retry-After
   3600; the UI's "up to one hour" is an upper bound, not an exact countdown. No
   remote bucket attribution or security-policy change was made by this investigation.
+- Phase 3.8.3 is implemented and owner-approved for DEV deployment. It replaces the above login
+  policy with five confirmed failures per normalized email + trusted IP in a rolling
+  15-minute window. Success adds no failure and does not erase previous failures.
+  Unknown/disabled accounts have equivalent counters and synthetic password checks.
+  One pending check per pair uses a 30-second lease and up to one second of application
+  polling; busy checks return temporary 503/Retry-After 1, not a failure lockout.
+  Unique owner records fence stale/double completions, including same-second lease
+  reacquisition. D1 batches atomically acquire/finalize reservations; expired checks
+  cannot issue sessions. Database uncertainty is not a confirmed password failure.
+  Five expiring failure slots provide rolling expiry; Retry-After identifies the
+  earliest relevant expiry, and the frontend displays that duration.
+- Shared observations at 60 requests/minute (IP or global), 30 failures/15 minutes
+  (IP), or 30 failures/hour (global) require Turnstile instead of locking out unrelated
+  accounts. Shared windows remain fixed; successful/challenged requests do not refund
+  observations. Existing D1 storage uses separate v2 HMAC domains, failure slots,
+  pending/owner rows and two deterministic 30-hit volume lanes. No migration is
+  needed. Legacy counters and registration/recovery/email limits remain unchanged.
+- The challenge script loads only after a challenge response, using Managed mode
+  with interaction-only appearance. Tokens stay in memory; login submission remains
+  explicit. Expiry, unavailable scripts and provider errors cannot bypass protection.
+  No automatic login, Siteverify or widget retries are made. Siteverify must confirm
+  success, canonical hostname and action `login` before credential lookup/hashing;
+  it uses a five-second timeout and rejects redirects. An atomic SHA-256 token-digest
+  fence prevents replay; raw tokens are never stored. Proof cannot bypass pair limits.
+- Local tests cover 100 registered users sharing one IP plus ten mistakes, concurrency,
+  rolling expiry, stale leases, rollback, replay, provider failures and reset/session
+  compatibility. They establish local correctness, not hosted CPU or burst capacity.
+  Shared signals can force challenge friction; same-IP targeted denial, challenge-solving
+  attacks, high-cardinality storage abuse and Free-tier exhaustion remain risks.
+  Database latency can extend wall time. Google OIDC and optional MFA remain future
+  work with separately reviewed admission flows; no new account-wide lockout is added.
+- **Phase 3.8.3 DEV configuration preflight (2026-10-18):** the owner created the
+  widget; read-only inspection confirmed the public `AUTH_TURNSTILE_SITE_KEY`
+  variable and encrypted `TURNSTILE_SECRET_KEY` binding on `lan-party-dev`.
+  The exact public sitekey is declared in `wrangler.jsonc` under `env.dev.vars`,
+  because normal Wrangler deployment replaces dashboard plaintext variables.
+  Future sitekey rotation must update this configuration too. Wrangler 4.149.0
+  preserves existing encrypted secrets during normal deployment; the GitHub DEV
+  workflow uses `wrangler deploy --env dev`. Default PROD configuration is unchanged.
+  Widget requirements remain Managed mode for `dev.lan-party.club` only, with
+  pre-clearance disabled; binding metadata does not verify widget settings or the
+  key pair's live behavior.
+  Do not add PROD or the secondary workers.dev hostname. Configure public DEV Worker
+  binding `AUTH_TURNSTILE_SITE_KEY` and encrypted secret `TURNSTILE_SECRET_KEY` on
+  `lan-party-dev` through the approved secure mechanism; never put the secret in chat
+  or Vite variables. Action `login` is set in code; expected hostname comes from
+  existing `AUTH_PUBLIC_ORIGIN=https://dev.lan-party.club`. Both bindings are checked
+  before hosted login, so deploying without them deliberately makes login unavailable.
+  No new frontend build flag is required. Preserve all existing modes and bindings.
+  DEV configuration parsing and a local-only packaging dry-run passed. The owner
+  approved commit/push, automatic DEV deployment and a minimal live challenge check;
+  no forced thresholds or remote D1 writes are authorized for that check. Live
+  challenge validation remains pending. Turnstile's browser dependency belongs in the
+  planned privacy information. No remote setup or live email/account operation was
+  performed during local implementation. See official [widget options](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/widget-configurations/)
+  and [server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
 - D1 creates a fresh seven-day session with a hashed random 256-bit token and the
   credential generation captured before password verification. Generation fencing
   prevents stale credentials issuing a session after a password/status change.
