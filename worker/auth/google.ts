@@ -190,7 +190,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         SELECT ?,?,?,'pending',?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM auth_oidc_transactions WHERE expires_at>?)<500 RETURNING state_digest`)
         .bind(await proofDigest(state),await proofDigest(browser),purpose,verifier,nonce,session?.account.userId??null,session?.digest??null,
           session?.account.authVersion??null,time,time+600,time).first().then(row=>{if(!row)throw new Error('Busy');});
-      const response=reply(200,{url:await authorizationURL(env,origin.origin+'/api/auth/google/callback',state,nonce,verifier,purpose==='reauth')},
+      const response=reply(200,{url:await authorizationURL(env,origin.origin+'/api/auth/google/callback',state,nonce,verifier,purpose==='reauth',purpose==='link')},
         {'Set-Cookie':flowCookie(browser,!hostedDev(request,env))});
       response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
       return response;

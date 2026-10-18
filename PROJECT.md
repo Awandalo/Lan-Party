@@ -1200,7 +1200,7 @@ verification, password login/recovery and logout remain functional without the n
 tables. DEV recovery/migration, Google activation and live tests still require
 separate approval. PROD remains unchanged.
 
-#### Google UX polish — local review only
+#### Google UX polish
 
 Login now presents email/password first, followed by an `or` divider and full-width
 Google action; recovery and registration links remain available. Signup can prefill
@@ -1219,8 +1219,11 @@ expires within the original ten-minute flow window. No schema change is required
 Connected accounts is the first Security section: Email & password and Google
 connection states, a direct Connect Google action, and safe disconnection when a
 password method remains. Missing recent proof returns an explicit authenticated
-`reauth_required` response, revealing/focusing password confirmation in settings;
-the user then explicitly selects Connect Google again. Linking still binds the
+`reauth_required` response, revealing/focusing password confirmation in settings.
+Only an explicitly initiated Connect Google action can resume once after successful
+server-confirmed password authentication. The in-memory intent expires after five
+minutes, is bound to the current session CSRF proof, and is discarded on navigation
+or a session change. Failed/uncertain requests do not automatically retry. Linking still binds the
 OAuth transaction to that account/session/generation and validates the Google
 callback. After linking, the generation change revokes all old sessions; only the
 proven caller receives a fresh session at the expected next generation and returns
@@ -1229,6 +1232,14 @@ session from being issued. Unlinking still requires retained-password proof and
 signs out existing sessions. Google-only accounts are not offered disconnection.
 Optional Phase 3.9 MFA belongs immediately below this section; no MFA enrollment,
 assurance bypass or policy change is implemented.
+
+Normal Google sign-in omits forced account selection and email hints so Google may
+reuse its existing session. Linking and Google reauthentication retain explicit
+account selection; reauthentication also retains `max_age=0` and validated recent
+`auth_time`. Google may still require account selection, consent or authentication.
+Security uses the existing dark/mint layout with full-width password fields; the
+account overview retains only the three inactive cards and member greeting, with
+Security reachable through Account → Settings.
 
 Existing-member continuation is **a proposal, not implemented**. The current safe
 route still requires existing-account login, recent authentication under Security,

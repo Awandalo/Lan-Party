@@ -15,11 +15,12 @@ export function googleClient(env: GoogleConfiguration): oauth.Client {
     || !env.GOOGLE_CLIENT_SECRET || /\s/.test(env.GOOGLE_CLIENT_SECRET)) throw new Error('Google unavailable');
   return { client_id: env.GOOGLE_CLIENT_ID, id_token_signed_response_alg: 'RS256' };
 }
-export async function authorizationURL(env: GoogleConfiguration, callback: string, state: string, nonce: string, verifier: string, reauth = false) {
+export async function authorizationURL(env: GoogleConfiguration, callback: string, state: string, nonce: string, verifier: string, reauth = false, linking = false) {
   const client = googleClient(env), url = new URL(server.authorization_endpoint!);
   url.search = new URLSearchParams({ client_id: client.client_id, redirect_uri: callback, response_type: 'code',
     scope: 'openid email profile', state, nonce, code_challenge_method: 'S256',
-    code_challenge: await oauth.calculatePKCECodeChallenge(verifier), prompt: 'select_account' }).toString();
+    code_challenge: await oauth.calculatePKCECodeChallenge(verifier) }).toString();
+  if (linking || reauth) url.searchParams.set('prompt','select_account');
   if (reauth) url.searchParams.set('max_age','0');
   return url.href;
 }

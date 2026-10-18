@@ -55,6 +55,8 @@ async function local(run,overrides={},migrationCount=migrations.length){
    const url=new URL((await response.json()).url),Cookie=response.headers.get('set-cookie').split(';')[0];
    assert.equal(url.origin,'https://accounts.google.com');assert.equal(url.searchParams.get('code_challenge_method'),'S256');
    assert.equal(url.searchParams.get('scope'),'openid email profile');
+   assert.equal(url.searchParams.get('prompt'),purpose==='signin'?null:'select_account');
+   assert.equal(url.searchParams.get('login_hint'),null);
    return {url,Cookie,nonce:url.searchParams.get('nonce'),state:url.searchParams.get('state')};
   }
   const callback=(flow,claims={},headers={},bad=false)=>instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:flow.state,code:jwt(flow.nonce,claims,bad)}),{redirect:'manual',headers:{Cookie:flow.Cookie,...headers}});

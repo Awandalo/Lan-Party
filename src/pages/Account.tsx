@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate } from 'react-router';
+import { Navigate } from 'react-router';
 import { useAuth } from '../lib/auth';
 import '../CSS/Account_style.css';
 import { formatMemberNumber } from '../lib/member-number';
@@ -29,7 +29,6 @@ export default function Account() {
       <section aria-labelledby="account-polls"><h2 id="account-polls">Upcoming polls</h2><span className="status-label">Coming soon</span><p>Help shape the party when polls become available.</p></section>
       <section aria-labelledby="account-news"><h2 id="account-news">Page updates</h2><span className="status-label">Coming soon</span><p>Website news and announcements will appear here.</p></section>
     </div>
-    <p><Link to="/account/security">Security and sign-in methods</Link></p>
     {!session.emailVerified && <button className="button" onClick={resendVerification} disabled={busy}>Request verification email</button>}
     <p role="status" aria-live="polite">{feedback}</p>
   </div></section>;

@@ -298,6 +298,9 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Group login assistance links below Google, connect menu Settings to Security,
   and show inactive event/poll/site-update placeholders on the account overview;
   keep email verification status in Security without changing authentication behavior.
+- [x] Remove the redundant overview Security link, polish Security forms, and resume
+  explicitly initiated Google linking once after server-confirmed password proof.
+  Let Google choose its normal sign-in UI without forced account selection.
 - [ ] Owner approve the proposed pending-Google-identity continuation across existing
   account login before implementing its session/assurance-bound confirmation transition.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;
