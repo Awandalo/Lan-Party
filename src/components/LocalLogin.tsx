@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../lib/auth';
 import LoginChallenge from './LoginChallenge';
 import GoogleButton from './GoogleButton';
@@ -9,6 +9,7 @@ import PasswordInput from './PasswordInput';
 export default function LocalLogin() {
   const { session, status, refresh } = useAuth();
   const navigate = useNavigate();
+  const [params]=useSearchParams();
   const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
   const feedbackRef = useRef<HTMLDivElement>(null);
   const [verificationRequired, setVerificationRequired] = useState(false);
@@ -60,6 +61,7 @@ export default function LocalLogin() {
   return <section className="page-section login-page"><div className="panel login-card">
     <p className="eyebrow">Welcome back</p><h1>Login</h1>
     <p>Sign in to your LAN Party account.</p>
+    {params.get('password')==='updated'&&<p role="status">Password updated. Sign in again. {params.get('notice')==='unconfirmed'?'Security notification delivery could not be confirmed.':'A security notification was requested; inbox delivery is not confirmed.'}</p>}
     {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
     <form onSubmit={submit} aria-busy={busy}>
       <fieldset className="login-fields" disabled={busy || status === 'loading'} aria-label="Login credentials">

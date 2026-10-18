@@ -1,4 +1,4 @@
-type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup';
+type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed';
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
@@ -6,22 +6,23 @@ function escapeHTML(value: string): string {
 }
 
 export function authenticationEmail(link: string, purpose: MailPurpose = 'email-verification') {
-  if (!['email-verification', 'password-reset', 'password-setup'].includes(purpose)) throw new Error('Invalid email purpose');
+  if (!['email-verification', 'password-reset', 'password-setup','password-added','password-changed'].includes(purpose)) throw new Error('Invalid email purpose');
   const url = new URL(link);
   const reset = purpose === 'password-reset';
   const setup = purpose === 'password-setup';
-  const path = setup ? '/account/security' : reset ? '/reset-password' : '/verify-email';
+  const notification = purpose === 'password-added' || purpose === 'password-changed';
+  const path = setup || notification ? '/account/security' : reset ? '/reset-password' : '/verify-email';
   if (url.origin !== 'https://dev.lan-party.club' || url.username || url.password
-    || url.pathname !== path || url.search || !url.hash || /[\s\u0000-\u001f\u007f]/.test(link)) {
+    || url.pathname !== path || url.search || (notification ? !!url.hash : !url.hash) || /[\s\u0000-\u001f\u007f]/.test(link)) {
     throw new Error('Invalid authentication email URL');
   }
-  const subject = setup ? 'Add a LAN Party password' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account';
-  const heading = setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party';
-  const explanation = setup ? 'Return to the browser where you confirmed your Google identity to add a password. Recent Google authentication is also required.' : reset ? 'Choose a new password using this link.'
+  const subject = notification ? (purpose === 'password-added' ? 'A password was added to your LAN Party account' : 'Your LAN Party password was changed') : setup ? 'Add a LAN Party password' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account';
+  const heading = notification ? (purpose === 'password-added' ? 'Password added' : 'Password changed') : setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party';
+  const explanation = notification ? 'Your account password was updated and existing sessions were signed out. If you made this change, no action is needed.' : setup ? 'Return to the browser where you confirmed your Google identity to add a password. Recent Google authentication is also required.' : reset ? 'Choose a new password using this link.'
     : 'Confirm your email to finish setting up your account.';
-  const expiry = `This link expires in ${setup ? '10 minutes' : reset ? '30 minutes' : '24 hours'} and works once.`;
-  const action = setup ? 'Confirm password setup' : reset ? 'Reset password' : 'Continue verification';
-  const security = 'If you did not request this, ignore this email.';
+  const expiry = notification ? 'If this was unexpected, visit LAN Party directly, recover your account if possible, and contact the organizers promptly.' : `This link expires in ${setup ? '10 minutes' : reset ? '30 minutes' : '24 hours'} and works once.`;
+  const action = notification ? 'Review account security' : setup ? 'Confirm password setup' : reset ? 'Reset password' : 'Continue verification';
+  const security = notification ? 'This is a security notification, not an email confirmation or password reset.' : 'If you did not request this, ignore this email.';
   const support = 'Need a hand? Contact the LAN Party organizers if this link does not work.';
   const href = escapeHTML(url.href);
   return {
@@ -40,7 +41,7 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
 <p style="margin:24px 0 8px;color:#aeb9c7;font-size:14px;line-height:1.6;">If the button does not work, use this link:</p>
 <p style="margin:0 0 24px;font-size:14px;line-height:1.6;"><a href="${href}" style="color:#8de2bd;">${escapeHTML(action)} securely</a></p>
 <p style="margin:0 0 24px;color:#aeb9c7;font-size:14px;line-height:1.6;">${escapeHTML(support)}</p>
-<p style="margin:0;padding-top:20px;border-top:1px solid #333d49;color:#aeb9c7;font-size:13px;line-height:1.6;">${escapeHTML(security)} Never share this link. LAN Party will never ask you to send your password by email.</p>
+<p style="margin:0;padding-top:20px;border-top:1px solid #333d49;color:#aeb9c7;font-size:13px;line-height:1.6;">${escapeHTML(security)} ${notification?'':'Never share this link. '}LAN Party will never ask you to send your password by email.</p>
 </td></tr></table></td></tr></table></body></html>`,
   };
 }

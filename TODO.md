@@ -304,6 +304,14 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Show security explanations on demand, add cancellable one-confirmation Google
   disconnection with server-verified password proof, and retain pending controls
   through redirects. Keep Google-only last-method protection and separate email status.
+- [x] Phase 3.7.6: simplify Google signup and ownership-proven conflict guidance;
+  add inline password setup/change, two-minute Google assurance policy, guarded
+  security notification attempts, and correct hosted password-setup URL handling.
+- [ ] Owner manually verify Phase 3.7.6 Google-only signup, email-confirmed password
+  setup and password changes on DEV; check real notification delivery separately.
+- [ ] Decide whether durable security-notification delivery is required; an outbox
+  and any schema changes require separate approval. Cross-redirect password
+  preservation is not implemented; passwords must be re-entered after navigation.
 - [ ] Owner approve the proposed pending-Google-identity continuation across existing
   account login before implementing its session/assurance-bound confirmation transition.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;

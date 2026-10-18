@@ -60,6 +60,13 @@ async function local(run) {
 const reserve = (db, now = day + 60, daily = 100, monthly = 3000) => policy.reserveDevEmailAttempt(db, now, daily, monthly);
 const count = db => db.prepare('SELECT COALESCE(SUM(attempts),0) AS n FROM auth_email_daily_budget').first('n');
 
+test('password setup and notifications use guarded Security URLs and the same shared budget',()=>local(async db=>{
+ const sent=[];const transport=new policy.DevResendEmailTransport(db,env,async(input,init)=>{sent.push(JSON.parse(init.body));return new Response('{}');},()=>day);
+ for(const purpose of ['password-setup','password-added','password-changed'])await transport.send({...message,purpose,url:'https://dev.lan-party.club/account/security'+(purpose==='password-setup'?'#setup=fictional':''),idempotencyKey:'fictional-'+purpose});
+ assert.equal(sent.length,3);assert.equal(await count(db),3);
+ for(const item of sent)assert.deepEqual(item.to,['recipient@example.test']);
+}));
+
 test('migration discovery rejects missing, unexpected and renamed SQL files', () => {
   assertMigrationHistory([...expectedHistory]);
   assert.throws(() => assertMigrationHistory(expectedHistory.slice(0, -1)));

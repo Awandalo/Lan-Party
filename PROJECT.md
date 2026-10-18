@@ -1251,6 +1251,49 @@ and independent email-confirmation flow. Adding a password never disconnects Goo
 Pending controls ignore repeat submissions and remain disabled through successful
 navigation. Email verification is a separate status row, not a password-method status.
 
+#### Phase 3.7.6 — password management and Google signup
+
+Google signup checks its browser-bound pending context before showing the form.
+Only signature-validated, authoritative Google email ownership may reveal a bare
+existing-account conflict; no nickname, UUID or private account data is returned.
+Other email claims keep generic conflict handling. Matching email never links accounts.
+Private name suggestions remain editable; existing-member guidance is collapsed.
+
+Connected accounts → Email & password contains inline Add/Change password forms
+with confirmation, Cancel, accessible focus and preserved fields on recoverable
+errors. Password change verifies the current password with the existing persistent
+limiter/Turnstile controls, then uses one guarded credential update. Existing triggers
+advance the authentication generation and invalidate sessions/tokens. Both methods
+retain the same UUID/member history; adding a password does not disconnect Google.
+
+A fresh, fully validated Google application sign-in grants server-side assurance for
+the new session. Google assurance must be less than **120 seconds** old when used;
+password proofs retain their existing five-minute policy. The schema's five-minute
+assurance storage lifetime is unchanged; the stricter Google age is checked by the
+application and again in atomic first-password consumption. This is recent sign-in
+to LAN Party, not a claim that Google prompted for credentials within two minutes.
+Explicit Google reauthentication still validates provider `auth_time` and identity.
+
+First-password setup retains the ten-minute, single-use, account/session/generation-
+bound independent email proof and recent Google requirement. The form requests one
+confirmation email and shows a waiting state; no password is persisted early. Passwords
+stay only in form memory. A new tab or OAuth redirect requires re-entry; if Google proof
+expires after opening the email, reauthenticate then reopen the same unconsumed email
+link. Seamless secret preservation across these transitions is not implemented.
+Successful password additions/changes keep the established sign-out-all-sessions
+policy and return to login; sign in again to review Connected accounts in Settings.
+
+Successful settings password additions/changes request a branded security notification
+to the verified address, after the guarded write succeeds. Only the winning operation
+sends, with a generation-based provider idempotency key. Recipient restrictions and
+the shared 60-attempt UTC-day budget include these notifications; there are no automatic
+retries. The DEV wrapper now accepts the existing Security-page setup link and token-free
+notification URLs. Notification failure never reverses a completed password change;
+the login feedback distinguishes requested from unconfirmed delivery. There is **no
+durable outbox**: a crash/provider failure can lose a notification. Guaranteed eventual
+delivery would require a separately approved design/migration. Recovery notifications
+outside these settings operations are not introduced by this task.
+
 Existing-member continuation is **a proposal, not implemented**. The current safe
 route still requires existing-account login, recent authentication under Security,
 and a fresh explicit Connect Google flow. Preserving an anonymous pending Google

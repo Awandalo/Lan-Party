@@ -1,2 +1,11 @@
 .google-complete-card { max-width: 38rem; margin-inline: auto; }
 .google-complete-card fieldset { display: grid; gap: .7rem; border: 0; padding: 0; min-width: 0; }
+.google-complete-card h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); }
+.google-complete-card fieldset { margin-block: 1.5rem; }
+.google-complete-card label { font-weight: 600; }
+.google-complete-card input { width: 100%; min-width: 0; min-height: 48px; padding: .8rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--background); color: var(--text); font: inherit; }
+.google-complete-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.google-complete-card button { font: inherit; cursor: pointer; margin-top: .75rem; }
+.google-complete-card button:disabled { opacity: .7; cursor: wait; }
+.google-complete-card form p, .google-complete-card details { color: var(--muted); font-size: .9rem; }
+.google-complete-card summary { cursor: pointer; }

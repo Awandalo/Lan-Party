@@ -20,6 +20,7 @@ interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'
   verifier: string; nonce: string; user_id: string|null; session_digest: string|null; auth_version: number|null;
   subject: string|null; email: string|null; authoritative: number|null; expires_at: number }
 const now = () => Math.floor(Date.now()/1000);
+const googleFreshnessSeconds = 120;
 const cookieName = '__Host-lan_google';
 class RecentAuthenticationRequired extends Error {
   constructor(readonly method?: string) { super('Confirm your existing sign-in method before continuing.'); }
@@ -53,7 +54,8 @@ async function current(request: Request, env: GoogleEnvironment) {
 }
 async function recent(db: D1Database, account: AccountIdentity, digest: string, method?: string) {
   const row=await db.prepare(`SELECT method FROM auth_recent_authentication WHERE user_id=? AND session_digest=?
-    AND auth_version=? AND authenticated_at<=? AND expires_at>?`).bind(account.userId,digest,account.authVersion,now(),now()).first<{method:string}>();
+    AND auth_version=? AND authenticated_at<=? AND expires_at>?
+    AND (method<>'google' OR authenticated_at>?)`).bind(account.userId,digest,account.authVersion,now(),now(),now()-googleFreshnessSeconds).first<{method:string}>();
   if (!row || (method && row.method!==method)) throw new RecentAuthenticationRequired(method);
 }
 async function grant(db: D1Database, account: AccountIdentity, digest: string, method: 'password'|'google', authenticatedAt = now()) {
@@ -69,9 +71,22 @@ async function grant(db: D1Database, account: AccountIdentity, digest: string, m
 async function signedIn(env: GoogleEnvironment, account: AccountIdentity, request: Request) {
   if (account.emailVerifiedAt===null) return redirect('/verify-email');
   const session=await issueSession(new D1SessionStore(env.DB),account,now());
+  await grant(env.DB,account,await digestToken(session.token,'session'),'google');
   const previous=readSessionCookie(request);
   if (previous) await revokeSession(new D1SessionStore(env.DB),previous,now());
   return redirect('/account',sessionCookie(session.token));
+}
+async function passwordNotice(request: Request, env: GoogleEnvironment, account: AccountIdentity, purpose:'password-added'|'password-changed') {
+  // Only the winning committed operation calls this. No outbox or automatic retry:
+  // an unavailable provider never rolls back a completed password change.
+  try{
+    const row=await env.DB.prepare(`SELECT email FROM users WHERE id=? AND auth_version=? AND status='active' AND email_verified_at IS NOT NULL`)
+      .bind(account.userId,account.authVersion+1).first<{email:string}>();
+    if(!row)throw new Error('Notification unavailable');
+    await emailTransport(request,env).send({to:row.email,url:authOrigin(request,env).origin+'/account/security',
+      expiresAt:now()+86400,purpose,idempotencyKey:`security-${purpose}-${account.userId}-${account.authVersion+1}`});
+    return 'attempted';
+  }catch{return 'unconfirmed';}
 }
 async function flowFor(request: Request, env: GoogleEnvironment, phase: string, state?: string) {
   const browser=browserToken(request); if (!browser) throw new Error('Missing transaction');
@@ -155,7 +170,8 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         || (request.headers.has('Origin')&&request.headers.get('Origin')!==origin.origin)
         || (request.headers.has('Sec-Fetch-Site')&&request.headers.get('Sec-Fetch-Site')!=='same-origin')) return reply(403,{error:'Request rejected'});
       const flow=await flowFor(request,env,'ready');
-      return reply(200,await decodeGoogleProfile(profileCookieValue(request),flow.state_digest,env.AUTH_RATE_LIMIT_SECRET!,now()));
+      const conflict=flow.authoritative===1 && !!await env.DB.prepare('SELECT id FROM users WHERE email_normalized=?').bind(flow.email).first();
+      return reply(200,{...await decodeGoogleProfile(profileCookieValue(request),flow.state_digest,env.AUTH_RATE_LIMIT_SECRET!,now()),...(conflict?{existingAccount:true}:{})});
     }
     if (action==='methods') {
       const {account}=await current(request,env);
@@ -198,7 +214,11 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     if (action==='complete') {
       if (!authRouteEnabled(request,env,env.REGISTRATION_MODE) || Object.keys(input).sort().join(',')!=='firstName,lastName,nickname') return reply(400,{error:'Invalid request'});
       const flow=await flowFor(request,env,'ready');
-      const profile=validateAccountProfile({nickname:input.nickname,firstName:input.firstName,lastName:input.lastName,email:flow.email});
+      if(flow.authoritative===1 && await env.DB.prepare('SELECT id FROM users WHERE email_normalized=?').bind(flow.email).first())
+        return reply(409,{code:'existing_account',error:'Sign in to your existing LAN Party account, then connect Google under Account → Settings.'});
+      let profile: ReturnType<typeof validateAccountProfile>;
+      try{profile=validateAccountProfile({nickname:input.nickname,firstName:input.firstName,lastName:input.lastName,email:flow.email});}
+      catch{return reply(400,{error:'Check your nickname (3–24 allowed characters, no ambiguous spacing or reserved names) and both private names (1–100 characters, no outside spaces).'});}
       if (!recipientAllowed(request,env,profile.email)) throw new Error('Identity unavailable');
       const {registrationLimiter}=await import('./registration-limits');
       const limit=await registrationLimiter(env.DB,env.AUTH_RATE_LIMIT_SECRET!,now());
@@ -219,14 +239,16 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         return reply(200,{next:'/verify-email'},{'Set-Cookie':profileCookie('',!hostedDev(request,env),0)});
       }
       const session=await issueSession(new D1SessionStore(env.DB),account,time);
+      await grant(env.DB,account,await digestToken(session.token,'session'),'google');
       const response=reply(200,{next:'/account'},{'Set-Cookie':sessionCookie(session.token)});
       response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
       return response;
     }
     const session=await current(request,env),{account,digest}=session;
     if (!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!)) return reply(403,{error:'Request rejected'});
-    if (action==='reauth-password') {
-      if (Object.keys(input).some(k=>!['password','turnstileToken'].includes(k)) || typeof input.password!=='string') return reply(400,{error:'Invalid request'});
+    if (action==='reauth-password' || action==='change-password') {
+      if (Object.keys(input).some(k=>!(action==='change-password'?['password','newPassword','turnstileToken']:['password','turnstileToken']).includes(k)) || typeof input.password!=='string') return reply(400,{error:'Invalid request'});
+      if(action==='change-password' && (typeof input.newPassword!=='string'||!isValidPassword(input.newPassword)))return reply(400,{error:'Use a 12–128 character new password.'});
       const user=await env.DB.prepare('SELECT email_normalized AS email FROM users WHERE id=?').bind(account.userId).first<{email:string}>();
       const limit=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET!,authClientIP(request,env).toLowerCase());
       if (await limit.observe() || input.turnstileToken!==undefined) await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
@@ -236,6 +258,17 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         const ok=!!credential && await verifyPassword(input.password,credential,env.PASSWORD_PEPPER);
         if (!await held.finish(!ok)) throw new Error('Expired authentication'); finished=true;
         if (!ok) return reply(401,{error:'Authentication could not be confirmed'});
+        if(action==='change-password'){
+          const hash=await hashPassword(input.newPassword as string,env.PASSWORD_PEPPER),time=now();
+          const result=await env.DB.prepare(`UPDATE user_password_credentials SET password_hash=?,password_changed_at=?,updated_at=?
+            WHERE user_id=? AND password_hash=? AND EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id
+              WHERE u.id=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.auth_version=?
+              AND s.token_digest=? AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?) RETURNING user_id`)
+            .bind(hash,time,time,account.userId,credential,account.userId,account.authVersion,digest,now()).first();
+          if(!result)return reply(409,{error:'Your account changed. Sign in again before trying.'});
+          const notification=await passwordNotice(request,env,account,'password-changed');
+          return reply(200,{next:'/login',notification},{'Set-Cookie':clearSessionCookie()});
+        }
         await grant(env.DB,account,digest,'password'); return reply(200,{message:'Recent authentication confirmed for five minutes.'});
       } finally { if(!finished)await held.finish(false); }
     }
@@ -288,15 +321,17 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       const result=await env.DB.batch([
         env.DB.prepare(`UPDATE auth_password_setup SET consumed_at=? WHERE ${guard}
           AND EXISTS(SELECT 1 FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
-            WHERE r.session_digest=? AND r.method='google' AND r.expires_at>? AND s.revoked_at IS NULL AND s.expires_at>?)
+            WHERE r.session_digest=? AND r.method='google' AND r.expires_at>? AND r.authenticated_at>? AND r.authenticated_at<=? AND s.revoked_at IS NULL AND s.expires_at>?)
           AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=? AND status='active')
           AND NOT EXISTS(SELECT 1 FROM user_password_credentials WHERE user_id=?) RETURNING token_digest`)
-          .bind(now(),...args.slice(0,4),now(),account.userId,digest,now(),now(),account.userId,account.authVersion,account.userId),
+          .bind(now(),...args.slice(0,4),now(),account.userId,digest,now(),now()-googleFreshnessSeconds,now(),now(),account.userId,account.authVersion,account.userId),
         env.DB.prepare(`INSERT INTO user_password_credentials(user_id,password_hash,password_changed_at,created_at,updated_at)
           SELECT ?,?,?,?,? WHERE changes()=1`).bind(account.userId,hash,now(),now(),now()),
         env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),account.userId),
       ]);
-      return result[0].results.length===1?reply(200,{next:'/login'},{'Set-Cookie':clearSessionCookie()}):reply(400,{error:'Confirmation unavailable'});
+      if(result[0].results.length!==1)return reply(400,{error:'Confirmation unavailable'});
+      const notification=await passwordNotice(request,env,account,'password-added');
+      return reply(200,{next:'/login',notification},{'Set-Cookie':clearSessionCookie()});
     }
     return reply(404,{error:'Not found'});
   } catch (error) {

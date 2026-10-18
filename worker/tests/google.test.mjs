@@ -13,6 +13,7 @@ let script,migrations;
 before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
   import app from './worker/index';
+  import {localMailbox} from './worker/auth/email';
   let sends=0;
   globalThis.fetch=async(input,init)=>{
    const url=String(input);
@@ -27,7 +28,7 @@ before(async()=>{
    if(url==='https://api.resend.com/emails'){sends++;return Response.json({id:'synthetic'});}
    throw Error('External request blocked in offline fixture');
   };
-  export default {async fetch(request,env){if(new URL(request.url).pathname==='/fixture/sends')return Response.json(sends);return app.fetch(request,env);}};
+  export default {async fetch(request,env){if(new URL(request.url).pathname==='/fixture/notifications')return Response.json({added:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-added'),changed:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-changed')});if(new URL(request.url).pathname==='/fixture/sends')return Response.json(sends);return app.fetch(request,env);}};
  `},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
  migrations=[];
  for(const name of(await readdir(new URL('../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort()){
@@ -93,7 +94,9 @@ test('callback browser binding, state, expiry and concurrent consumption protect
 test('email match never links accounts; duplicate signup rolls back without changing UUID or ledger',()=>local(async({request,db,start,callback,complete})=>{
  assert.equal((await request('register',{nickname:'Existing Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password:'fictional original password'})).status,202);
  const before=await db.prepare('SELECT id FROM users').first('id');const flow=await start();await callback(flow);
- assert.equal((await complete(flow,'Different Player')).status,400);
+ const hints=await(await request('google/profile',undefined,{Cookie:flow.Cookie})).json();assert.equal(hints.existingAccount,true);
+ assert.equal(JSON.stringify(hints).includes('Existing Player'),false);
+ assert.equal((await complete(flow,'Different Player')).status,409);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM users').first('n'),1);
  assert.equal(await db.prepare('SELECT id FROM users').first('id'),before);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),0);
@@ -107,10 +110,12 @@ test('third-party Google email remains unverified and receives only local verifi
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM auth_action_tokens').first('n'),before);
  const again=await callback(await start());assert.equal(again.headers.get('location'),'/verify-email');
 }));
-test('Google recent authentication and separate email proof add first password atomically, invalidate sessions and prevent replay',()=>local(async({db,start,callback,complete,session,request})=>{
+test('Google recent authentication and separate email proof add first password atomically, invalidate sessions and prevent replay',()=>local(async({instance,db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
  const originalId=await db.prepare('SELECT id FROM users').first('id');
  assert.deepEqual(await(await request('google/methods',undefined,headers)).json(),{password:false,google:true});
+ assert.equal(await db.prepare('SELECT expires_at-authenticated_at n FROM auth_recent_authentication').first('n'),300);
+ await db.prepare('DELETE FROM auth_recent_authentication').run();
  assert.equal((await request('google/request-password',{},headers)).status,428);
  const recent=await start('reauth',headers);assert.equal(recent.url.searchParams.get('max_age'),'0');
  assert.equal((await callback(recent,{}, {Cookie:recent.Cookie+'; '+headers.Cookie})).headers.get('location'),'/account/security');
@@ -122,6 +127,8 @@ test('Google recent authentication and separate email proof add first password a
  const password='fictional new password';
  const results=await Promise.all([request('google/add-password',{token,password},headers),request('google/add-password',{token,password},headers)]);
  assert.equal(results.filter(r=>r.status===200).length,1);assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),1);
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:true,changed:false});
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
  assert.equal((await request('session',undefined,headers)).status,401);
  assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),1);
  const login=await request('login',{email:'google@example.test',password});assert.equal(login.status,200);
@@ -133,13 +140,82 @@ test('Google recent authentication and separate email proof add first password a
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));
 
+test('non-authoritative Google email cannot inspect existing-account conflicts before independent verification',()=>local(async({db,request,start,callback,complete})=>{
+ await request('register',{nickname:'Private Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password:'fictional original password'});
+ const flow=await start();await callback(flow,{hd:undefined});
+ assert.deepEqual(await(await request('google/profile',undefined,{Cookie:flow.Cookie})).json(),{});
+ assert.equal((await complete(flow,'Another Player')).status,400);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM users').first('n'),1);
+}));
+
 test('Google-only account cannot unlink even with a fabricated recent password assurance row',()=>local(async({db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
- await db.prepare(`INSERT INTO auth_recent_authentication(user_id,session_digest,auth_version,method,assurance_level,mfa_verified,authenticated_at,expires_at)
+ await db.prepare(`INSERT OR REPLACE INTO auth_recent_authentication(user_id,session_digest,auth_version,method,assurance_level,mfa_verified,authenticated_at,expires_at)
    SELECT user_id,token_digest,auth_version,'password',1,0,unixepoch(),unixepoch()+300 FROM auth_sessions`).run();
  assert.equal((await request('google/unlink',{},headers)).status,400);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),1);
  assert.equal((await request('session',undefined,headers)).status,200);
+}));
+
+test('fresh Google app authentication permits password confirmation requests for two minutes only',()=>local(async({db,start,callback,complete,session,request})=>{
+ const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ assert.equal((await request('google/request-password',{},headers)).status,202);
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=unixepoch()-121,expires_at=unixepoch()+179').run();
+ assert.equal((await request('google/request-password',{},headers)).status,428);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),0);
+ const login=await callback(await start());const newHeaders=await session(login);
+ assert.equal((await request('google/unlink',{},newHeaders)).status,428);
+}));
+
+test('password changes require the current password, fence races, revoke sessions and notify only once',()=>local(async({instance,db,request,session})=>{
+ const password='fictional old password',newPassword='fictional replacement password';
+ await request('register',{nickname:'Password Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
+ await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();
+ const headers=await session(await request('login',{email:'google@example.test',password}));
+ const original=await db.prepare('SELECT id FROM users').first('id');
+ assert.equal((await request('google/change-password',{password:'wrong fictional password',newPassword},headers)).status,401);
+ assert.equal((await request('google/change-password',{password,newPassword:'short'},headers)).status,400);
+ const results=await Promise.all([request('google/change-password',{password,newPassword},headers),request('google/change-password',{password,newPassword},headers)]);
+ assert.equal(results.filter(r=>r.status===200).length,1);
+ assert.equal((await results.find(r=>r.status===200).json()).notification,'attempted');
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:true});
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal((await request('login',{email:'google@example.test',password})).status,401);
+ assert.equal((await request('login',{email:'google@example.test',password:newPassword})).status,200);
+ assert.equal(await db.prepare('SELECT id FROM users').first('id'),original);
+ assert.equal(await db.prepare('SELECT member_number FROM member_numbers WHERE user_id=?').bind(original).first('member_number'),11);
+}));
+
+test('password changes remain committed when the notification transport fails',()=>local(async({db,request,session})=>{
+ const password='fictional old password',newPassword='fictional replacement password';
+ await request('register',{nickname:'Notice Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
+ await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();
+ const headers=await session(await request('login',{email:'google@example.test',password}));
+ const result=await request('google/change-password',{password,newPassword},headers);
+ assert.equal(result.status,200);assert.equal((await result.json()).notification,'unconfirmed');
+ assert.equal((await request('login',{email:'google@example.test',password:newPassword})).status,200);
+},{AUTH_EMAIL_TRANSPORT:'unavailable'}));
+
+test('password change shares confirmed-failure restrictions and never sends on wrong passwords',()=>local(async({instance,db,request,session})=>{
+ const password='fictional old password';await request('register',{nickname:'Limited Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
+ await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();
+ const headers={...await session(await request('login',{email:'google@example.test',password})),'CF-Connecting-IP':'203.0.113.200'};
+ for(let i=0;i<5;i++)assert.equal((await request('google/change-password',{password:'fictional wrong password',newPassword:'fictional new password'},headers)).status,401);
+ assert.equal((await request('google/change-password',{password,newPassword:'fictional new password'},headers)).status,429);
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
+}));
+
+test('failed password writes preserve credentials and sessions and send no notification',()=>local(async({instance,db,request,session})=>{
+ const password='fictional old password';await request('register',{nickname:'Rollback Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
+ await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();
+ const headers=await session(await request('login',{email:'google@example.test',password}));
+ assert.equal((await request('google/change-password',{password,newPassword:'fictional new password'},{...headers,'X-CSRF-Token':'00'.repeat(32)})).status,403);
+ await db.prepare("CREATE TRIGGER fixture_password_failure BEFORE UPDATE ON user_password_credentials BEGIN SELECT RAISE(ABORT,'fictional failure'); END").run();
+ assert.equal((await request('google/change-password',{password,newPassword:'fictional new password'},headers)).status,503);
+ assert.equal((await request('session',undefined,headers)).status,200);
+ assert.equal((await request('login',{email:'google@example.test',password})).status,200);
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
 }));
 test('password proof is required for linking and unlinking; generation fencing preserves account history',()=>local(async({request,db,start,callback,session})=>{
  const password='fictional original password';await request('register',{nickname:'Local Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
@@ -249,6 +325,7 @@ test('0012 refuses ambiguous legacy Google mappings and rolls back its entire D1
 
 test('Google reauthentication rejects old or missing auth_time and a different provider identity',()=>local(async({request,start,callback,complete,session,db})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ await db.prepare('DELETE FROM auth_recent_authentication').run();
  for(const claims of [{auth_time:1},{auth_time:undefined},{auth_time:Math.floor(Date.now()/1000)+300},{sub:'another-subject'}]){
   const reauth=await start('reauth',headers);
   assert.equal((await callback(reauth,claims,{Cookie:reauth.Cookie+'; '+headers.Cookie})).headers.get('location'),'/login?google=unavailable');

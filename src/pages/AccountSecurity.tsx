@@ -14,8 +14,10 @@ export default function AccountSecurity(){
   const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
   const [disconnecting,setDisconnecting]=useState(false),[passwordSetupOpen,setPasswordSetupOpen]=useState(!!passwordSetupToken());
+  const [waitingForEmail,setWaitingForEmail]=useState(false),[needsGoogle,setNeedsGoogle]=useState(false);
   const googleButton=useRef<GoogleButtonHandle>(null),activeSession=useRef(session?.csrfToken),actionPending=useRef(false);
   const disconnectTrigger=useRef<HTMLButtonElement>(null);
+  const passwordTrigger=useRef<HTMLButtonElement>(null);
   activeSession.current=session?.csrfToken;
   function requestPasswordConfirmation(){setDisconnecting(false);setNeedsPassword(true);requestAnimationFrame(()=>confirmationRef.current?.focus());}
   function cancelConfirmation(){googleButton.current?.cancelLink();setNeedsPassword(false);setDisconnecting(false);setFeedback('');setSiteKey('');setProof(null);requestAnimationFrame(()=>disconnectTrigger.current?.focus());}
@@ -29,7 +31,8 @@ export default function AccountSecurity(){
     let navigating=false;
     try{const r=await googleRequest(name,input,csrf),body=await r.json();
       if(activeSession.current!==csrf)return;
-      if(r.ok&&body.next==='/login'){clearPasswordSetup();window.location.assign('/login');navigating=true;}
+      if(r.ok&&body.next==='/login'){clearPasswordSetup();window.location.assign(body.notification?'/login?password=updated&notice='+body.notification:'/login');navigating=true;}
+      else if(r.ok&&name==='request-password'){setWaitingForEmail(true);setFeedback('Check your email and open the confirmation in this browser. Your password is not active yet. If you open a new tab, enter it again there.');}
       else if(r.ok&&name==='reauth-password'){
         if(disconnecting){
           const result=await googleRequest('unlink',{},csrf),outcome=await result.json();
@@ -42,6 +45,7 @@ export default function AccountSecurity(){
         }
       }
       else if(r.status===428&&body.code==='reauth_required'){
+        if(body.method==='google')setNeedsGoogle(true);
         if(body.method!=='google')requestPasswordConfirmation();
         setFeedback(body.method==='google'?'Confirm your Google identity before continuing.':'Confirm your password below before continuing.');
       }
@@ -49,40 +53,54 @@ export default function AccountSecurity(){
       else setFeedback(body.message??body.error??'Request unavailable.');
     }catch{setFeedback('Unable to confirm request. No automatic retry was made.');}finally{if(!navigating){actionPending.current=false;setProof(null);setAttempt(n=>n+1);setBusy(false);}}
   }
-  function passwordForm(event:FormEvent<HTMLFormElement>,setup:boolean){event.preventDefault();const form=event.currentTarget,data=new FormData(form);
+  function passwordForm(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,data=new FormData(form);
     const password=String(data.get('password')??'');form.reset();
-    void action(setup?'add-password':'reauth-password',setup?{password,token:passwordSetupToken()}:{password,...(proof?{turnstileToken:proof}:{})});}
+    void action('reauth-password',{password,...(proof?{turnstileToken:proof}:{})});}
+  function managePassword(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(actionPending.current)return;const data=new FormData(event.currentTarget);
+    const password=String(data.get('newPassword')??'');
+    if(password!==data.get('confirmation')){setFeedback('The new passwords do not match. Please check both fields.');return;}
+    if(methods?.password)void action('change-password',{password:String(data.get('currentPassword')??''),newPassword:password,...(proof?{turnstileToken:proof}:{})});
+    else if(passwordSetupToken())void action('add-password',{password,token:passwordSetupToken()});
+    else void action('request-password');
+  }
   return <section className="page-section account-security-page"><div className="panel account-security-card"><h1>Account security</h1>
     <p>All your account security settings in one place.</p>
     {methods&&<><section className="connected-accounts" aria-labelledby="connected-accounts-heading">
       <h2 id="connected-accounts-heading">Connected accounts</h2>
-      <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd>{methods.password?'Connected':'Not connected'}</dd></div>
+      <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd>{methods.password?'Connected':'Not connected'}</dd>
+        <dd className="security-method-controls"><button ref={passwordTrigger} className="button button-secondary" disabled={busy||passwordSetupOpen||needsPassword} onClick={()=>{setPasswordSetupOpen(true);setWaitingForEmail(false);setNeedsGoogle(false);setFeedback('');}}>{methods.password?'Change password':'Add password'}</button>
+        {passwordSetupOpen&&<div className="account-confirmation">
+          {needsGoogle?<><p>Confirm your Google identity, then return here to continue password setup. If you already opened the email confirmation, reopen that same link after confirming Google. Passwords are not saved across redirects.</p><GoogleButton purpose="reauth" csrf={csrf} disabled={busy}/></>:
+          <form onSubmit={managePassword}><fieldset disabled={busy}><legend>{methods.password?'Change password':'Add password'}</legend>
+            {methods.password&&<><label htmlFor="current-password">Current password</label><PasswordInput id="current-password" name="currentPassword" required autoComplete="current-password" autoFocus/></>}
+            <label htmlFor="new-password">New password</label><PasswordInput id="new-password" name="newPassword" minLength={12} maxLength={128} required autoComplete="new-password" autoFocus={!methods.password}/>
+            <label htmlFor="confirm-new-password">Confirm new password</label><PasswordInput id="confirm-new-password" name="confirmation" minLength={12} maxLength={128} required autoComplete="new-password"/>
+            {!methods.password&&<p>{passwordSetupToken()?'Your email confirmation is ready. Save your password to finish; all sessions will be signed out.':'A separate email confirmation is required before your password can be enabled. Nothing is stored until you finish.'}</p>}
+            {methods.password&&<p>Saving signs out all sessions. A security notification will be requested after the change.</p>}
+            {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
+            <button className="button" disabled={waitingForEmail}>{busy?'Saving…':waitingForEmail?'Awaiting email confirmation':methods.password||passwordSetupToken()?'Save password':'Continue with email confirmation'}</button>
+          </fieldset></form>}
+          <p role="status" aria-live="polite">{feedback}</p>
+          <button type="button" className="button button-secondary" disabled={busy} onClick={()=>{setPasswordSetupOpen(false);setWaitingForEmail(false);setNeedsGoogle(false);setFeedback('');requestAnimationFrame(()=>passwordTrigger.current?.focus());}}>Cancel</button>
+        </div>}</dd></div>
         <div><dt>Google</dt><dd>{methods.google?'Connected':'Not connected'}</dd></div></dl>
-      {!methods.google&&<GoogleButton key={csrf} ref={googleButton} purpose="link" csrf={csrf} disabled={busy||needsPassword} onRecentAuthenticationRequired={requestPasswordConfirmation}/>}
-      {methods.google&&methods.password&&<button ref={disconnectTrigger} className="button button-secondary" disabled={busy||needsPassword} onClick={()=>{setDisconnecting(true);setNeedsPassword(true);requestAnimationFrame(()=>confirmationRef.current?.focus());}}>Disconnect Google</button>}
+      {!methods.google&&<GoogleButton key={csrf} ref={googleButton} purpose="link" csrf={csrf} disabled={busy||needsPassword||passwordSetupOpen} onRecentAuthenticationRequired={requestPasswordConfirmation}/>}
+      {methods.google&&methods.password&&<button ref={disconnectTrigger} className="button button-secondary" disabled={busy||needsPassword||passwordSetupOpen} onClick={()=>{setDisconnecting(true);setNeedsPassword(true);requestAnimationFrame(()=>confirmationRef.current?.focus());}}>Disconnect Google</button>}
       {methods.google&&!methods.password&&<p>Add a password before disconnecting Google. At least one usable sign-in method must remain.</p>}
       {methods.password&&needsPassword&&<div ref={confirmationRef} tabIndex={-1} className="account-confirmation">
         <p>{disconnecting?'Confirm your password to disconnect Google. You will be signed out of all sessions; use your password to sign in again.':'Confirm your password to connect Google. Your other sessions will be signed out.'}</p>
-        <form onSubmit={e=>passwordForm(e,false)}><fieldset disabled={busy}><legend>Confirm current password</legend>
+        <form onSubmit={passwordForm}><fieldset disabled={busy}><legend>Confirm current password</legend>
         <label htmlFor="security-password">Current password</label><PasswordInput id="security-password" name="password" required autoComplete="current-password"/>
         {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
         <button className="button">{busy?'Confirming…':disconnecting?'Confirm & disconnect':'Confirm and continue'}</button>
         <button type="button" className="button button-secondary" disabled={busy} onClick={cancelConfirmation}>Cancel</button>
         </fieldset></form></div>}
-      {methods.google&&!methods.password&&<>
-        {!passwordSetupOpen&&<button className="button button-secondary" onClick={()=>setPasswordSetupOpen(true)}>Add password</button>}
-        {passwordSetupOpen&&<><p>Adding a password requires recent Google authentication and a separate confirmation email in this browser. Google-only accounts cannot use forgotten-password recovery.</p>
-        <GoogleButton purpose="reauth" csrf={csrf} disabled={busy}/>
-        <button className="button" disabled={busy} onClick={()=>void action('request-password')}>{busy?'Requesting…':'Request password setup email'}</button>
-        {passwordSetupToken()&&<form onSubmit={e=>passwordForm(e,true)}><fieldset disabled={busy}><legend>Add password</legend>
-          <label htmlFor="setup-password">New password (12–128 characters)</label><PasswordInput id="setup-password" name="password" minLength={12} maxLength={128} required autoComplete="new-password"/>
-          <button className="button">{busy?'Saving…':'Add password and sign out'}</button></fieldset></form>}</>}
-        </>}
     </section>
       {/* Phase 3.9: optional MFA belongs immediately after Connected accounts. */}
     </>}
     <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2>
       <dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified ? 'Verified' : 'Not verified'}</dd></div></dl>
     </section>
-    <p role="status" aria-live="polite">{feedback}</p></div></section>;
+    {!passwordSetupOpen&&<p role="status" aria-live="polite">{feedback}</p>}</div></section>;
 }

@@ -54,6 +54,16 @@ test('template URLs reject unsafe destinations, credentials, queries and purpose
   assert.throws(() => authenticationEmail('https://dev.lan-party.club/reset-password#proof', 'unknown'));
 });
 
+test('password security notifications contain no action tokens and distinguish added versus changed',()=>{
+ for(const purpose of ['password-added','password-changed']){
+  const mail=authenticationEmail('https://dev.lan-party.club/account/security',purpose);
+  assert.equal(mail.subject,purpose==='password-added'?'A password was added to your LAN Party account':'Your LAN Party password was changed');
+  assert.match(mail.text,/no action is needed/);assert.match(mail.text,/unexpected/);
+  assert.doesNotMatch(mail.text,/#|token=|works once/);
+  assert.throws(()=>authenticationEmail('https://dev.lan-party.club/account/security#setup=secret',purpose));
+ }
+});
+
 test('interpolated URL content cannot break HTML attributes or inject markup', () => {
   const url = 'https://dev.lan-party.club/verify-email#x="\'><img/src=x>&token=fictional';
   const { html, text } = authenticationEmail(url);

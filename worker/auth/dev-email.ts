@@ -75,7 +75,8 @@ export class DevResendEmailTransport implements EmailTransport {
   async send(mail: AccountMail): Promise<void> {
     assertDevEmailRecipient(this.env, mail.to);
     const url = new URL(mail.url);
-    const path = (mail.purpose ?? 'email-verification') === 'password-reset' ? '/reset-password' : '/verify-email';
+    const path = ['password-setup','password-added','password-changed'].includes(mail.purpose ?? '') ? '/account/security'
+      : mail.purpose === 'password-reset' ? '/reset-password' : '/verify-email';
     if (url.origin !== origin || url.username || url.password || url.pathname !== path || url.search) {
       throw new DevEmailPolicyError();
     }
