@@ -58,5 +58,9 @@ export default function AccountSecurity(){
           <button className="button">Add password and sign out</button></fieldset></form>}</>}
     </section>
       {/* Phase 3.9: optional MFA belongs immediately after Connected accounts. */}
-    </>}<p role="status" aria-live="polite">{feedback}</p></div></section>;
+    </>}
+    <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2>
+      <p>Email status: <strong>{session.emailVerified ? 'Verified' : 'Unverified'}</strong></p>
+    </section>
+    <p role="status" aria-live="polite">{feedback}</p></div></section>;
 }

@@ -295,6 +295,9 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Place Connected accounts first in Security, prompt for recent authentication
   from Connect Google, return with a fresh session after linking, and preserve safe
   disconnection/last-method protection. Reserve the following section for optional MFA.
+- [x] Group login assistance links below Google, connect menu Settings to Security,
+  and show inactive event/poll/site-update placeholders on the account overview;
+  keep email verification status in Security without changing authentication behavior.
 - [ ] Owner approve the proposed pending-Google-identity continuation across existing
   account login before implementing its session/assurance-bound confirmation transition.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;

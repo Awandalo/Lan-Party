@@ -24,10 +24,12 @@ export default function Account() {
   }
   return <section className="page-section account-page"><div className="panel account-card">
     <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
-    <p>You are signed in. Your private name and email are not shown here.</p>
-    <p>Email status: <strong>{session.emailVerified ? 'Verified' : 'Unverified'}</strong></p>
+    <div className="account-updates">
+      <section aria-labelledby="account-events"><h2 id="account-events">Upcoming events</h2><span className="status-label">Coming soon</span><p>Your next LAN adventures will appear here. Event registration is not available yet.</p></section>
+      <section aria-labelledby="account-polls"><h2 id="account-polls">Upcoming polls</h2><span className="status-label">Coming soon</span><p>Help shape the party when polls become available.</p></section>
+      <section aria-labelledby="account-news"><h2 id="account-news">Page updates</h2><span className="status-label">Coming soon</span><p>Website news and announcements will appear here.</p></section>
+    </div>
     <p><Link to="/account/security">Security and sign-in methods</Link></p>
-    <p>Event registration remains unavailable. Verified email will be required when it is implemented.</p>
     {!session.emailVerified && <button className="button" onClick={resendVerification} disabled={busy}>Request verification email</button>}
     <p role="status" aria-live="polite">{feedback}</p>
   </div></section>;

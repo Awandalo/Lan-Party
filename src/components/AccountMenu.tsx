@@ -32,7 +32,7 @@ export default function AccountMenu({ nickname }: { nickname: string }) {
       aria-controls="account-navigation" onClick={() => setOpen(value => !value)}>Account <span aria-hidden="true">▾</span></button>
     {open && <div id="account-navigation" className="account-menu-panel" aria-label="Account options">
       <Link className="account-menu-name" to="/account" onClick={() => setOpen(false)}>{nickname}<span>My account</span></Link>
-      <button type="button" disabled>Settings <small>Coming soon</small></button>
+      <Link to="/account/security" onClick={() => setOpen(false)}>Settings <small>Security and sign-in methods</small></Link>
       <button type="button" disabled>Profile <small>Coming soon</small></button>
       <button type="button" disabled>Badge Display Case <small>Coming soon</small></button>
       <hr />

@@ -73,9 +73,11 @@ export default function LocalLogin() {
     </form>
     <div className="login-feedback" ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
     {verificationRequired && <p><Link to="/verify-email">Request a verification email</Link></p>}
-    <p className="login-recovery"><Link to="/forgot-password">Forgot your password?</Link></p>
     <div className="login-divider"><span>or</span></div>
     <GoogleButton />
-    <p className="login-registration">New to LAN Party? <Link to="/register">Create an account</Link></p>
+    <div className="login-links">
+      <p>New here? <Link to="/register">Create account</Link></p>
+      <Link to="/forgot-password">Forgot password?</Link>
+    </div>
   </div></section>;
 }
