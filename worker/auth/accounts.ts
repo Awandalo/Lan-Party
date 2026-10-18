@@ -36,16 +36,21 @@ export function emailAddress(value: unknown): string {
 }
 
 // Private result: never serialize it as a public response or log it.
-export function validateRegistration(input: RegistrationInput) {
+export function validateAccountProfile(input: Omit<RegistrationInput, 'password'>) {
   const nickname = validateNickname(input.nickname);
   const firstName = privateName(input.firstName);
   const lastName = privateName(input.lastName);
   const email = emailAddress(input.email);
+  return { nickname: nickname.display, nicknameKey: nickname.lookupKey, firstName, lastName,
+    email, emailNormalized: email.toLowerCase() };
+}
+
+export function validateRegistration(input: RegistrationInput) {
+  const profile = validateAccountProfile(input);
   if (typeof input.password !== 'string' || !isValidPassword(input.password)) {
     throw new Error('Password does not satisfy length policy');
   }
-  return { nickname: nickname.display, nicknameKey: nickname.lookupKey, firstName, lastName,
-    email, emailNormalized: email.toLowerCase(), password: input.password };
+  return { ...profile, password: input.password };
 }
 
 export function newAccountId(): string {

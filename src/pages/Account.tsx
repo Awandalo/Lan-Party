@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { useAuth } from '../lib/auth';
 import '../CSS/Account_style.css';
 import { formatMemberNumber } from '../lib/member-number';
@@ -26,6 +26,7 @@ export default function Account() {
     <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
     <p>You are signed in. Your private name and email are not shown here.</p>
     <p>Email status: <strong>{session.emailVerified ? 'Verified' : 'Unverified'}</strong></p>
+    <p><Link to="/account/security">Security and sign-in methods</Link></p>
     <p>Event registration remains unavailable. Verified email will be required when it is implemented.</p>
     {!session.emailVerified && <button className="button" onClick={resendVerification} disabled={busy}>Request verification email</button>}
     <p role="status" aria-live="polite">{feedback}</p>

@@ -32,6 +32,16 @@ test('verification and recovery share branded HTML and explicit plain text witho
   }
 });
 
+test('first-password confirmation is separate from reset and requires same-browser recent Google authentication',()=>{
+  const url='https://dev.lan-party.club/account/security#setup='+'ab'.repeat(32);
+  const mail=authenticationEmail(url,'password-setup');
+  assert.equal(mail.subject,'Add a LAN Party password');
+  assert.match(mail.text,/10 minutes/);assert.match(mail.text,/Recent Google authentication/);
+  assert.ok(mail.text.includes(url));assert.doesNotMatch(mail.html,/<script|<img|<iframe/);
+  assert.throws(()=>authenticationEmail(url,'password-reset'));
+  assert.throws(()=>authenticationEmail('https://dev.lan-party.club/reset-password#setup=fictional','password-setup'));
+});
+
 test('template URLs reject unsafe destinations, credentials, queries and purpose crossover', () => {
   for (const url of ['http://dev.lan-party.club/verify-email#proof',
     'https://evil.example.test/verify-email#proof', 'https://dev.lan-party.club.evil.test/verify-email#proof',

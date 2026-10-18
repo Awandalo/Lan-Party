@@ -19,7 +19,7 @@ export default function LocalMail() {
       if (!value.mail) setFeedback('No usable message. Request a new email if the local Worker restarted or a link was replaced.');
       else {
         const url = new URL(value.mail.url);
-        if (url.origin !== window.location.origin || !['/verify-email', '/reset-password'].includes(url.pathname)) throw new Error('Unexpected link');
+        if (url.origin !== window.location.origin || !['/verify-email', '/reset-password', '/account/security'].includes(url.pathname)) throw new Error('Unexpected link');
         setLink(url.href); setFeedback('One disposable account message retrieved. Open it now; the link is not saved.');
       }
     } catch { setFeedback('Mailbox access denied or unavailable. Check your separate local mailbox secret and configuration.'); }
@@ -37,7 +37,7 @@ export default function LocalMail() {
       <label htmlFor="mail-email">Fictional email address</label>
       <input id="mail-email" name="email" type="email" autoComplete="off" required maxLength={254} />
       <label htmlFor="mail-purpose">Message type</label>
-      <select id="mail-purpose" name="purpose"><option value="email-verification">Email verification</option><option value="password-reset">Password reset</option></select>
+      <select id="mail-purpose" name="purpose"><option value="email-verification">Email verification</option><option value="password-reset">Password reset</option><option value="password-setup">First password confirmation</option></select>
       <label htmlFor="mail-secret">Local mailbox secret</label>
       <input id="mail-secret" name="secret" type="password" autoComplete="off" required />
       <button className="button" type="submit">{busy ? 'Retrieving…' : 'Retrieve local message'}</button>

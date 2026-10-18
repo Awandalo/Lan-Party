@@ -1,0 +1,2 @@
+.google-complete-card { max-width: 38rem; margin-inline: auto; }
+.google-complete-card fieldset { display: grid; gap: .7rem; border: 0; padding: 0; min-width: 0; }

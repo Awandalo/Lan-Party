@@ -278,8 +278,18 @@ real email/integrated CPU verification remain separately approved operations.
   regressions, preserving single-use links, generic feedback and session revocation.
 - [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
   configuration, migrations, deployment/activation and controlled email test separately.
-- [ ] Implement later Google OIDC using shared accounts/sessions and trusted
-  issuer/subject checks, with no automatic linking based on matching email.
+- [x] Implement Google OIDC locally with PKCE/state/nonce/signature validation,
+  explicit linking, recent-authentication assurance and protected first-password setup.
+  See PROJECT.md Phase 3.7 for policy, limitations and configuration.
+- [ ] Owner review Phase 3.7 and migration 0012; separately approve DEV recovery,
+  migration, Google setup/secrets, commit/deployment and controlled live tests.
+- [x] Owner configure Google DEV test client; verify Worker binding metadata and
+  synchronize exact public client ID plus disabled mode into DEV Wrangler vars.
+  Encrypted secret remains Cloudflare-managed; no activation or migration performed.
+- [x] Validate existing email/password flows against the pre-0012 schema with Google
+  off; owner approve Phase 3.7 commit/push and automatic DEV deployment in that mode.
+- [ ] Resolve Google-only loss-of-access recovery policy before public use;
+  ordinary email recovery must never add a first password.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;
   review enrollment, challenges, recovery and storage alongside that functionality.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;

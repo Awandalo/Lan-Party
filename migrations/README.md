@@ -1,5 +1,19 @@
 # D1 migrations
 
+## Google OIDC state (0012) — local only
+
+`0012_create_oidc_transactions.sql` is locally prepared, not remotely applied.
+It depends on 0001–0011 and preserves all UUIDs, credentials and member numbers.
+It adds short-lived OIDC transactions, recent-authentication assurance and
+digest-only first-password confirmations, plus Google account/subject uniqueness.
+Existing duplicate Google subjects or multiple Google links on one account are a
+preflight blocker; do not automatically merge or discard them. Generation changes
+invalidate recent proofs and outstanding password-setup confirmations.
+See PROJECT.md Phase 3.7 for flow, retention and deployment boundaries. Fresh DEV
+recovery and explicit migration approval are required before remote application;
+disable Google mode as application rollback, preserve schema/data and never restore
+or drop tables automatically. No prior migration is changed.
+
 This directory is configured as migrations_dir for both Wrangler environments.
 `0001_create_event_structure.sql` creates locations, events, and event days and was
 applied and verified on Cloudflare DEV in Phase 2.3. It must not be edited.

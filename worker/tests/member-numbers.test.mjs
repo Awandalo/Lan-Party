@@ -7,7 +7,7 @@ import { before, test } from 'node:test';
 const require = createRequire(import.meta.url), wr = createRequire(require.resolve('wrangler/package.json'));
 const { Miniflare, convertV4MiniflareOptions } = wr('miniflare'), { build } = wr('esbuild');
 const now = 1792240000, pepper = '11'.repeat(32), token = 'ab'.repeat(32);
-let migrations, provision, digestToken, formatMemberNumber, isMemberNumber;
+let migrations, memberMigrationIndex, provision, digestToken, formatMemberNumber, isMemberNumber;
 async function moduleFrom(path) {
   const code = (await build({ entryPoints: [fileURLToPath(new URL(path, import.meta.url))], bundle: true,
     write: false, format: 'esm', platform: 'node', target: 'es2022' })).outputFiles[0].text;
@@ -26,6 +26,7 @@ before(async () => {
       if (end <= 0 || end === 4) throw Error('Incomplete migration');
       statements.push(rest.slice(0, end)); rest = rest.slice(end).trim();
     }
+    if (name === '0011_create_member_numbers.sql') memberMigrationIndex = migrations.length;
     migrations.push(statements);
   }
 });
@@ -34,8 +35,11 @@ async function local(run, legacy = false) {
     cf: false, compatibilityDate: '2026-10-11', d1Databases: { DB: randomUUID() } }));
   try {
     const db = await mf.getD1Database('DB');
-    for (const sql of migrations.slice(0, -1)) await db.batch(sql.map(s => db.prepare(s)));
-    const apply = () => db.batch(migrations.at(-1).map(s => db.prepare(s)));
+    assert.ok(Number.isInteger(memberMigrationIndex), 'Reviewed member-number migration must exist');
+    for (const sql of migrations.slice(0, memberMigrationIndex)) await db.batch(sql.map(s => db.prepare(s)));
+    const apply = async () => {
+      for (const sql of migrations.slice(memberMigrationIndex)) await db.batch(sql.map(s => db.prepare(s)));
+    };
     if (!legacy) await apply();
     await run({ db, apply });
   } finally { await mf.dispose(); }

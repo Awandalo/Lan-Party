@@ -14,6 +14,7 @@
     "dev:worker": "wrangler dev --env dev --local --ip 127.0.0.1"
   },
   "dependencies": {
+    "oauth4webapi": "3.8.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0"

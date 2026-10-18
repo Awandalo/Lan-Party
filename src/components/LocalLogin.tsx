@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
 import LoginChallenge from './LoginChallenge';
+import GoogleButton from './GoogleButton';
 import PasswordInput from './PasswordInput';
 
 export default function LocalLogin() {
@@ -60,6 +61,7 @@ export default function LocalLogin() {
     <p className="eyebrow">Welcome back</p><h1>Login</h1>
     <p>Sign in to your LAN Party account.</p>
     {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
+    <GoogleButton /><p>or use email and password</p>
     <form onSubmit={submit} aria-busy={busy}>
       <fieldset className="login-fields" disabled={busy || status === 'loading'} aria-label="Login credentials">
         <label htmlFor="login-email">Email address</label>

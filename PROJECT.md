@@ -1116,6 +1116,90 @@ No public registration/login, verification, reset, delivery or Google flow is ma
 No remote database access, manual deployment or provider configuration is authorized
 by this local implementation.
 
+### Phase 3.7 — Google authentication (implemented; activation pending)
+
+One UUID account can have password and Google methods. `oauth4webapi` 3.8.8 is
+pinned after published-package/security review: no runtime dependencies or install
+hooks; npm reported no known vulnerabilities at installation. Worker-only OIDC
+uses fixed Google endpoints, authorization code + PKCE S256, state, nonce, RS256
+signature/JWKS validation and issuer/audience/authorized-party/expiry checks.
+No access/refresh token is retained. The browser receives only host-only HttpOnly
+flow/session cookies, never Google tokens. Callback responses redirect immediately
+to clean local URLs with no-store/no-referrer headers; deployment observability
+must also avoid recording callback query strings before hosted enablement.
+
+Migration `0012_create_oidc_transactions.sql` adds 10-minute OIDC transactions,
+five-minute session/generation-bound recent-authentication proofs, and 10-minute
+digest-only first-password email confirmations. Existing provider storage is reused;
+partial unique indexes enforce one Google identity per account and one account per
+Google subject across issuer aliases. Unexpected historical duplicates fail migration
+preflight rather than being merged. Transactions are atomically claimed before code
+exchange; uncertain exchanges are never retried. At most 500 unexpired transactions
+are admitted; bounded opportunistic expiry cleanup limits retained transient data.
+PKCE verifier/nonce and pending identity/email are temporary private server-side
+context, not application logs. Idle retention still needs review before public use.
+
+New Google accounts confirm nickname and required private names; one D1 batch
+creates profile, nickname and provider mapping. Existing member-number triggers
+allocate the next regular number; UUIDs, ledger, RBAC and history are unchanged.
+Verified Gmail or verified Workspace identity evidence can verify a new profile's
+email. Third-party addresses without Workspace evidence require LAN Party email
+verification before login. Google email claims never overwrite an existing profile.
+Matching emails never auto-link or disclose account existence; members authenticate
+with their existing method and explicitly connect Google under Account → Security.
+DEV allowlisting and ordinary registration limits still gate account creation.
+
+Password confirmation uses the existing email+IP failure reservations and conditional
+Turnstile; Google initiation shares soft abuse signals and server-validated challenges.
+Google recent confirmation requires the already-linked subject, requests `max_age=0`
+and validates an authentication time within five minutes. All current proofs record
+method, single-factor assurance and `mfa_verified=0`; Phase 3.9 must explicitly extend
+the assurance contract, never infer MFA from Google identity alone. MFA stays optional
+for all roles. Linking, unlinking and first-password creation advance auth generation
+and invalidate previous sessions/proofs. Unlinking requires recent password proof and
+a retained password credential on an active verified account; last-method removal is
+refused. No password removal or email-changing feature is introduced.
+
+Google-only accounts cannot use ordinary forgot-password recovery. Adding a first
+password requires the same active session, recent Google proof and a separate
+single-use email confirmation; email possession alone cannot add credentials.
+Delivery uses the existing allowlist, shared atomic 60-attempt budget and no retries.
+Loss of Google access before adding a password has no self-service recovery; manual
+identity recovery is a separate owner/security decision, not an implemented bypass.
+
+Required separate setup: personal Google Cloud project, External/Testing audience
+with approved testers, Web application OAuth client, scopes `openid email profile`,
+exact DEV redirect `https://dev.lan-party.club/api/auth/google/callback`. Server flow
+does not need a Google browser SDK or authorized JavaScript origins. Use a separate
+client for local loopback callbacks and for eventual PROD. Declare public DEV
+`GOOGLE_CLIENT_ID` and default-off `GOOGLE_AUTH_MODE`; store `GOOGLE_CLIENT_SECRET`
+only as a DEV encrypted Worker secret. Both existing session mode and Google mode
+must allow the canonical hostname. No new remote config is applied in this task.
+Google policy/branding and consent-page requirements must be checked before public
+release; privacy pages and disclosures remain a final Phase 3 gate.
+
+DEV configuration synchronization (2026-10-18): the owner reports the Google
+External/Testing client and approved tester are configured with the exact callback
+above. Active DEV binding metadata confirms public client ID, `GOOGLE_AUTH_MODE=off`
+and encrypted `GOOGLE_CLIENT_SECRET` presence. The exact public ID and disabled mode
+are declared under `env.dev.vars` alongside unchanged Turnstile configuration.
+Wrangler 4.149.0's normal `deploy --env dev` preserves existing encrypted secrets;
+the GitHub DEV workflow uses that path. No secret value was read or copied. Future
+client-ID changes must update this configuration too. Local populated-0011 upgrade
+tests confirm data preservation and atomic rejection of ambiguous Google mappings.
+Remote schema/history, duplicate-mapping and recovery preflight remain required
+before separately approved migration 0012; Google mode stays off until activation.
+
+Local fake-provider tests cover signature/claims, cookie/state/nonce replay, atomic
+creation/linking/password setup, rollback, expiry, challenge/recovery boundaries and
+session invalidation. Hosted Google consent, actual key configuration, CPU/reliability
+and real email confirmation remain unverified until separately approved DEV testing.
+The owner approved commit/push, automatic DEV deployment with Google off, and
+read-only migration preflight. A local pre-0012 compatibility test confirms normal
+verification, password login/recovery and logout remain functional without the new
+tables. DEV recovery/migration, Google activation and live tests still require
+separate approval. PROD remains unchanged.
+
 ### Final Phase 3 milestone — required before public registration
 
 Publish participant privacy information describing public nickname/attendance and

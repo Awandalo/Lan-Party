@@ -1,4 +1,4 @@
-type MailPurpose = 'email-verification' | 'password-reset';
+type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup';
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
@@ -6,20 +6,21 @@ function escapeHTML(value: string): string {
 }
 
 export function authenticationEmail(link: string, purpose: MailPurpose = 'email-verification') {
-  if (!['email-verification', 'password-reset'].includes(purpose)) throw new Error('Invalid email purpose');
+  if (!['email-verification', 'password-reset', 'password-setup'].includes(purpose)) throw new Error('Invalid email purpose');
   const url = new URL(link);
   const reset = purpose === 'password-reset';
-  const path = reset ? '/reset-password' : '/verify-email';
+  const setup = purpose === 'password-setup';
+  const path = setup ? '/account/security' : reset ? '/reset-password' : '/verify-email';
   if (url.origin !== 'https://dev.lan-party.club' || url.username || url.password
     || url.pathname !== path || url.search || !url.hash || /[\s\u0000-\u001f\u007f]/.test(link)) {
     throw new Error('Invalid authentication email URL');
   }
-  const subject = reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account';
-  const heading = reset ? 'Reset your password' : 'Welcome to LAN Party';
-  const explanation = reset ? 'Choose a new password using this link.'
+  const subject = setup ? 'Add a LAN Party password' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account';
+  const heading = setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party';
+  const explanation = setup ? 'Return to the browser where you confirmed your Google identity to add a password. Recent Google authentication is also required.' : reset ? 'Choose a new password using this link.'
     : 'Confirm your email to finish setting up your account.';
-  const expiry = `This link expires in ${reset ? '30 minutes' : '24 hours'} and works once.`;
-  const action = reset ? 'Reset password' : 'Continue verification';
+  const expiry = `This link expires in ${setup ? '10 minutes' : reset ? '30 minutes' : '24 hours'} and works once.`;
+  const action = setup ? 'Confirm password setup' : reset ? 'Reset password' : 'Continue verification';
   const security = 'If you did not request this, ignore this email.';
   const support = 'Need a hand? Contact the LAN Party organizers if this link does not work.';
   const href = escapeHTML(url.href);
