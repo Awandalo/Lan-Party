@@ -301,6 +301,9 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Remove the redundant overview Security link, polish Security forms, and resume
   explicitly initiated Google linking once after server-confirmed password proof.
   Let Google choose its normal sign-in UI without forced account selection.
+- [x] Show security explanations on demand, add cancellable one-confirmation Google
+  disconnection with server-verified password proof, and retain pending controls
+  through redirects. Keep Google-only last-method protection and separate email status.
 - [ ] Owner approve the proposed pending-Google-identity continuation across existing
   account login before implementing its session/assurance-bound confirmation transition.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;

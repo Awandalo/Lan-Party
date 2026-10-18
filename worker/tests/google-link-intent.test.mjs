@@ -16,3 +16,7 @@ test('expired linking intent fails closed and a remounted page has no continuati
  assert.equal(intent.consume('session-a',300100),false);
  assert.equal(new GoogleLinkIntent().consume('session-a',101),false);
 });
+test('cancelling password confirmation discards the pending link',()=>{
+ const intent=new GoogleLinkIntent();intent.begin('session-a',100);intent.cancel();
+ assert.equal(intent.consume('session-a',101),false);
+});

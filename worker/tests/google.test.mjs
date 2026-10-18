@@ -109,6 +109,8 @@ test('third-party Google email remains unverified and receives only local verifi
 }));
 test('Google recent authentication and separate email proof add first password atomically, invalidate sessions and prevent replay',()=>local(async({db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ const originalId=await db.prepare('SELECT id FROM users').first('id');
+ assert.deepEqual(await(await request('google/methods',undefined,headers)).json(),{password:false,google:true});
  assert.equal((await request('google/request-password',{},headers)).status,428);
  const recent=await start('reauth',headers);assert.equal(recent.url.searchParams.get('max_age'),'0');
  assert.equal((await callback(recent,{}, {Cookie:recent.Cookie+'; '+headers.Cookie})).headers.get('location'),'/account/security');
@@ -123,8 +125,21 @@ test('Google recent authentication and separate email proof add first password a
  assert.equal((await request('session',undefined,headers)).status,401);
  assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),1);
  const login=await request('login',{email:'google@example.test',password});assert.equal(login.status,200);
- assert.equal((await request('google/add-password',{token,password},await session(login))).status,428);
+ const passwordSession=await session(login);
+ assert.deepEqual(await(await request('google/methods',undefined,passwordSession)).json(),{password:true,google:true});
+ assert.equal(await db.prepare('SELECT id FROM users').first('id'),originalId);
+ assert.equal(await db.prepare('SELECT COUNT(*) FROM user_auth_providers WHERE user_id=?').bind(originalId).first('COUNT(*)'),1);
+ assert.equal((await request('google/add-password',{token,password},passwordSession)).status,428);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+}));
+
+test('Google-only account cannot unlink even with a fabricated recent password assurance row',()=>local(async({db,start,callback,complete,session,request})=>{
+ const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ await db.prepare(`INSERT INTO auth_recent_authentication(user_id,session_digest,auth_version,method,assurance_level,mfa_verified,authenticated_at,expires_at)
+   SELECT user_id,token_digest,auth_version,'password',1,0,unixepoch(),unixepoch()+300 FROM auth_sessions`).run();
+ assert.equal((await request('google/unlink',{},headers)).status,400);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),1);
+ assert.equal((await request('session',undefined,headers)).status,200);
 }));
 test('password proof is required for linking and unlinking; generation fencing preserves account history',()=>local(async({request,db,start,callback,session})=>{
  const password='fictional original password';await request('register',{nickname:'Local Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
@@ -142,7 +157,8 @@ test('password proof is required for linking and unlinking; generation fencing p
  assert.equal((await request('session',undefined,headers)).status,401);
  headers=await session(await request('login',{email:'google@example.test',password}));
  assert.equal((await request('google/reauth-password',{password},headers)).status,200);
- assert.equal((await request('google/unlink',{},headers)).status,200);
+ const removals=await Promise.all([request('google/unlink',{},headers),request('google/unlink',{},headers)]);
+ assert.equal(removals.filter(response=>response.status===200).length,1);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),0);
  assert.equal(await db.prepare('SELECT id FROM users').first('id'),id);
  assert.equal(await db.prepare('SELECT member_number FROM member_numbers WHERE user_id=?').bind(id).first('member_number'),11);

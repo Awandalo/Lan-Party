@@ -1241,6 +1241,16 @@ Security uses the existing dark/mint layout with full-width password fields; the
 account overview retains only the three inactive cards and member greeting, with
 Security reachable through Account → Settings.
 
+Security explanations are contextual. Disconnect Google always opens a cancellable
+password form; Confirm & disconnect first verifies the password server-side, then
+invokes the existing session-bound, recent-password-protected unlink operation.
+Wrong passwords never invoke unlink. Each step rechecks the active session, and an
+uncertain outcome is reported without automatic retry. Google-only users cannot
+disconnect their last method; Add password reveals the existing Google reauthentication
+and independent email-confirmation flow. Adding a password never disconnects Google.
+Pending controls ignore repeat submissions and remain disabled through successful
+navigation. Email verification is a separate status row, not a password-method status.
+
 Existing-member continuation is **a proposal, not implemented**. The current safe
 route still requires existing-account login, recent authentication under Security,
 and a fresh explicit Connect Google flow. Preserving an anonymous pending Google

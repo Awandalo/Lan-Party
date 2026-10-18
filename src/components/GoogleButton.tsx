@@ -4,37 +4,39 @@ import LoginChallenge from './LoginChallenge';
 import { googleRequest } from '../lib/google';
 import { GoogleLinkIntent } from '../lib/google-link-intent';
 
-export interface GoogleButtonHandle { resumeLink: (session: string) => boolean }
+export interface GoogleButtonHandle { resumeLink: (session: string) => boolean; cancelLink: () => void }
 
 export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticationRequired,ref,disabled=false}:{purpose?:'signin'|'link'|'reauth';csrf?:string;
   onRecentAuthenticationRequired?:()=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
   const intent=useRef(new GoogleLinkIntent()),inFlight=useRef(false),mounted=useRef(true);
+  const trigger=useRef<HTMLButtonElement>(null);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const [busy,setBusy]=useState(false),[feedback,setFeedback]=useState(''),[siteKey,setSiteKey]=useState('');
   const [token,setToken]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   useImperativeHandle(ref,()=>({resumeLink(session){
     if(purpose!=='link'||session!==csrf||!intent.current.consume(session)||inFlight.current)return false;
     void start();return true;
-  }}));
+  },cancelLink(){intent.current.cancel();setFeedback('');requestAnimationFrame(()=>trigger.current?.focus());}}));
   async function start(){
     if(inFlight.current)return;
     if(siteKey&&!token){setFeedback('Complete the security check first.');return;}
-    inFlight.current=true;setBusy(true);setFeedback('');
+    inFlight.current=true;setBusy(true);setFeedback(purpose==='link'?'Connecting Google requires recent authentication and signs out your other sessions.':'');
+    let navigating=false;
     try{
       const response=await googleRequest('start',{purpose,...(token?{turnstileToken:token}:{})},csrf),body=await response.json();
       if(!mounted.current)return;
-      if(response.ok){const url=new URL(body.url);if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();window.location.assign(url.href);}
+      if(response.ok){const url=new URL(body.url);if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();window.location.assign(url.href);navigating=true;}
       else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then select Google again.');}
       else if(response.status===428&&body.code==='reauth_required'){
         if(purpose==='link'&&csrf)intent.current.begin(csrf);
-        onRecentAuthenticationRequired?.();setFeedback('Confirm your password below to continue connecting Google.');
+        onRecentAuthenticationRequired?.();setFeedback('Confirm your password to connect Google. Your other sessions will be signed out.');
       }
       else setFeedback('Google sign-in is unavailable. For account changes, confirm your existing method first. You can still use email/password.');
     }catch{setFeedback('Google sign-in could not be started. No automatic retry was made.');}
-    finally{inFlight.current=false;setToken(null);setAttempt(n=>n+1);setBusy(false);}
+    finally{if(!navigating){inFlight.current=false;setToken(null);setAttempt(n=>n+1);setBusy(false);}}
   }
   return <div className="google-method">{siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setToken}/>}
-    <button type="button" className="button button-secondary" disabled={busy||disabled} onClick={()=>void start()}>
+    <button ref={trigger} type="button" className="button button-secondary" disabled={busy||disabled} onClick={()=>void start()}>
       {busy?'Connecting…':purpose==='link'?'Connect Google':purpose==='reauth'?'Confirm Google identity':'Continue with Google'}</button>
     <p role="status">{feedback}</p></div>;
 }
