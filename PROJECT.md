@@ -749,6 +749,16 @@ is supplementary, not a strict global limiter.
   capped expiry cleanup and the outstanding idle-retention/hosted-IP review apply
   to both. The rate-limit secret also signs CSRF proofs using the existing distinct
   `lan-party:csrf:v1` HMAC domain; it remains independent from the password pepper.
+  Phase 3.8.2 local investigation confirms these are cumulative admission limits,
+  not failed-password counters: success/logout/reset do not clear them. Windows
+  align to UTC quarter-hours (IP) and hours (email/global); shared-IP accounts share
+  the IP allowance. Action-specific HMAC domains isolate registration, verification
+  and recovery from login. A same-password reset still uses a fresh salt, advances
+  the authentication generation and revokes previous sessions; a local reproduction
+  confirmed subsequent login succeeds when admission remains available. The current
+  429 response does not identify the exhausted scope and always sends Retry-After
+  3600; the UI's "up to one hour" is an upper bound, not an exact countdown. No
+  remote bucket attribution or security-policy change was made by this investigation.
 - D1 creates a fresh seven-day session with a hashed random 256-bit token and the
   credential generation captured before password verification. Generation fencing
   prevents stale credentials issuing a session after a password/status change.

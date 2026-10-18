@@ -328,6 +328,21 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner perform the final hosted DEV authentication walkthrough after deployment.
   No live email, account or database operation is part of the local GUI checks.
 
+### Phase 3.8.2 — Final GUI cleanup and login-limit investigation
+
+- [x] Put accessible eye/eye-off visibility controls inside the existing password
+  fields; preserve names, autofill attributes and password handling.
+- [x] Remove account-page logout duplication; retain the secure account dropdown flow.
+- [x] Narrow and round the dropdown, adding a 170 ms opening animation with a
+  reduced-motion override; retain viewport fit, keyboard focus and disabled placeholders.
+- [x] Reproduce cumulative successful-login limits, shared-IP limits and same-password
+  reset behavior using three fictional local tests. See PROJECT.md for the existing
+  policy and cooldown-reporting limitation; no remote accounts/counters were changed.
+- [ ] Owner decide whether to separately approve precise remaining-cooldown reporting.
+  Do not change login thresholds or clear counters as a testing workaround.
+- [ ] Owner review the deployed GUI and Keeper integration in the normal browser;
+  no live login/email test is part of this assignment.
+
 Final Phase 3 milestone — before enabling public registration:
 
 - [ ] Publish participant privacy information: public nickname/attendance, private
