@@ -1200,6 +1200,50 @@ verification, password login/recovery and logout remain functional without the n
 tables. DEV recovery/migration, Google activation and live tests still require
 separate approval. PROD remains unchanged.
 
+#### Google UX polish — local review only
+
+Login now presents email/password first, followed by an `or` divider and full-width
+Google action; recovery and registration links remain available. Signup can prefill
+editable private names from signature/claim-validated `given_name`/`family_name`.
+Missing or invalid suggestions are omitted independently using existing account-name
+rules. A domain-separated HMAC using the existing server-side rate-limit key protects
+a short-lived HttpOnly profile-hint cookie, bound to the original pending transaction
+and its expiry. Hosted cookies are Secure, SameSite=Lax and host-only; the local alias
+is loopback-only. Hints contain no provider tokens/email/identity authority and are
+returned only for the matching live pending flow with no-store/no-referrer headers.
+Names remain private and user-editable, are validated again at account creation, and
+never determine nickname, identity or permissions. Late hint responses do not replace
+user edits. The hint cookie is cleared on a new flow or successful signup and otherwise
+expires within the original ten-minute flow window. No schema change is required.
+
+Connected accounts is the first Security section: Email & password and Google
+connection states, a direct Connect Google action, and safe disconnection when a
+password method remains. Missing recent proof returns an explicit authenticated
+`reauth_required` response, revealing/focusing password confirmation in settings;
+the user then explicitly selects Connect Google again. Linking still binds the
+OAuth transaction to that account/session/generation and validates the Google
+callback. After linking, the generation change revokes all old sessions; only the
+proven caller receives a fresh session at the expected next generation and returns
+to Security with Google Connected. A concurrent generation change prevents that
+session from being issued. Unlinking still requires retained-password proof and
+signs out existing sessions. Google-only accounts are not offered disconnection.
+Optional Phase 3.9 MFA belongs immediately below this section; no MFA enrollment,
+assurance bypass or policy change is implemented.
+
+Existing-member continuation is **a proposal, not implemented**. The current safe
+route still requires existing-account login, recent authentication under Security,
+and a fresh explicit Connect Google flow. Preserving an anonymous pending Google
+identity across login requires a separately approved transition: validate the live
+browser-bound transaction, bind it atomically to the authenticated account/session/
+generation only after recent-authentication assurance, then display a protected
+confirmation screen. A second CSRF-protected POST must atomically recheck the bound
+session, assurance, expiry, subject uniqueness and email conflicts, consume the
+transaction, create the link and advance the generation. No matching-email auto-link,
+session substitution, arbitrary return URL or MFA inference is permitted. Session or
+account changes, stale proof, replay and concurrent consumption must fail closed.
+Migration 0012 may support this transition, but its complete lifecycle and tests must
+be reviewed before implementation; none of its applied definitions is modified.
+
 ### Final Phase 3 milestone — required before public registration
 
 Publish participant privacy information describing public nickname/attendance and

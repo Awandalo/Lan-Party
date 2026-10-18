@@ -107,11 +107,11 @@ test('third-party Google email remains unverified and receives only local verifi
 }));
 test('Google recent authentication and separate email proof add first password atomically, invalidate sessions and prevent replay',()=>local(async({db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));
- assert.equal((await request('google/request-password',{},headers)).status,503);
+ assert.equal((await request('google/request-password',{},headers)).status,428);
  const recent=await start('reauth',headers);assert.equal(recent.url.searchParams.get('max_age'),'0');
  assert.equal((await callback(recent,{}, {Cookie:recent.Cookie+'; '+headers.Cookie})).headers.get('location'),'/account/security');
  const assurance=await db.prepare('SELECT method,assurance_level,mfa_verified FROM auth_recent_authentication').first();assert.deepEqual(assurance,{method:'google',assurance_level:1,mfa_verified:0});
- assert.equal((await request('google/unlink',{},headers)).status,503);
+ assert.equal((await request('google/unlink',{},headers)).status,428);
  assert.equal((await request('google/request-password',{},headers)).status,202);
  const mail=await(await request('local-mail',{email:'google@example.test',purpose:'password-setup'},{Authorization:'Bearer '+'33'.repeat(32)})).json();assert.ok(mail.mail);
  const token=new URLSearchParams(new URL(mail.mail.url).hash.slice(1)).get('setup');
@@ -121,17 +121,22 @@ test('Google recent authentication and separate email proof add first password a
  assert.equal((await request('session',undefined,headers)).status,401);
  assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),1);
  const login=await request('login',{email:'google@example.test',password});assert.equal(login.status,200);
- assert.equal((await request('google/add-password',{token,password},await session(login))).status,503);
+ assert.equal((await request('google/add-password',{token,password},await session(login))).status,428);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));
 test('password proof is required for linking and unlinking; generation fencing preserves account history',()=>local(async({request,db,start,callback,session})=>{
  const password='fictional original password';await request('register',{nickname:'Local Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
  await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();let headers=await session(await request('login',{email:'google@example.test',password}));
  const id=await db.prepare('SELECT id FROM users').first('id');
- assert.equal((await request('google/start',{purpose:'link'},headers)).status,503);
+ const required=await request('google/start',{purpose:'link'},headers);assert.equal(required.status,428);
+ assert.equal((await required.json()).code,'reauth_required');
  assert.equal((await request('google/reauth-password',{password:'wrong fictional password'},headers)).status,401);
  assert.equal((await request('google/reauth-password',{password},headers)).status,200);
- const flow=await start('link',headers);assert.equal((await callback(flow,{}, {Cookie:flow.Cookie+'; '+headers.Cookie})).headers.get('location'),'/login');
+ const flow=await start('link',headers),linked=await callback(flow,{}, {Cookie:flow.Cookie+'; '+headers.Cookie});
+ assert.equal(linked.headers.get('location'),'/account/security');const replacement=await session(linked);
+ assert.notEqual(replacement.Cookie,headers.Cookie);
+ assert.deepEqual(await(await request('google/methods',undefined,replacement)).json(),{password:true,google:true});
+ assert.equal((await callback(flow,{}, {Cookie:flow.Cookie+'; '+headers.Cookie})).headers.get('location'),'/login?google=unavailable');
  assert.equal((await request('session',undefined,headers)).status,401);
  headers=await session(await request('login',{email:'google@example.test',password}));
  assert.equal((await request('google/reauth-password',{password},headers)).status,200);
@@ -140,6 +145,7 @@ test('password proof is required for linking and unlinking; generation fencing p
  assert.equal(await db.prepare('SELECT id FROM users').first('id'),id);
  assert.equal(await db.prepare('SELECT member_number FROM member_numbers WHERE user_id=?').bind(id).first('member_number'),11);
  assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal((await request('session',undefined,replacement)).status,401);
 }));
 test('Google defaults off, rejects aliases and cross-origin mutations; provider errors are sanitized',()=>local(async({instance,request,start})=>{
  assert.equal((await instance.dispatchFetch('https://lan-party-dev.servok.workers.dev/api/auth/google/methods')).status,404);
@@ -148,6 +154,38 @@ test('Google defaults off, rejects aliases and cross-origin mutations; provider 
  assert.equal(result.headers.get('location'),'/login?google=unavailable');assert.equal((await result.text()).includes('private'),false);
 }));
 test('Google routes remain off without separate explicit mode',()=>local(async({request})=>{assert.equal((await request('google/start',{purpose:'signin'})).status,404);},{GOOGLE_AUTH_MODE:''}));
+
+test('validated Google names are private optional flow-bound hints, not account identity or automatic signup',()=>local(async({start,callback,request,db,complete})=>{
+ const flow=await start();const response=await callback(flow,{given_name:'Fictional',family_name:'Tést Person'});
+ assert.equal(response.headers.get('location'),'/google-complete');
+ const profileCookie=response.headers.get('set-cookie').split(';')[0];
+ assert.match(response.headers.get('set-cookie'),/HttpOnly/);assert.match(response.headers.get('set-cookie'),/SameSite=Lax/);
+ const Cookie=flow.Cookie+'; '+profileCookie;
+ const hints=await request('google/profile',undefined,{Cookie});assert.equal(hints.status,200);
+ assert.equal(hints.headers.get('cache-control'),'no-store');assert.deepEqual(await hints.json(),{firstName:'Fictional',lastName:'Tést Person'});
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM users').first('n'),0);
+ assert.deepEqual(await(await request('google/profile',undefined,{Cookie:flow.Cookie})).json(),{});
+ assert.equal((await request('google/profile',undefined,{Cookie,Origin:'https://evil.example.test'})).status,403);
+ const malformed=profileCookie.slice(0,-1)+(profileCookie.endsWith('a')?'b':'a');
+ assert.deepEqual(await(await request('google/profile',undefined,{Cookie:flow.Cookie+'; '+malformed})).json(),{});
+ const result=await request('google/complete',{nickname:'Chosen Nickname',firstName:'Edited',lastName:'Private Name'},{Cookie});assert.equal(result.status,200);
+ assert.match(result.headers.get('set-cookie'),/lan_google_profile_local=;.*Max-Age=0/);
+ const stored=await db.prepare('SELECT first_name,last_name FROM users').first();assert.deepEqual(stored,{first_name:'Edited',last_name:'Private Name'});
+ assert.equal((await request('google/profile',undefined,{Cookie})).status,503);
+ const next=await start();await callback(next,{sub:'another-fictional-subject',email:'another@example.test'});
+ assert.deepEqual(await(await request('google/profile',undefined,{Cookie:next.Cookie+'; '+profileCookie})).json(),{});
+}));
+
+test('invalid or missing optional Google name claims are ignored; unvalidated claims never produce profile hints',()=>local(async({start,callback,request})=>{
+ for(const claims of [{given_name:' Leading',family_name:'Bad\nName'},{given_name:123,family_name:'x'.repeat(101)},{}]){
+  const flow=await start();const response=await callback(flow,claims);
+  assert.equal(response.headers.get('location'),'/google-complete');
+  const Cookie=flow.Cookie+'; '+response.headers.get('set-cookie').split(';')[0];
+  assert.deepEqual(await(await request('google/profile',undefined,{Cookie})).json(),{});
+ }
+ const flow=await start(),bad=await callback(flow,{given_name:'Forged',family_name:'Name'},{},true);
+ assert.equal(bad.headers.get('location'),'/login?google=unavailable');assert.equal(bad.headers.get('set-cookie'),null);
+}));
 
 test('pre-0012 schema supports existing verification, login, recovery and logout while Google is off',()=>local(async({request,db})=>{
  const email='before-migration@example.test',password='fictional original password',replacement='fictional replacement password';
@@ -211,7 +249,7 @@ test('expired or stale recent proof and changed callback account generation reje
  await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();const headers=await session(await request('login',{email:'google@example.test',password}));
  await request('google/reauth-password',{password},headers);
  await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=0,expires_at=300').run();
- assert.equal((await request('google/start',{purpose:'link'},headers)).status,503);
+ assert.equal((await request('google/start',{purpose:'link'},headers)).status,428);
  await request('google/reauth-password',{password},headers);const flow=await start('link',headers);
  await db.prepare('UPDATE users SET auth_version=auth_version+1').run();
  assert.equal((await callback(flow,{}, {Cookie:flow.Cookie+'; '+headers.Cookie})).headers.get('location'),'/login?google=unavailable');

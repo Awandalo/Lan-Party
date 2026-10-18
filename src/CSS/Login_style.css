@@ -22,4 +22,9 @@
 .login-card .login-fields > .button { margin-top: .75rem; }
 .login-challenge { min-width: 0; margin-top: .75rem; }
 .login-challenge p { font-size: .85rem; margin-block: .5rem; }
+.login-divider { display: flex; align-items: center; gap: 1rem; color: var(--muted); margin-block: 1.5rem; }
+.login-divider::before, .login-divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+.login-card .google-method > .button { width: 100%; }
+.login-registration { margin-top: 1.5rem; text-align: center; }
+.login-recovery { margin-block: .75rem; }
 

@@ -13,15 +13,27 @@ import { hashPassword, isValidPassword, verifyPassword } from './passwords';
 import { deliverVerification } from './verification-service';
 import type { AccountIdentity } from './contracts';
 import { googleProof as proofDigest } from './google-proof';
+import { encodeGoogleProfile, decodeGoogleProfile } from './google-profile';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
   verifier: string; nonce: string; user_id: string|null; session_digest: string|null; auth_version: number|null;
-  subject: string|null; email: string|null; authoritative: number|null }
+  subject: string|null; email: string|null; authoritative: number|null; expires_at: number }
 const now = () => Math.floor(Date.now()/1000);
 const cookieName = '__Host-lan_google';
+class RecentAuthenticationRequired extends Error {
+  constructor(readonly method?: string) { super('Confirm your existing sign-in method before continuing.'); }
+}
 function flowCookie(value: string, local: boolean) {
   return `${local ? 'lan_google_local' : cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${local?'':'; Secure'}`;
+}
+function profileCookie(value: string, local: boolean, maxAge: number) {
+  return `${local?'lan_google_profile_local':'__Host-lan_google_profile'}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${local?'':'; Secure'}`;
+}
+function profileCookieValue(request: Request) {
+  const name=new URL(request.url).protocol==='http:'?'lan_google_profile_local':'__Host-lan_google_profile';
+  const values=(request.headers.get('Cookie')??'').split(';').map(p=>p.trim()).filter(p=>p.startsWith(name+'='));
+  return values.length===1?values[0].slice(name.length+1):'';
 }
 function browserToken(request: Request): string|null {
   const name = new URL(request.url).protocol === 'http:' ? 'lan_google_local' : cookieName;
@@ -42,7 +54,7 @@ async function current(request: Request, env: GoogleEnvironment) {
 async function recent(db: D1Database, account: AccountIdentity, digest: string, method?: string) {
   const row=await db.prepare(`SELECT method FROM auth_recent_authentication WHERE user_id=? AND session_digest=?
     AND auth_version=? AND authenticated_at<=? AND expires_at>?`).bind(account.userId,digest,account.authVersion,now(),now()).first<{method:string}>();
-  if (!row || (method && row.method!==method)) throw new Error('Recent authentication required');
+  if (!row || (method && row.method!==method)) throw new RecentAuthenticationRequired(method);
 }
 async function grant(db: D1Database, account: AccountIdentity, digest: string, method: 'password'|'google', authenticatedAt = now()) {
   const time=authenticatedAt;
@@ -76,7 +88,7 @@ async function consumeReady(env: GoogleEnvironment, flow: Flow) {
 export async function googleAuthentication(request: Request, env: GoogleEnvironment): Promise<Response> {
   const url=new URL(request.url), action=url.pathname.split('/').pop();
   if (!authRouteEnabled(request,env,env.AUTH_SESSION_MODE) || !authRouteEnabled(request,env,env.GOOGLE_AUTH_MODE)) return reply(404,{error:'Not found'});
-  if (request.method!==(action==='callback'||action==='methods'?'GET':'POST')) return reply(405,{error:'Method not allowed'});
+  if (request.method!==(['callback','methods','profile'].includes(action??'')?'GET':'POST')) return reply(405,{error:'Method not allowed'});
   try {
     const origin=authOrigin(request,env); googleClient(env);
     if (action==='callback') {
@@ -115,7 +127,11 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),flow.user_id),
         ]);
         if (linkedResult[1].meta.changes!==1) throw new Error('Account changed');
-        return redirect('/login',clearSessionCookie());
+        // The generation change revoked every old session. Replace only this
+        // proven caller's session; never reread and adopt a later generation.
+        const replacement=await issueSession(new D1SessionStore(env.DB),
+          {...session.account,authVersion:session.account.authVersion+1},now());
+        return redirect('/account/security',sessionCookie(replacement.token));
       }
       const linked=await env.DB.prepare(`SELECT u.id AS userId,u.status,u.auth_version AS authVersion,u.email_verified_at AS emailVerifiedAt
         FROM users u JOIN user_auth_providers p ON p.user_id=u.id WHERE p.provider='google'
@@ -127,9 +143,20 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       }
       await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='ready',subject=?,email=?,authoritative=?,verifier='',nonce=''
         WHERE state_digest=? AND phase='exchanging' AND expires_at>?`).bind(identity.subject,identity.email,identity.authoritative?1:0,flow.state_digest,now()).run();
-      return redirect('/google-complete');
+      const response=redirect('/google-complete');
+      response.headers.append('Set-Cookie',profileCookie(await encodeGoogleProfile(
+        {firstName:identity.firstName,lastName:identity.lastName},flow.state_digest,flow.expires_at,env.AUTH_RATE_LIMIT_SECRET!),
+        !hostedDev(request,env),Math.max(0,flow.expires_at-now())));
+      return response;
     }
     if (url.search) return reply(400,{error:'Invalid request'});
+    if (action==='profile') {
+      if(request.headers.get('X-LAN-Request')!=='1'
+        || (request.headers.has('Origin')&&request.headers.get('Origin')!==origin.origin)
+        || (request.headers.has('Sec-Fetch-Site')&&request.headers.get('Sec-Fetch-Site')!=='same-origin')) return reply(403,{error:'Request rejected'});
+      const flow=await flowFor(request,env,'ready');
+      return reply(200,await decodeGoogleProfile(profileCookieValue(request),flow.state_digest,env.AUTH_RATE_LIMIT_SECRET!,now()));
+    }
     if (action==='methods') {
       const {account}=await current(request,env);
       const password=await env.DB.prepare('SELECT user_id FROM user_password_credentials WHERE user_id=?').bind(account.userId).first();
@@ -163,8 +190,10 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         SELECT ?,?,?,'pending',?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM auth_oidc_transactions WHERE expires_at>?)<500 RETURNING state_digest`)
         .bind(await proofDigest(state),await proofDigest(browser),purpose,verifier,nonce,session?.account.userId??null,session?.digest??null,
           session?.account.authVersion??null,time,time+600,time).first().then(row=>{if(!row)throw new Error('Busy');});
-      return reply(200,{url:await authorizationURL(env,origin.origin+'/api/auth/google/callback',state,nonce,verifier,purpose==='reauth')},
+      const response=reply(200,{url:await authorizationURL(env,origin.origin+'/api/auth/google/callback',state,nonce,verifier,purpose==='reauth')},
         {'Set-Cookie':flowCookie(browser,!hostedDev(request,env))});
+      response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
+      return response;
     }
     if (action==='complete') {
       if (!authRouteEnabled(request,env,env.REGISTRATION_MODE) || Object.keys(input).sort().join(',')!=='firstName,lastName,nickname') return reply(400,{error:'Invalid request'});
@@ -187,10 +216,12 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       const account={userId:id,status:'active' as const,authVersion:0,emailVerifiedAt:flow.authoritative?time:null};
       if (!flow.authoritative) {
         await deliverVerification(env.DB,account,profile.email,origin.origin,emailTransport(request,env),time);
-        return reply(200,{next:'/verify-email'});
+        return reply(200,{next:'/verify-email'},{'Set-Cookie':profileCookie('',!hostedDev(request,env),0)});
       }
       const session=await issueSession(new D1SessionStore(env.DB),account,time);
-      return reply(200,{next:'/account'},{'Set-Cookie':sessionCookie(session.token)});
+      const response=reply(200,{next:'/account'},{'Set-Cookie':sessionCookie(session.token)});
+      response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
+      return response;
     }
     const session=await current(request,env),{account,digest}=session;
     if (!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!)) return reply(403,{error:'Request rejected'});
@@ -270,6 +301,8 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     return reply(404,{error:'Not found'});
   } catch (error) {
     if (action==='callback') return redirect('/login?google=unavailable');
+    if (error instanceof RecentAuthenticationRequired) return reply(428,{code:'reauth_required',
+      method:error.method??'existing',error:error.message});
     if (error instanceof LoginChallenge) return reply(403,{code:error.invalid?'challenge_failed':'challenge_required',siteKey:error.siteKey,error:'Complete the security check.'});
     if (error instanceof LoginLimited) return reply(429,{error:'Try again later'},{'Retry-After':String(error.retryAfter)});
     if (error instanceof LoginBusy) return reply(503,{error:'Another check is pending'},{'Retry-After':'1'});

@@ -61,7 +61,6 @@ export default function LocalLogin() {
     <p className="eyebrow">Welcome back</p><h1>Login</h1>
     <p>Sign in to your LAN Party account.</p>
     {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
-    <GoogleButton /><p>or use email and password</p>
     <form onSubmit={submit} aria-busy={busy}>
       <fieldset className="login-fields" disabled={busy || status === 'loading'} aria-label="Login credentials">
         <label htmlFor="login-email">Email address</label>
@@ -74,7 +73,9 @@ export default function LocalLogin() {
     </form>
     <div className="login-feedback" ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
     {verificationRequired && <p><Link to="/verify-email">Request a verification email</Link></p>}
-    <p><Link to="/register">Create an account</Link></p>
-    <p><Link to="/forgot-password">Forgot your password?</Link></p>
+    <p className="login-recovery"><Link to="/forgot-password">Forgot your password?</Link></p>
+    <div className="login-divider"><span>or</span></div>
+    <GoogleButton />
+    <p className="login-registration">New to LAN Party? <Link to="/register">Create an account</Link></p>
   </div></section>;
 }

@@ -290,6 +290,13 @@ real email/integrated CPU verification remain separately approved operations.
   off; owner approve Phase 3.7 commit/push and automatic DEV deployment in that mode.
 - [ ] Resolve Google-only loss-of-access recovery policy before public use;
   ordinary email recovery must never add a first password.
+- [x] Locally polish password-first login layout and validated, editable private Google
+  name suggestions without a migration; preserve the existing explicit linking flow.
+- [x] Place Connected accounts first in Security, prompt for recent authentication
+  from Connect Google, return with a fresh session after linking, and preserve safe
+  disconnection/last-method protection. Reserve the following section for optional MFA.
+- [ ] Owner approve the proposed pending-Google-identity continuation across existing
+  account login before implementing its session/assurance-bound confirmation transition.
 - [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;
   review enrollment, challenges, recovery and storage alongside that functionality.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;

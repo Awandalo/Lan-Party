@@ -1,5 +1,7 @@
 import * as oauth from 'oauth4webapi';
 import { emailAddress } from './accounts';
+import { googleNameSuggestions } from './google-profile';
+import type { GoogleNameSuggestions } from './google-profile';
 
 export interface GoogleConfiguration { GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string }
 export const googleIssuer = 'https://accounts.google.com';
@@ -21,7 +23,7 @@ export async function authorizationURL(env: GoogleConfiguration, callback: strin
   if (reauth) url.searchParams.set('max_age','0');
   return url.href;
 }
-export interface GoogleIdentity { subject: string; email: string; authoritative: boolean; authenticatedAt?: number }
+export interface GoogleIdentity extends GoogleNameSuggestions { subject: string; email: string; authoritative: boolean; authenticatedAt?: number }
 export async function exchangeGoogle(env: GoogleConfiguration, url: URL, state: string, nonce: string, verifier: string,
   callback: string, reauth = false): Promise<GoogleIdentity> {
   const client = googleClient(env);
@@ -44,5 +46,6 @@ export async function exchangeGoogle(env: GoogleConfiguration, url: URL, state: 
   if (reauth && (!Number.isSafeInteger(claims.auth_time) || claims.auth_time! > Math.floor(Date.now()/1000)
     || claims.auth_time! <= Math.floor(Date.now()/1000)-300)) throw new Error('Recent authentication required');
   return { subject: claims.sub, email, authoritative: email.endsWith('@gmail.com')
-    || (typeof claims.hd === 'string' && claims.hd.length > 0), ...(reauth?{authenticatedAt:claims.auth_time}: {}) };
+    || (typeof claims.hd === 'string' && claims.hd.length > 0), ...(reauth?{authenticatedAt:claims.auth_time}: {}),
+    ...googleNameSuggestions(claims) };
 }

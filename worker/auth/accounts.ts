@@ -10,7 +10,7 @@ export interface RegistrationInput {
   password: unknown;
 }
 
-function privateName(value: unknown): string {
+export function privateName(value: unknown): string {
   if (typeof value !== 'string' || value !== value.trim() || value.length === 0
     || Array.from(value).length > 100 || /[\u0000-\u001f\u007f]/.test(value)
     || /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value)) {
