@@ -310,7 +310,11 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       ]);
       if(result[0].results.length!==1)return reply(409,{error:'Password setup is no longer available. Sign in again and check your login methods.'});
       const notification=await passwordNotice(request,env,account,'password-added');
-      return reply(200,{next:'/login',notification},{'Set-Cookie':clearSessionCookie()});
+      // The credential write revokes every old session. Replace only this browser's
+      // session at the expected generation; never adopt a concurrent newer change.
+      const replacement=await issueSession(new D1SessionStore(env.DB),
+        {...account,authVersion:account.authVersion+1},now());
+      return reply(200,{next:'/account/security',notification},{'Set-Cookie':sessionCookie(replacement.token)});
     }
     return reply(404,{error:'Not found'});
   } catch (error) {

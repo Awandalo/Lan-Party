@@ -8,7 +8,7 @@ const code=(await build({entryPoints:['src/components/GoogleButton.tsx'],bundle:
  name:'offline-hooks',setup(b){
   b.onResolve({filter:/^react$/},()=>({path:'hooks',namespace:'fixture'}));
   b.onResolve({filter:/^react\/jsx-runtime$/},()=>({path:'jsx',namespace:'jsx'}));
-  b.onLoad({filter:/.*/,namespace:'jsx'},()=>({contents:'export const jsx=(type,props)=>({type,props});export const jsxs=jsx;'}));
+  b.onLoad({filter:/.*/,namespace:'jsx'},()=>({contents:'export const jsx=(type,props)=>({type,props});export const jsxs=jsx;export const Fragment="fragment";'}));
   b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`
    export const useRef=value=>({current:value});
    export const useState=value=>[value,()=>{}];
@@ -26,7 +26,7 @@ function fixture(run){return async()=>{
  const previous=globalThis.window;let calls=0,redirects=0;
  globalThis.fixtureCleanups=[];
  globalThis.window={location:{assign(){redirects++;}}};
- try{await run({button:()=>GoogleButton({}).props.children[1],counts:()=>({calls,redirects}),respond(fn){globalThis.fixtureGoogleRequest=()=>{calls++;return fn();};}});}
+ try{await run({button:(props={})=>GoogleButton(props).props.children[1],counts:()=>({calls,redirects}),respond(fn){globalThis.fixtureGoogleRequest=()=>{calls++;return fn();};}});}
  finally{globalThis.window=previous;delete globalThis.fixtureGoogleRequest;delete globalThis.fixtureCleanups;}
 };}
 test('Google start ignores repeated clicks while pending and throughout successful redirect',fixture(async({button,respond,counts})=>{
@@ -46,4 +46,11 @@ test('leaving the page prevents a delayed Google response from redirecting',fixt
  for(const cleanup of globalThis.fixtureCleanups)cleanup();
  finish(Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth'}));
  await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(counts(),{calls:1,redirects:0});
+}));
+
+test('compact Google link action has an accessible name, tooltip and native button semantics',fixture(async({button})=>{
+ const control=button({purpose:'link',iconOnly:true,disabled:true});
+ assert.equal(control.type,'button');assert.equal(control.props.type,'button');
+ assert.equal(control.props['aria-label'],'Connect Google');assert.equal(control.props.title,'Connect Google');
+ assert.equal(control.props.disabled,true);assert.equal(control.props.className,'security-icon-action');
 }));

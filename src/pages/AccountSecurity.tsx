@@ -7,9 +7,10 @@ import GoogleButton from '../components/GoogleButton';
 import type { GoogleButtonHandle } from '../components/GoogleButton';
 import LoginChallenge from '../components/LoginChallenge';
 import PasswordInput from '../components/PasswordInput';
+import SecurityActionIcon from '../components/SecurityActionIcon';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
-  const {session,status}=useAuth();
+  const {session,status,refresh}=useAuth();
   const [methods,setMethods]=useState<{password:boolean;google:boolean}|null>(null),[feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false);
   const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
@@ -34,6 +35,15 @@ export default function AccountSecurity(){
     try{const r=await googleRequest(name,input,csrf),body=await r.json();
       if(activeSession.current!==csrf)return;
       if(r.ok&&body.next==='/login'){clearPasswordSetup();window.location.assign(body.notification?'/login?password=updated&notice='+body.notification:'/login');navigating=true;}
+      else if(r.ok&&name==='add-password'&&body.next==='/account/security'){
+        clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);
+        // Read the rotated HttpOnly session and its new CSRF proof before another action.
+        if(await refresh()){
+          setMethods({password:true,google:true});
+          setFeedback('Password added successfully. You can now sign in using Google or your password.'+(body.notification==='unconfirmed'?' Security notification delivery could not be confirmed.':''));
+          requestAnimationFrame(()=>passwordTrigger.current?.focus());
+        }
+      }
       else if(r.ok&&name==='reauth-password'){
         if(disconnecting){
           const result=await googleRequest('unlink',{},csrf),outcome=await result.json();
@@ -67,14 +77,14 @@ export default function AccountSecurity(){
     <p>All your account security settings in one place.</p>
     {methods&&<><section className="connected-accounts" aria-labelledby="connected-accounts-heading">
       <h2 id="connected-accounts-heading">Connected accounts</h2>
-      <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd>{methods.password?'Connected':passwordSetupOpen?'Not connected':null}
-        {!passwordSetupOpen&&<button ref={passwordTrigger} className="button button-secondary security-method-action" disabled={busy||needsPassword} onClick={()=>{setPasswordSetupOpen(true);setNeedsGoogle(false);setFeedback('');}}>{methods.password?'Change password':'Add password'}</button>}</dd>
+      <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd className="security-method-status">{methods.password?'Connected':'Not connected'}
+        {!passwordSetupOpen&&<button ref={passwordTrigger} className="security-icon-action" aria-label={methods.password?'Change password':'Add password'} title={methods.password?'Change password':'Add password'} disabled={busy||needsPassword} onClick={()=>{setPasswordSetupOpen(true);setNeedsGoogle(false);setFeedback('');}}><SecurityActionIcon action="key"/></button>}</dd>
         {passwordSetupOpen&&<dd className="security-method-controls"><div className="account-confirmation" ref={passwordPanel} tabIndex={-1}>
           {needsGoogle?<><p>Confirm your Google identity to continue. You will return to this form and enter your new password again; it is not saved across redirects.</p><GoogleButton purpose="reauth" csrf={csrf} disabled={busy}/></>:
-          <form onSubmit={managePassword}><fieldset disabled={busy}><legend>{methods.password?'Change password':'Add password'}</legend>
+          <form onSubmit={managePassword}><fieldset disabled={busy} aria-label={methods.password?'Change password':'Add password'}>
             {methods.password&&<><label htmlFor="current-password">Current password</label><PasswordInput id="current-password" name="currentPassword" required autoComplete="current-password" autoFocus/></>}
             <label htmlFor="new-password">New password</label><PasswordInput id="new-password" name="newPassword" minLength={12} maxLength={128} required autoComplete="new-password" autoFocus={!methods.password}/>
-            {!methods.password&&<p>Recent Google authentication is required. Saving signs out all sessions and requests a security notification. Google stays connected.</p>}
+            {!methods.password&&<p>Recent Google authentication is required. Your current session will be securely replaced; other sessions will be signed out. Google stays connected. A security notification will be requested.</p>}
             {methods.password&&<p>Saving signs out all sessions. A security notification will be requested after the change.</p>}
             {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
             <button className="button">{busy?'Saving…':'Save password'}</button>
@@ -82,18 +92,18 @@ export default function AccountSecurity(){
           <p role="status" aria-live="polite">{feedback}</p>
           <button type="button" className="button button-secondary" disabled={busy} onClick={()=>{clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);setFeedback('');requestAnimationFrame(()=>passwordTrigger.current?.focus());}}>Cancel</button>
         </div></dd>}</div>
-        <div><dt>Google</dt><dd>{methods.google?'Connected':'Not connected'}</dd></div></dl>
-      {!methods.google&&<GoogleButton key={csrf} ref={googleButton} purpose="link" csrf={csrf} disabled={busy||needsPassword||passwordSetupOpen} onRecentAuthenticationRequired={requestPasswordConfirmation}/>}
-      {methods.google&&methods.password&&<button ref={disconnectTrigger} className="button button-secondary" disabled={busy||needsPassword||passwordSetupOpen} onClick={()=>{setDisconnecting(true);setNeedsPassword(true);requestAnimationFrame(()=>confirmationRef.current?.focus());}}>Disconnect Google</button>}
-      {methods.google&&!methods.password&&<p>Add a password before disconnecting Google. At least one usable sign-in method must remain.</p>}
-      {methods.password&&needsPassword&&<div ref={confirmationRef} tabIndex={-1} className="account-confirmation">
+        <div><dt>Google</dt><dd className="security-method-status">{methods.google?'Connected':'Not connected'}
+      {!methods.google&&<GoogleButton iconOnly key={csrf} ref={googleButton} purpose="link" csrf={csrf} disabled={busy||needsPassword||passwordSetupOpen} onRecentAuthenticationRequired={requestPasswordConfirmation}/>}
+      {methods.google&&methods.password&&!needsPassword&&<button ref={disconnectTrigger} className="security-icon-action" aria-label="Disconnect Google" title="Disconnect Google" disabled={busy||passwordSetupOpen} onClick={()=>{setDisconnecting(true);setNeedsPassword(true);requestAnimationFrame(()=>confirmationRef.current?.focus());}}><SecurityActionIcon action="unlink"/></button>}</dd>
+      {methods.google&&!methods.password&&<dd className="security-method-controls"><p>Add a password before disconnecting Google. At least one usable sign-in method must remain.</p></dd>}
+      {methods.password&&needsPassword&&<dd className="security-method-controls"><div ref={confirmationRef} tabIndex={-1} className="account-confirmation">
         <p>{disconnecting?'Confirm your password to disconnect Google. You will be signed out of all sessions; use your password to sign in again.':'Confirm your password to connect Google. Your other sessions will be signed out.'}</p>
-        <form onSubmit={passwordForm}><fieldset disabled={busy}><legend>Confirm current password</legend>
-        <label htmlFor="security-password">Current password</label><PasswordInput id="security-password" name="password" required autoComplete="current-password"/>
+        <form onSubmit={passwordForm}><fieldset disabled={busy} aria-label={disconnecting?'Disconnect Google':'Connect Google'}>
+        <label htmlFor="security-password">Confirm current password</label><PasswordInput id="security-password" name="password" required autoComplete="current-password"/>
         {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
         <button className="button">{busy?'Confirming…':disconnecting?'Confirm & disconnect':'Confirm and continue'}</button>
         <button type="button" className="button button-secondary" disabled={busy} onClick={cancelConfirmation}>Cancel</button>
-        </fieldset></form></div>}
+        </fieldset></form></div></dd>}</div></dl>
     </section>
       {/* Phase 3.9: optional MFA belongs immediately after Connected accounts. */}
     </>}

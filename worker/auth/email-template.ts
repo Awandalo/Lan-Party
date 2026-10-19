@@ -17,10 +17,12 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
     throw new Error('Invalid authentication email URL');
   }
   const subject = notification ? (purpose === 'password-added' ? 'A password was added to your LAN Party account' : 'Your LAN Party password was changed') : setup ? 'Add a LAN Party password' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account';
-  const heading = notification ? (purpose === 'password-added' ? 'Password added' : 'Password changed') : setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party';
-  const explanation = notification ? 'Your account password was updated and existing sessions were signed out. If you made this change, no action is needed.' : setup ? 'Return to the browser where you confirmed your Google identity to add a password. Recent Google authentication is also required.' : reset ? 'Choose a new password using this link.'
+  const heading = notification ? (purpose === 'password-added' ? 'Password added successfully' : 'Password changed') : setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party';
+  const explanation = notification ? (purpose === 'password-added'
+    ? 'A password has been added to your LAN Party account. You can now sign in using your email address and password. If you made this change, no further action is needed.'
+    : 'Your LAN Party account password was changed. If you made this change, no further action is needed.') : setup ? 'Return to the browser where you confirmed your Google identity to add a password. Recent Google authentication is also required.' : reset ? 'Choose a new password using this link.'
     : 'Confirm your email to finish setting up your account.';
-  const expiry = notification ? 'If this was unexpected, visit LAN Party directly, recover your account if possible, and contact the organizers promptly.' : `This link expires in ${setup ? '10 minutes' : reset ? '30 minutes' : '24 hours'} and works once.`;
+  const expiry = notification ? "If you didn't make this change, secure your account and contact the LAN Party organizers. Visit LAN Party directly and recover your account if possible." : `This link expires in ${setup ? '10 minutes' : reset ? '30 minutes' : '24 hours'} and works once.`;
   const action = notification ? 'Review account security' : setup ? 'Confirm password setup' : reset ? 'Reset password' : 'Continue verification';
   const security = notification ? 'This is a security notification, not an email confirmation or password reset.' : 'If you did not request this, ignore this email.';
   const support = 'Need a hand? Contact the LAN Party organizers if this link does not work.';

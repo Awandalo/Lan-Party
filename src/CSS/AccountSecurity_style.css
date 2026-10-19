@@ -22,5 +22,11 @@
 .account-security-card fieldset > .button { margin-top: .5rem; }
 .account-security-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .connected-methods .security-method-controls { flex-basis: 100%; min-width: 0; color: var(--text); }
-.security-method-action { margin-left: .75rem; }
+.connected-methods .security-method-status { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.security-icon-action { display: inline-grid; place-items: center; width: 44px; height: 44px; padding: .5rem; border: 1px solid var(--border); border-radius: .5rem; background: transparent; color: var(--accent); flex-shrink: 0; }
+.security-icon-action:hover:not(:disabled) { background: var(--accent-dim); }
+.security-icon-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.security-google-action { display: contents; }
+.security-google-action > p:empty { display: none; }
+.security-google-action > p, .security-google-action > .login-challenge { flex-basis: 100%; }
 .security-method-controls .account-confirmation { margin-top: 1rem; }

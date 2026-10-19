@@ -32,8 +32,8 @@ export default function GoogleComplete(){
     }catch{setFeedback('Unable to confirm registration. No automatic retry was made.');}finally{if(!navigating){pending.current=false;setBusy(false);}}
   }
   return <section className="page-section google-complete-page"><div className="panel google-complete-card">
-    <h1>Finish your LAN Party account</h1><p>Choose your public nickname. Your first and last names stay private.</p>
-    {profileLoading?<p role="status">Checking your Google signup…</p>:unavailable?<Link className="button" to="/login">Return to login</Link>:existingAccount?<div role="status"><h2>Sign in to continue</h2><p>Sign in to your existing account, then connect Google under Account → Settings. Accounts are never linked automatically.</p><Link className="button" to="/login">Sign in to existing account</Link></div>:
+    <h1>{existingAccount?'Welcome back!':'Finish your LAN Party account'}</h1>{!existingAccount&&<p>Choose your public nickname. Your first and last names stay private.</p>}
+    {profileLoading?<p role="status">Checking your Google signup…</p>:unavailable?<Link className="button" to="/login">Return to login</Link>:existingAccount?<div role="status"><p>You already have a LAN Party account with this email address. Sign in to your existing account to continue.</p><p>You can connect Google under Account → Settings after signing in. Accounts are never linked automatically.</p><Link className="button" to="/login">Sign in to existing account</Link></div>:
     <form onSubmit={submit} aria-busy={busy}><fieldset disabled={busy}><legend>Your details</legend>
       <label htmlFor="google-nickname">Nickname</label><input id="google-nickname" name="nickname" minLength={3} maxLength={24} required aria-describedby="google-nickname-help"/>
       <p id="google-nickname-help">3–24 letters, numbers, spaces, underscores or hyphens. No leading, trailing or repeated spaces.</p>

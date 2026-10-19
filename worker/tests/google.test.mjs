@@ -122,9 +122,19 @@ test('recent Google proof adds the first password atomically without email confi
  assert.equal((await callback(recent,{}, {Cookie:recent.Cookie+'; '+headers.Cookie})).headers.get('location'),'/account/security#add-password');
  const assurance=await db.prepare('SELECT method,assurance_level,mfa_verified FROM auth_recent_authentication').first();assert.deepEqual(assurance,{method:'google',assurance_level:1,mfa_verified:0});
  assert.equal((await request('google/unlink',{},headers)).status,428);
+ const otherSession=await session(await callback(await start()));
  const password='fictional new password';
  const results=await Promise.all([request('google/add-password',{password},headers),request('google/add-password',{password},headers)]);
  assert.equal(results.filter(r=>r.status===200).length,1);assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),1);
+ const added=results.find(r=>r.status===200);
+ assert.equal((await added.clone().json()).next,'/account/security');
+ assert.match(added.headers.get('set-cookie'),/HttpOnly/);
+ const replacement=await session(added);
+ assert.notEqual(replacement.Cookie,headers.Cookie);
+ assert.notEqual(replacement['X-CSRF-Token'],headers['X-CSRF-Token']);
+ assert.equal((await request('session',undefined,otherSession)).status,401);
+ assert.deepEqual(await(await request('google/methods',undefined,replacement)).json(),{password:true,google:true});
+ assert.equal((await request('google/start',{purpose:'link'},{...replacement,'X-CSRF-Token':headers['X-CSRF-Token']})).status,403);
  assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:true,changed:false});
  assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
  assert.equal((await request('session',undefined,headers)).status,401);
@@ -185,10 +195,27 @@ test('first-password setup validates input, supports 128 characters and does not
  for(const password of ['short','x'.repeat(129),null])assert.equal((await request('google/add-password',{password},headers)).status,400);
  const password='x'.repeat(128),result=await request('google/add-password',{password},headers);
  assert.equal(result.status,200);assert.equal((await result.json()).notification,'unconfirmed');
+ await session(result);
  assert.equal((await request('session',undefined,headers)).status,401);
  assert.equal((await request('login',{email:'google@example.test',password})).status,200);
  assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),1);
 },{AUTH_EMAIL_TRANSPORT:'unavailable'}));
+
+test('first-password session replacement fails closed after a concurrent generation change',()=>local(async({instance,db,start,callback,complete,session,request})=>{
+ const flow=await start();await callback(flow);const headers=await session(await complete(flow));
+ // Simulate a second credential/security change just after the winning insert.
+ await db.exec('CREATE TRIGGER fixture_generation_race AFTER INSERT ON user_password_credentials BEGIN UPDATE users SET auth_version=auth_version+1 WHERE id=NEW.user_id; END;');
+ const password='fictional replacement password';
+ const result=await request('google/add-password',{password},headers);
+ assert.equal(result.status,503);assert.equal(result.headers.get('set-cookie'),null);
+ assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),2);
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM auth_sessions WHERE revoked_at IS NULL').first('n'),0);
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_password_credentials').first('n'),1);
+ assert.equal((await request('login',{email:'google@example.test',password})).status,200);
+ // The notification guard also refuses to adopt the unexpected newer generation.
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
+}));
 
 test('first-password attempts retain persistent limits without consuming recovery buckets',()=>local(async({db,start,callback,complete,session,request})=>{
  const flow=await start();await callback(flow);const headers=await session(await complete(flow));

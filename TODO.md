@@ -310,8 +310,12 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Phase 3.7.7: replace first-password email confirmation with two-minute,
   server-verified Google assurance, atomic setup and a notification after success;
   simplify Add/Change password fields and place Add password on its method row.
-- [ ] Owner manually verify Phase 3.7.7 fresh/stale Google password setup and password
-  changes on DEV; check real notification delivery separately. No setup approval email.
+- [x] Phase 3.7.8: route-based navigation, compact accessible method actions,
+  contextual Google conflict guidance and separate password notification copy;
+  rotate the current session after first-password setup while revoking old sessions.
+- [ ] Owner manually accept Phase 3.7.8 on DEV: current-session continuity and other
+  session revocation after setup, fresh/stale Google proof, password-change sign-out,
+  method controls, responsive navigation/conflict guidance and real notification copy.
 - [ ] Decide whether durable security-notification delivery is required; an outbox
   and any schema changes require separate approval. Cross-redirect password
   preservation is not implemented; passwords must be re-entered after navigation.

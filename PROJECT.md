@@ -1295,8 +1295,15 @@ authorize credential creation. Applied migration 0012 and its legacy setup table
 cleanup/revocation triggers and historical template support are retained unchanged.
 Registration verification, recovery, Google linking/disconnection and MFA policy
 are unchanged by this exception.
-Successful password additions/changes keep the established sign-out-all-sessions
-policy and return to login; sign in again to review Connected accounts in Settings.
+Phase 3.7.8 keeps the current browser signed in after adding its first password:
+the guarded credential write revokes all old sessions, then issues a new HttpOnly
+session at exactly the expected next generation. The frontend refreshes its session
+and CSRF proof and shows Connected inline. A concurrent newer generation or failed
+replacement fails closed; the committed password remains usable through normal login.
+Password changes and recovery still invalidate all sessions and require sign-in.
+Connected accounts uses accessible 44px icon controls with forms beneath each method;
+navigation highlights only the current route. Ownership-proven Google conflicts show
+existing-account guidance without signup instructions or automatic linking.
 
 Successful settings password additions/changes request a branded security notification
 to the verified address, after the guarded write succeeds. Only the winning operation
@@ -1305,7 +1312,8 @@ the shared 60-attempt UTC-day budget include these notifications; there are no a
 retries. The DEV wrapper accepts token-free Security-page notification URLs.
 Notification failure emits only the static `auth.password_notification_unconfirmed`
 event, with no account, recipient, password, token or provider payload, and never reverses a completed password change;
-the login feedback distinguishes requested from unconfirmed delivery. There is **no
+the operation feedback distinguishes requested from unconfirmed delivery. Added/changed
+notifications use separate copy without a blanket sign-out claim. There is **no
 durable outbox**: a crash/provider failure can lose a notification. Guaranteed eventual
 delivery would require a separately approved design/migration. Recovery notifications
 outside these settings operations are not introduced by this task.

@@ -3,10 +3,11 @@ import type { Ref } from 'react';
 import LoginChallenge from './LoginChallenge';
 import { googleRequest } from '../lib/google';
 import { GoogleLinkIntent } from '../lib/google-link-intent';
+import SecurityActionIcon from './SecurityActionIcon';
 
 export interface GoogleButtonHandle { resumeLink: (session: string) => boolean; cancelLink: () => void }
 
-export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticationRequired,ref,disabled=false}:{purpose?:'signin'|'link'|'reauth';csrf?:string;
+export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticationRequired,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';csrf?:string;iconOnly?:boolean;
   onRecentAuthenticationRequired?:()=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
   const intent=useRef(new GoogleLinkIntent()),inFlight=useRef(false),mounted=useRef(true);
   const trigger=useRef<HTMLButtonElement>(null);
@@ -35,8 +36,8 @@ export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticati
     }catch{setFeedback('Google sign-in could not be started. No automatic retry was made.');}
     finally{if(!navigating){inFlight.current=false;setToken(null);setAttempt(n=>n+1);setBusy(false);}}
   }
-  return <div className="google-method">{siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setToken}/>}
-    <button ref={trigger} type="button" className="button button-secondary" disabled={busy||disabled} onClick={()=>void start()}>
-      {busy?'Connecting…':purpose==='link'?'Connect Google':purpose==='reauth'?'Confirm Google identity':'Continue with Google'}</button>
+  return <div className={iconOnly?'google-method security-google-action':'google-method'}>{siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setToken}/>}
+    <button ref={trigger} type="button" className={iconOnly?'security-icon-action':'button button-secondary'} aria-label={iconOnly?'Connect Google':undefined} title={iconOnly?'Connect Google':undefined} aria-busy={busy} disabled={busy||disabled} onClick={()=>void start()}>
+      {iconOnly?<SecurityActionIcon action="link"/>:busy?'Connecting…':purpose==='link'?'Connect Google':purpose==='reauth'?'Confirm Google identity':'Continue with Google'}</button>
     <p role="status">{feedback}</p></div>;
 }

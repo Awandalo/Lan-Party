@@ -28,7 +28,7 @@ export default function AccountMenu({ nickname }: { nickname: string }) {
   }} onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); setOpen(false); trigger.current?.focus(); }
   }}>
-    <button className="account-menu-trigger" ref={trigger} type="button" aria-expanded={open}
+    <button className={`account-menu-trigger${pathname==='/account'||pathname.startsWith('/account/')?' active':''}`} ref={trigger} type="button" aria-expanded={open}
       aria-controls="account-navigation" onClick={() => setOpen(value => !value)}>Account <span aria-hidden="true">▾</span></button>
     {open && <div id="account-navigation" className="account-menu-panel" aria-label="Account options">
       <Link className="account-menu-name" to="/account" onClick={() => setOpen(false)}>{nickname}<span>My account</span></Link>
