@@ -1,0 +1,7 @@
+.mfa-enrollment canvas { display: block; max-width: 100%; height: auto; margin-block: 1rem; }
+.mfa-manual-key { display: block; overflow-wrap: anywhere; user-select: all; padding-block: .5rem; }
+.mfa-enrollment ul { padding-left: 1.5rem; overflow-wrap: anywhere; }
+.mfa-enrollment li { margin-block: .5rem; user-select: all; }
+.mfa-enrollment .mfa-saved { display: flex; align-items: center; gap: .75rem; margin-block: 1rem; }
+.mfa-enrollment .mfa-saved input { width: 22px; height: 22px; flex-shrink: 0; }
+.mfa-enrollment button { min-height: 44px; margin: .5rem .5rem .5rem 0; }

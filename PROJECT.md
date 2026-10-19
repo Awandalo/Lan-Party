@@ -449,8 +449,14 @@ Approved product requirements:
 - Passwords require at least 12 characters, support 128 characters and have no
   arbitrary character-class rules. Rate limiting and safe errors are required
   before exposing authentication endpoints.
-- Optional TOTP MFA is approved for all accounts in a later Phase 3 authentication
-  stage. No MFA schema, enrollment, recovery or login challenge is implemented yet.
+- Optional TOTP MFA is approved for all accounts, including administrators. The owner
+  reports Phase 3.7 manual DEV acceptance passed 7/7 and now names the MFA work
+  **Phase 3.8** (superseding earlier future Phase 3.9 references). See
+  [MFA_DESIGN.md](MFA_DESIGN.md) for the approved architecture and local Phase 3.8.2
+  foundations: migration 0013, encrypted TOTP secrets, recovery verifiers, guarded
+  enrollment preparation and session-assurance checks. No MFA routes are exposed;
+  UI and activation gates are hard disabled pending Phase 3.8.3 shared login enforcement.
+  No remote migration, key configuration, activation or rollout is approved.
 - Resend is prepared for DEV: the owner confirms the auth sending domain is verified
   and its domain-restricted sending key is installed only on the DEV Worker.
   Application delivery is integrated locally; hosted authentication remains disabled. Use the

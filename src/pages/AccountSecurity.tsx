@@ -8,6 +8,8 @@ import type { GoogleButtonHandle } from '../components/GoogleButton';
 import LoginChallenge from '../components/LoginChallenge';
 import PasswordInput from '../components/PasswordInput';
 import SecurityActionIcon from '../components/SecurityActionIcon';
+import MfaEnrollment from '../components/MfaEnrollment';
+import { MFA_ENROLLMENT_AVAILABLE } from '../lib/mfa-mode';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
   const {session,status,refresh}=useAuth();
@@ -114,7 +116,7 @@ export default function AccountSecurity(){
         <button type="button" className="button button-secondary" disabled={busy} onClick={cancelConfirmation}>Cancel</button>
         </fieldset></form></div></dd>}</div></dl>
     </section>
-      {/* Phase 3.9: optional MFA belongs immediately after Connected accounts. */}
+      {MFA_ENROLLMENT_AVAILABLE&&<MfaEnrollment csrf={csrf}/>}
     </>}
     <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2>
       <dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified ? 'Verified' : 'Not verified'}</dd></div></dl>

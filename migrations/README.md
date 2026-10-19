@@ -1,5 +1,16 @@
 # D1 migrations
 
+## Optional account MFA (0013) — local only
+
+`0013_create_account_mfa.sql` is prepared and validated only in disposable local D1.
+It depends on 0001–0012 and creates encrypted TOTP factors, pending MFA transactions,
+hashed recovery-code sets and session MFA assurance. It enrolls no accounts and
+preserves existing data, UUID/member numbers, RBAC and applied migrations.
+Enrollment/activation remain disabled until shared password/Google MFA enforcement
+is complete. See MFA_DESIGN.md for state, recovery and key-management requirements.
+Remote application requires separate approval, a fresh recovery checkpoint and
+compatibility checks. Once an account enrolls, pre-MFA code is not a safe rollback.
+
 ## Google OIDC state (0012) — local only
 
 `0012_create_oidc_transactions.sql` is locally prepared, not remotely applied.

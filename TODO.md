@@ -313,13 +313,13 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Phase 3.7.8: route-based navigation, compact accessible method actions,
   contextual Google conflict guidance and separate password notification copy;
   rotate the current session after first-password setup while revoking old sessions.
-- [ ] Owner manually accept Phase 3.7.8 on DEV: current-session continuity and other
+- [x] Owner manually accept Phase 3.7.8 on DEV (Phase 3.7 acceptance reported 7/7): current-session continuity and other
   session revocation after setup, fresh/stale Google proof, password-change sign-out,
   method controls, responsive navigation/conflict guidance and real notification copy.
 - [x] Phase 3.7.9: switch unsubmitted security actions and clear sensitive inputs;
   expose existing recovery from Change password, clarify Google-only recovery limits,
   and send guarded password-changed notifications after committed resets.
-- [ ] Owner accept Phase 3.7.9 action switching and controlled real password recovery
+- [x] Owner accept Phase 3.7.9 (Phase 3.7 acceptance reported 7/7): action switching and controlled real password recovery
   on DEV, including delivery, new-password login, session revocation and retained Google.
   Fictional change/login tests did not reproduce the reported mismatch; its real cause
   remains unconfirmed. No real password or hash inspection is needed.
@@ -328,8 +328,18 @@ real email/integrated CPU verification remain separately approved operations.
   preservation is not implemented; passwords must be re-entered after navigation.
 - [ ] Owner approve the proposed pending-Google-identity continuation across existing
   account login before implementing its session/assurance-bound confirmation transition.
-- [ ] Implement optional TOTP MFA for all accounts in its later authentication stage;
-  review enrollment, challenges, recovery and storage alongside that functionality.
+- [x] Phase 3.7 manual DEV acceptance: owner reports 7/7 checks passed.
+- [x] Prepare the new Phase 3.8.1 optional-MFA architecture proposal in MFA_DESIGN.md.
+- [x] Owner approve MFA design and local Phase 3.8.2 foundations: one authenticator,
+  shared provider/session gate, staged recovery codes, key management and migration.
+  The new Phase 3.8 MFA name supersedes future Phase 3.9 references; historical
+  Phase 3.8 email/GUI headings below retain their original labels.
+- [x] Local Phase 3.8.2: prepare migration 0013, reviewed pinned TOTP/QR dependencies,
+  AES-GCM/context/key-ring primitives, replay/recovery consumption statements,
+  session-bound enrollment preparation and a hard-disabled UI with no MFA API routes.
+- [ ] Owner approve local Phase 3.8.3 shared login MFA integration. Final enrollment
+  acknowledgment/session replacement stays disabled until both providers enforce MFA.
+  Remote migration, keys, deployment and real-account acceptance need separate approval.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account

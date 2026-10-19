@@ -2,6 +2,7 @@ import { AUTH_POLICY, expiresAt } from './config';
 import type { AccountIdentity, SessionRecord, SessionStore } from './contracts';
 import { accountId, accountVersion, serverTime, tokenDigest } from './database';
 import { digestToken, generateToken, isValidToken } from './tokens';
+import { mfaSchemaReady, mfaSessionCondition } from './mfa-session';
 
 const sessionColumns = `s.token_digest AS tokenDigest, s.user_id AS userId, s.created_at AS createdAt,
   s.expires_at AS expiresAt, s.revoked_at AS revokedAt, s.auth_version AS authVersion`;
@@ -16,10 +17,12 @@ export class D1SessionStore implements SessionStore {
     if (record.revokedAt !== null || record.expiresAt !== expiresAt(record.createdAt, AUTH_POLICY.sessionLifetimeSeconds)) {
       throw new Error('Invalid session lifetime or state');
     }
+    const mfaReady=await mfaSchemaReady(this.db);
     const created = await this.db.prepare(`INSERT INTO auth_sessions
       (id,user_id,token_digest,auth_version,created_at,expires_at)
       SELECT ?,id,?,auth_version,?,? FROM users
-      WHERE id=? AND status='active' AND auth_version=? AND updated_at<=? RETURNING id`)
+      WHERE id=? AND status='active' AND auth_version=? AND updated_at<=?
+        ${mfaReady?'AND NOT EXISTS(SELECT 1 FROM auth_totp_factors f WHERE f.user_id=users.id)':''} RETURNING id`)
       .bind(crypto.randomUUID(), record.tokenDigest, record.createdAt, record.expiresAt,
         record.userId, record.authVersion, record.createdAt).first<{ id: string }>();
     if (!created) throw new Error('Authentication account changed or is unavailable');
@@ -27,8 +30,9 @@ export class D1SessionStore implements SessionStore {
 
   async findByDigest(digest: string): Promise<SessionRecord | null> {
     tokenDigest(digest);
+    const mfaReady=await mfaSchemaReady(this.db);
     return this.db.prepare(`SELECT ${sessionColumns} FROM auth_sessions s JOIN users u ON u.id=s.user_id
-      WHERE s.token_digest=? AND u.status='active' AND u.auth_version=s.auth_version`)
+      WHERE s.token_digest=? AND u.status='active' AND u.auth_version=s.auth_version ${mfaReady?'AND '+mfaSessionCondition:''}`)
       .bind(digest).first<SessionRecord>();
   }
 
@@ -59,11 +63,13 @@ export async function issueSession(store: SessionStore, verifiedAccount: Account
 export async function resolveSession(db: D1Database, token: string, now: number): Promise<AccountIdentity | null> {
   serverTime(now);
   if (!isValidToken(token)) return null;
+  const mfaReady=await mfaSchemaReady(db);
   return db.prepare(`SELECT u.id AS userId,u.status,u.auth_version AS authVersion,u.email_verified_at AS emailVerifiedAt
     FROM auth_sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_digest=? AND s.revoked_at IS NULL AND s.created_at<=? AND s.expires_at>?
-      AND u.status='active' AND u.auth_version=s.auth_version AND u.updated_at<=?`)
-    .bind(await digestToken(token, 'session'), now, now, now).first<AccountIdentity>();
+      AND u.status='active' AND u.auth_version=s.auth_version AND u.updated_at<=?
+      ${mfaReady?'AND '+mfaSessionCondition+' AND NOT EXISTS(SELECT 1 FROM auth_session_mfa m WHERE m.session_digest=s.token_digest AND m.verified_at>?)':''}`)
+    .bind(await digestToken(token, 'session'), now, now, now,...(mfaReady?[now]:[])).first<AccountIdentity>();
 }
 
 export async function revokeSession(store: SessionStore, token: string, now: number): Promise<void> {
