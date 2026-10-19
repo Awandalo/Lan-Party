@@ -54,3 +54,15 @@ test('compact Google link action has an accessible name, tooltip and native butt
  assert.equal(control.props['aria-label'],'Connect Google');assert.equal(control.props.title,'Connect Google');
  assert.equal(control.props.disabled,true);assert.equal(control.props.className,'security-icon-action');
 }));
+
+test('Google action reports its actual processing interval and preserves the lock through redirects',fixture(async({button,respond,counts})=>{
+ const events=[];let finish;
+ respond(()=>new Promise(resolve=>finish=resolve));
+ const control=button({purpose:'link',onStart:()=>events.push('start'),onPendingChange:pending=>events.push(pending)});
+ control.props.onClick();control.props.onClick();assert.deepEqual(events,['start',true]);
+ finish(Response.json({error:'Unavailable'},{status:503}));await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(events,['start',true,false]);assert.equal(counts().calls,1);
+ respond(async()=>Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth'}));
+ control.props.onClick();await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(events,['start',true,false,'start',true]);assert.equal(counts().redirects,1);
+}));

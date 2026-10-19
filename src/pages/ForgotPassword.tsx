@@ -25,8 +25,9 @@ export default function ForgotPassword() {
   }
   return <section className="page-section forgot-password-page"><div className="panel forgot-password-card">
     <p className="eyebrow">Account recovery</p><h1 id={complete ? 'forgot-success' : undefined} tabIndex={complete ? -1 : undefined}>{complete ? 'Check your inbox!' : 'Forgot your password?'}</h1>
-    {complete ? <><p>If an account matches that email address, you'll receive a password-reset link shortly.</p><p>Follow the link to choose a new password and get back into the game. The link expires after 30 minutes.</p><p>No message yet? Check your spam folder. Delivery may be unavailable; contact the organizers if you need help.</p></> : <>
-    <p>No worries! Enter your email address and we'll send you a link to get back into the game.</p>
+    {complete ? <><p>If an eligible email/password account matches that address, a password-reset email was requested.</p><p>Follow the link to choose a new password and get back into the game. The link expires after 30 minutes.</p><p>No message yet? Check your spam folder. Delivery may be unavailable; contact the organizers if you need help.</p></> : <>
+    <p>Enter your account email address to request a password-reset link.</p>
+    <p>Only use Google to sign in? Continue with Google, then use Add password in Account Security to set up a local password.</p>
     <p className="recovery-hint">Reset links expire in 30 minutes and work once.</p>
     <form onSubmit={submit}><fieldset disabled={busy} aria-label="Password recovery">
       <label htmlFor="forgot-email">Email address</label>

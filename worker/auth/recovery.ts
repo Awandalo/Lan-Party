@@ -10,6 +10,8 @@ import { readInput } from './registration';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
 import { digestToken, isValidToken } from './tokens';
 import { deliverPasswordReset } from './verification-service';
+import { passwordNotice } from './password-notification';
+import type { AccountIdentity } from './contracts';
 
 const generic = { message: 'If an eligible account exists, a password-reset email was requested. Check your messages. Delivery may be unavailable; try again later if needed.' };
 const invalid = { error: 'This reset link is invalid, expired or already used. Request a new password reset.' };
@@ -55,7 +57,9 @@ export async function passwordRecovery(request: Request, env: AuthenticationEnvi
       const account = await findPasswordCredential(env.DB, email);
       if (account && recipientAllowed(request, env, email)) {
         await limit('account', `user:${account.userId}`);
-        await deliverPasswordReset(env.DB, account, email, origin.origin, transport, now);
+        if(!await deliverPasswordReset(env.DB, account, email, origin.origin, transport, now)) {
+          console.warn('auth.password_reset_delivery_unconfirmed');
+        }
       }
       return reply(202, generic);
     }
@@ -68,18 +72,21 @@ export async function passwordRecovery(request: Request, env: AuthenticationEnvi
     if (!isValidPassword(input.password as string)) return reply(400, { error: 'Use a password of 12–128 characters. Your password is never trimmed.' });
     // Avoid password hashing for arbitrary/expired proofs. The subsequent atomic
     // completion rechecks everything; this read alone never authorizes a mutation.
-    const usable = await env.DB.prepare(`SELECT t.id FROM auth_action_tokens t JOIN users u ON u.id=t.user_id
+    const usable = await env.DB.prepare(`SELECT u.id AS userId,u.status,u.auth_version AS authVersion,u.email_verified_at AS emailVerifiedAt
+      FROM auth_action_tokens t JOIN users u ON u.id=t.user_id
       JOIN user_password_credentials c ON c.user_id=u.id
       WHERE t.token_digest=? AND t.user_id=? AND t.purpose='password-reset' AND t.consumed_at IS NULL
         AND t.revoked_at IS NULL AND t.created_at<=? AND t.expires_at>? AND u.status='active'
         AND u.auth_version=t.auth_version AND u.updated_at<=? AND c.updated_at<=?`)
-      .bind(await digestToken(input.token as string, 'password-reset'), input.userId, now, now, now, now).first();
+      .bind(await digestToken(input.token as string, 'password-reset'), input.userId, now, now, now, now).first<AccountIdentity>();
     if (!usable) return reply(400, invalid);
     const hash = await hashPassword(input.password as string, pepper);
     const completed = await new D1ActionTokenStore(env.DB).completePasswordReset(input.token as string, input.userId as string,
       hash, Math.floor(Date.now() / 1000));
-    return completed ? reply(200, { message: 'Password reset. All previous sessions were revoked. Log in with your new password.' },
-      { 'Set-Cookie': clearSessionCookie() }) : reply(400, invalid);
+    if(!completed)return reply(400, invalid);
+    await passwordNotice(request,env,usable,'password-changed');
+    return reply(200, { message: 'Password reset. All previous sessions were revoked. Log in with your new password.' },
+      { 'Set-Cookie': clearSessionCookie() });
   } catch (error) {
     if (error instanceof RegistrationRateLimit) return reply(429, { error: 'Too many attempts. Please wait up to one hour.' });
     return reply(503, { error: 'Password recovery is temporarily unavailable.' });

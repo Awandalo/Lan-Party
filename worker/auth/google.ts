@@ -15,6 +15,7 @@ import type { AccountIdentity } from './contracts';
 import { googleProof as proofDigest } from './google-proof';
 import { encodeGoogleProfile, decodeGoogleProfile } from './google-profile';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
+import { passwordNotice } from './password-notification';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
@@ -76,18 +77,6 @@ async function signedIn(env: GoogleEnvironment, account: AccountIdentity, reques
   const previous=readSessionCookie(request);
   if (previous) await revokeSession(new D1SessionStore(env.DB),previous,now());
   return redirect('/account',sessionCookie(session.token));
-}
-async function passwordNotice(request: Request, env: GoogleEnvironment, account: AccountIdentity, purpose:'password-added'|'password-changed') {
-  // Only the winning committed operation calls this. No outbox or automatic retry:
-  // an unavailable provider never rolls back a completed password change.
-  try{
-    const row=await env.DB.prepare(`SELECT email FROM users WHERE id=? AND auth_version=? AND status='active' AND email_verified_at IS NOT NULL`)
-      .bind(account.userId,account.authVersion+1).first<{email:string}>();
-    if(!row)throw new Error('Notification unavailable');
-    await emailTransport(request,env).send({to:row.email,url:authOrigin(request,env).origin+'/account/security',
-      expiresAt:now()+86400,purpose,idempotencyKey:`security-${purpose}-${account.userId}-${account.authVersion+1}`});
-    return 'attempted';
-  }catch{console.warn('auth.password_notification_unconfirmed');return 'unconfirmed';}
 }
 async function flowFor(request: Request, env: GoogleEnvironment, phase: string, state?: string) {
   const browser=browserToken(request); if (!browser) throw new Error('Missing transaction');

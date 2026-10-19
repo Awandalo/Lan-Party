@@ -316,6 +316,13 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner manually accept Phase 3.7.8 on DEV: current-session continuity and other
   session revocation after setup, fresh/stale Google proof, password-change sign-out,
   method controls, responsive navigation/conflict guidance and real notification copy.
+- [x] Phase 3.7.9: switch unsubmitted security actions and clear sensitive inputs;
+  expose existing recovery from Change password, clarify Google-only recovery limits,
+  and send guarded password-changed notifications after committed resets.
+- [ ] Owner accept Phase 3.7.9 action switching and controlled real password recovery
+  on DEV, including delivery, new-password login, session revocation and retained Google.
+  Fictional change/login tests did not reproduce the reported mismatch; its real cause
+  remains unconfirmed. No real password or hash inspection is needed.
 - [ ] Decide whether durable security-notification delivery is required; an outbox
   and any schema changes require separate approval. Cross-redirect password
   preservation is not implemented; passwords must be re-entered after navigation.

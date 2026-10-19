@@ -265,6 +265,22 @@ test('password change shares confirmed-failure restrictions and never sends on w
  assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/notifications')).json(),{added:false,changed:false});
 }));
 
+test('Google-linked password change commits the exact new passphrase before success and normal login',()=>local(async({request,start,callback,complete,session,db})=>{
+ const flow=await start();await callback(flow);let headers=await session(await complete(flow));
+ const original='fictional original passphrase';
+ headers=await session(await request('google/add-password',{password:original},headers));
+ const replacement='  Fictional new passphrase Δ with spaces  ';
+ const changed=await request('google/change-password',{password:original,newPassword:replacement},headers);
+ assert.equal(changed.status,200);assert.equal((await changed.json()).next,'/login');
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal((await request('login',{email:'google@example.test',password:original})).status,401);
+ assert.equal((await request('login',{email:'google@example.test',password:replacement.trim()})).status,401);
+ assert.equal((await request('login',{email:'google@example.test',password:replacement})).status,200);
+ assert.equal((await callback(await start())).headers.get('location'),'/account');
+ assert.equal(await db.prepare('SELECT COUNT(*) n FROM user_auth_providers').first('n'),1);
+ assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),2);
+}));
+
 test('failed password writes preserve credentials and sessions and send no notification',()=>local(async({instance,db,request,session})=>{
  const password='fictional old password';await request('register',{nickname:'Rollback Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
  await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();

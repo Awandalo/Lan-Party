@@ -88,7 +88,8 @@ test('offline hosted DEV register → verify → login/logout → reset uses gua
   assert.equal((await request('session', undefined, { Cookie: oldCookie })).status, 401);
   assert.equal((await login(profile.password)).status, 401); assert.equal((await login(password)).status, 200);
   assert.equal((await request('reset-password', { ...reset, password })).status, 400);
-  assert.equal(await db.prepare('SELECT SUM(attempts) AS n FROM auth_email_daily_budget').first('n'), 2);
+  assert.deepEqual((await mails()).map(mail=>mail.subject),['Verify your LAN Party account','Reset your LAN Party password','Your LAN Party password was changed']);
+  assert.equal(await db.prepare('SELECT SUM(attempts) AS n FROM auth_email_daily_budget').first('n'), 3);
   assert.equal((await request('local-mail', { email: profile.email })).status, 404);
 }));
 
@@ -133,8 +134,20 @@ test('password recovery never verifies an address or lets an unverified account 
   assert.equal((await request('login', { email: profile.email, password })).status, 403);
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'), 0);
   assert.equal((await request('resend-verification', { email: profile.email })).status, 202);
-  assert.equal((await request('verify-email', proof((await mails())[2]))).status, 200);
+  const latestVerification=(await mails()).filter(mail=>mail.subject==='Verify your LAN Party account').at(-1);
+  assert.equal((await request('verify-email', proof(latestVerification))).status, 200);
   assert.equal((await request('login', { email: profile.email, password })).status, 200);
+}));
+
+test('a completed reset cannot bypass the shared budget for its security notification',()=>local(async({db,request,mails,proof})=>{
+ await request('register',profile);await request('verify-email',proof((await mails())[0]));
+ await request('forgot-password',{email:profile.email});const reset=proof((await mails())[1]);
+ await db.prepare('UPDATE auth_email_daily_budget SET attempts=60').run();
+ const password='fictional recovered password';
+ assert.equal((await request('reset-password',{...reset,password})).status,200);
+ assert.equal((await mails()).length,2);
+ assert.equal(await db.prepare('SELECT SUM(attempts) n FROM auth_email_daily_budget').first('n'),60);
+ assert.equal((await request('login',{email:profile.email,password})).status,200);
 }));
 
 test('hosted missing trusted IP fails closed and an unverified legacy session is rejected', () => local(async ({ db, request, mails, proof }) => {

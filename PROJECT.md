@@ -1304,6 +1304,12 @@ Password changes and recovery still invalidate all sessions and require sign-in.
 Connected accounts uses accessible 44px icon controls with forms beneath each method;
 navigation highlights only the current route. Ownership-proven Google conflicts show
 existing-account guidance without signup instructions or automatic linking.
+Phase 3.7.9 allows switching unsubmitted method actions directly, unmounting sensitive
+fields and clearing pending link/challenge proof with focus on the selected form.
+Submitted password and OAuth operations block conflicting actions until completion.
+Change password links to the existing `/forgot-password` flow; Google-only accounts
+still require recent Google proof to add their first password and cannot use reset
+to create a credential. The login recovery link remains available.
 
 Successful settings password additions/changes request a branded security notification
 to the verified address, after the guarded write succeeds. Only the winning operation
@@ -1315,8 +1321,15 @@ event, with no account, recipient, password, token or provider payload, and neve
 the operation feedback distinguishes requested from unconfirmed delivery. Added/changed
 notifications use separate copy without a blanket sign-out claim. There is **no
 durable outbox**: a crash/provider failure can lose a notification. Guaranteed eventual
-delivery would require a separately approved design/migration. Recovery notifications
-outside these settings operations are not introduced by this task.
+delivery would require a separately approved design/migration. Phase 3.7.9 reuses this
+notification helper after a successful atomic password reset, at the expected next
+generation, without disconnecting Google or signing in automatically. A reset proof
+permits notifying the current address even if email remains unverified; reset never
+marks it verified. Invalid/replayed/failed resets do not send notifications. Failed
+reset-email requests record only `auth.password_reset_delivery_unconfirmed`, retain
+generic public responses and revoke the unusable attempt without automatic retries.
+Provider timing can differ from missing-account requests; no constant-time delivery
+claim is made. The existing allowlist, budgets and request/redemption limits remain.
 
 Existing-member continuation is **a proposal, not implemented**. The current safe
 route still requires existing-account login, recent authentication under Security,

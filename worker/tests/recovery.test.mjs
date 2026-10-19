@@ -18,8 +18,19 @@ async function moduleFrom(path, define = {}) {
   return import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 }
 before(async () => {
-  script = (await build({ entryPoints: [fileURLToPath(new URL('../index.ts', import.meta.url))],
-    bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
+  script = (await build({ stdin: {resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
+    import app from './worker/index';import {localMailbox} from './worker/auth/email';
+    const warnings=[];console.warn=event=>warnings.push(event);let failNotice=false;
+    const send=localMailbox.send.bind(localMailbox);
+    localMailbox.send=mail=>{if(failNotice&&mail.purpose==='password-changed')throw Error('Fictional delivery failure');return send(mail);};
+    globalThis.fetch=async()=>{throw Error('External requests blocked in offline fixture');};
+    export default {async fetch(request,env){
+      const path=new URL(request.url).pathname;
+      if(path==='/fixture/fail-notice'){failNotice=true;return Response.json({ready:true});}
+      if(path==='/fixture/notification')return Response.json({changed:!!localMailbox.take('recovery@example.test',Math.floor(Date.now()/1000),'password-changed')});
+      if(path==='/fixture/warnings')return Response.json(warnings);
+      return app.fetch(request,env);
+    }};`},bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
   [service, providers, links] = await Promise.all([moduleFrom('../auth/verification-service.ts'), moduleFrom('../auth/email.ts'),
     moduleFrom('../../src/lib/verification-link.ts', { 'import.meta.env.DEV': 'true' })]);
   migrations = [];
@@ -147,6 +158,44 @@ test('concurrent resets have one winner and leave only that password usable', ()
   assert.equal((await login(candidates[winner])).status, 200);
   assert.equal((await login(candidates[1 - winner])).status, 401);
   assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'), 1);
+}));
+
+test('only a committed reset sends one notification, preserves Google and requires normal login',()=>local(async({instance,db,request,register,forgot,login,snapshot})=>{
+ await register();const cookie=(await login()).headers.get('set-cookie').split(';')[0];
+ const account=await snapshot();
+ await db.prepare(`INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at)
+   VALUES (?,?,'google','https://accounts.google.com','fictional-linked-subject',unixepoch())`).bind(randomUUID(),account.userId).run();
+ const providersBefore=(await db.prepare('SELECT * FROM user_auth_providers').all()).results;
+ const notice=async()=> (await instance.dispatchFetch(origin+'/fixture/notification')).json();
+ const input=await forgot();assert.deepEqual(await notice(),{changed:false});
+ assert.equal((await request('reset-password',{...input,token:'00'.repeat(32),password:newPassword})).status,400);
+ assert.deepEqual(await notice(),{changed:false});
+ await db.exec("CREATE TRIGGER fixture_reset_failure BEFORE UPDATE ON user_password_credentials BEGIN SELECT RAISE(ABORT,'fictional failure'); END;");
+ assert.equal((await request('reset-password',{...input,password:newPassword})).status,503);
+ assert.deepEqual(await notice(),{changed:false});
+ assert.equal((await request('session',undefined,{Cookie:cookie})).status,200);
+ await db.exec('DROP TRIGGER fixture_reset_failure;');
+ const results=await Promise.all([request('reset-password',{...input,password:newPassword}),request('reset-password',{...input,password:newPassword})]);
+ // The invalid and failed writes above consume two of this account's three attempts.
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,429]);
+ assert.deepEqual(await notice(),{changed:true});assert.deepEqual(await notice(),{changed:false});
+ assert.deepEqual((await db.prepare('SELECT * FROM user_auth_providers').all()).results,providersBefore);
+ assert.equal((await request('session',undefined,{Cookie:cookie})).status,401);
+ assert.equal((await login()).status,401);assert.equal((await login(newPassword)).status,200);
+}));
+
+test('notification failure cannot reverse a reset; failed reset-email delivery remains generic and safely diagnosed',()=>local(async({instance,request,db,register,forgot,login})=>{
+ await register();await login();const input=await forgot();
+ await instance.dispatchFetch(origin+'/fixture/fail-notice');
+ assert.equal((await request('reset-password',{...input,password:newPassword})).status,200);
+ assert.equal((await login(newPassword)).status,200);
+ assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),1);
+ await register({...profile,nickname:'Undeliverable',email:'fictional@example.invalid'});
+ const failed=await request('forgot-password',{email:'fictional@example.invalid'});
+ const unknown=await request('forgot-password',{email:'missing@example.test'});
+ assert.equal(failed.status,202);assert.equal(await failed.text(),await unknown.text());
+ assert.deepEqual(await(await instance.dispatchFetch(origin+'/fixture/warnings')).json(),[
+   'auth.password_notification_unconfirmed','auth.password_reset_delivery_unconfirmed']);
 }));
 
 test('password bounds reject short/129-character input without consumption and permit the 12-character minimum', () => local(async ({ db, request, register, forgot }) => {

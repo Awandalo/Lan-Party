@@ -7,8 +7,8 @@ import SecurityActionIcon from './SecurityActionIcon';
 
 export interface GoogleButtonHandle { resumeLink: (session: string) => boolean; cancelLink: () => void }
 
-export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticationRequired,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';csrf?:string;iconOnly?:boolean;
-  onRecentAuthenticationRequired?:()=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
+export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticationRequired,onStart,onPendingChange,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';csrf?:string;iconOnly?:boolean;
+  onRecentAuthenticationRequired?:()=>void;onStart?:()=>void;onPendingChange?:(pending:boolean)=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
   const intent=useRef(new GoogleLinkIntent()),inFlight=useRef(false),mounted=useRef(true);
   const trigger=useRef<HTMLButtonElement>(null);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -17,11 +17,11 @@ export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticati
   useImperativeHandle(ref,()=>({resumeLink(session){
     if(purpose!=='link'||session!==csrf||!intent.current.consume(session)||inFlight.current)return false;
     void start();return true;
-  },cancelLink(){intent.current.cancel();setFeedback('');requestAnimationFrame(()=>trigger.current?.focus());}}));
+  },cancelLink(){intent.current.cancel();setFeedback('');setSiteKey('');setToken(null);setAttempt(n=>n+1);requestAnimationFrame(()=>trigger.current?.focus());}}));
   async function start(){
     if(inFlight.current)return;
     if(siteKey&&!token){setFeedback('Complete the security check first.');return;}
-    inFlight.current=true;setBusy(true);setFeedback(purpose==='link'?'Connecting Google requires recent authentication and signs out your other sessions.':'');
+    onStart?.();inFlight.current=true;onPendingChange?.(true);setBusy(true);setFeedback(purpose==='link'?'Connecting Google requires recent authentication and signs out your other sessions.':'');
     let navigating=false;
     try{
       const response=await googleRequest('start',{purpose,...(token?{turnstileToken:token}:{})},csrf),body=await response.json();
@@ -34,7 +34,7 @@ export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticati
       }
       else setFeedback('Google sign-in is unavailable. For account changes, confirm your existing method first. You can still use email/password.');
     }catch{setFeedback('Google sign-in could not be started. No automatic retry was made.');}
-    finally{if(!navigating){inFlight.current=false;setToken(null);setAttempt(n=>n+1);setBusy(false);}}
+    finally{if(!navigating){inFlight.current=false;onPendingChange?.(false);setToken(null);setAttempt(n=>n+1);setBusy(false);}}
   }
   return <div className={iconOnly?'google-method security-google-action':'google-method'}>{siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setToken}/>}
     <button ref={trigger} type="button" className={iconOnly?'security-icon-action':'button button-secondary'} aria-label={iconOnly?'Connect Google':undefined} title={iconOnly?'Connect Google':undefined} aria-busy={busy} disabled={busy||disabled} onClick={()=>void start()}>
