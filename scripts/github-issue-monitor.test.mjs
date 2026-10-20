@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { checkNow, connectorReader, inspect, repository } from './github-issue-monitor.mjs';
+import { checkNow, connectorReader, inspect, repository, researchAction, scanNow } from './github-issue-monitor.mjs';
 
 const initial = () => ({ version: 1, repository, issues: {}, error: null });
 const connectorFixture = () => ({ issue: { number: 42,
@@ -12,6 +12,80 @@ const connectorFixture = () => ({ issue: { number: 42,
   labels: [{ name: 'codex-ready' }], title: 'Fictional connector issue',
   body: '[Q]\nFictional task', updated_at: '2026-10-20T12:00:00Z', comments: 1 },
   comments: [{ node_id: 'C1', body: '[Q]\nFictional comment', updated_at: '2026-10-20T12:00:00Z' }] });
+function researchReader(labels = ['codex-research'], snapshot = connectorFixture()) {
+  snapshot.issue.labels = labels.map((name) => ({ name }));
+  return connectorReader([{ before: snapshot, after: structuredClone(snapshot) }]);
+}
+test('research and ready labels are watched independently and dual labels do not duplicate research', async () => {
+  for (const labels of [['codex-ready'], ['codex-research'], ['codex-ready', 'codex-research']]) {
+    const result = await inspect(researchReader(labels), initial());
+    assert.equal(result.notifications.length, 1);
+    assert.equal(result.researchCandidates.length, labels.includes('codex-research') ? 1 : 0);
+  }
+});
+test('adding research label is detected without changing timestamps or comments', async () => {
+  const before = await inspect(researchReader(['codex-ready']), initial());
+  const after = await inspect(researchReader(['codex-ready', 'codex-research']), before.next);
+  assert.equal(after.researchCandidates.length, 1);
+  assert.ok(after.notifications[0].routes.includes('label:codex-research'));
+});
+test('own comments neither restart completed research nor notify; new Q revision can queue research', async () => {
+  const snapshot = connectorFixture();
+  const first = await inspect(researchReader(undefined, snapshot), initial());
+  const revision = first.researchCandidates[0].revision;
+  first.next.issues[42].research = { revision, status: 'completed', commentId: 123 };
+  snapshot.comments.push({ node_id: 'C2', updated_at: '2026-10-20T12:01:00Z', body: '[TECHDEVIE]\nReport' });
+  snapshot.issue.comments++;
+  const own = await inspect(researchReader(undefined, snapshot), first.next);
+  assert.deepEqual(own.notifications, []);
+  assert.deepEqual(own.researchCandidates, []);
+  const relabeled = await inspect(researchReader(['codex-ready', 'codex-research'], snapshot), own.next);
+  assert.deepEqual(relabeled.researchCandidates, []);
+  snapshot.comments.push({ node_id: 'C3', updated_at: '2026-10-20T12:02:00Z', body: '[Q]\nNew research question' });
+  snapshot.issue.comments++;
+  const revised = await inspect(researchReader(undefined, snapshot), own.next);
+  assert.equal(revised.researchCandidates.length, 1);
+  assert.notEqual(revised.researchCandidates[0].revision, revision);
+});
+test('unknown and own issue markers do not authorize automatic research', async () => {
+  for (const body of ['Unmarked input', '[TECHDEVIE]\nOwn report']) {
+    const snapshot = connectorFixture(); snapshot.issue.body = body;
+    assert.deepEqual((await inspect(researchReader(undefined, snapshot), initial())).researchCandidates, []);
+  }
+});
+test('research claim and completion persist atomically and prevent duplicate claims', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'lan-party-monitor-'));
+  const path = join(directory, 'GIT_ISSUES.md');
+  try {
+    const first = await scanNow(researchReader(), path);
+    const revision = first.researchCandidates[0].revision;
+    assert.deepEqual(await researchAction('claim', 42, revision, null, path), { claimed: true, status: 'in_progress' });
+    assert.equal((await researchAction('claim', 42, revision, null, path)).claimed, false);
+    assert.equal((await scanNow(researchReader(), path)).researchCandidates[0].blocked, true);
+    await assert.rejects(researchAction('complete', 42, revision, null, path), /invalid_comment_id/);
+    await researchAction('complete', 42, revision, 123, path);
+    assert.deepEqual((await scanNow(researchReader(), path)).researchCandidates, []);
+    assert.equal((await researchAction('claim', 42, revision, null, path)).claimed, false);
+    assert.ok(!(await readFile(path, 'utf8')).includes('Fictional'));
+  } finally { await removeFixture(directory); }
+});
+test('failed, uncertain and interrupted research is blocked rather than automatically retried', async () => {
+  for (const outcome of ['failed', 'uncertain', 'in_progress']) {
+    const directory = await mkdtemp(join(tmpdir(), 'lan-party-monitor-'));
+    const path = join(directory, 'GIT_ISSUES.md');
+    try {
+      const first = await scanNow(researchReader(), path);
+      const revision = first.researchCandidates[0].revision;
+      await assert.rejects(researchAction('claim', 42, 'a'.repeat(64), null, path));
+      await researchAction('claim', 42, revision, null, path);
+      if (outcome !== 'in_progress') await researchAction(outcome, 42, revision, null, path);
+      assert.equal((await researchAction('claim', 42, revision, null, path)).claimed, false);
+      assert.equal((await scanNow(researchReader(), path)).researchCandidates[0].blocked, true);
+      assert.equal((await researchAction('attention', 42, revision, null, path)).notify, true);
+      assert.equal((await researchAction('attention', 42, revision, null, path)).notify, false);
+    } finally { await removeFixture(directory); }
+  }
+});
 test('connector snapshots reuse journal fingerprints and suppress duplicate notifications', async () => {
   const snapshot = connectorFixture();
   const source = connectorReader([{ before: snapshot, after: structuredClone(snapshot) }]);
