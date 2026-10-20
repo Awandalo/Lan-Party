@@ -94,6 +94,14 @@ never bypasses another or repository protections.
 The narrow documentation-only Git exception, if a repository defines one, applies
 only when every condition holds. A task-specific owner prohibition takes priority.
 
+For instruction/directive documentation updates, the owner's explicit go-ahead
+also authorizes the scoped commit and push to `origin/dev`; do not request a second
+conversational approval. Follow AGENTS.md's Git checks and subject/body convention,
+isolate unrelated unpublished work and stop on failure. Group the reviewed related
+Git steps into one narrowly scoped host approval where supported, retaining staged
+diff and commit-message verification before the next mutation. Host/tool approvals
+still apply; this grants no blanket Git permissions or unrelated publication.
+
 ## Temporary parent-linking instructions — standing owner authorization (2026-10-20)
 
 For `Awandalo/Lan-Party`, when TechDevie encounters an explicit temporary instruction

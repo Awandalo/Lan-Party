@@ -241,6 +241,13 @@ When completing development tasks:
 
 ## Preferred Git workflow
 
+- For instruction/directive documentation updates, an explicit owner go-ahead
+  authorizes the scoped edit, commit and push to `origin/dev` as one task. Do not
+  ask again for conversational commit/push approval. This is task authorization,
+  not a general permission to publish unrelated work or bypass host approvals.
+  Review and validate the complete documentation change first; preserve subject
+  and body conventions, staged-diff checks and remote synchronization checks.
+  Isolate publication when local `dev` contains unrelated unpublished commits.
 - Minimize approval overhead without broadening permissions: plan publication and
   inspect unpublished commits before creating commits or worktrees. Prepare the
   complete scoped change before committing; prefer one commit and one push when
@@ -251,6 +258,11 @@ When completing development tasks:
   verification before proceeding. Never combine commands to evade host review,
   request blanket Git/shell access, or promise a fixed number of approval prompts.
   Existing task authorization does not replace mandatory tool approvals.
+- Where the host permits, request one narrowly scoped approval for the reviewed
+  stage/commit/verify/push sequence, with explicit paths and stop-on-failure checks.
+  Verify the staged diff before commit and the commit message before push within
+  that sequence. Do not request blanket rules or combine unrelated actions;
+  additional host approvals may still be required and cannot be promised away.
 - Follow [RELEASE.md](RELEASE.md) only when the user explicitly requests release
   preparation or, separately, post-release housekeeping. Release preparation
   authorizes creating or updating the `dev` to `main` PR after all pre-flight checks
