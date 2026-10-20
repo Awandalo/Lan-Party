@@ -329,6 +329,14 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner approve the proposed pending-Google-identity continuation across existing
   account login before implementing its session/assurance-bound confirmation transition.
 - [x] Phase 3.7 manual DEV acceptance: owner reports 7/7 checks passed.
+
+### Phase 3.8 — MFA Security
+
+Forward roadmap: [PROJECT.md](PROJECT.md#current-phase-3-sequence-and-status).
+Earlier Phase 3 task/status records are historical checkpoints; keep their open
+decisions without treating them as a fresh remote preflight. Current MFA work is
+local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tasks.
+
 - [x] Prepare the new Phase 3.8.1 optional-MFA architecture proposal in MFA_DESIGN.md.
 - [x] Owner approve MFA design and local Phase 3.8.2 foundations: one authenticator,
   shared provider/session gate, staged recovery codes, key management and migration.
@@ -345,16 +353,51 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Owner approve and implement local Phase 3.8.4 disable/regenerate, purpose-bound
   recent-primary/MFA checks, account preservation, timestamp-preserving session
   rotation, security notifications and compact Account Security forms.
-- [ ] Separately approve Phase 3.8.5 final security and manual acceptance work.
-- [ ] Separately approve push/DEV rollout, recovery/migration 0013, backed-up MFA
-  keys and hosted enrollment/live acceptance. Hosted enrollment is still unavailable.
+- [x] Owner authorize Phase 3.8.5 local security regression and DEV acceptance
+  preparation in issue #9. Local review covered 278 distinct auth/security tests,
+  strict types, both builds and intercepted browser challenge checks; see
+  `docs/MFA_SECURITY_REVIEW.md` for evidence and limitations.
+- [ ] Q/Owner disposition of [3.8.5 regression #9](https://github.com/Awandalo/Lan-Party/issues/9);
+  a completed local report does not close the remaining security/acceptance gates.
+- [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** owner
+  decide recovery-code exhaustion/continuation and interruption policy before implementation.
+- [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** prepare
+  recent MFA assurance before credential/provider writes, reusing valid two-minute
+  proof. Implementation awaits separate approval; primary proof remains required.
+- [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** prepare
+  canonical-DEV-only enrollment gating; no hosted activation is approved.
+- [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** after #9
+  disposition and #13–#15 resolution, separately approve DEV preflight/recovery,
+  migration 0013, backed-up MFA keys, push/deployment and controlled hosted acceptance.
+  All four follow-ups remain `codex-preparing`; do not start from roadmap/label alone.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account
   tools. Administrator settings/resets/overrides/corrections remain Phase 5 work;
   ordinary administrative corrections must preserve participant cooldown state.
 
-### Phase 3.8 — Authentication email and verification polish
+### Phase 3.9 — Account Lifecycle Management (planning only)
+
+- [ ] [#16](https://github.com/Awandalo/Lan-Party/issues/16): after MFA DEV acceptance,
+  review voluntary deactivation, explicit reactivation (never automatic on login),
+  deletion/anonymization and distinct audited administrator suspension/restoration.
+- [ ] Resolve privacy/retention, account-state transitions, session/MFA ownership,
+  retained registrations/history and permanent member-number tombstones before
+  implementation. No lifecycle runtime changes or migrations are approved.
+
+### Phase 3.10 — Polish & Fixes (planning only)
+
+- [ ] [#17](https://github.com/Awandalo/Lan-Party/issues/17): after 3.8/3.9 acceptance,
+  triage reproducible UX, accessibility/mobile, error/notification and functional
+  defects. Do not duplicate security remediations or lifecycle implementation.
+- [ ] Obtain scoped implementation and final owner acceptance; PROD release remains
+  separately gated. No new features or broad refactoring are authorized.
+
+### Historical milestone — Authentication email and verification polish (original Phase 3.8)
+
+The following original 3.8–3.8.3 milestone numbers predate MFA numbering. Preserve
+their completed evidence and pending review items as history; they do not assign
+the new MFA stages or the planned 3.10 scope.
 
 - [x] Add shared branded HTML/plain-text verification and recovery templates, with
   canonical DEV links, escaping, expiry information and no external assets.
@@ -379,7 +422,7 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner review the updated hosted DEV screens after separately approved deployment;
   perform the real password-recovery test separately.
 
-### Phase 3.8.1 — Final authentication GUI polish
+### Historical milestone — Final authentication GUI polish (original Phase 3.8.1)
 
 - [x] Add friendly registration-pending and verification-confirmation copy while
   preserving generic responses and explicit token confirmation; keep verified success unchanged.
@@ -394,7 +437,7 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner perform the final hosted DEV authentication walkthrough after deployment.
   No live email, account or database operation is part of the local GUI checks.
 
-### Phase 3.8.2 — Final GUI cleanup and login-limit investigation
+### Historical milestone — Final GUI cleanup and login-limit investigation (original Phase 3.8.2)
 
 - [x] Put accessible eye/eye-off visibility controls inside the existing password
   fields; preserve names, autofill attributes and password handling.
@@ -409,7 +452,7 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Owner review the deployed GUI and Keeper integration in the normal browser;
   no live login/email test is part of this assignment.
 
-### Phase 3.8.3 — Login rate-limit improvements
+### Historical milestone — Login rate-limit improvements (original Phase 3.8.3)
 
 - [x] Implement rolling email+IP confirmed-failure protection and fenced atomic
   pending leases using existing D1 storage; keep success separate from failures.

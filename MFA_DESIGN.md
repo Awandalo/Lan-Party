@@ -3,13 +3,20 @@
 Status: architecture approved; Phase 3.8.2–4 foundations, shared login, local
 enrollment and MFA management implemented locally. Remote migrations, keys, hosted
 activation, push and deployment are not approved.
+Phase 3.8.5 local review/preparation is now owner-authorized in issue #9; see
+[MFA_SECURITY_REVIEW.md](docs/MFA_SECURITY_REVIEW.md) for local evidence and
+unresolved recovery/freshness/hosted-gating decisions. No policy relaxation or
+hosted acceptance is implied.
 The owner reports Phase 3.7 manual DEV acceptance passed 7/7. MFA is optional for
 every role, one active TOTP authenticator per UUID account, shared across password
 and Google login. No SMS, email OTP, trusted devices or automatic support bypass.
 
 The owner's new Phase 3.8 MFA numbering supersedes earlier references to future
 Phase 3.9 MFA. Existing Phase 3.8 email/GUI/rate-limit headings describe historical
-work; preserve them rather than renumbering those records.
+work; preserve their original numbering as history. The current forward sequence
+is [PROJECT.md](PROJECT.md#current-phase-3-sequence-and-status): 3.8 MFA Security,
+3.9 Account Lifecycle Management, then 3.10 Polish & Fixes; the latter two are
+planning only, not implementation authority.
 
 ## Existing integration and enforcement
 
@@ -196,7 +203,16 @@ pages and bodies from analytics, caching and error payloads; no third-party QR f
 3. **3.8.3:** shared login gate, pending cookies, atomic proof redemption and session
    assurance; cover all existing session replacements and protected routes.
 4. **3.8.4:** disable/regenerate, step-up, notifications and Account Security action UX.
-5. **3.8.5:** complete security regressions, browser checks and owner DEV acceptance.
+5. **3.8.5 / [#9](https://github.com/Awandalo/Lan-Party/issues/9):** local security
+   regressions, browser checks and DEV acceptance preparation. The original stage
+   included hosted acceptance; the forward roadmap now separates that into 3.8.6.
+   Pending follow-ups: **3.8.5.1 R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13)**,
+   **3.8.5.2 R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14)** and
+   **3.8.5.3 R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15)**. All are
+   preparing, with no implementation/activation approval from roadmap placement.
+6. **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** controlled
+   hosted DEV rollout and acceptance only after #9 disposition, remediation gates
+   and separate operational approvals. No PROD rollout is included.
 
 Test RFC vectors; independent authenticator interoperability; AES tamper/context/key
 failure; skew/replay/concurrency; code entropy/single-use; lost display/ack responses;
@@ -381,6 +397,7 @@ deferred management and conservative replacement-challenge behavior below.
   TypeScript, default/hosted-DEV builds and local Worker packaging passed. Unrelated
   event/news/DNS suites were omitted; no live accounts, emails or remote tests were used.
 
-Next approvals: Phase 3.8.5 final security/manual acceptance work; separately any
+Next approvals after the authorized Phase 3.8.5 local review: recovery and
+pre-mutation freshness decisions and hosted-gating/manual acceptance; separately any
 push/DEV deployment, fresh DEV recovery/migration 0013, independent backed-up MFA
 keys, and hosted enrollment/controlled account and email tests. No PROD rollout.
