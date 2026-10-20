@@ -6,8 +6,9 @@
 It depends on 0001–0012 and creates encrypted TOTP factors, pending MFA transactions,
 hashed recovery-code sets and session MFA assurance. It enrolls no accounts and
 preserves existing data, UUID/member numbers, RBAC and applied migrations.
-Enrollment/activation remain disabled until shared password/Google MFA enforcement
-is complete. See MFA_DESIGN.md for state, recovery and key-management requirements.
+Phase 3.8.3 integrates shared password/Google MFA enforcement and local-only
+enrollment activation. Hosted enrollment remains unavailable. See MFA_DESIGN.md
+for state, recovery, key-management and separate rollout requirements.
 Remote application requires separate approval, a fresh recovery checkpoint and
 compatibility checks. Once an account enrolls, pre-MFA code is not a safe rollback.
 

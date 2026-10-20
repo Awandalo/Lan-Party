@@ -14,12 +14,25 @@ before(async()=>{
   import app from './worker/index';import * as foundation from './worker/auth/mfa-crypto';
   import * as enrollment from './worker/auth/mfa-enrollment';import {localMailbox} from './worker/auth/email';
   import {issueSession,D1SessionStore,resolveSession} from './worker/auth/sessions';
+  import {completePrimary,pendingLogin,completeMfa} from './worker/auth/mfa-login';
+  import {LoginLimiter} from './worker/auth/login-limits';
   import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
-  globalThis.fetch=async()=>{throw Error('No external requests allowed in MFA fixture');};
+  globalThis.fetch=async(url,init)=>{
+    if(String(url)==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:JSON.parse(init.body).response==='synthetic-mfa-proof',hostname:'127.0.0.1',action:'login'});
+    throw Error('No external requests allowed in MFA fixture');
+  };
   export default {async fetch(request,env){
    if(new URL(request.url).pathname!=='/fixture')return app.fetch(request,env);
    const {action,args=[]}=await request.json();try{
     if(action==='take')return Response.json(localMailbox.take('mfa@example.test',Math.floor(Date.now()/1000),'email-verification'));
+    if(action==='resetmail')return Response.json(localMailbox.take('mfa@example.test',Math.floor(Date.now()/1000),'password-reset'));
+    if(action==='challengeAt')return Response.json(!!await pendingLogin(env.DB,...args));
+    if(action==='signals'){const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,args[0]);for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
+    if(action==='missingKeys'){
+      const row=await pendingLogin(env.DB,args[0],args[1],args[3]);
+      const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'loopback'),held=await limiter.reserveMfa(row.user_id,row.token_digest);
+      try{return Response.json(await completeMfa(env.DB,row,args[2],'recovery',{},'local',args[3],held));}finally{await held.finish(false);}
+    }
     if(action==='generate')return Response.json(await generate({...args[0],secret:base32.decode(args[0].secret),crypto:otpCrypto}));
     if(action==='activate'){
      const statements=await enrollment.prepareEnrollmentActivation(env.DB,...args);
@@ -35,6 +48,14 @@ before(async()=>{
     if(action==='replay')return Response.json(await enrollment.prepareTotpReplayUpdate(env.DB,...args).first());
     if(action==='issue')return Response.json(await issueSession(new D1SessionStore(env.DB),...args));
     if(action==='resolve')return Response.json(await resolveSession(env.DB,...args));
+    if(action==='primary')return Response.json(await completePrimary(env.DB,...args));
+    if(action==='expiredLease'){
+      const row=await pendingLogin(env.DB,args[0],args[1],args[3]);
+      const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'loopback');
+      const held=await limiter.reserveMfa(row.user_id,row.token_digest);
+      await env.DB.prepare('UPDATE registration_rate_limits SET expires_at=0').run();
+      return Response.json(await completeMfa(env.DB,row,args[2],'recovery',env,'local',args[3],held));
+    }
     if(foundation[action])return Response.json(await foundation[action](...args));
     if(enrollment[action])return Response.json(await enrollment[action](...(action==='requireEnrollmentActivation'?args:[env.DB,...args])));
     throw Error();
@@ -46,10 +67,161 @@ before(async()=>{
   while(rest){const end=rest.startsWith('CREATE TRIGGER')?rest.indexOf('\nEND;')+5:rest.indexOf(';')+1;if(end<=0||end===4)throw Error('Incomplete migration');parts.push(rest.slice(0,end));rest=rest.slice(end).trim();}migrations.push(parts);
  }
 });
+
+const cookieJar=response=>response.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
+async function enrollHttp({request,seed,call}){
+ const original=await seed(),Cookie=original.cookie;
+ const csrf=(await(await request('session',undefined,{Cookie})).json()).csrfToken;
+ const headers={Cookie,'X-CSRF-Token':csrf};
+ const start=await request('mfa/enroll/start',{},headers);assert.equal(start.status,200);
+ const setup=await start.json(),code=await call('generate',{secret:setup.secret,epoch:Math.floor(Date.now()/1000)});
+ const staged=await request('mfa/enroll/verify',{token:setup.token,code},headers);assert.equal(staged.status,200);
+ const codes=await staged.json();
+ const activate=()=>request('mfa/enroll/activate',{token:setup.token,acknowledgment:codes.acknowledgment},headers);
+ return {...original,setup,codes,activate,headers};
+}
+async function challengeHttp(request){
+ const login=await request('login',{email:profile.email,password:profile.password});assert.equal(login.status,200);
+ assert.equal((await login.json()).next,'/mfa');const Cookie=cookieJar(login);
+ const response=await request('mfa/challenge',undefined,{Cookie});assert.equal(response.status,200);
+ const challenge=await response.json();return {Cookie,'X-CSRF-Token':challenge.csrfToken};
+}
+
+test('local acknowledgment activates atomically and replaces the session and CSRF; duplicate/lost responses are safe',()=>local(async fixture=>{
+ const {request,db}=fixture,{activate,headers,codes}=await enrollHttp(fixture);
+ const results=await Promise.all([activate(),activate()]);assert.equal(results.filter(r=>r.status===200).length,1);
+ const Cookie=cookieJar(results.find(r=>r.status===200));
+ assert.equal((await request('session',undefined,headers)).status,401);
+ const current=await request('session',undefined,{Cookie});assert.equal(current.status,200);
+ assert.notEqual((await current.json()).csrfToken,headers['X-CSRF-Token']);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_session_mfa').first('n'),1);
+ const pending=await challengeHttp(request);
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},pending)).status,200);
+ assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+}));
+
+test('pending cookies grant no protected access; browser, origin and CSRF are bound; cancellation and expiry require primary login',()=>local(async fixture=>{
+ const {request,db}=fixture,{activate}=await enrollHttp(fixture);assert.equal((await activate()).status,200);
+ let headers=await challengeHttp(request);
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal((await request('google/methods',undefined,headers)).status,404); // Google disabled in this fixture.
+ assert.equal((await request('logout',{},headers)).status,401);
+ assert.equal((await request('mfa/complete',{method:'totp',code:'000000'},{Cookie:headers.Cookie})).status,403);
+ assert.equal((await request('mfa/complete',{method:'totp',code:'000000'},{...headers,Origin:'https://evil.example.test'})).status,403);
+ assert.equal((await request('mfa/challenge',undefined,{Cookie:headers.Cookie.replace(/lan_mfa_local_browser=[a-f0-9]+/,'lan_mfa_local_browser='+'00'.repeat(32))})).status,401);
+ assert.equal((await request('mfa/cancel',{},headers)).status,200);
+ assert.equal((await request('mfa/challenge',undefined,headers)).status,401);
+ headers=await challengeHttp(request);
+ await db.prepare("UPDATE auth_mfa_transactions SET phase='cancelled' WHERE purpose='login' AND phase='pending'").run();
+ assert.equal((await request('mfa/challenge',undefined,headers)).status,401);
+}));
+
+test('TOTP login advances replay cutoff, concurrent completion has one winner, and same-step replay fails',()=>local(async fixture=>{
+ const {request,db,call}=fixture,{activate,setup}=await enrollHttp(fixture);assert.equal((await activate()).status,200);
+ // Enrollment already consumed this step. Move fixture cutoff back solely to test a fresh login code.
+ const factor=await db.prepare('SELECT * FROM auth_totp_factors').first();
+ await db.exec('DROP TRIGGER auth_mfa_step_monotonic;');await db.prepare('UPDATE auth_totp_factors SET last_step=?').bind(factor.last_step-1).run();
+ const headers=await challengeHttp(request),code=await call('generate',{secret:setup.secret,epoch:Math.floor(Date.now()/1000)});
+ const results=await Promise.all([request('mfa/complete',{method:'totp',code},headers),request('mfa/complete',{method:'totp',code},headers)]);
+ assert.equal(results.filter(r=>r.status===200).length,1);
+ const next=await challengeHttp(request);assert.equal((await request('mfa/complete',{method:'totp',code},next)).status,401);
+ assert.equal(await db.prepare('SELECT last_step FROM auth_totp_factors').first('last_step'),Math.floor(Date.now()/30000));
+}));
+
+test('recovery redemption and session issuance roll back together, are single-use across challenges, and survive generation revocation',()=>local(async fixture=>{
+ const {request,db}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
+ const headers=await challengeHttp(request);
+ await db.exec("CREATE TRIGGER fixture_session_failure BEFORE INSERT ON auth_session_mfa BEGIN SELECT RAISE(ABORT,'fictional'); END;");
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},headers)).status,503);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),0);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='login' AND phase='pending'").first('n'),1);
+ await db.exec('DROP TRIGGER fixture_session_failure;');
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},headers)).status,200);
+ const next=await challengeHttp(request);assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},next)).status,401);
+ await db.prepare('UPDATE users SET auth_version=auth_version+1').run();
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[1]},next)).status,401);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+}));
+
+test('five confirmed failures restrict challenge and user/IP across restarts without counting successful or pending checks',()=>local(async fixture=>{
+ const {request}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
+ const fixed={'CF-Connecting-IP':'203.0.113.77'},headers={...await challengeHttp(request),...fixed};
+ for(let i=0;i<4;i++)assert.equal((await request('mfa/complete',{method:'recovery',code:'A'.repeat(26)},headers)).status,401);
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},headers)).status,200);
+ const next={...await challengeHttp(request),...fixed};
+ assert.equal((await request('mfa/complete',{method:'recovery',code:'A'.repeat(26)},next)).status,401);
+ const blocked=await request('mfa/complete',{method:'recovery',code:codes.codes[1]},next);
+ assert.equal(blocked.status,429);assert.ok(Number(blocked.headers.get('Retry-After'))>0);
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[1]},await challengeHttp(request))).status,200);
+}));
+
+test('account ten-failure ceiling spans IPs and challenge restarts; generation change cannot bypass it',()=>local(async fixture=>{
+ const {request}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
+ for(let i=0;i<10;i++){
+  const headers=await challengeHttp(request);assert.equal((await request('mfa/complete',{method:'recovery',code:'A'.repeat(26)},headers)).status,401);
+ }
+ const response=await request('mfa/complete',{method:'recovery',code:codes.codes[0]},await challengeHttp(request));assert.equal(response.status,429);
+}));
+
+test('expired lease cannot consume recovery proof or create a session; a later lease recovers safely',()=>local(async fixture=>{
+ const {request,call,db}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
+ const headers=await challengeHttp(request),parts=Object.fromEntries(headers.Cookie.split('; ').map(c=>c.split('=')));
+ assert.equal(await call('expiredLease',parts.lan_mfa_local_pending,parts.lan_mfa_local_browser,codes.codes[0],Math.floor(Date.now()/1000)),null);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),0);
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},headers)).status,200);
+}));
+
+test('shared primary completion cannot turn Google authentication into an MFA bypass; hosted enrollment remains unavailable',()=>local(async fixture=>{
+ const {request,call,db,instance}=fixture,{activate,c}=await enrollHttp(fixture);await activate();
+ const result=await call('primary',{userId:c.userId,authVersion:1,status:'active',emailVerifiedAt:c.now},'google',Math.floor(Date.now()/1000));
+ assert.equal(result.kind,'pending');assert.equal(await call('resolve',result.token,Math.floor(Date.now()/1000)),null);
+ assert.equal(await db.prepare("SELECT primary_method FROM auth_mfa_transactions WHERE purpose='login'").first('primary_method'),'google');
+ assert.equal((await instance.dispatchFetch('https://dev.lan-party.club/api/auth/mfa/enroll/start',{method:'POST'})).status,404);
+ assert.equal((await request('login',{email:profile.email,password:'fictional incorrect password'})).status,401);
+ assert.equal((await request('login',{email:'unknown@example.test',password:profile.password})).status,401);
+}));
+
+test('shared abuse signals require server-verified single-use Turnstile without spending a recovery code first',()=>local(async fixture=>{
+ const {request,call,db}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
+ const headers={...await challengeHttp(request),'CF-Connecting-IP':'203.0.113.88'};
+ await call('signals','203.0.113.88');
+ const input={method:'recovery',code:codes.codes[0]};
+ assert.equal((await request('mfa/complete',input,headers)).status,403);
+ assert.equal((await request('mfa/complete',{...input,turnstileToken:'incorrect-fixture-proof'},headers)).status,403);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),0);
+ assert.equal((await request('mfa/complete',{...input,turnstileToken:'synthetic-mfa-proof'},headers)).status,200);
+}));
+
+test('pending expiry, missing encryption keys and stale generations fail closed without consuming proof',()=>local(async fixture=>{
+ const {request,raw,call,db}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
+ const headers=await challengeHttp(request),parts=Object.fromEntries(headers.Cookie.split('; ').map(c=>c.split('='))),now=Math.floor(Date.now()/1000);
+ assert.equal(await call('challengeAt',parts.lan_mfa_local_pending,parts.lan_mfa_local_browser,now+301),false);
+ assert.equal((await raw('missingKeys',parts.lan_mfa_local_pending,parts.lan_mfa_local_browser,codes.codes[0],now)).status,409);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),0);
+ // A newly completed primary login cancels only this browser's preceding challenge.
+ const newLogin=await request('login',{email:profile.email,password:profile.password},{Cookie:headers.Cookie});assert.equal(newLogin.status,200);
+ assert.equal((await request('mfa/challenge',undefined,headers)).status,401);
+}));
+
+test('normal password recovery revokes sessions and pending challenges but never removes the MFA factor or recovery set',()=>local(async fixture=>{
+ const {request,call,db}=fixture,{activate,codes}=await enrollHttp(fixture);const active=await activate();
+ const pending=await challengeHttp(request);
+ assert.equal((await request('forgot-password',{email:profile.email})).status,202);
+ const mail=await call('resetmail'),url=new URL(mail.url),fragment=new URLSearchParams(url.hash.slice(1));
+ const reset=await request('reset-password',{userId:fragment.get('user'),token:fragment.get('token'),password:'fictional replacement password'});assert.equal(reset.status,200);
+ assert.equal((await request('session',undefined,{Cookie:cookieJar(active)})).status,401);
+ assert.equal((await request('mfa/challenge',undefined,pending)).status,401);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),10);
+ const login=await request('login',{email:profile.email,password:'fictional replacement password'});assert.equal((await login.clone().json()).next,'/mfa');
+ const Cookie=cookieJar(login),state=await(await request('mfa/challenge',undefined,{Cookie})).json();
+ assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},{Cookie,'X-CSRF-Token':state.csrfToken})).status,200);
+}));
 async function local(run,{legacy=false}={}){
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script,cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},
   bindings:{REGISTRATION_MODE:'local-only',AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin,
-   AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32),PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32)}}));
+   AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32),PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),...keyConfig,
+   AUTH_TURNSTILE_SITE_KEY:'synthetic-site-key',TURNSTILE_SECRET_KEY:'synthetic-only-turnstile-secret'}}));
  try{
   const db=await instance.getD1Database('DB');const apply=n=>db.batch(migrations[n-1].map(s=>db.prepare(s)));
   for(let n=1;n<=12;n++)await apply(n);if(!legacy)await apply(13);
@@ -65,7 +237,7 @@ async function local(run,{legacy=false}={}){
    const cookie=login.headers.get('set-cookie').split(';')[0],token=cookie.split('=')[1],sessionDigest=createHash('sha256').update('lan-party:session:v1:'+token).digest('hex');
    const user=await db.prepare('SELECT id,auth_version FROM users').first(),now=Math.floor(Date.now()/1000);
    await db.prepare(`INSERT INTO auth_recent_authentication(session_digest,user_id,auth_version,method,authenticated_at,expires_at)
-    VALUES (?,?,?,'password',?,?)`).bind(sessionDigest,user.id,user.auth_version,now,now+300).run();
+    VALUES (?,?,?,'password',?,?) ON CONFLICT(session_digest) DO NOTHING`).bind(sessionDigest,user.id,user.auth_version,now,now+300).run();
    return {c:{userId:user.id,authVersion:user.auth_version,sessionDigest,browserDigest:'aa'.repeat(32),now},cookie,token};
   };
   const begin=c=>call('beginEnrollment',c,keyConfig,'local','MFA Fixture #0011');
@@ -147,7 +319,7 @@ test('enrollment encrypts pending secrets and stages codes once without activati
  const stored=JSON.stringify((await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results);
  for(const code of recovery.codes)assert.equal(stored.includes(code),false);
  assert.equal((await raw('verifyEnrollment',c,setup.token,code,keyConfig,'local','22'.repeat(32))).status,409);
- assert.equal((await raw('requireEnrollmentActivation')).status,409);
+ assert.equal(await call('requireEnrollmentActivation'),true);
  // Without the one-time acknowledgment (lost response), even the prepared batch cannot activate.
  assert.deepEqual(await call('activate',c,setup.token,'00'.repeat(32),keyConfig,'local'),[0,0,0]);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
@@ -192,7 +364,7 @@ test('concurrent enrollment proof cannot replay or duplicate recovery sets; fail
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),10);
 }));
 
-test('prepared activation is atomic, rejects duplicates, revokes old sessions and leaves live activation gated',()=>local(async({db,seed,stage,call,raw,request})=>{
+test('prepared activation is atomic, rejects duplicates, revokes old sessions and login requires MFA',()=>local(async({db,seed,stage,call,raw,request})=>{
  const {c,cookie}=await seed(),{setup,codes}=await stage(c);
  await db.exec("CREATE TRIGGER fixture_activation_failure BEFORE INSERT ON auth_totp_factors BEGIN SELECT RAISE(ABORT,'fictional'); END;");
  assert.equal((await raw('activate',c,setup.token,codes.acknowledgment,keyConfig,'local')).status,409);
@@ -204,8 +376,8 @@ test('prepared activation is atomic, rejects duplicates, revokes old sessions an
  assert.equal((await request('session',undefined,{Cookie:cookie})).status,401);
  assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),1);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
- assert.equal((await request('login',{email:profile.email,password:profile.password})).status,503);
- for(const route of ['start','verify','activate','cancel'])assert.equal((await request('mfa/enroll/'+route,{})).status,404);
+ const login=await request('login',{email:profile.email,password:profile.password});assert.equal(login.status,200);assert.equal((await login.json()).next,'/mfa');
+ for(const route of ['start','verify','activate','cancel'])assert.equal((await request('mfa/enroll/'+route,{})).status,401);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));
 
@@ -281,8 +453,8 @@ test('concurrent activation has one winner and a changed generation prevents a p
  });
 });
 
-test('enrollment gate is a hard false and cannot be enabled by frontend build variables',async()=>{
- const result=await build({entryPoints:['src/lib/mfa-mode.ts'],bundle:true,write:false,format:'esm',platform:'node',define:{'import.meta.env.VITE_MFA_MODE':'"hosted-dev"'}});
+test('hosted enrollment cannot be enabled by frontend build variables',async()=>{
+ const result=await build({entryPoints:['src/lib/mfa-mode.ts'],bundle:true,write:false,format:'esm',platform:'node',define:{'import.meta.env.DEV':'false','import.meta.env.VITE_MFA_MODE':'"hosted-dev"'}});
  const module=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
  assert.equal(module.MFA_ENROLLMENT_AVAILABLE,false);
 });

@@ -13,9 +13,9 @@ export const mfaSessionCondition=`(NOT EXISTS(SELECT 1 FROM auth_totp_factors f 
       AND m.factor_id=f.factor_id AND m.verified_at>=s.created_at AND m.verified_at<s.expires_at
       AND m.verified_at<=unixepoch()))`;
 
-// Phase 3.8.3 must implement the actual primary -> restricted pending -> MFA session
-// transition. No enrollment route may activate while this is false.
-export const MFA_LOGIN_INTEGRATION_READY=false;
+// Shared primary -> restricted pending -> MFA session transition is implemented.
+// Hosted enrollment has an independent literal local-only gate in mfa-http.ts.
+export const MFA_LOGIN_INTEGRATION_READY=true;
 export interface PendingMfaAuthentication {
   userId:string;authVersion:number;factorId:string;browserDigest:string;
   primaryMethod:'password'|'google';primaryAuthenticatedAt:number;expiresAt:number;

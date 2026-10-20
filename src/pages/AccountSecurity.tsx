@@ -18,6 +18,7 @@ export default function AccountSecurity(){
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
   const [disconnecting,setDisconnecting]=useState(false),[passwordSetupOpen,setPasswordSetupOpen]=useState(passwordSetupRequested());
   const [needsGoogle,setNeedsGoogle]=useState(false);
+  const [mfaOpen,setMfaOpen]=useState(false);
   const [googleBusy,setGoogleBusy]=useState(false),googlePending=useRef(false);
   const googleButton=useRef<GoogleButtonHandle>(null),activeSession=useRef(session?.csrfToken),actionPending=useRef(false);
   const disconnectTrigger=useRef<HTMLButtonElement>(null);
@@ -25,7 +26,7 @@ export default function AccountSecurity(){
   const passwordPanel=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(needsGoogle)passwordPanel.current?.focus();},[needsGoogle]);
   activeSession.current=session?.csrfToken;
-  function clearAction(){clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);setNeedsPassword(false);setDisconnecting(false);setFeedback('');setSiteKey('');setProof(null);setAttempt(n=>n+1);}
+  function clearAction(){setMfaOpen(false);clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);setNeedsPassword(false);setDisconnecting(false);setFeedback('');setSiteKey('');setProof(null);setAttempt(n=>n+1);}
   function selectAction(action:'password'|'disconnect'){
     if(actionPending.current||googlePending.current)return;
     googleButton.current?.cancelLink();clearAction();
@@ -46,6 +47,7 @@ export default function AccountSecurity(){
     try{const r=await googleRequest(name,input,csrf),body=await r.json();
       if(activeSession.current!==csrf)return;
       if(r.ok&&body.next==='/login'){clearPasswordSetup();window.location.assign(body.notification?'/login?password=updated&notice='+body.notification:'/login');navigating=true;}
+      else if(r.ok&&body.next==='/mfa'){clearPasswordSetup();window.location.assign('/mfa');navigating=true;}
       else if(r.ok&&name==='add-password'&&body.next==='/account/security'){
         clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);
         // Read the rotated HttpOnly session and its new CSRF proof before another action.
@@ -116,7 +118,7 @@ export default function AccountSecurity(){
         <button type="button" className="button button-secondary" disabled={busy} onClick={cancelConfirmation}>Cancel</button>
         </fieldset></form></div></dd>}</div></dl>
     </section>
-      {MFA_ENROLLMENT_AVAILABLE&&<MfaEnrollment csrf={csrf}/>}
+      {MFA_ENROLLMENT_AVAILABLE&&<MfaEnrollment csrf={csrf} open={mfaOpen} disabled={busy||googleBusy} onOpen={()=>{if(actionPending.current||googlePending.current)return;googleButton.current?.cancelLink();clearAction();setMfaOpen(true);}} onBusy={value=>{actionPending.current=value;setBusy(value);}} onActivated={refresh}/>}
     </>}
     <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2>
       <dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified ? 'Verified' : 'Not verified'}</dd></div></dl>

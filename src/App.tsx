@@ -14,6 +14,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import GoogleComplete from './pages/GoogleComplete';
 import AccountSecurity from './pages/AccountSecurity';
+import MfaChallenge from './pages/MfaChallenge';
 import { AuthProvider } from './lib/auth';
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
           <Route path="/login" element={<Login />} />
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/mfa" element={<MfaChallenge />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/register" element={<Registration />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account" element={<Account />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/security" element={<AccountSecurity />} />}

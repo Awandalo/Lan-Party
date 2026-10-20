@@ -14,6 +14,7 @@ before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
   import app from './worker/index';
   import {localMailbox} from './worker/auth/email';
+  import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
   let sends=0;
   globalThis.fetch=async(input,init)=>{
    const url=String(input);
@@ -28,7 +29,7 @@ before(async()=>{
    if(url==='https://api.resend.com/emails'){sends++;return Response.json({id:'synthetic'});}
    throw Error('External request blocked in offline fixture');
   };
-  export default {async fetch(request,env){if(new URL(request.url).pathname==='/fixture/notifications')return Response.json({added:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-added'),changed:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-changed')});if(new URL(request.url).pathname==='/fixture/sends')return Response.json(sends);return app.fetch(request,env);}};
+  export default {async fetch(request,env){if(new URL(request.url).pathname==='/fixture/otp'){const {secret}=await request.json();return Response.json(await generate({secret:base32.decode(secret),crypto:otpCrypto,epoch:Math.floor(Date.now()/1000)}));}if(new URL(request.url).pathname==='/fixture/notifications')return Response.json({added:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-added'),changed:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-changed')});if(new URL(request.url).pathname==='/fixture/sends')return Response.json(sends);return app.fetch(request,env);}};
  `},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
  migrations=[];
  for(const name of(await readdir(new URL('../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort()){
@@ -41,11 +42,59 @@ function jwt(nonce,overrides={},wrongKey=false){const time=Math.floor(Date.now()
  const parts=[{alg:'RS256',kid:'fictional',typ:'JWT'},claims].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.');
  return parts+'.'+sign('RSA-SHA256',Buffer.from(parts),wrongKey?generateKeyPairSync('rsa',{modulusLength:2048}).privateKey:privateKey).toString('base64url');
 }
+async function enrollMfa(fixture,headers){
+ const {request,instance,session}=fixture;
+ const start=await request('mfa/enroll/start',{},headers);assert.equal(start.status,200);const setup=await start.json();
+ const code=await(await instance.dispatchFetch(origin+'/fixture/otp',{method:'POST',body:JSON.stringify({secret:setup.secret})})).json();
+ const checked=await request('mfa/enroll/verify',{token:setup.token,code},headers);assert.equal(checked.status,200);const saved=await checked.json();
+ const activated=await request('mfa/enroll/activate',{token:setup.token,acknowledgment:saved.acknowledgment},headers);assert.equal(activated.status,200);
+ return {headers:await session(activated),codes:saved.codes};
+}
+async function finishMfa(fixture,response,code){
+ const {request,session}=fixture,Cookie=response.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
+ const pending=await request('mfa/challenge',undefined,{Cookie});assert.equal(pending.status,200);
+ const csrf=(await pending.json()).csrfToken;
+ const complete=await request('mfa/complete',{method:'recovery',code},{Cookie,'X-CSRF-Token':csrf});assert.equal(complete.status,200);
+ return session(complete);
+}
+
+test('Google-only and combined accounts share MFA; adding the first password and unlinking cannot bypass it',()=>local(async fixture=>{
+ const {start,callback,complete,session,request,db}=fixture;
+ const flow=await start();await callback(flow);const initial=await session(await complete(flow));
+ const enrolled=await enrollMfa(fixture,initial);
+ const signin=await callback(await start());assert.equal(signin.headers.get('location'),'/mfa');
+ const headers=await finishMfa(fixture,signin,enrolled.codes[0]);
+ const added=await request('google/add-password',{password:'fictional MFA password'},headers);assert.equal(added.status,200);
+ assert.equal((await added.clone().json()).next,'/mfa');
+ assert.equal((await request('session',undefined,headers)).status,401);
+ const both=await finishMfa(fixture,added,enrolled.codes[1]);
+ assert.deepEqual(await(await request('google/methods',undefined,both)).json(),{google:true,password:true});
+ const password=await request('login',{email:'google@example.test',password:'fictional MFA password'});assert.equal((await password.clone().json()).next,'/mfa');
+ const signed=await finishMfa(fixture,password,enrolled.codes[2]);
+ assert.equal((await request('google/reauth-password',{password:'fictional MFA password'},signed)).status,200);
+ assert.equal((await request('google/unlink',{},signed)).status,200);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+ const again=await request('login',{email:'google@example.test',password:'fictional MFA password'});assert.equal((await again.json()).next,'/mfa');
+}));
+
+test('Google linking replaces an MFA session with a restricted challenge at exactly the next generation',()=>local(async fixture=>{
+ const {request,db,session,start,callback}=fixture,password='fictional MFA password';
+ await request('register',{nickname:'MFA Link Fixture',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
+ await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();
+ const enrolled=await enrollMfa(fixture,await session(await request('login',{email:'google@example.test',password})));
+ const before=await db.prepare('SELECT auth_version FROM users').first('auth_version');
+ const flow=await start('link',enrolled.headers),linked=await callback(flow,{}, {Cookie:flow.Cookie+'; '+enrolled.headers.Cookie});
+ assert.equal(linked.headers.get('location'),'/mfa');
+ assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),before+1);
+ assert.equal((await request('session',undefined,enrolled.headers)).status,401);
+ const replacement=await finishMfa(fixture,linked,enrolled.codes[0]);assert.equal((await request('google/methods',undefined,replacement)).status,200);
+}));
 async function local(run,overrides={},migrationCount=migrations.length){
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script,cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},
  bindings:{GOOGLE_AUTH_MODE:'local-only',AUTH_SESSION_MODE:'local-only',REGISTRATION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32),AUTH_PUBLIC_ORIGIN:origin,
  PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),GOOGLE_CLIENT_ID:client,GOOGLE_CLIENT_SECRET:'fictional-google-secret',
- AUTH_TURNSTILE_SITE_KEY:'synthetic-site-key',TURNSTILE_SECRET_KEY:'synthetic-only-turnstile-secret',...overrides}}));
+ AUTH_TURNSTILE_SITE_KEY:'synthetic-site-key',TURNSTILE_SECRET_KEY:'synthetic-only-turnstile-secret',
+ MFA_ENCRYPTION_KEYS:JSON.stringify({fixture:'44'.repeat(32)}),MFA_ACTIVE_KEY_ID:'fixture',...overrides}}));
  try{
   const db=await instance.getD1Database('DB');for(const part of migrations.slice(0,migrationCount))await db.batch(part.map(s=>db.prepare(s)));
   let ordinal=0;
@@ -296,6 +345,9 @@ test('password proof is required for linking and unlinking; generation fencing p
  const password='fictional original password';await request('register',{nickname:'Local Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
  await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();let headers=await session(await request('login',{email:'google@example.test',password}));
  const id=await db.prepare('SELECT id FROM users').first('id');
+ // Login now records recent primary proof for enrollment. Expire that proof to
+ // exercise the existing explicit reauthentication requirement for stale sessions.
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=authenticated_at-301,expires_at=expires_at-301').run();
  const required=await request('google/start',{purpose:'link'},headers);assert.equal(required.status,428);
  assert.equal((await required.json()).code,'reauth_required');
  assert.equal((await request('google/reauth-password',{password:'wrong fictional password'},headers)).status,401);

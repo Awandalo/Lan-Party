@@ -5,6 +5,7 @@ import { verification } from './auth/verification';
 import { passwordRecovery } from './auth/recovery';
 import { googleAuthentication } from './auth/google';
 import type { GoogleEnvironment } from './auth/google';
+import {mfaAuthentication} from './auth/mfa-http';
 
 interface Env extends AuthenticationEnvironment, GoogleEnvironment {
   ASSETS: Fetcher;
@@ -14,6 +15,7 @@ interface Env extends AuthenticationEnvironment, GoogleEnvironment {
 export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname.startsWith('/api/auth/mfa/'))return mfaAuthentication(request,env);
     if (pathname.startsWith('/api/auth/google/')) return googleAuthentication(request, env);
 
     if (pathname === '/api/auth/register') return registerAccount(request, env);

@@ -84,8 +84,9 @@ test('login sets only the seven-day host-only secure HttpOnly cookie, not a toke
   await register();
   const response = await request('login', { ...credentials, email: credentials.email.toUpperCase() });
   assert.equal(response.status, 200);
-  assert.match(response.headers.get('set-cookie'), /^__Host-lan_session=[0-9a-f]{64}; Max-Age=604800; Secure; HttpOnly; SameSite=Lax; Path=\/$/);
-  assert.deepEqual(await response.json(), { message: 'Logged in.' });
+  assert.match(response.headers.getSetCookie()[0], /^__Host-lan_session=[0-9a-f]{64}; Max-Age=604800; Secure; HttpOnly; SameSite=Lax; Path=\/$/);
+  assert.ok(response.headers.getSetCookie().slice(1).every(cookie=>cookie.includes('Max-Age=0')));
+  assert.deepEqual(await response.json(), { next:'/account',message: 'Logged in.' });
 }));
 
 test('incorrect, nonexistent and disabled accounts get identical generic authentication failures and no sessions', () => local(async ({ db, request, register }) => {
@@ -138,6 +139,7 @@ test('relogin rotates an existing cookie and credential changes invalidate every
 test('expired sessions and sessions belonging to disabled accounts cannot read the account', () => local(async ({ db, request, register, login }) => {
   await register(); const cookie = await login();
   const row = await db.prepare('SELECT * FROM auth_sessions').first();
+  await db.prepare('DELETE FROM auth_recent_authentication WHERE session_digest=?').bind(row.token_digest).run();
   await db.prepare('DELETE FROM auth_sessions WHERE id=?').bind(row.id).run();
   const now = Math.floor(Date.now() / 1000);
   await db.prepare(`INSERT INTO auth_sessions (id,user_id,token_digest,auth_version,created_at,expires_at)

@@ -76,7 +76,7 @@ test('offline hosted DEV register → verify → login/logout → reset uses gua
   assert.equal((await request('verify-email', proof(verification))).status, 400);
   const signedIn = await login(profile.password); assert.equal(signedIn.status, 200);
   const cookie = signedIn.headers.get('set-cookie').split(';')[0];
-  assert.match(signedIn.headers.get('set-cookie'), /Secure; HttpOnly; SameSite=Lax; Path=\/$/);
+  assert.match(signedIn.headers.getSetCookie()[0], /Secure; HttpOnly; SameSite=Lax; Path=\/$/);
   const session = await (await request('session', undefined, { Cookie: cookie })).json();
   assert.deepEqual(Object.keys(session.account).sort(), ['memberNumber', 'nickname', 'userId']); assert.equal(session.emailVerified, true);
   assert.equal((await request('logout', {}, { Cookie: cookie })).status, 403);

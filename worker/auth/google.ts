@@ -7,8 +7,8 @@ import { validateAccountProfile } from './accounts';
 import { LoginLimiter, LoginLimited, LoginBusy } from './login-limits';
 import { LoginChallenge, verifyLoginChallenge } from './turnstile';
 import { generateToken, digestToken, isValidToken } from './tokens';
-import { readSessionCookie, sessionCookie, clearSessionCookie } from './cookies';
-import { D1SessionStore, issueSession, resolveSession, revokeSession } from './sessions';
+import { readSessionCookie, clearSessionCookie } from './cookies';
+import { D1SessionStore, resolveSession, revokeSession } from './sessions';
 import { hashPassword, isValidPassword, verifyPassword } from './passwords';
 import { deliverVerification } from './verification-service';
 import type { AccountIdentity } from './contracts';
@@ -16,6 +16,8 @@ import { googleProof as proofDigest } from './google-proof';
 import { encodeGoogleProfile, decodeGoogleProfile } from './google-profile';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
 import { passwordNotice } from './password-notification';
+import {completePrimary} from './mfa-login';
+import {primaryResponse,supersedePending} from './mfa-http';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
@@ -55,10 +57,11 @@ async function current(request: Request, env: GoogleEnvironment) {
   return {account, token, digest:await digestToken(token,'session')};
 }
 async function recent(db: D1Database, account: AccountIdentity, digest: string, method?: string) {
-  const row=await db.prepare(`SELECT method FROM auth_recent_authentication WHERE user_id=? AND session_digest=?
+  const row=await db.prepare(`SELECT method,authenticated_at FROM auth_recent_authentication WHERE user_id=? AND session_digest=?
     AND auth_version=? AND authenticated_at<=? AND expires_at>?
-    AND (method<>'google' OR authenticated_at>?)`).bind(account.userId,digest,account.authVersion,now(),now(),now()-googleFreshnessSeconds).first<{method:string}>();
+    AND (method<>'google' OR authenticated_at>?)`).bind(account.userId,digest,account.authVersion,now(),now(),now()-googleFreshnessSeconds).first<{method:'password'|'google';authenticated_at:number}>();
   if (!row || (method && row.method!==method)) throw new RecentAuthenticationRequired(method);
+  return row;
 }
 async function grant(db: D1Database, account: AccountIdentity, digest: string, method: 'password'|'google', authenticatedAt = now()) {
   const time=authenticatedAt;
@@ -72,11 +75,12 @@ async function grant(db: D1Database, account: AccountIdentity, digest: string, m
 }
 async function signedIn(env: GoogleEnvironment, account: AccountIdentity, request: Request) {
   if (account.emailVerifiedAt===null) return redirect('/verify-email');
-  const session=await issueSession(new D1SessionStore(env.DB),account,now());
-  await grant(env.DB,account,await digestToken(session.token,'session'),'google');
+  await supersedePending(request,env.DB);
+  const session=await completePrimary(env.DB,account,'google',now());
+  if(session.kind==='session')await grant(env.DB,account,await digestToken(session.token,'session'),'google');
   const previous=readSessionCookie(request);
   if (previous) await revokeSession(new D1SessionStore(env.DB),previous,now());
-  return redirect('/account',sessionCookie(session.token));
+  return primaryResponse(request,session,true);
 }
 async function flowFor(request: Request, env: GoogleEnvironment, phase: string, state?: string) {
   const browser=browserToken(request); if (!browser) throw new Error('Missing transaction');
@@ -117,7 +121,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=?`).bind(flow.state_digest).run();
           return redirect('/account/security#add-password');
         }
-        await recent(env.DB,session.account,session.digest);
+        const primary=await recent(env.DB,session.account,session.digest);
         // A different account owning this email is never silently merged.
         const collision=await env.DB.prepare('SELECT id FROM users WHERE email_normalized=? AND id<>?').bind(identity.email,flow.user_id).first();
         if (collision) throw new Error('Identity unavailable');
@@ -134,9 +138,9 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         if (linkedResult[1].meta.changes!==1) throw new Error('Account changed');
         // The generation change revoked every old session. Replace only this
         // proven caller's session; never reread and adopt a later generation.
-        const replacement=await issueSession(new D1SessionStore(env.DB),
-          {...session.account,authVersion:session.account.authVersion+1},now());
-        return redirect('/account/security',sessionCookie(replacement.token));
+        const replacement=await completePrimary(env.DB,
+          {...session.account,authVersion:session.account.authVersion+1},primary.method,now(),primary.authenticated_at);
+        return primaryResponse(request,replacement,true,'/account/security');
       }
       const linked=await env.DB.prepare(`SELECT u.id AS userId,u.status,u.auth_version AS authVersion,u.email_verified_at AS emailVerifiedAt
         FROM users u JOIN user_auth_providers p ON p.user_id=u.id WHERE p.provider='google'
@@ -228,9 +232,9 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         await deliverVerification(env.DB,account,profile.email,origin.origin,emailTransport(request,env),time);
         return reply(200,{next:'/verify-email'},{'Set-Cookie':profileCookie('',!hostedDev(request,env),0)});
       }
-      const session=await issueSession(new D1SessionStore(env.DB),account,time);
-      await grant(env.DB,account,await digestToken(session.token,'session'),'google');
-      const response=reply(200,{next:'/account'},{'Set-Cookie':sessionCookie(session.token)});
+      const session=await completePrimary(env.DB,account,'google',time);
+      if(session.kind==='session')await grant(env.DB,account,await digestToken(session.token,'session'),'google');
+      const response=primaryResponse(request,session);
       response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
       return response;
     }
@@ -278,7 +282,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     }
     if (action==='request-password') return reply(404,{error:'Not found'});
     if (action==='add-password') {
-      await recent(env.DB,account,digest,'google');
+      const primary=await recent(env.DB,account,digest,'google');
       if (Object.keys(input).join(',')!=='password' || typeof input.password!=='string' || !isValidPassword(input.password))
         return reply(400,{error:'Use a 12–128 character password.'});
       const limit=await registrationLimiter(env.DB,env.AUTH_RATE_LIMIT_SECRET!,now(),'password-add');
@@ -301,9 +305,10 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       const notification=await passwordNotice(request,env,account,'password-added');
       // The credential write revokes every old session. Replace only this browser's
       // session at the expected generation; never adopt a concurrent newer change.
-      const replacement=await issueSession(new D1SessionStore(env.DB),
-        {...account,authVersion:account.authVersion+1},now());
-      return reply(200,{next:'/account/security',notification},{'Set-Cookie':sessionCookie(replacement.token)});
+      const replacement=await completePrimary(env.DB,
+        {...account,authVersion:account.authVersion+1},'google',now(),primary.authenticated_at);
+      const response=primaryResponse(request,replacement,false,'/account/security');
+      return new Response(JSON.stringify({...await response.json() as Record<string,unknown>,notification}),{status:response.status,headers:response.headers});
     }
     return reply(404,{error:'Not found'});
   } catch (error) {

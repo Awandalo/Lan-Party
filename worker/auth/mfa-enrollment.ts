@@ -104,8 +104,8 @@ export async function cancelEnrollment(db:D1Database,c:EnrollmentContext,token:s
       WHERE ${bound} AND t.phase IN ('pending','verified') AND ${live} RETURNING transaction_id`).bind(...values(digest,c),c.now,c.now),
   ]);return results[1].results.length===1;
 }
-// Internal prepared batch for Phase 3.8.3, tested only on fictional local fixtures.
-// No application handler invokes this while the login transition is incomplete.
+// The local-only enrollment handler appends session + assurance creation to this
+// same batch. Never execute activation and session replacement independently.
 export async function prepareEnrollmentActivation(db:D1Database,c:EnrollmentContext,token:string,ack:string,config:MfaKeys,environment:'local'|'dev'){
   const row=await pending(db,c,token,'verified'),digest=await mfaDigest('transaction',token),ackDigest=await mfaDigest('acknowledgment',ack);
   const secret=await decryptTotpSecret(sealed(row),config,cryptoContext(c,row.transaction_id,'pending',environment));
@@ -123,6 +123,7 @@ export async function prepareEnrollmentActivation(db:D1Database,c:EnrollmentCont
 }
 export function requireEnrollmentActivation(){
   if(!MFA_LOGIN_INTEGRATION_READY)throw Error('Enrollment activation unavailable until shared MFA login enforcement is complete');
+  return true;
 }
 // These are mutation statements, not authentication completion. Future login must
 // combine them with transaction consumption and session creation in one D1 batch.

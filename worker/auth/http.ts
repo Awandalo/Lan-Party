@@ -8,8 +8,10 @@ import type { RegistrationEnvironment } from './registration';
 import { LoginLimiter, LoginLimited, LoginBusy } from './login-limits';
 import { LoginChallenge, turnstileConfiguration, verifyLoginChallenge } from './turnstile';
 import type { TurnstileEnvironment } from './turnstile';
-import { D1SessionStore, issueSession, resolveSession, revokeSession } from './sessions';
-import { clearSessionCookie, readSessionCookie, sessionCookie } from './cookies';
+import { D1SessionStore, resolveSession, revokeSession } from './sessions';
+import {completePrimary} from './mfa-login';
+import {primaryResponse,supersedePending} from './mfa-http';
+import { clearSessionCookie, readSessionCookie } from './cookies';
 import { digestToken } from './tokens';
 import { sessionCsrfToken } from './csrf';
 
@@ -74,10 +76,11 @@ export async function authentication(request: Request, env: AuthenticationEnviro
         // Disclose verification state only after password proof; do not issue a session.
         if (credential.emailVerifiedAt === null) return reply(403, { code: 'verification_required', error: 'Verify your email before logging in.' });
         // Keep the generation read BEFORE verification: D1 fences concurrent credential changes.
-        const session = await issueSession(store, credential, now);
+        await supersedePending(request,env.DB);
+        const session = await completePrimary(env.DB, credential, 'password', now);
         const previous = readSessionCookie(request);
         if (previous) await revokeSession(store, previous, now);
-        return reply(200, { message: 'Logged in.' }, { 'Set-Cookie': sessionCookie(session.token) });
+        return primaryResponse(request,session);
       } finally { if (!finalized) await reservation.finish(false); }
     }
     const token = readSessionCookie(request);

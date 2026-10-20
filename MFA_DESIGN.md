@@ -1,7 +1,8 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
-Status: architecture approved in principle; Phase 3.8.2 foundations implemented and
-tested locally. Remote migrations, keys, activation, push and deployment are not approved.
+Status: architecture approved; Phase 3.8.2 foundations and Phase 3.8.3 shared login /
+local enrollment integration implemented locally. Remote migrations, keys, hosted
+activation, push and deployment are not approved.
 The owner reports Phase 3.7 manual DEV acceptance passed 7/7. MFA is optional for
 every role, one active TOTP authenticator per UUID account, shared across password
 and Google login. No SMS, email OTP, trusted devices or automatic support bypass.
@@ -36,10 +37,12 @@ session without a server-authorized proof. Session resolution must independently
 require matching MFA assurance for an enabled factor: even an accidentally inserted
 unassured session must not authorize an account/API/RBAC operation.
 
-Google linking and first-password session replacements must preserve assurance only
+Google linking and first-password session replacements must originate only
 from their exact already-MFA-authenticated caller, at the expected next generation;
-never infer MFA from Google claims or an old session. Transfers preserve original
-verification times rather than manufacturing fresh step-up proof. New Google accounts have no
+never infer MFA from Google claims or an old session. The local implementation uses
+a conservative fresh MFA challenge for those replacements instead of transferring
+old MFA assurance. Original primary-authentication times are preserved; an account
+change does not manufacture fresh Google/password proof. New Google accounts have no
 enrolled factor; completion still uses the shared gate. Google reauthentication must
 support fixed, server-bound MFA settings return actions, not arbitrary redirect URLs.
 
@@ -262,5 +265,57 @@ or automatically restore the whole database. No PROD rollout is approved.
   cancellation, expiry or unmount. No persistent browser storage, external QR
   generation, secret logging or actual emails are used.
 
-Remaining approval: local Phase 3.8.3 shared login challenge and final enrollment
-integration; no push/deployment or remote migration/key configuration is implied.
+The statements above describe the Phase 3.8.2 checkpoint. Phase 3.8.3 supersedes
+its disabled integration gates as follows.
+
+## Phase 3.8.3 local integration
+
+- Password, Google signup/sign-in and Google linking/first-password replacement
+  use `completePrimary`. No-factor accounts retain normal sessions; enabled-factor
+  accounts receive a five-minute, non-sliding, digest-only `login` transaction.
+  The ordinary session store still refuses MFA accounts, and all session resolvers
+  independently require current factor/generation assurance.
+- Separate pending and browser cookies are HttpOnly/SameSite=Strict, Secure and
+  `__Host-` prefixed on HTTPS. Explicit loopback-only cookie names support local HTTP.
+  Pending CSRF uses a separate domain and the existing HMAC middleware. Pending
+  state grants no account/protected access; cancellation, expiry, supersession and
+  generation changes require primary login again. Bounded request cleanup removes
+  expired login transactions; no scheduler is introduced.
+- TOTP CAS or one recovery verifier, transaction verification/consumption, session,
+  MFA assurance and primary-proof metadata commit in one D1 batch. The active
+  reservation owner/lease is checked inside the guarded proof mutation. Missing
+  keys fail closed even for recovery-code completion. Codes are never logged.
+- Existing D1 counters now also support account-serialized MFA leases: five
+  confirmed failures per challenge and user/IP, ten per account, all sliding
+  15-minute windows. Pending/successful checks spend no failures; account/pair keys
+  survive challenge restarts. Existing shared abuse signals require server-verified
+  Turnstile without bypassing these limits. An attacker with primary credentials
+  can still cause a temporary account-specific cooldown; no permanent lock exists.
+- Enrollment start/verify/cancel/activate HTTP handlers require literal loopback,
+  local-only session mode, local transport, a full verified session, CSRF and recent
+  primary proof. Hosted enrollment remains 404, independently of frontend flags.
+  Acknowledgment atomically enables the factor, advances generation, revokes old
+  sessions and creates an assured replacement plus a new CSRF binding. Lost code
+  displays cannot activate; lost activation responses recover through normal MFA
+  login. Existing migration 0013 suffices; no migration file was changed.
+- `/mfa` supports authenticator/recovery input, explicit cancellation, expiry,
+  generic errors, accurate cooldowns and conditional Turnstile. Requests are never
+  automatically retried. Local Account Security aligns MFA below Connected accounts;
+  switching unsubmitted actions clears setup material, while submitted actions lock
+  switching. Setup needs primary proof within two minutes; sign in again if stale.
+  Disable/regenerate, purpose-bound fresh management step-up and management
+  notifications remain Phase 3.8.4; no such actions are exposed here.
+- Local workerd tests cover both providers, replacement generations, recovery,
+  replay/concurrency/rollback, interrupted acknowledgment, browser/CSRF bindings,
+  missing keys and limits. Browser fixtures cover input clearing, code acknowledgment,
+  cancellation/focus and a 360px frame without overflow. No remote CPU headroom,
+  real authenticator interoperability or hosted behavior is claimed by these tests.
+- Verification: 187 distinct authentication/security tests passed across focused
+  batches, including the existing 100-user shared-IP scenario, RBAC, storage,
+  recovery and hosted-DEV regressions. Strict TypeScript, default and hosted-DEV
+  builds, local Worker dry-run packaging and diff checks passed. Unrelated event,
+  news and DNS suites were omitted because their code/schema were unchanged.
+
+Next approvals remain separate: Phase 3.8.4 work; any push/DEV rollout; fresh DEV
+recovery and migration 0013; independently generated/backed-up MFA keys; and hosted
+enrollment/controlled live testing after the remaining security review. No PROD work.

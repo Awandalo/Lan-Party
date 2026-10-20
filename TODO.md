@@ -337,9 +337,14 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Local Phase 3.8.2: prepare migration 0013, reviewed pinned TOTP/QR dependencies,
   AES-GCM/context/key-ring primitives, replay/recovery consumption statements,
   session-bound enrollment preparation and a hard-disabled UI with no MFA API routes.
-- [ ] Owner approve local Phase 3.8.3 shared login MFA integration. Final enrollment
-  acknowledgment/session replacement stays disabled until both providers enforce MFA.
-  Remote migration, keys, deployment and real-account acceptance need separate approval.
+- [x] Owner approve local Phase 3.8.3 shared login MFA integration.
+- [x] Implement local shared password/Google MFA challenges, TOTP/recovery atomic
+  completion, persistent failure limits, local acknowledgment/assured replacement,
+  challenge UI and Account Security action coordination. See MFA_DESIGN.md for
+  verification and the conservative replacement-session challenge policy.
+- [ ] Separately approve Phase 3.8.4 disable/regenerate and fresh management step-up.
+- [ ] Separately approve push/DEV rollout, recovery/migration 0013, backed-up MFA
+  keys and hosted enrollment/live acceptance. Hosted enrollment is still unavailable.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account

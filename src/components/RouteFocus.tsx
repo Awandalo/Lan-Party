@@ -9,7 +9,7 @@ const titles: Record<string, string> = {
   ...((AUTH_UI_AVAILABLE && authUIEnabled()) ? { '/register': 'Create account', '/account': 'Account',
     '/verify-email': 'Verify email', '/local-mail': 'Local mailbox',
     '/forgot-password': 'Forgot password', '/reset-password': 'Reset password',
-    '/account/security': 'Account security', '/google-complete': 'Finish Google registration' } : {}),
+    '/account/security': 'Account security', '/google-complete': 'Finish Google registration', '/mfa':'Verify sign-in' } : {}),
 };
 
 export default function RouteFocus() {

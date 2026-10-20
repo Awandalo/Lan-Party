@@ -1,3 +1,4 @@
-// Hard disabled until Phase 3.8.3 implements and tests the shared login challenge.
-// This is not a browser-controlled authorization switch.
-export const MFA_ENROLLMENT_AVAILABLE=false;
+// Local development UI only. The Worker independently enforces local mode and
+// loopback origins. No build flag enables hosted enrollment.
+export const MFA_ENROLLMENT_AVAILABLE=import.meta.env.DEV && typeof window!=='undefined'
+  && window.location.protocol==='http:' && ['localhost','127.0.0.1','[::1]'].includes(window.location.hostname);
