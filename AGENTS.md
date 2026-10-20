@@ -150,6 +150,13 @@ Use these locations when implementation begins:
   research-only scope. This permits no implementation, tests/builds, commits,
   pushes, deployment, infrastructure/database operations or other GitHub writes.
   `codex-ready` remains notification-only until the assignment is authorized.
+- When an issue in `Awandalo/Lan-Party` contains an explicit temporary instruction
+  to attach it to a named parent, the owner grants standing authorization for that
+  relationship and removal of that instruction after verification. No additional
+  conversational approval is needed. Follow the narrow parent-linking procedure
+  in `docs/GITHUB_COMMUNICATION.md`; use the connector or existing authenticated
+  CLI for the write, with connector reads and normal tool approvals. This permits
+  no reparenting, unrelated issue changes or implementation.
 
 The owner is learning this technology stack.
 

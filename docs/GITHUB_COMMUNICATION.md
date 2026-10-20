@@ -36,7 +36,9 @@ owner's boundaries require a new owner decision. Do independent authorized work
 while awaiting clarification; never execute the disputed action. A new revision
 or `codex-ready` label is a notification, not refreshed approval. The bounded
 `codex-research` exception below is authorized by the owner's direct instruction,
-not by the label or a GitHub signature alone.
+not by the label or a GitHub signature alone. The separately owner-authorized
+temporary parent-linking exception below also requires no per-issue conversational
+approval within its exact scope.
 
 ## Identities and routing
 
@@ -81,8 +83,9 @@ never bypasses another or repository protections.
 | Inspect local files/diffs | Relevant project inspection; preserve unrelated work | Existing filesystem limits; protected paths remain protected |
 | Run local tests / edit local files | Within an explicitly authorized assignment; inspect scripts and side effects first | Sandbox/tool approval as needed; “test” never authorizes remote writes |
 | Create a local commit | Separate explicit approval, or an exact applicable standing repository exception | Git/index access and hooks still enforced; body convention remains required |
-| Post an issue comment | Explicit reporting instruction, or the bounded codex-research findings exception below; no other automatic comments | Existing connector/tool approval rules still apply; no broad write permission |
-| Edit labels/issues, close issues or other GitHub writes | Specific write scope; Q's housekeeping role does not delegate it to TechDevie | Correct API permission plus tool approval |
+| Post an issue comment | Explicit reporting instruction, bounded codex-research findings, or the narrow parent-linking completion report below | Existing connector/tool approval rules still apply; no broad write permission |
+| Attach a native parent and remove its temporary instruction | Standing parent-linking exception below; no per-issue conversational approval | Existing connector or narrowly scoped authenticated CLI write; tool approvals remain |
+| Edit labels/issues, close issues or other GitHub writes | Specific write scope, except the narrow parent-linking cleanup below; Q's housekeeping role does not otherwise delegate it to TechDevie | Correct API permission plus tool approval |
 | Push / create or merge PR | Separate explicit operation approval or exact existing repository exception | GitHub/branch protections, required checks and host approval remain |
 | Migration / database write or restore | Separate explicit environment/database/action approval | Correct identity, recovery/preflight and execution approval |
 | Deployment / hosted activation | Separate approval for target and automatic/manual effects | Deployment/CI/configuration protections remain |
@@ -90,6 +93,44 @@ never bypasses another or repository protections.
 
 The narrow documentation-only Git exception, if a repository defines one, applies
 only when every condition holds. A task-specific owner prohibition takes priority.
+
+## Temporary parent-linking instructions — standing owner authorization (2026-10-20)
+
+For `Awandalo/Lan-Party`, when TechDevie encounters an explicit temporary instruction
+in an issue naming that child and its intended parent, the owner authorizes attaching
+the native relationship and then removing only that temporary instruction. Q can
+prepare these instructions without another conversational approval for each link.
+A plain parent mention, label or signature alone is insufficient; ambiguous or
+conflicting instructions require owner attention. This standing directive, not an
+asserted signature, supplies the authority. It does not authorize executing the
+issue's implementation assignment or changing its labels/status.
+
+1. Read current child/parent identities and native relationships through the GitHub
+   connector. Confirm the same repository, explicit targets and no self-link/cycle.
+   Resolve the child's current database ID rather than trusting an ID in prose.
+2. If already correctly linked, skip the attachment and verify it. If another parent,
+   unexpected state, missing access or ambiguity exists, stop; never replace a parent.
+3. Prefer a supported connector relationship action if available. Otherwise use the
+   existing authenticated GitHub CLI with a narrowly scoped supported REST POST to
+   `/repos/Awandalo/Lan-Party/issues/PARENT/sub_issues`, the resolved `sub_issue_id`
+   and explicit `replace_parent:false`. No new credentials, permissions, scripts or
+   blanket shell grants. Normal host/tool approvals remain mandatory.
+4. Verify both directions through the connector, preserving existing children.
+   After success, re-read the child description and remove only the explicitly
+   delimited temporary linking instruction. Preserve all requirements, other text,
+   labels and state; stop if concurrent edits make the cleanup ambiguous. Verify
+   the resulting description and relationship independently.
+5. Report the actual result with `[TECHDEVIE]` in the designated tracking issue, or
+   the child if none is designated. This narrow completion comment is also authorized.
+   Leave issues open for Q/owner review. On partial failure or an uncertain write,
+   stop and report; inspect live state before any separately authorized retry, with
+   no blind retry or automatic rollback. Do not remove instructions for unverified links.
+
+Detachment, reparenting, cross-repository links, unrelated issue edits, code, Git,
+deployments, databases and credential changes retain their separate approvals.
+This procedure adds no automatic issue discovery or monitor implementation; saved
+automation instructions and their explicit restrictions must be synchronized
+separately before that task performs relationship writes.
 
 ## Issue monitoring and bounded research
 
@@ -178,8 +219,8 @@ list/search/details/comments, repository files, PRs, checks and workflow results
 Existing connector access is the ceiling; do not add credentials, repository grants,
 host rules or a custom read helper. If a read is unavailable or requires approval,
 report the specific limitation; do not silently fall back to CLI or shell HTTP.
-Writes retain their separate owner and tool approvals. The sole automatic work
-exception is bounded research and its findings comment, as defined above.
+Writes retain their owner and tool approvals. Standing exceptions are bounded
+research/findings and the temporary parent-linking procedure defined above.
 Explicitly authorized Git fetch/push transport remains subject to existing rules.
 
 Issue reading, comment retrieval, search and supported REST GET reads have been
