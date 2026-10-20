@@ -1,5 +1,6 @@
 import type {AuthenticationEnvironment} from './http';
 import type {MfaKeys} from './mfa-crypto';
+import type {RecoveryOperation} from './mfa-recovery';
 import {mfaDigest} from './mfa-crypto';
 import {pendingLogin} from './mfa-login';
 import {recoveryOperation,startRecovery,recoverySetup,commitRecovery,revealRecovery,closeRecovery,cleanupRecovery,
@@ -19,10 +20,16 @@ function cookie(request:Request,kind:string){
 }
 export function recoveryContext(request:Request){return {token:cookie(request,'recovery')||cookie(request,'pending'),
  browser:cookie(request,'recovery_browser')||cookie(request,'browser'),now:Math.floor(Date.now()/1000)};}
-function recoveryCookies(response:Response,request:Request,c:ReturnType<typeof recoveryContext>){
+function recoveryCookies(response:Response,request:Request,c:ReturnType<typeof recoveryContext>,op:RecoveryOperation){
+ if(!['pending','committed'].includes(op.phase))return;
+ const now=Math.floor(Date.now()/1000),expires=op.phase==='pending'?op.expires_at:op.display_expires_at!;
+ if(expires<=now)return;
+ // Pending recovery may commit at its fixed deadline, then display for 300s.
+ // Cookies carry only the existing binding; server deadlines remain authoritative.
+ const deadline=op.phase==='pending'?expires+300:expires,maxAge=deadline-now;
  const local=loopback(new URL(request.url)),prefix=local?'lan_mfa_local_':'__Host-lan_mfa_';
  for(const [kind,value] of [['recovery',c.token],['recovery_browser',c.browser]])
-  response.headers.append('Set-Cookie',`${prefix}${kind}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${local?'':'; Secure'}`);
+  response.headers.append('Set-Cookie',`${prefix}${kind}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${local?'':'; Secure'}`);
 }
 const reply=(status:number,body:object)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
 export async function recoveryAuthentication(request:Request,env:AuthenticationEnvironment&MfaKeys){
@@ -44,8 +51,9 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
    const user=op?.user_id??pending!.user_id;
    const password=!!await env.DB.prepare('SELECT user_id FROM user_password_credentials WHERE user_id=?').bind(user).first();
    const google=!!await env.DB.prepare("SELECT id FROM user_auth_providers WHERE user_id=? AND provider='google'").bind(user).first();
-   return reply(200,{phase:op?.phase??'initial',expiresAt:op?.phase==='pending'?op.expires_at:op?.display_expires_at??pending!.expires_at,
+   const response=reply(200,{phase:op?.phase??'initial',expiresAt:op?.phase==='pending'?op.expires_at:op?.display_expires_at??pending!.expires_at,
     csrfToken:await sessionCsrfToken(csrf,secret),password,google});
+   if(op)recoveryCookies(response,request,c,op);return response;
   }
   if(!await validAuthMutation(request,origin.origin,csrf,secret))return reply(403,{error:'Request rejected'});
   const input=await readInput(request) as Record<string,unknown>;
@@ -55,7 +63,7 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
    if(input.confirmed!==true)return reply(400,{error:'Explicit confirmation required'});
    await closeRecovery(env.DB,c,action==='ack');return reply(200,{next:'/login',message:'Return to login with your new authenticator if replacement completed.'});
   }
-  if(action==='start'&&op){const response=reply(200,{resumed:true});recoveryCookies(response,request,c);return response;}
+  if(action==='start'&&op){const response=reply(200,{resumed:true});recoveryCookies(response,request,c,op);return response;}
   if(action==='start'&&input.confirmed!==true)return reply(400,{error:'Explicit confirmation required'});
   const limiter=await LoginLimiter.create(env.DB,secret,authClientIP(request,env).toLowerCase());
   if(await limiter.observe()||input.turnstileToken!==undefined)await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
@@ -77,7 +85,9 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
     const switched=result as {userId:string;authVersion:number};
     await passwordNotice(request,env,{...switched,status:'active',emailVerifiedAt:c.now},'mfa-replaced');
    }
-   const response=reply(200,result);if(action==='start')recoveryCookies(response,request,c);return response;
+   const response=reply(200,result);
+   if(action==='start'){const created=await recoveryOperation(env.DB,c);if(created)recoveryCookies(response,request,c,created);}
+   return response;
   }finally{if(!done)await held.finish(false);}
  }catch(error){
   if(error instanceof RecoveryPrimaryRequired)return reply(428,{code:'reauth_required',error:'Confirm your sign-in method again. The recovery deadline is unchanged.'});

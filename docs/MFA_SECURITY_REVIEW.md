@@ -6,6 +6,31 @@ The historical findings below remain evidence for the pre-fix ordinary-login pat
 R1 stays open for independent review; R2 freshness, R3 hosted gating and #10 rollout
 remain unresolved/separately gated. No remote migration, activation or push occurred.
 
+R1-F1 local correction (issue #13, owner approval 2026-10-20): successful status
+now restores only the existing validated recovery/browser binding as HttpOnly
+SameSite=Lax cookies. Initial, expired, cancelled and foreign contexts do not
+bootstrap cookies. Pending-cookie lifetime ends at the fixed recovery deadline
+plus the possible 300-second display window; committed-cookie lifetime ends at
+the actual fixed display deadline. Status/repeated start cannot slide deadlines,
+redeem another code, create an operation or issue an ordinary session. Original
+R1 commit `9d66b17` is preserved; correction requires independent review.
+
+Regression first failed against the original code (no status Set-Cookie), then
+passed after correction. Four added tests cover complete start-response loss,
+status-only resume, Google-only signed callback and replay, original-cookie expiry,
+foreign/old/cancelled contexts, fixed expiry and unchanged code counts. The local
+workerd tests use a cookie-selection model enforcing Strict/Lax, safe top-level
+navigation and Max-Age rules; this is not actual Chromium or hosted Google
+acceptance. If original cookies expire before bootstrap and no recovery cookies
+were received, status still fails closed with the existing sanitized unavailable
+response (503). No browser proof is weakened to recover that lost context.
+
+R1-F1 verification: 102 affected recovery/MFA/Google tests passed (including the
+four new regressions), strict TypeScript, default/hosted-DEV Vite builds and Worker
+dry-run packaging passed. An initial Wrangler log-path permission warning was
+resolved for the local dry-run; no deployment occurred. Existing unrelated tests
+and migrations were not changed; full unrelated suites/live services were omitted.
+
 R1 local evidence: 239 distinct automated tests passed across affected-area batches,
 including 24 new recovery tests. The initial migration-history fixture omission and
 synthetic-clock/redirect fixture issues were corrected and affected checks rerun;
