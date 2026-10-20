@@ -144,6 +144,12 @@ Use these locations when implementation begins:
   Follow `docs/GITHUB_COMMUNICATION.md` for the notification-only task and journal.
   Explicitly authorized Git transport operations such as fetch/push retain their
   existing approval rules; this does not grant any Git or GitHub write operation.
+- For `Awandalo/Lan-Party`, the owner grants standing authorization to research
+  open `codex-research` issues and post sanitized `[TECHDEVIE]` findings through
+  the connector. Follow the protocol's revision/claim journal and bounded
+  research-only scope. This permits no implementation, tests/builds, commits,
+  pushes, deployment, infrastructure/database operations or other GitHub writes.
+  `codex-ready` remains notification-only until the assignment is authorized.
 
 The owner is learning this technology stack.
 
