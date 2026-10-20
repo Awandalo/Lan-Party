@@ -4,9 +4,34 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { checkNow, inspect, repository } from './github-issue-monitor.mjs';
+import { checkNow, connectorReader, inspect, repository } from './github-issue-monitor.mjs';
 
 const initial = () => ({ version: 1, repository, issues: {}, error: null });
+const connectorFixture = () => ({ issue: { number: 42,
+  html_url: `https://github.com/${repository}/issues/42`, state: 'open',
+  labels: [{ name: 'codex-ready' }], title: 'Fictional connector issue',
+  body: '[Q]\nFictional task', updated_at: '2026-10-20T12:00:00Z', comments: 1 },
+  comments: [{ node_id: 'C1', body: '[Q]\nFictional comment', updated_at: '2026-10-20T12:00:00Z' }] });
+test('connector snapshots reuse journal fingerprints and suppress duplicate notifications', async () => {
+  const snapshot = connectorFixture();
+  const source = connectorReader([{ before: snapshot, after: structuredClone(snapshot) }]);
+  const first = await inspect(source, initial());
+  assert.deepEqual(first.notifications[0].routes, ['issue:Q', 'comment:Q']);
+  assert.deepEqual((await inspect(source, first.next)).notifications, []);
+  assert.ok(!JSON.stringify(first.next).includes('Fictional'));
+});
+test('connector fails closed on incomplete comments, wrong repository and missing timestamps', () => {
+  for (const mutate of [s => { s.comments = []; }, s => { s.issue.html_url = 'https://github.com/other/project/issues/42'; }, s => { s.comments[0].updated_at = null; }]) {
+    const snapshot = connectorFixture(); mutate(snapshot);
+    assert.throws(() => connectorReader([{ before: snapshot, after: snapshot }]), /invalid_connector_snapshot/);
+  }
+});
+test('connector detects edited comments between snapshots and duplicate issue snapshots', () => {
+  const before = connectorFixture(); const after = structuredClone(before);
+  after.comments[0].body = '[Q]\nEdited';
+  assert.throws(() => connectorReader([{ before, after }]), /changed_during_read/);
+  assert.throws(() => connectorReader([{ before, after: before }, { before, after: before }]), /invalid_connector_snapshot/);
+});
 async function removeFixture(directory) {
   const target = resolve(directory);
   if (!target.startsWith(resolve(join(tmpdir(), 'lan-party-monitor-')))) throw new Error('unsafe_fixture_path');

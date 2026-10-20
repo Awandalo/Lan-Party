@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -10,85 +9,52 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 const role = (body) => /^\[(OWNER|Q|TECHDEVIE)\]\r?$/.exec(body.split('\n')[0])?.[1] ?? 'UNRECOGNIZED';
 const empty = () => ({ version: 1, repository, issues: {}, error: null });
 
-// Fixed read-only GraphQL queries; issue content is never used as executable input.
-const metadataQuery = `query($cursor:String) {
-  repository(owner:"Awandalo",name:"Lan-Party") {
-    issues(first:100,after:$cursor,states:OPEN,labels:["codex-ready"]) {
-      nodes { number title updatedAt comments(first:100) {
-        nodes { id updatedAt } pageInfo { hasNextPage endCursor }
-      } }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-}`;
-const commentMetadataQuery = `query($number:Int!,$cursor:String) {
-  repository(owner:"Awandalo",name:"Lan-Party") {
-    issue(number:$number) { comments(first:100,after:$cursor) {
-      nodes { id updatedAt } pageInfo { hasNextPage endCursor }
-    } }
-  }
-}`;
+// The Desktop task obtains both snapshots through the GitHub connector only.
+// This module performs no network requests and never reads CLI credentials.
 const commentRevision = (comments) => hash(JSON.stringify(comments.map(({ id, updatedAt }) => [id, updatedAt])));
-const detailQuery = `query($number:Int!,$cursor:String) {
-  repository(owner:"Awandalo",name:"Lan-Party") {
-    issue(number:$number) {
-      body updatedAt state labels(first:100) { nodes { name } }
-      comments(first:100,after:$cursor) {
-        nodes { id updatedAt body }
-        pageInfo { hasNextPage endCursor }
+export function connectorReader(snapshots) {
+  if (!Array.isArray(snapshots)) throw new Error('invalid_connector_snapshot');
+  const records = new Map();
+  function normalize({ issue, comments }) {
+    if (!issue || !Number.isSafeInteger(issue.number) || issue.number <= 0 ||
+        issue.html_url !== `https://github.com/${repository}/issues/${issue.number}` ||
+        issue.state !== 'open' || !Array.isArray(issue.labels) ||
+        !issue.labels.some((label) => label.name === 'codex-ready') ||
+        typeof issue.body !== 'string' || typeof issue.title !== 'string' ||
+        !Number.isFinite(Date.parse(issue.updated_at)) || !Array.isArray(comments) ||
+        issue.comments !== comments.length) throw new Error('invalid_connector_snapshot');
+    const ids = new Set();
+    const normalized = comments.map((comment) => {
+      if (typeof comment.node_id !== 'string' || !comment.node_id || ids.has(comment.node_id) ||
+          typeof comment.body !== 'string' || !Number.isFinite(Date.parse(comment.updated_at))) {
+        throw new Error('invalid_connector_snapshot');
       }
-    }
+      ids.add(comment.node_id);
+      return { id: comment.node_id, updatedAt: comment.updated_at, body: comment.body };
+    });
+    return { number: issue.number, title: issue.title, updatedAt: issue.updated_at,
+      state: 'OPEN', labels: { nodes: issue.labels.map(({ name }) => ({ name })) },
+      body: issue.body, comments: normalized };
   }
-}`;
-
-export function githubReader(gh = process.env.ProgramFiles ? join(process.env.ProgramFiles, 'GitHub CLI', 'gh.exe') : 'gh') {
-  function query(document, variables = {}) {
-    const args = ['api', '--hostname', 'github.com', 'graphql', '-f', `query=${document}`];
-    for (const [key, value] of Object.entries(variables)) {
-      if (value !== null) args.push('-F', `${key}=${value}`);
-    }
-    // Never echo command output, authentication failures, or provider response bodies.
-    const response = JSON.parse(execFileSync(gh, args, { encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }));
-    if (response.errors || !response.data?.repository) throw new Error('github_read_failed');
-    return response.data.repository;
+  for (const snapshot of snapshots) {
+    const before = normalize(snapshot.before);
+    const after = normalize(snapshot.after);
+    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('github_changed_during_read');
+    if (records.has(after.number)) throw new Error('invalid_connector_snapshot');
+    records.set(after.number, after);
   }
   return {
     async metadata() {
-      const result = [];
-      let cursor = null;
-      do {
-        const page = query(metadataQuery, { cursor }).issues;
-        for (const item of page.nodes) {
-          const comments = [...item.comments.nodes];
-          let commentCursor = item.comments.pageInfo.hasNextPage ? item.comments.pageInfo.endCursor : null;
-          while (commentCursor) {
-            const additional = query(commentMetadataQuery, { number: item.number, cursor: commentCursor }).issue.comments;
-            comments.push(...additional.nodes);
-            commentCursor = additional.pageInfo.hasNextPage ? additional.pageInfo.endCursor : null;
-          }
-          result.push({ number: item.number, titleHash: hash(item.title), updatedAt: item.updatedAt, commentRevision: commentRevision(comments) });
-        }
-        cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
-      } while (cursor);
-      return result;
+      return [...records.values()].map((item) => ({ number: item.number,
+        titleHash: hash(item.title), updatedAt: item.updatedAt,
+        commentRevision: commentRevision(item.comments) }));
     },
     async detail(number) {
-      let cursor = null;
-      let result;
-      const comments = [];
-      do {
-        const page = query(detailQuery, { number, cursor }).issue;
-        if (!page) throw new Error('github_read_failed');
-        if (result && result.updatedAt !== page.updatedAt) throw new Error('github_changed_during_read');
-        result = page;
-        comments.push(...page.comments.nodes);
-        cursor = page.comments.pageInfo.hasNextPage ? page.comments.pageInfo.endCursor : null;
-      } while (cursor);
-      return { ...result, comments };
+      if (!records.has(number)) throw new Error('invalid_connector_snapshot');
+      return structuredClone(records.get(number));
     },
   };
 }
-
 export async function inspect(reader, previous, timestamp = new Date().toISOString()) {
   if (previous.version !== 1 || previous.repository !== repository || !previous.issues) throw new Error('invalid_journal');
   const next = structuredClone(previous);
@@ -126,7 +92,7 @@ export async function inspect(reader, previous, timestamp = new Date().toISOStri
   return { next, notifications };
 }
 
-export async function checkNow(reader = githubReader(), path = journalPath) {
+export async function checkNow(reader, path = journalPath) {
   await mkdir(dirname(path), { recursive: true });
   const lockPath = `${path}.lock`;
   const lock = await open(lockPath, 'wx'); // No overlapping check or automatic stale-lock recovery.
@@ -162,12 +128,7 @@ export async function checkNow(reader = githubReader(), path = journalPath) {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  try {
-    const notifications = await checkNow();
-    if (notifications.length) console.log(JSON.stringify({ notifications }));
-  } catch {
-    console.error('GitHub monitor check failed; no new revisions were acknowledged. Check the local journal and permissions.');
-    process.exitCode = 1;
-  }
+if (typeof process !== 'undefined' && process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  console.error('Use the GitHub connector and checkNow(connectorReader(snapshots)); CLI GitHub reads are disabled.');
+  process.exitCode = 1;
 }
