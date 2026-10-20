@@ -420,6 +420,30 @@ The approved database and authentication decisions below supersede earlier propo
 
 ## Development roadmap
 
+### Current Phase 3 sequence and status
+
+This is the forward numbering agreed on 2026-10-20. Older milestone headings and
+status statements below are historical checkpoints, not fresh hosted verification.
+The owner reports Phase 3.7 manual DEV acceptance passed 7/7; MFA 3.8 is newer local,
+unpushed work. Hosted MFA acceptance and PROD authentication are not established.
+
+| Phase | Current scope and dependency | Status / issue |
+| --- | --- | --- |
+| 3.8 | MFA Security; retain 3.8.1 design, 3.8.2 foundations, 3.8.3 shared login, 3.8.4 management and 3.8.5 security regression | Local implementation/review; [#9](https://github.com/Awandalo/Lan-Party/issues/9) remains open for disposition |
+| 3.8.5.1 | R1 recovery-code exhaustion and safe continuation decision | [#13](https://github.com/Awandalo/Lan-Party/issues/13), preparing; no implementation approval |
+| 3.8.5.2 | R2 recent MFA assurance before credential/provider changes; reuse valid two-minute assurance | [#14](https://github.com/Awandalo/Lan-Party/issues/14), preparing; no implementation approval |
+| 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15), preparing; no activation approval |
+| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), gated planning; separate migration/key/push/deployment/testing approvals |
+| 3.9 | Account Lifecycle Management after MFA security and DEV acceptance | [#16](https://github.com/Awandalo/Lan-Party/issues/16), planning only |
+| 3.10 | Polish & Fixes after MFA and account lifecycle acceptance | [#17](https://github.com/Awandalo/Lan-Party/issues/17), planning only |
+
+Historical email/GUI/login-limit milestones also used 3.8–3.8.3; retain their
+original references as history, not new MFA milestones. The former proposal for
+“Phase 3.9 MFA” is superseded: 3.9 now means Account Lifecycle Management.
+Migration numbers (including 0013) are independent and unchanged. Labels, issue
+closure and roadmap placement do not authorize implementation or remote operations.
+Detailed pending tasks remain in [TODO.md](TODO.md#phase-38--mfa-security).
+
 ### Phase 3.1 — Authentication foundation
 
 The approved direction is email/password first, then Google OpenID Connect using
@@ -449,8 +473,19 @@ Approved product requirements:
 - Passwords require at least 12 characters, support 128 characters and have no
   arbitrary character-class rules. Rate limiting and safe errors are required
   before exposing authentication endpoints.
-- Optional TOTP MFA is approved for all accounts in a later Phase 3 authentication
-  stage. No MFA schema, enrollment, recovery or login challenge is implemented yet.
+- Optional TOTP MFA is approved for all accounts, including administrators. The owner
+  reports Phase 3.7 manual DEV acceptance passed 7/7 and now names the MFA work
+  **Phase 3.8** (superseding earlier future Phase 3.9 references). See
+  [MFA_DESIGN.md](MFA_DESIGN.md) for the approved architecture and local Phase 3.8.2–4
+  implementation: migration 0013, encrypted TOTP secrets, recovery verifiers, shared
+  password/Google pending challenges, atomic assurance/session issuance and local
+  enrollment acknowledgment, purpose-bound disable/regenerate, recent-primary/MFA
+  checks and guarded security notifications. Hosted MFA enrollment/management
+  remain unavailable. Phase 3.8.5 local regression/preparation is owner-authorized;
+  [security review](docs/MFA_SECURITY_REVIEW.md) records passing local checks,
+  unresolved recovery/freshness policy and hosted enrollment gates. Hosted manual
+  acceptance is pending, not established by local tests.
+  No remote migration, key configuration, activation or rollout is approved.
 - Resend is prepared for DEV: the owner confirms the auth sending domain is verified
   and its domain-restricted sending key is installed only on the DEV Worker.
   Application delivery is integrated locally; hosted authentication remains disabled. Use the
@@ -741,6 +776,9 @@ is supplementary, not a strict global limiter.
   missing-account timing difference; it does not promise constant-time network/SQL
   behavior. Legacy hash verification remains explicit; no silent hash upgrade or
   password/security policy change is introduced.
+- Historical login-limit numbering in this subsection uses 3.8.2/3.8.3 from the
+  earlier GUI work, not the current MFA stages. Its recorded deployment/configuration
+  evidence is a checkpoint, not authorization for the new MFA rollout.
 - Deployed pre-Phase-3.8.3 login policy reuses migration 0009 counters with separate `login` HMAC domain keys:
   global 30/hour, IP 5/15 minutes, normalized account 5/hour, before verification.
   Invalid input consumes global/IP admission. Limits include successful attempts,
@@ -895,7 +933,7 @@ is supplementary, not a strict global limiter.
   Superseded mail cannot verify an account, even if delivery completion reorders.
 - `EmailTransport` has a safe local transport and a prepared Resend REST adapter,
   based on the [official send-email API](https://resend.com/docs/api-reference/emails/send-email).
-  Phase 3.8 adds one shared branded HTML/plain-text template for verification and
+  Historical email-polish Phase 3.8 adds one shared branded HTML/plain-text template for verification and
   recovery, with canonical DEV action links and no external assets. Verification
   retains explicit POST confirmation, followed by a success page and login action.
   Local Phase 3.8 polish hides resend controls during confirmation, shows a generic
@@ -1154,7 +1192,7 @@ Password confirmation uses the existing email+IP failure reservations and condit
 Turnstile; Google initiation shares soft abuse signals and server-validated challenges.
 Google recent confirmation requires the already-linked subject, requests `max_age=0`
 and validates an authentication time within five minutes. All current proofs record
-method, single-factor assurance and `mfa_verified=0`; Phase 3.9 must explicitly extend
+method, single-factor assurance and `mfa_verified=0`; Phase 3.8 MFA (formerly proposed as 3.9) must explicitly extend
 the assurance contract, never infer MFA from Google identity alone. MFA stays optional
 for all roles. Linking, unlinking and first-password creation advance auth generation
 and invalidate previous sessions/proofs. Unlinking requires recent password proof and
@@ -1233,7 +1271,8 @@ proven caller receives a fresh session at the expected next generation and retur
 to Security with Google Connected. A concurrent generation change prevents that
 session from being issued. Unlinking still requires retained-password proof and
 signs out existing sessions. Google-only accounts are not offered disconnection.
-Optional Phase 3.9 MFA belongs immediately below this section; no MFA enrollment,
+Optional MFA belongs immediately below Connected accounts (current Phase 3.8;
+formerly proposed as 3.9). At this historical Google-UX checkpoint, no MFA enrollment,
 assurance bypass or policy change is implemented.
 
 Normal Google sign-in omits forced account selection and email hints so Google may
