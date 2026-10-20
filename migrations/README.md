@@ -1,5 +1,24 @@
 # D1 migrations
 
+## Restricted MFA replacement (0014) — local only
+
+`0014_create_mfa_recovery_operations.sql` follows 0013 without modifying earlier
+migrations. It adds one STRICT operation table, unique active-operation/identity
+indexes and phase/identity/generation constraints for issue #13's restricted
+authenticator replacement. It changes no existing accounts or factors on application.
+Local populated-0013 compatibility, rollback and foreign-key checks are covered by
+`worker/tests/mfa-recovery.test.mjs`. No remote migration was applied by this task.
+
+Recovery and encrypted display each have separate fixed 300-second windows. Ordinary
+session issuance is never authorized by an operation. Generation changes invalidate
+operations except their own atomically guarded switch; only the new factor/set may
+survive that switch. ACK clears display ciphertext; expiry denies access immediately,
+and request-driven cleanup clears at most 25 expired operations per call. Cleanup is
+not a scheduled erasure guarantee; backups can retain encrypted historical payloads.
+See `MFA_DESIGN.md` for key, replay and interrupted-response behavior. A later DEV
+rollout needs fresh identity/history/recovery checks and explicit approval for both
+pending MFA migrations in order; no automatic restore or pre-MFA rollback.
+
 ## Optional account MFA (0013) — local only
 
 `0013_create_account_mfa.sql` is prepared and validated only in disposable local D1.

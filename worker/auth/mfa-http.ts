@@ -13,6 +13,7 @@ import {LoginBusy,LoginLimited,LoginLimiter} from './login-limits';
 import {LoginChallenge,verifyLoginChallenge} from './turnstile';
 import {beginManagement,cancelManagement,finishManagement,proveManagement,MfaPrimaryRequired} from './mfa-management';
 import {passwordNotice} from './password-notification';
+import {recoveryAuthentication} from './mfa-recovery-http';
 
 function name(request:Request,kind:string){return (loopback(new URL(request.url))?'lan_mfa_local_':'__Host-lan_mfa_')+kind;}
 export function mfaCookie(request:Request,kind:string,value:string,maxAge=300){
@@ -40,6 +41,7 @@ export function primaryResponse(request:Request,result:{kind:string;token:string
 const reply=(status:number,body:object)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
 export async function mfaAuthentication(request:Request,env:AuthenticationEnvironment&MfaKeys){
   if(!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
+  if(new URL(request.url).pathname.startsWith('/api/auth/mfa/recovery/'))return recoveryAuthentication(request,env);
   const url=new URL(request.url),enrolling=url.pathname.includes('/enroll/'),action=url.pathname.split('/').pop();
   const managing=url.pathname.includes('/manage/');
   const routes=['challenge','status','complete','cancel','enroll/start','enroll/verify','enroll/cancel','enroll/activate','manage/start','manage/verify','manage/finish','manage/cancel'];
@@ -118,7 +120,8 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
     const row=await pendingLogin(env.DB,read(request,'pending'),read(request,'browser'),now);
     if(!row)return reply(401,{error:'This sign-in challenge is unavailable or expired. Log in again.'});
     const csrfDigest=await mfaDigest('csrf',row.token_digest);
-    if(get)return reply(200,{expiresAt:row.expires_at,csrfToken:await sessionCsrfToken(csrfDigest,secret)});
+    if(get)return reply(200,{expiresAt:row.expires_at,csrfToken:await sessionCsrfToken(csrfDigest,secret),
+      recoveryAvailable:loopback(url)&&env.AUTH_SESSION_MODE==='local-only'&&env.AUTH_EMAIL_TRANSPORT==='local'});
     if(!await validAuthMutation(request,origin.origin,csrfDigest,secret))return reply(403,{error:'Request rejected'});
     const input=await readInput(request) as Record<string,unknown>;
     if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['method','code','turnstileToken'].includes(k)))return reply(400,{error:'Invalid request'});

@@ -430,7 +430,7 @@ unpushed work. Hosted MFA acceptance and PROD authentication are not established
 | Phase | Current scope and dependency | Status / issue |
 | --- | --- | --- |
 | 3.8 | MFA Security; retain 3.8.1 design, 3.8.2 foundations, 3.8.3 shared login, 3.8.4 management and 3.8.5 security regression | Local implementation/review; [#9](https://github.com/Awandalo/Lan-Party/issues/9) remains open for disposition |
-| 3.8.5.1 | R1 recovery-code exhaustion and safe continuation decision | [#13](https://github.com/Awandalo/Lan-Party/issues/13), preparing; no implementation approval |
+| 3.8.5.1 | R1 restricted authenticator replacement and bounded recovery-code redisplay | [#13](https://github.com/Awandalo/Lan-Party/issues/13), owner-authorized local implementation; Q/security review and hosted acceptance pending |
 | 3.8.5.2 | R2 recent MFA assurance before credential/provider changes; reuse valid two-minute assurance | [#14](https://github.com/Awandalo/Lan-Party/issues/14), preparing; no implementation approval |
 | 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15), preparing; no activation approval |
 | 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), gated planning; separate migration/key/push/deployment/testing approvals |
@@ -440,7 +440,7 @@ unpushed work. Hosted MFA acceptance and PROD authentication are not established
 Historical email/GUI/login-limit milestones also used 3.8–3.8.3; retain their
 original references as history, not new MFA milestones. The former proposal for
 “Phase 3.9 MFA” is superseded: 3.9 now means Account Lifecycle Management.
-Migration numbers (including 0013) are independent and unchanged. Labels, issue
+Migration numbers (including local MFA 0013 and additive R1 0014) are independent of roadmap phases. Labels, issue
 closure and roadmap placement do not authorize implementation or remote operations.
 Detailed pending tasks remain in [TODO.md](TODO.md#phase-38--mfa-security).
 

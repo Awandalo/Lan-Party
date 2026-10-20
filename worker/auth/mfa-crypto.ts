@@ -72,3 +72,22 @@ export async function generateRecoveryCodes(userId:string,setId:string){
   if(new Set(verifiers).size!==10)throw Error('Recovery codes unavailable');
   return {codes,verifiers:verifiers as string[]};
 }
+
+// Deliberately separate from the fixed-size TOTP envelope. The entire operation
+// binding is authenticated; no display payload is valid in another context.
+export async function sealRecoveryDisplay(codes:string[],config:MfaKeys,binding:string){
+  const ring=keys(config),keyId=config.MFA_ACTIVE_KEY_ID!,nonce=crypto.getRandomValues(new Uint8Array(12));
+  if(codes.length!==10||new Set(codes).size!==10||codes.some(c=>!/^([A-Z2-7]{4}-){6}[A-Z2-7]{2}$/.test(c)))throw Error('Recovery display unavailable');
+  const key=await crypto.subtle.importKey('raw',fromHex(ring[keyId],32)!,{name:'AES-GCM'},false,['encrypt']);
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv:nonce,additionalData:encoder.encode('lan-party:recovery-display:v1:'+binding)},key,encoder.encode(JSON.stringify(codes)));
+  return {ciphertext:toHex(new Uint8Array(ciphertext)),nonce:toHex(nonce),keyId};
+}
+export async function openRecoveryDisplay(sealed:EncryptedMfaSecret,config:MfaKeys,binding:string):Promise<string[]>{
+  const ring=keys(config),raw=ring[sealed.keyId],bytes=fromHex(sealed.ciphertext,sealed.ciphertext.length/2),nonce=fromHex(sealed.nonce,12);
+  if(!raw||!bytes||!nonce||bytes.length>1024)throw Error('Recovery display unavailable');
+  const key=await crypto.subtle.importKey('raw',fromHex(raw,32)!,{name:'AES-GCM'},false,['decrypt']);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:nonce,additionalData:encoder.encode('lan-party:recovery-display:v1:'+binding)},key,bytes);
+  const codes:unknown=JSON.parse(new TextDecoder().decode(plain));
+  if(!Array.isArray(codes)||codes.length!==10||new Set(codes).size!==10||codes.some(c=>typeof c!=='string'||!/^([A-Z2-7]{4}-){6}[A-Z2-7]{2}$/.test(c)))throw Error('Recovery display unavailable');
+  return codes;
+}

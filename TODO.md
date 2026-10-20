@@ -359,8 +359,10 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   `docs/MFA_SECURITY_REVIEW.md` for evidence and limitations.
 - [ ] Q/Owner disposition of [3.8.5 regression #9](https://github.com/Awandalo/Lan-Party/issues/9);
   a completed local report does not close the remaining security/acceptance gates.
-- [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** owner
-  decide recovery-code exhaustion/continuation and interruption policy before implementation.
+- [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** review
+  locally implemented owner-approved Option B: restricted replacement, atomic factor/code
+  switch, fixed recovery/display windows and encrypted same-set redisplay (local 0014).
+  Keep open until independent security review; no hosted activation or rollout implied.
 - [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** prepare
   recent MFA assurance before credential/provider writes, reusing valid two-minute
   proof. Implementation awaits separate approval; primary proof remains required.

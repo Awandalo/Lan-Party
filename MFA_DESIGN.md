@@ -1,5 +1,56 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
+## R1 Option B — owner-authorized local implementation (issue #13)
+
+This section supersedes the earlier R1 decision-pending language for the new
+replacement path only. Existing ordinary recovery-code login and management keep
+their distinct proofs; a last-code warning points users to restricted replacement
+before spending their last code on a normal login. Optional MFA remains role-neutral.
+
+- Local-only `/api/auth/mfa/recovery/` and the existing `/mfa` page provide explicit
+  start, setup, primary refresh, commit, protected reveal, ACK, cancel and status.
+  Hosted recovery/enrollment remains unavailable; R2/R3 and hosted #10 are separate.
+- Fresh primary login creates the existing pending MFA context. One unused recovery
+  code is atomically redeemed to create a unique browser/user/source/factor/set/
+  generation-bound operation with a fixed five-minute deadline. The source pending
+  login is consumed without issuing a session. Lost start responses can query the
+  stable operation and resume without another redemption. Closing before commit
+  clears staging but never refunds the spent recovery code.
+- New TOTP possession and primary proof younger than two minutes are checked before
+  and inside the guarded D1 switch. Atomic replacement deletes old factor/code
+  authority, creates exactly ten new verifiers, advances generation and revokes
+  existing sessions. SQL assertions turn zero-row guards into statement errors so
+  the batch actually rolls back. There is no old-factor fallback after success.
+- Code ciphertext uses existing AES-GCM keys with a distinct versioned purpose and
+  authenticated environment/user/operation/new-factor/set/next-generation/browser/
+  source/display-expiry context. Plaintext is never persisted. The fixed five-minute
+  display window starts at commit, separately from the recovery deadline.
+- Commit returns no codes. Each explicit reveal requires fresh primary proof and a
+  non-replayed TOTP from the new authenticator, returning the same ten codes. ACK
+  clears ciphertext and repeated ACK is non-sensitive within the surviving context.
+  An authorized response already in flight cannot be recalled by a later ACK.
+  Expiry rejects access even before bounded request-driven cleanup runs; D1 backups
+  may retain ciphertext and keys are not automatically destroyed/rotated.
+- Recovery cookies are HttpOnly, host-scoped, Secure outside loopback and SameSite=Lax
+  to support the Google callback. Every mutation independently requires exact origin,
+  CSRF and custom request headers. Normal pending/session cookies retain their policy.
+  Password refresh checks the existing credential. Google refresh binds a normal
+  validated state/nonce/PKCE transaction server-side to the restricted operation and
+  exact linked subject; it cannot issue a session, link an identity or use email as
+  ownership proof. Refresh never extends either deadline.
+- Completion requires a fresh normal primary + new-MFA login. Lost display/context
+  after a committed switch can use the new authenticator for normal login and code
+  regeneration. Loss of the last code and browser context before commit remains a
+  possible self-service dead end; no email/support/password-only MFA bypass exists.
+- Replacement notification uses the existing guarded, budgeted mail path only after
+  commit. Sanitized notification failure never reverses replacement. No automatic
+  delivery or mutation retry. Local fictional mail and intercepted Google/Turnstile
+  fixtures only; no live-account/real-email or hosted acceptance is claimed.
+
+Additive migration 0014, focused workerd/D1 tests and intercepted browser fixtures
+cover this implementation; migrations 0001–0013 remain unchanged. Independent review,
+local commit approval conditions and separate remote rollout gates remain in force.
+
 Status: architecture approved; Phase 3.8.2–4 foundations, shared login, local
 enrollment and MFA management implemented locally. Remote migrations, keys, hosted
 activation, push and deployment are not approved.

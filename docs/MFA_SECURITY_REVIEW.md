@@ -1,5 +1,23 @@
 # Phase 3.8.5 — local security regression and DEV acceptance preparation
 
+R1 follow-up: issue #13's owner-approved Option B is now implemented locally with
+additive migration 0014; see `MFA_DESIGN.md` for its exact state/expiry/crypto model.
+The historical findings below remain evidence for the pre-fix ordinary-login path.
+R1 stays open for independent review; R2 freshness, R3 hosted gating and #10 rollout
+remain unresolved/separately gated. No remote migration, activation or push occurred.
+
+R1 local evidence: 239 distinct automated tests passed across affected-area batches,
+including 24 new recovery tests. The initial migration-history fixture omission and
+synthetic-clock/redirect fixture issues were corrected and affected checks rerun;
+no outstanding failure remains. Strict TypeScript, default/hosted-DEV Vite builds,
+Wrangler local dry-run packaging and diff checks passed. Browser checks used a
+fictional intercepted transport: no mutation on load, explicit start/setup/switch/
+reveal/ACK, cleared setup, accessible labeled controls and a 375px constrained layout
+without horizontal content overflow. This is not an integrated hosted browser/D1
+acceptance or screen-reader certification. Unchanged event/news/seed/DNS suites and
+live accounts/email/Google/Turnstile tests were intentionally omitted. Existing
+Google/MFA regression-file working changes were exercised but preserved outside R1.
+
 Review date: 2026-10-20. Assignment: [issue #9](https://github.com/Awandalo/Lan-Party/issues/9).
 **Local regression passed with policy/rollout blockers; hosted acceptance is pending.**
 No application security policy, migration, deployment configuration or remote data

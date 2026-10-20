@@ -1,4 +1,4 @@
-type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated';
+type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced';
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
@@ -6,11 +6,12 @@ function escapeHTML(value: string): string {
 }
 
 export function authenticationEmail(link: string, purpose: MailPurpose = 'email-verification') {
-  if (!['email-verification', 'password-reset', 'password-setup','password-added','password-changed','mfa-enabled','mfa-disabled','mfa-regenerated'].includes(purpose)) throw new Error('Invalid email purpose');
+  if (!['email-verification', 'password-reset', 'password-setup','password-added','password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(purpose)) throw new Error('Invalid email purpose');
   const url = new URL(link);
   const reset = purpose === 'password-reset';
   const setup = purpose === 'password-setup';
   const mfaCopy={
+    'mfa-replaced':['Your LAN Party authenticator was replaced','Authenticator replaced','A new authenticator and ten new recovery codes now protect your LAN Party account. Your previous authenticator and recovery codes no longer work. If this was unexpected, secure your sign-in methods and contact the LAN Party organizers.'],
     'mfa-enabled':['Two-factor authentication was enabled on your LAN Party account','Two-factor authentication enabled','An authenticator and recovery codes now protect your LAN Party sign-in. Keep your recovery codes somewhere private.'],
     'mfa-disabled':['Two-factor authentication was disabled on your LAN Party account','Two-factor authentication disabled','Your LAN Party account no longer requires an authenticator or recovery code. Your existing sign-in methods remain connected.'],
     'mfa-regenerated':['Your LAN Party recovery codes were replaced','Recovery codes replaced','A new set of recovery codes now protects your LAN Party account. The previous recovery codes no longer work.'],

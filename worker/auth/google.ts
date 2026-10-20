@@ -18,6 +18,10 @@ import { registrationLimiter, RegistrationRateLimit } from './registration-limit
 import { passwordNotice } from './password-notification';
 import {completePrimary,rotationProof} from './mfa-login';
 import {primaryResponse,supersedePending} from './mfa-http';
+import {recoveryContext} from './mfa-recovery-http';
+import {recoveryOperation,assertOne} from './mfa-recovery';
+import {loopback} from './environment';
+import {mfaDigest} from './mfa-crypto';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
@@ -110,6 +114,27 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       // Claimed before network: uncertain exchange is never automatically retried.
       const identity=await exchangeGoogle(env,url,state,flow.nonce,flow.verifier,origin.origin+'/api/auth/google/callback',flow.purpose==='reauth');
       if (!recipientAllowed(request,env,identity.email)) throw new Error('Identity unavailable');
+      const recoverySchema=await env.DB.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='auth_mfa_recovery_operations'").first();
+      const recoveryLink=recoverySchema?await env.DB.prepare("SELECT operation_digest FROM auth_mfa_recovery_operations WHERE oidc_state_digest=?")
+        .bind(flow.state_digest).first():null;
+      if(recoveryLink){
+        if(!loopback(url)||env.AUTH_SESSION_MODE!=='local-only'||env.AUTH_EMAIL_TRANSPORT!=='local'||flow.purpose!=='reauth')throw Error('Recovery unavailable');
+        const c=recoveryContext(request),op=await recoveryOperation(env.DB,c);
+        if(!op||op.oidc_state_digest!==flow.state_digest||flow.user_id!==op.user_id||flow.session_digest!==op.source_digest
+          ||flow.auth_version!==op.auth_version+(op.phase==='pending'?0:1)||identity.authenticatedAt===undefined||identity.authenticatedAt<=now()-120||identity.authenticatedAt>now())throw Error('Recovery unavailable');
+        await env.DB.batch([
+          env.DB.prepare(`UPDATE auth_mfa_recovery_operations SET primary_method='google',primary_authenticated_at=?,oidc_state_digest=NULL
+            WHERE operation_digest=? AND oidc_state_digest=? AND phase=?
+            AND ((phase='pending' AND expires_at>unixepoch()) OR (phase='committed' AND display_expires_at>unixepoch()))
+            AND EXISTS(SELECT 1 FROM users u JOIN user_auth_providers p ON p.user_id=u.id
+              WHERE u.id=? AND u.auth_version=? AND u.status='active' AND p.provider='google'
+              AND p.identity_namespace IN ('https://accounts.google.com','accounts.google.com') AND p.provider_subject=?)`)
+            .bind(identity.authenticatedAt,op.operation_digest,flow.state_digest,op.phase,op.user_id,flow.auth_version,identity.subject),assertOne(env.DB),
+          env.DB.prepare("UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=? AND phase='exchanging' AND expires_at>?")
+            .bind(flow.state_digest,now()),assertOne(env.DB),
+        ]);
+        return redirect('/mfa?recovery=1');
+      }
       if (flow.purpose!=='signin') {
         const session=await current(request,env);
         if (session.account.userId!==flow.user_id || session.digest!==flow.session_digest || session.account.authVersion!==flow.auth_version) throw new Error('Session changed');
@@ -185,11 +210,19 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     if (action==='start') {
       const purpose=input.purpose;
       if (!['signin','link','reauth'].includes(purpose as string) || Object.keys(input).some(k=>!['purpose','turnstileToken','returnAction'].includes(k))
-        ||input.returnAction!==undefined&&(purpose!=='reauth'||input.returnAction!=='mfa')) return reply(400,{error:'Invalid request'});
+        ||input.returnAction!==undefined&&(purpose!=='reauth'||!['mfa','recovery'].includes(input.returnAction as string))) return reply(400,{error:'Invalid request'});
       const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET!,authClientIP(request,env).toLowerCase());
       if (await limiter.observe() || input.turnstileToken!==undefined) await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
       let session: Awaited<ReturnType<typeof current>>|undefined;
-      if (purpose!=='signin') {
+      const recovery=input.returnAction==='recovery';
+      const recoveryOp=recovery&&loopback(url)&&env.AUTH_SESSION_MODE==='local-only'&&env.AUTH_EMAIL_TRANSPORT==='local'
+        ?await recoveryOperation(env.DB,recoveryContext(request)):null;
+      if(recovery){
+        if(!recoveryOp||!['pending','committed'].includes(recoveryOp.phase)
+          ||!await validAuthMutation(request,origin.origin,await mfaDigest('csrf',recoveryOp.source_digest),env.AUTH_RATE_LIMIT_SECRET!))throw Error('Recovery unavailable');
+        session={token:'',digest:recoveryOp.source_digest,account:{userId:recoveryOp.user_id,status:'active',
+          authVersion:recoveryOp.auth_version+(recoveryOp.phase==='pending'?0:1),emailVerifiedAt:now()}};
+      }else if (purpose!=='signin') {
         session=await current(request,env);
         if (!await validAuthMutation(request,origin.origin,session.digest,env.AUTH_RATE_LIMIT_SECRET!)) return reply(403,{error:'Request rejected'});
         if (purpose==='link') await recent(env.DB,session.account,session.digest);
@@ -203,6 +236,12 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         .bind(await proofDigest(state),await proofDigest(browser),purpose,verifier,nonce,session?.account.userId??null,session?.digest??null,
           session?.account.authVersion??null,time,time+600,time).first().then(row=>{if(!row)throw new Error('Busy');});
       if(input.returnAction==='mfa')await env.DB.prepare("UPDATE auth_oidc_transactions SET return_action='mfa' WHERE state_digest=? AND purpose='reauth' AND phase='pending'").bind(await proofDigest(state)).run();
+      if(recoveryOp){
+        const result=await env.DB.prepare(`UPDATE auth_mfa_recovery_operations SET oidc_state_digest=? WHERE operation_digest=? AND phase=?
+          AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=? AND status='active')`)
+          .bind(await proofDigest(state),recoveryOp.operation_digest,recoveryOp.phase,recoveryOp.user_id,session!.account.authVersion).run();
+        if(result.meta.changes!==1)throw Error('Recovery unavailable');
+      }
       const response=reply(200,{url:await authorizationURL(env,origin.origin+'/api/auth/google/callback',state,nonce,verifier,purpose==='reauth',purpose==='link')},
         {'Set-Cookie':flowCookie(browser,!hostedDev(request,env))});
       response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
