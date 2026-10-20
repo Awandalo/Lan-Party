@@ -29,9 +29,10 @@ Confirm the repository root, active branch, remote repository identity, and GitH
 authentication. `origin` must identify the intended personal GitHub repository.
 Stop if authentication, identity, or permissions cannot be verified.
 
-Use GitHub CLI or an authenticated, owner-approved GitHub integration. CLI commands
-in this document are examples, not a mandatory tool dependency. Before using an
-alternative, verify the signed-in identity, access to `Awandalo/Lan-Party`, and
+Use the existing authenticated GitHub connector for GitHub API reads, following
+`AGENTS.md` and `docs/GITHUB_COMMUNICATION.md`; do not fall back to CLI reads.
+CLI read commands below are historical examples, not an approved execution path.
+Verify the connected identity, access to `Awandalo/Lan-Party`, and
 permissions for each required operation. Git fetch/push access alone does not
 prove access to checks, security results, protection policies, or PR operations.
 
@@ -57,8 +58,8 @@ git diff --cached --check
 git ls-files --others --exclude-standard
 ```
 
-For CLI authentication, use `gh auth status`; for an approved integration, use its
-supported identity and repository-permission inspection operations instead.
+Use the connector's supported identity and repository-permission inspection
+operations. If required evidence is unavailable, stop and report the limitation.
 
 Review the full staged and unstaged diffs privately for sensitive data. Inspect
 ignored-file names when needed to identify local configuration, databases, or
