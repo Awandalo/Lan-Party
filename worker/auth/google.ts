@@ -16,13 +16,13 @@ import { googleProof as proofDigest } from './google-proof';
 import { encodeGoogleProfile, decodeGoogleProfile } from './google-profile';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
 import { passwordNotice } from './password-notification';
-import {completePrimary} from './mfa-login';
+import {completePrimary,rotationProof} from './mfa-login';
 import {primaryResponse,supersedePending} from './mfa-http';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
   verifier: string; nonce: string; user_id: string|null; session_digest: string|null; auth_version: number|null;
-  subject: string|null; email: string|null; authoritative: number|null; expires_at: number }
+  subject: string|null; email: string|null; authoritative: number|null; expires_at: number;return_action?:'password'|'mfa' }
 const now = () => Math.floor(Date.now()/1000);
 const googleFreshnessSeconds = 120;
 const cookieName = '__Host-lan_google';
@@ -119,9 +119,10 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           if (!linked) throw new Error('Wrong identity');
           await grant(env.DB,session.account,session.digest,'google',identity.authenticatedAt);
           await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=?`).bind(flow.state_digest).run();
-          return redirect('/account/security#add-password');
+          return redirect(flow.return_action==='mfa'?'/account/security#mfa':'/account/security#add-password');
         }
         const primary=await recent(env.DB,session.account,session.digest);
+        const rotation=await rotationProof(env.DB,session.account.userId,session.account.authVersion,session.digest,now());
         // A different account owning this email is never silently merged.
         const collision=await env.DB.prepare('SELECT id FROM users WHERE email_normalized=? AND id<>?').bind(identity.email,flow.user_id).first();
         if (collision) throw new Error('Identity unavailable');
@@ -139,7 +140,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         // The generation change revoked every old session. Replace only this
         // proven caller's session; never reread and adopt a later generation.
         const replacement=await completePrimary(env.DB,
-          {...session.account,authVersion:session.account.authVersion+1},primary.method,now(),primary.authenticated_at);
+          {...session.account,authVersion:session.account.authVersion+1},primary.method,now(),primary.authenticated_at,rotation);
         return primaryResponse(request,replacement,true,'/account/security');
       }
       const linked=await env.DB.prepare(`SELECT u.id AS userId,u.status,u.auth_version AS authVersion,u.email_verified_at AS emailVerifiedAt
@@ -183,7 +184,8 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       await env.DB.prepare(`DELETE FROM ${table} WHERE rowid IN (SELECT rowid FROM ${table} WHERE expires_at<=? LIMIT 50)`).bind(now()).run();
     if (action==='start') {
       const purpose=input.purpose;
-      if (!['signin','link','reauth'].includes(purpose as string) || Object.keys(input).some(k=>!['purpose','turnstileToken'].includes(k))) return reply(400,{error:'Invalid request'});
+      if (!['signin','link','reauth'].includes(purpose as string) || Object.keys(input).some(k=>!['purpose','turnstileToken','returnAction'].includes(k))
+        ||input.returnAction!==undefined&&(purpose!=='reauth'||input.returnAction!=='mfa')) return reply(400,{error:'Invalid request'});
       const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET!,authClientIP(request,env).toLowerCase());
       if (await limiter.observe() || input.turnstileToken!==undefined) await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
       let session: Awaited<ReturnType<typeof current>>|undefined;
@@ -200,6 +202,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         SELECT ?,?,?,'pending',?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM auth_oidc_transactions WHERE expires_at>?)<500 RETURNING state_digest`)
         .bind(await proofDigest(state),await proofDigest(browser),purpose,verifier,nonce,session?.account.userId??null,session?.digest??null,
           session?.account.authVersion??null,time,time+600,time).first().then(row=>{if(!row)throw new Error('Busy');});
+      if(input.returnAction==='mfa')await env.DB.prepare("UPDATE auth_oidc_transactions SET return_action='mfa' WHERE state_digest=? AND purpose='reauth' AND phase='pending'").bind(await proofDigest(state)).run();
       const response=reply(200,{url:await authorizationURL(env,origin.origin+'/api/auth/google/callback',state,nonce,verifier,purpose==='reauth',purpose==='link')},
         {'Set-Cookie':flowCookie(browser,!hostedDev(request,env))});
       response.headers.append('Set-Cookie',profileCookie('',!hostedDev(request,env),0));
@@ -283,6 +286,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     if (action==='request-password') return reply(404,{error:'Not found'});
     if (action==='add-password') {
       const primary=await recent(env.DB,account,digest,'google');
+      const rotation=await rotationProof(env.DB,account.userId,account.authVersion,digest,now());
       if (Object.keys(input).join(',')!=='password' || typeof input.password!=='string' || !isValidPassword(input.password))
         return reply(400,{error:'Use a 12–128 character password.'});
       const limit=await registrationLimiter(env.DB,env.AUTH_RATE_LIMIT_SECRET!,now(),'password-add');
@@ -306,7 +310,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       // The credential write revokes every old session. Replace only this browser's
       // session at the expected generation; never adopt a concurrent newer change.
       const replacement=await completePrimary(env.DB,
-        {...account,authVersion:account.authVersion+1},'google',now(),primary.authenticated_at);
+        {...account,authVersion:account.authVersion+1},'google',now(),primary.authenticated_at,rotation);
       const response=primaryResponse(request,replacement,false,'/account/security');
       return new Response(JSON.stringify({...await response.json() as Record<string,unknown>,notification}),{status:response.status,headers:response.headers});
     }

@@ -341,8 +341,11 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Implement local shared password/Google MFA challenges, TOTP/recovery atomic
   completion, persistent failure limits, local acknowledgment/assured replacement,
   challenge UI and Account Security action coordination. See MFA_DESIGN.md for
-  verification and the conservative replacement-session challenge policy.
-- [ ] Separately approve Phase 3.8.4 disable/regenerate and fresh management step-up.
+  verification and the session-replacement policy.
+- [x] Owner approve and implement local Phase 3.8.4 disable/regenerate, purpose-bound
+  recent-primary/MFA checks, account preservation, timestamp-preserving session
+  rotation, security notifications and compact Account Security forms.
+- [ ] Separately approve Phase 3.8.5 final security and manual acceptance work.
 - [ ] Separately approve push/DEV rollout, recovery/migration 0013, backed-up MFA
   keys and hosted enrollment/live acceptance. Hosted enrollment is still unavailable.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;

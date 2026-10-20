@@ -10,7 +10,7 @@ export async function mfaSchemaReady(db:D1Database){
 export const mfaSessionCondition=`(NOT EXISTS(SELECT 1 FROM auth_totp_factors f WHERE f.user_id=u.id)
   OR EXISTS(SELECT 1 FROM auth_session_mfa m JOIN auth_totp_factors f ON f.user_id=m.user_id
     WHERE m.session_digest=s.token_digest AND m.user_id=u.id AND m.auth_version=u.auth_version
-      AND m.factor_id=f.factor_id AND m.verified_at>=s.created_at AND m.verified_at<s.expires_at
+      AND m.factor_id=f.factor_id AND m.verified_at<=s.created_at AND m.verified_at<s.expires_at
       AND m.verified_at<=unixepoch()))`;
 
 // Shared primary -> restricted pending -> MFA session transition is implemented.

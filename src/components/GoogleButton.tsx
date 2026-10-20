@@ -7,7 +7,7 @@ import SecurityActionIcon from './SecurityActionIcon';
 
 export interface GoogleButtonHandle { resumeLink: (session: string) => boolean; cancelLink: () => void }
 
-export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticationRequired,onStart,onPendingChange,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';csrf?:string;iconOnly?:boolean;
+export default function GoogleButton({purpose='signin',returnAction,csrf,onRecentAuthenticationRequired,onStart,onPendingChange,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';returnAction?:'mfa';csrf?:string;iconOnly?:boolean;
   onRecentAuthenticationRequired?:()=>void;onStart?:()=>void;onPendingChange?:(pending:boolean)=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
   const intent=useRef(new GoogleLinkIntent()),inFlight=useRef(false),mounted=useRef(true);
   const trigger=useRef<HTMLButtonElement>(null);
@@ -24,7 +24,7 @@ export default function GoogleButton({purpose='signin',csrf,onRecentAuthenticati
     onStart?.();inFlight.current=true;onPendingChange?.(true);setBusy(true);setFeedback(purpose==='link'?'Connecting Google requires recent authentication and signs out your other sessions.':'');
     let navigating=false;
     try{
-      const response=await googleRequest('start',{purpose,...(token?{turnstileToken:token}:{})},csrf),body=await response.json();
+      const response=await googleRequest('start',{purpose,...(returnAction?{returnAction}:{}),...(token?{turnstileToken:token}:{})},csrf),body=await response.json();
       if(!mounted.current)return;
       if(response.ok){const url=new URL(body.url);if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();window.location.assign(url.href);navigating=true;}
       else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then select Google again.');}

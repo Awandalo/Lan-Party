@@ -26,7 +26,7 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
   },[open]);
   useEffect(()=>{
     if(!enrollment)return;
-    const timer=setTimeout(()=>{setEnrollment(null);setCodes(null);setSaved(false);setFeedback('Setup expired. MFA was not enabled. Start again.');},Math.max(0,enrollment.expiresAt*1000-Date.now()));
+    const timer=setTimeout(()=>{setEnrollment(null);setCodes(null);setSaved(false);setFeedback(pending.current?'Setup expired during a request. The result is uncertain; sign in again and check your settings.':'Setup expired. MFA was not enabled. Start again.');},Math.max(0,enrollment.expiresAt*1000-Date.now()));
     return()=>clearTimeout(timer);
   },[enrollment]);
   useEffect(()=>{
@@ -72,6 +72,7 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
   return <section className="mfa-enrollment" aria-labelledby="mfa-enrollment-heading"><h2 id="mfa-enrollment-heading">Two-factor authentication</h2>
     <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">{enabled?'Enabled':'Not enabled'}
       {!enabled&&!(open&&enrollment)&&<button className="button button-secondary" ref={trigger} disabled={busy||disabled} onClick={()=>{onOpen?.();void run('start');}}>Set up MFA</button>}</dd></div></dl>
+    {!enabled&&<p>An authenticator adds a second sign-in check to protect your LAN Party account.</p>}
     {open&&enrollment&&
       <div ref={panel} className="account-confirmation" tabIndex={-1}>
         {!codes?<><p>Scan this QR code with your authenticator, or enter the manual setup key. Keep the key private.</p>

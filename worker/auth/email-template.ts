@@ -1,4 +1,4 @@
-type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed';
+type MailPurpose = 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated';
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
@@ -6,22 +6,28 @@ function escapeHTML(value: string): string {
 }
 
 export function authenticationEmail(link: string, purpose: MailPurpose = 'email-verification') {
-  if (!['email-verification', 'password-reset', 'password-setup','password-added','password-changed'].includes(purpose)) throw new Error('Invalid email purpose');
+  if (!['email-verification', 'password-reset', 'password-setup','password-added','password-changed','mfa-enabled','mfa-disabled','mfa-regenerated'].includes(purpose)) throw new Error('Invalid email purpose');
   const url = new URL(link);
   const reset = purpose === 'password-reset';
   const setup = purpose === 'password-setup';
-  const notification = purpose === 'password-added' || purpose === 'password-changed';
+  const mfaCopy={
+    'mfa-enabled':['Two-factor authentication was enabled on your LAN Party account','Two-factor authentication enabled','An authenticator and recovery codes now protect your LAN Party sign-in. Keep your recovery codes somewhere private.'],
+    'mfa-disabled':['Two-factor authentication was disabled on your LAN Party account','Two-factor authentication disabled','Your LAN Party account no longer requires an authenticator or recovery code. Your existing sign-in methods remain connected.'],
+    'mfa-regenerated':['Your LAN Party recovery codes were replaced','Recovery codes replaced','A new set of recovery codes now protects your LAN Party account. The previous recovery codes no longer work.'],
+  };
+  const mfa=purpose in mfaCopy?mfaCopy[purpose as keyof typeof mfaCopy]:null;
+  const notification = !!mfa || purpose === 'password-added' || purpose === 'password-changed';
   const path = setup || notification ? '/account/security' : reset ? '/reset-password' : '/verify-email';
   if (url.origin !== 'https://dev.lan-party.club' || url.username || url.password
     || url.pathname !== path || url.search || (notification ? !!url.hash : !url.hash) || /[\s\u0000-\u001f\u007f]/.test(link)) {
     throw new Error('Invalid authentication email URL');
   }
-  const subject = notification ? (purpose === 'password-added' ? 'A password was added to your LAN Party account' : 'Your LAN Party password was changed') : setup ? 'Add a LAN Party password' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account';
-  const heading = notification ? (purpose === 'password-added' ? 'Password added successfully' : 'Password changed') : setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party';
-  const explanation = notification ? (purpose === 'password-added'
+  const subject = mfa?.[0] ?? (notification ? (purpose === 'password-added' ? 'A password was added to your LAN Party account' : 'Your LAN Party password was changed') : setup ? 'Add a LAN Party password' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account');
+  const heading = mfa?.[1] ?? (notification ? (purpose === 'password-added' ? 'Password added successfully' : 'Password changed') : setup ? 'Add a password' : reset ? 'Reset your password' : 'Welcome to LAN Party');
+  const explanation = mfa?.[2] ?? (notification ? (purpose === 'password-added'
     ? 'A password has been added to your LAN Party account. You can now sign in using your email address and password. If you made this change, no further action is needed.'
     : 'Your LAN Party account password was changed. If you made this change, no further action is needed.') : setup ? 'Return to the browser where you confirmed your Google identity to add a password. Recent Google authentication is also required.' : reset ? 'Choose a new password using this link.'
-    : 'Confirm your email to finish setting up your account.';
+    : 'Confirm your email to finish setting up your account.');
   const expiry = notification ? "If you didn't make this change, secure your account and contact the LAN Party organizers. Visit LAN Party directly and recover your account if possible." : `This link expires in ${setup ? '10 minutes' : reset ? '30 minutes' : '24 hours'} and works once.`;
   const action = notification ? 'Review account security' : setup ? 'Confirm password setup' : reset ? 'Reset password' : 'Continue verification';
   const security = notification ? 'This is a security notification, not an email confirmation or password reset.' : 'If you did not request this, ignore this email.';

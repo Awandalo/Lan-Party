@@ -1,7 +1,7 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
-Status: architecture approved; Phase 3.8.2 foundations and Phase 3.8.3 shared login /
-local enrollment integration implemented locally. Remote migrations, keys, hosted
+Status: architecture approved; Phase 3.8.2–4 foundations, shared login, local
+enrollment and MFA management implemented locally. Remote migrations, keys, hosted
 activation, push and deployment are not approved.
 The owner reports Phase 3.7 manual DEV acceptance passed 7/7. MFA is optional for
 every role, one active TOTP authenticator per UUID account, shared across password
@@ -40,8 +40,9 @@ unassured session must not authorize an account/API/RBAC operation.
 Google linking and first-password session replacements must originate only
 from their exact already-MFA-authenticated caller, at the expected next generation;
 never infer MFA from Google claims or an old session. The local implementation uses
-a conservative fresh MFA challenge for those replacements instead of transferring
-old MFA assurance. Original primary-authentication times are preserved; an account
+a server-authorized transfer for those replacements only when the exact caller's
+MFA proof is within two minutes; otherwise a new MFA challenge is required.
+Original MFA and primary-authentication times are preserved; an account
 change does not manufacture fresh Google/password proof. New Google accounts have no
 enrolled factor; completion still uses the shared gate. Google reauthentication must
 support fixed, server-bound MFA settings return actions, not arbitrary redirect URLs.
@@ -316,6 +317,70 @@ its disabled integration gates as follows.
   builds, local Worker dry-run packaging and diff checks passed. Unrelated event,
   news and DNS suites were omitted because their code/schema were unchanged.
 
-Next approvals remain separate: Phase 3.8.4 work; any push/DEV rollout; fresh DEV
-recovery and migration 0013; independently generated/backed-up MFA keys; and hosted
-enrollment/controlled live testing after the remaining security review. No PROD work.
+The preceding section records the Phase 3.8.3 checkpoint. Phase 3.8.4 supersedes its
+deferred management and conservative replacement-challenge behavior below.
+
+## Phase 3.8.4 local management
+
+- Local-only `/api/auth/mfa/manage/{start,verify,finish,cancel}` requires an existing
+  MFA-authenticated session, CSRF, exact origin and a current factor/generation.
+  Disable/regenerate transactions bind the session, browser, purpose and original
+  primary proof. Both primary and purpose-specific MFA proof must be within two
+  minutes, enforced inside guarded writes. Google reauthentication supports only
+  the fixed `mfa` return choice, never an arbitrary return URL.
+- Disable requires a fresh TOTP or unused recovery code, then an explicit separate
+  confirmation capability. One D1 batch consumes that capability, advances the
+  generation, revokes sessions/transactions, removes the factor and code sets and
+  creates a primary-authenticated replacement. It never deletes/changes credentials,
+  Google mappings, account identity, member ledger, roles or participant history.
+  Re-enrollment creates a new secret/factor. Existing sign-in methods remain usable.
+- Regeneration stages ten hashed verifiers and returns raw codes plus an acknowledgment
+  capability once. Only acknowledgment switches the active set, advances generation,
+  invalidates old sessions/codes and issues an assured replacement. Cancellation,
+  expiry, a lost display or failed acknowledgment preserves the active set. A recovery
+  code used as the step-up proof is spent immediately and remains spent on cancellation;
+  TOTP replay state likewise never rolls back simply because the user cancels.
+- Existing account/IP/challenge failure limits, expiring atomic leases and conditional
+  Turnstile also protect management checks. A fresh login proof is not reused for an
+  unrelated management action. Users may need the next authenticator step or an unused
+  recovery code. No support/email bypass, automatic retries or automatic restoration.
+  This strict purpose separation also means recovery-code login and a subsequent
+  management action need distinct unused codes. With a lost authenticator, spending
+  the last code on login leaves no management proof; spending the last code on an
+  interrupted regeneration can likewise exhaust recovery. Retain spare codes. Any
+  relaxation or specially scoped recovery continuation needs an explicit owner
+  decision during Phase 3.8.5; no silent bypass is implemented.
+- Session replacements after linking/first-password creation can transfer recent
+  assurance from the exact proven caller at exactly the next generation. An internal
+  runtime-only authority marker prevents client-shaped objects authorizing a transfer.
+  Original MFA/primary timestamps remain unchanged. Stale proof uses the normal MFA
+  login challenge. Enrollment/regeneration replacements also retain the actual TOTP /
+  management verification time rather than claiming the acknowledgment is new proof.
+- Unapplied migration 0013 now allows assurance timestamps before session creation
+  while rejecting future proof timestamps. Primary and MFA proof may occur in either
+  order, both no later than issuance. It also adds a constrained OIDC `return_action`
+  (`password` default, or `mfa`), preserving existing transactions. Migrations 0001–0012
+  remain unchanged. No remote database has received these local changes.
+- Account Security uses compact enabled/disabled rows, inline forms, explicit disable
+  confirmation and saved-code acknowledgment, primary reauthentication assistance,
+  action switching, focus and input clearing. Expired/uncertain requests never claim
+  success or automatically retry. Raw codes remain memory-only and user-selectable.
+- Enable/disable/regenerate notifications extend the existing guarded security-mail
+  path only after successful commits. They contain no action secrets and use the same
+  allowlist, sender, atomic 60-attempt UTC-day allowance/provider limits and no retries.
+  Sanitized failure logging never reverses a completed security change; no outbox.
+- Focused workerd tests cover account preservation for password-only, Google-only and
+  combined accounts, code/TOTP replay, interruptions, concurrent acknowledgment,
+  rollback, generation races, missing keys, CSRF, notifications and unchanged auth.
+  Browser fixtures cover compact rows, switching, acknowledgment, input clearing,
+  reauthentication assistance, focus and mobile overflow. Live authenticator,
+  hosted management and integrated CPU/reliability remain unverified.
+- Verification: 245 distinct targeted authentication/security tests passed across
+  the management and regression batches, including guarded mail/budget handling,
+  registration/verification/recovery, RBAC and the shared-IP login scenario. Strict
+  TypeScript, default/hosted-DEV builds and local Worker packaging passed. Unrelated
+  event/news/DNS suites were omitted; no live accounts, emails or remote tests were used.
+
+Next approvals: Phase 3.8.5 final security/manual acceptance work; separately any
+push/DEV deployment, fresh DEV recovery/migration 0013, independent backed-up MFA
+keys, and hosted enrollment/controlled account and email tests. No PROD rollout.

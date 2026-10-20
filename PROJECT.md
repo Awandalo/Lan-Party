@@ -452,11 +452,12 @@ Approved product requirements:
 - Optional TOTP MFA is approved for all accounts, including administrators. The owner
   reports Phase 3.7 manual DEV acceptance passed 7/7 and now names the MFA work
   **Phase 3.8** (superseding earlier future Phase 3.9 references). See
-  [MFA_DESIGN.md](MFA_DESIGN.md) for the approved architecture and local Phase 3.8.2–3
+  [MFA_DESIGN.md](MFA_DESIGN.md) for the approved architecture and local Phase 3.8.2–4
   implementation: migration 0013, encrypted TOTP secrets, recovery verifiers, shared
   password/Google pending challenges, atomic assurance/session issuance and local
-  enrollment acknowledgment. Hosted enrollment remains unavailable; management
-  disable/regenerate and step-up actions await Phase 3.8.4.
+  enrollment acknowledgment, purpose-bound disable/regenerate, recent-primary/MFA
+  checks and guarded security notifications. Hosted MFA enrollment/management
+  remain unavailable; final security/manual acceptance awaits Phase 3.8.5.
   No remote migration, key configuration, activation or rollout is approved.
 - Resend is prepared for DEV: the owner confirms the auth sending domain is verified
   and its domain-restricted sending key is installed only on the DEV Worker.

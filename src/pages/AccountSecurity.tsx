@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate } from 'react-router';
 import { useAuth } from '../lib/auth';
-import { clearPasswordSetup, googleRequest, passwordSetupRequested } from '../lib/google';
+import { clearPasswordSetup, googleRequest, passwordSetupRequested,mfaSettingsRequested } from '../lib/google';
 import GoogleButton from '../components/GoogleButton';
 import type { GoogleButtonHandle } from '../components/GoogleButton';
 import LoginChallenge from '../components/LoginChallenge';
 import PasswordInput from '../components/PasswordInput';
 import SecurityActionIcon from '../components/SecurityActionIcon';
-import MfaEnrollment from '../components/MfaEnrollment';
+import MfaSettings from '../components/MfaSettings';
 import { MFA_ENROLLMENT_AVAILABLE } from '../lib/mfa-mode';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
@@ -18,7 +18,7 @@ export default function AccountSecurity(){
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
   const [disconnecting,setDisconnecting]=useState(false),[passwordSetupOpen,setPasswordSetupOpen]=useState(passwordSetupRequested());
   const [needsGoogle,setNeedsGoogle]=useState(false);
-  const [mfaOpen,setMfaOpen]=useState(false);
+  const [mfaOpen,setMfaOpen]=useState(mfaSettingsRequested());
   const [googleBusy,setGoogleBusy]=useState(false),googlePending=useRef(false);
   const googleButton=useRef<GoogleButtonHandle>(null),activeSession=useRef(session?.csrfToken),actionPending=useRef(false);
   const disconnectTrigger=useRef<HTMLButtonElement>(null);
@@ -118,7 +118,7 @@ export default function AccountSecurity(){
         <button type="button" className="button button-secondary" disabled={busy} onClick={cancelConfirmation}>Cancel</button>
         </fieldset></form></div></dd>}</div></dl>
     </section>
-      {MFA_ENROLLMENT_AVAILABLE&&<MfaEnrollment csrf={csrf} open={mfaOpen} disabled={busy||googleBusy} onOpen={()=>{if(actionPending.current||googlePending.current)return;googleButton.current?.cancelLink();clearAction();setMfaOpen(true);}} onBusy={value=>{actionPending.current=value;setBusy(value);}} onActivated={refresh}/>}
+      {MFA_ENROLLMENT_AVAILABLE&&<MfaSettings csrf={csrf} methods={methods} open={mfaOpen} disabled={busy||googleBusy} onOpen={()=>{if(actionPending.current||googlePending.current)return;googleButton.current?.cancelLink();clearAction();setMfaOpen(true);}} onBusy={value=>{actionPending.current=value;setBusy(value);}} onActivated={refresh}/>}
     </>}
     <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2>
       <dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified ? 'Verified' : 'Not verified'}</dd></div></dl>

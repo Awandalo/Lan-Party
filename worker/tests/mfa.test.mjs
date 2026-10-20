@@ -16,15 +16,20 @@ before(async()=>{
   import {issueSession,D1SessionStore,resolveSession} from './worker/auth/sessions';
   import {completePrimary,pendingLogin,completeMfa} from './worker/auth/mfa-login';
   import {LoginLimiter} from './worker/auth/login-limits';
+  import * as management from './worker/auth/mfa-management';
   import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
   globalThis.fetch=async(url,init)=>{
     if(String(url)==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:JSON.parse(init.body).response==='synthetic-mfa-proof',hostname:'127.0.0.1',action:'login'});
     throw Error('No external requests allowed in MFA fixture');
   };
+  let failNotices=false,notices=[];const originalSend=localMailbox.send.bind(localMailbox);
+  localMailbox.send=async mail=>{if(mail.purpose?.startsWith('mfa-')){notices.push(mail.purpose);if(failNotices)throw Error('Synthetic notification failure');}return originalSend(mail);};
   export default {async fetch(request,env){
    if(new URL(request.url).pathname!=='/fixture')return app.fetch(request,env);
    const {action,args=[]}=await request.json();try{
     if(action==='take')return Response.json(localMailbox.take('mfa@example.test',Math.floor(Date.now()/1000),'email-verification'));
+    if(action==='notices')return Response.json(notices);
+    if(action==='failNotices'){failNotices=true;return Response.json(true);}
     if(action==='resetmail')return Response.json(localMailbox.take('mfa@example.test',Math.floor(Date.now()/1000),'password-reset'));
     if(action==='challengeAt')return Response.json(!!await pendingLogin(env.DB,...args));
     if(action==='signals'){const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,args[0]);for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
@@ -58,6 +63,7 @@ before(async()=>{
     }
     if(foundation[action])return Response.json(await foundation[action](...args));
     if(enrollment[action])return Response.json(await enrollment[action](...(action==='requireEnrollmentActivation'?args:[env.DB,...args])));
+    if(management[action])return Response.json(await management[action](env.DB,...args));
     throw Error();
    }catch{return Response.json({error:'Fictional operation rejected'},{status:409});}
   }};`},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
@@ -86,6 +92,146 @@ async function challengeHttp(request){
  const response=await request('mfa/challenge',undefined,{Cookie});assert.equal(response.status,200);
  const challenge=await response.json();return {Cookie,'X-CSRF-Token':challenge.csrfToken};
 }
+async function managementFixture(fixture){
+ const enrolled=await enrollHttp(fixture),activated=await enrolled.activate();assert.equal(activated.status,200);
+ const Cookie=cookieJar(activated),body=await(await fixture.request('session',undefined,{Cookie})).json();
+ const headers={Cookie,'X-CSRF-Token':body.csrfToken};
+ const digest=createHash('sha256').update('lan-party:session:v1:'+Cookie.split(';')[0].split('=')[1]).digest('hex');
+ const user=await fixture.db.prepare('SELECT id,auth_version FROM users').first();
+ const c={userId:user.id,authVersion:user.auth_version,sessionDigest:digest,browserDigest:await fixture.call('mfaDigest','management-browser',digest),now:Math.floor(Date.now()/1000)};
+ const start=async purpose=>{const r=await fixture.request('mfa/manage/start',{purpose},headers);assert.equal(r.status,200);return r.json();};
+ const prove=(tx,code=enrolled.codes.codes[0])=>fixture.request('mfa/manage/verify',{token:tx.token,method:'recovery',code},headers);
+ const finish=(tx,proof)=>fixture.request('mfa/manage/finish',{token:tx.token,acknowledgment:proof.acknowledgment,confirmed:true},headers);
+ return {...enrolled,headers,c,start,prove,finish};
+}
+
+test('MFA disable preserves account identity, credentials, Google mapping, roles and member history while revoking MFA and sessions',()=>local(async fixture=>{
+ const {db,request,call}=fixture,m=await managementFixture(fixture);
+ await db.prepare('INSERT INTO registration_rate_limits(key_hash,hits,expires_at) VALUES (?,7,?)').bind('fa'.repeat(32),m.c.now+900).run();
+ await db.prepare('INSERT INTO auth_email_daily_budget(utc_day,attempts) VALUES (?,12)').bind(Math.floor(m.c.now/86400)*86400).run();
+ await db.prepare("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,? FROM roles WHERE code='admin'").bind(m.c.userId,m.c.now).run();
+ await db.prepare("INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at) VALUES (?,?,'google','https://accounts.google.com','fictional-disable-subject',?)")
+  .bind(randomUUID(),m.c.userId,m.c.now).run();
+ const tables=['user_password_credentials','user_auth_providers','user_nicknames','member_numbers','user_roles','registration_rate_limits','auth_email_daily_budget'];
+ const before={};for(const table of tables.filter(t=>t!=='registration_rate_limits'))before[table]=(await db.prepare('SELECT * FROM '+table).all()).results;
+ const identity=await db.prepare('SELECT id,email,email_normalized,first_name,last_name,status,email_verified_at FROM users').first();
+ const tx=await m.start('disable'),checked=await m.prove(tx);assert.equal(checked.status,200);const proof=await checked.json();
+ assert.equal((await request('mfa/manage/finish',{token:tx.token,acknowledgment:proof.acknowledgment,confirmed:false},m.headers)).status,400);
+ const result=await m.finish(tx,proof);assert.equal(result.status,200);assert.equal((await result.clone().json()).notification,'attempted');
+ const Cookie=cookieJar(result),current=await request('session',undefined,{Cookie});assert.equal(current.status,200);
+ const newCsrf=(await current.json()).csrfToken;
+ assert.equal((await request('session',undefined,m.headers)).status,401);
+ assert.deepEqual(await db.prepare('SELECT id,email,email_normalized,first_name,last_name,status,email_verified_at FROM users').first(),identity);
+ for(const [table,rows] of Object.entries(before))assert.deepEqual((await db.prepare('SELECT * FROM '+table).all()).results,rows,table);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),0);
+ assert.equal(await db.prepare('SELECT hits FROM registration_rate_limits WHERE key_hash=?').bind('fa'.repeat(32)).first('hits'),7);
+ assert.equal((await(await request('login',{email:profile.email,password:profile.password})).json()).next,'/account');
+ assert.deepEqual(await call('notices'),['mfa-enabled','mfa-disabled']);
+ assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+ assert.notEqual((await request('mfa/manage/start',{purpose:'disable'},{Cookie})).status,200);
+ const reenroll=await request('mfa/enroll/start',{}, {Cookie,'X-CSRF-Token':newCsrf});assert.equal(reenroll.status,200);
+ assert.notEqual((await reenroll.json()).secret,m.setup.secret);
+}));
+
+test('regeneration stages ten codes once, retains the old set until acknowledgment, and preserves the original proof timestamp',()=>local(async fixture=>{
+ const {db,request,call}=fixture,m=await managementFixture(fixture);
+ const old=await db.prepare('SELECT recovery_set_id,last_step FROM auth_totp_factors').first(),tx=await m.start('regenerate');
+ const checked=await m.prove(tx);assert.equal(checked.status,200);const proof=await checked.json();assert.equal(proof.codes.length,10);
+ assert.equal((await m.prove(tx)).status,503);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),old.recovery_set_id);
+ assert.equal((await request('mfa/manage/finish',{token:tx.token,acknowledgment:'00'.repeat(32),confirmed:true},m.headers)).status,503);
+ const staged=await db.prepare("SELECT verified_at,recovery_set_id FROM auth_mfa_transactions WHERE purpose='regenerate'").first();
+ // A later acknowledgment must carry the earlier purpose-bound proof, not renew it.
+ await new Promise(resolve=>setTimeout(resolve,1100));
+ const result=await m.finish(tx,proof);assert.equal(result.status,200);
+ const sessionDigest=createHash('sha256').update('lan-party:session:v1:'+cookieJar(result).split(';')[0].split('=')[1]).digest('hex');
+ const assurance=await db.prepare('SELECT verified_at FROM auth_session_mfa WHERE session_digest=?').bind(sessionDigest).first();
+ assert.equal(assurance.verified_at,staged.verified_at);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),staged.recovery_set_id);
+ assert.equal(await db.prepare('SELECT last_step FROM auth_totp_factors').first('last_step'),old.last_step);
+ const headers=await challengeHttp(request);
+ assert.equal((await request('mfa/complete',{method:'recovery',code:m.codes.codes[1]},headers)).status,401);
+ assert.equal((await request('mfa/complete',{method:'recovery',code:proof.codes[0]},headers)).status,200);
+}));
+
+test('cancelled, expired and lost regeneration displays preserve the active set and cannot be acknowledged later',()=>local(async fixture=>{
+ const {db,request,raw}=fixture,m=await managementFixture(fixture),old=await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id');
+ const tx=await m.start('regenerate'),proof=await(await m.prove(tx)).json();
+ assert.equal((await request('mfa/manage/cancel',{token:tx.token},m.headers)).status,200);
+ assert.equal((await m.finish(tx,proof)).status,503);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),old);
+ const next=await m.start('regenerate'),saved=await(await m.prove(next,m.codes.codes[1])).json();
+ assert.equal((await raw('finishManagement',{...m.c,now:m.c.now+121},next.token,saved.acknowledgment,keyConfig,'local')).status,409);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),old);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE set_id=? AND consumed_at IS NULL').bind(old).first('n'),8);
+}));
+
+test('management concurrency and injected write failures cannot partially disable or replace recovery sets',()=>local(async fixture=>{
+ const {db,request}=fixture,m=await managementFixture(fixture);
+ const starts=await Promise.all([request('mfa/manage/start',{purpose:'disable'},m.headers),request('mfa/manage/start',{purpose:'regenerate'},m.headers)]);
+ assert.equal(starts.filter(r=>r.status===200).length,1);const won=await starts.find(r=>r.status===200).json();
+ await request('mfa/manage/cancel',{token:won.token},m.headers);
+ const tx=await m.start('disable'),proof=await(await m.prove(tx)).json();
+ await db.exec("CREATE TRIGGER fixture_disable_abort BEFORE DELETE ON auth_totp_factors BEGIN SELECT RAISE(ABORT,'fictional'); END;");
+ assert.equal((await m.finish(tx,proof)).status,503);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+ assert.equal((await request('session',undefined,m.headers)).status,200);
+ await db.exec('DROP TRIGGER fixture_disable_abort;');
+ const attempts=await Promise.all([m.finish(tx,proof),m.finish(tx,proof)]);assert.equal(attempts.filter(r=>r.status===200).length,1);
+}));
+
+test('management requires recent primary proof, valid keys, correct session, CSRF and purpose; stale generations invalidate it',()=>local(async fixture=>{
+ const {request,raw,db}=fixture,m=await managementFixture(fixture);
+ assert.equal((await request('mfa/manage/start',{purpose:'disable'},{Cookie:m.headers.Cookie})).status,403);
+ assert.equal((await request('mfa/manage/start',{purpose:'disable'},{...m.headers,Origin:'https://evil.example.test'})).status,403);
+ assert.equal((await raw('beginManagement',m.c,'disable',{},'local')).status,409);
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=authenticated_at-121,expires_at=expires_at-121').run();
+ assert.equal((await request('mfa/manage/start',{purpose:'disable'},m.headers)).status,428);
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=?').bind(m.c.now,m.c.now+300).run();
+ const tx=await m.start('disable');
+ assert.equal((await m.prove(tx,'A'.repeat(26))).status,401);
+ const proof=await(await m.prove(tx)).json();
+ await db.prepare('UPDATE users SET auth_version=auth_version+1').run();
+ assert.equal((await m.finish(tx,proof)).status,401);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+}));
+
+test('MFA notifications happen only after commits and failures do not reverse management changes',()=>local(async fixture=>{
+ const {request,call}=fixture,m=await managementFixture(fixture),tx=await m.start('regenerate');
+ const proof=await(await m.prove(tx)).json();assert.deepEqual(await call('notices'),['mfa-enabled']);
+ await call('failNotices');const result=await m.finish(tx,proof);assert.equal(result.status,200);assert.equal((await result.clone().json()).notification,'unconfirmed');
+ assert.equal((await request('session',undefined,{Cookie:cookieJar(result)})).status,200);
+ assert.deepEqual(await call('notices'),['mfa-enabled','mfa-regenerated']);
+}));
+
+test('management TOTP proof is purpose-bound and single-use, including cancellation and rejected recovery-code replay',()=>local(async fixture=>{
+ const {request,call,db}=fixture,m=await managementFixture(fixture),tx=await m.start('regenerate');
+ const code=await call('generate',{secret:m.setup.secret,epoch:Math.floor(Date.now()/1000)+30});
+ const checked=await request('mfa/manage/verify',{token:tx.token,method:'totp',code},m.headers);assert.equal(checked.status,200);
+ await request('mfa/manage/cancel',{token:tx.token},m.headers);
+ const next=await m.start('disable');
+ assert.equal((await request('mfa/manage/verify',{token:next.token,method:'totp',code},m.headers)).status,401);
+ const proof=await(await m.prove(next)).json();
+ await request('mfa/manage/cancel',{token:next.token},m.headers);
+ const third=await m.start('disable');assert.equal((await m.prove(third)).status,401);
+ assert.equal((await m.finish(third,proof)).status,503);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+}));
+
+test('regeneration acknowledgment rolls back on generation-write failure and concurrent acknowledgment has one winner',()=>local(async fixture=>{
+ const {db,request,call}=fixture,m=await managementFixture(fixture),old=await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id');
+ const tx=await m.start('regenerate'),proof=await(await m.prove(tx)).json();
+ await db.exec("CREATE TRIGGER fixture_regen_abort BEFORE UPDATE OF auth_version ON users BEGIN SELECT RAISE(ABORT,'fictional'); END;");
+ assert.equal((await m.finish(tx,proof)).status,503);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),old);
+ assert.equal((await request('session',undefined,m.headers)).status,200);
+ assert.deepEqual(await call('notices'),['mfa-enabled']);
+ await db.exec('DROP TRIGGER fixture_regen_abort;');
+ const results=await Promise.all([m.finish(tx,proof),m.finish(tx,proof)]);assert.equal(results.filter(r=>r.status===200).length,1);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),10);
+ assert.deepEqual(await call('notices'),['mfa-enabled','mfa-regenerated']);
+}));
 
 test('local acknowledgment activates atomically and replaces the session and CSRF; duplicate/lost responses are safe',()=>local(async fixture=>{
  const {request,db}=fixture,{activate,headers,codes}=await enrollHttp(fixture);
@@ -424,6 +570,8 @@ test('session resolution rejects unassured MFA sessions even when inserted outsi
  await db.prepare('INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at) VALUES (?,?,?,1,?,?)').bind(randomUUID(),c.userId,digest,c.now,c.now+604800).run();
  assert.equal(await call('resolve',rawToken,c.now),null);
  const factor=await db.prepare('SELECT factor_id FROM auth_totp_factors').first('factor_id');
+ await assert.rejects(()=>db.prepare(`INSERT INTO auth_session_mfa(session_digest,user_id,auth_version,factor_id,method,verified_at,primary_method,primary_authenticated_at)
+  VALUES (?,?,1,?,'totp',?,'password',?)`).bind(digest,c.userId,factor,c.now+1,c.now).run());
  await db.prepare(`INSERT INTO auth_session_mfa(session_digest,user_id,auth_version,factor_id,method,verified_at,primary_method,primary_authenticated_at)
   VALUES (?,?,1,?,'totp',?,'password',?)`).bind(digest,c.userId,factor,c.now,c.now).run();
  assert.equal((await call('resolve',rawToken,c.now)).userId,c.userId);

@@ -1,4 +1,7 @@
 -- Optional account MFA. No account is enrolled by this migration.
+-- Fixed server-side return choice for recent Google proof in MFA settings.
+ALTER TABLE auth_oidc_transactions ADD COLUMN return_action TEXT NOT NULL DEFAULT 'password'
+  CHECK (return_action IN ('password','mfa'));
 CREATE TABLE auth_totp_factors (
   user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   factor_id TEXT NOT NULL UNIQUE CHECK (length(factor_id)=36),
@@ -66,7 +69,7 @@ CREATE TABLE auth_session_mfa (
   method TEXT NOT NULL CHECK (method IN ('totp','recovery')),
   verified_at INTEGER NOT NULL CHECK (verified_at>=0),
   primary_method TEXT NOT NULL CHECK (primary_method IN ('password','google')),
-  primary_authenticated_at INTEGER NOT NULL CHECK (primary_authenticated_at>=0 AND primary_authenticated_at<=verified_at)
+  primary_authenticated_at INTEGER NOT NULL CHECK (primary_authenticated_at>=0)
 ) STRICT;
 CREATE INDEX auth_session_mfa_user_idx ON auth_session_mfa(user_id);
 
@@ -103,7 +106,8 @@ CREATE TRIGGER auth_mfa_assurance_insert BEFORE INSERT ON auth_session_mfa
 WHEN NOT EXISTS (SELECT 1 FROM auth_sessions s JOIN users u ON u.id=s.user_id JOIN auth_totp_factors f ON f.user_id=u.id
   WHERE s.token_digest=NEW.session_digest AND s.user_id=NEW.user_id AND s.auth_version=NEW.auth_version
     AND u.auth_version=NEW.auth_version AND u.status='active' AND s.revoked_at IS NULL
-    AND f.factor_id=NEW.factor_id AND s.created_at<=NEW.verified_at AND s.expires_at>NEW.verified_at)
+    AND f.factor_id=NEW.factor_id AND NEW.verified_at<=s.created_at AND NEW.primary_authenticated_at<=s.created_at
+    AND s.expires_at>NEW.verified_at)
 BEGIN
   SELECT RAISE(ABORT,'MFA assurance requires the current account session');
 END;
