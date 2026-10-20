@@ -228,6 +228,16 @@ When completing development tasks:
 
 ## Preferred Git workflow
 
+- Minimize approval overhead without broadening permissions: plan publication and
+  inspect unpublished commits before creating commits or worktrees. Prepare the
+  complete scoped change before committing; prefer one commit and one push when
+  appropriate. If isolation is necessary, prepare the isolated review unit first
+  rather than duplicating commits and adding follow-up merges unnecessarily.
+- Batch related, already-reviewed Git operations where practical, retaining scope
+  checks and stopping on failure. Keep required staged-diff and commit-message
+  verification before proceeding. Never combine commands to evade host review,
+  request blanket Git/shell access, or promise a fixed number of approval prompts.
+  Existing task authorization does not replace mandatory tool approvals.
 - Follow [RELEASE.md](RELEASE.md) only when the user explicitly requests release
   preparation or, separately, post-release housekeeping. Release preparation
   authorizes creating or updating the `dev` to `main` PR after all pre-flight checks
