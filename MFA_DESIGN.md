@@ -2,6 +2,16 @@
 
 ## R2 — local credential-mutation assurance (issue #14)
 
+R2-F1 review correction: the OAuth linking transaction also binds the exact
+primary-proof method, timestamp, user/session and generation, rechecking expiry
+using the database clock (Google strictly younger than 120 seconds; password's
+existing 300-second proof lifetime). MFA remains an independent guard. A claimed
+failed link consumes its OAuth transaction, clears verifier/nonce and expires its
+browser cookie; competing/replayed callbacks cannot cancel the claimed exchange.
+Stale primary proof returns a Security-page explanation without restarting OAuth.
+An uncertain step-up response disables in-place retries and offers explicit normal
+login; authentication still requires primary proof plus MFA and never refunds a code.
+
 Owner authorized local implementation on 2026-10-22; independent review and hosted
 acceptance remain pending. No new migration or remote configuration is required
 by this correction. R3 and rollout #10 remain separately gated.

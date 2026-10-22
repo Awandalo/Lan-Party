@@ -60,7 +60,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
     const now=Math.floor(Date.now()/1000);
     if(action==='step-up'){
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
-      if(!account||!token||account.emailVerifiedAt===null)return reply(401,{error:'Sign in again.'});
+      if(!account||!token||account.emailVerifiedAt===null)return reply(401,{code:'session_required',error:'Sign in again.'});
       const digest=await digestToken(token,'session');
       if(!await validAuthMutation(request,origin.origin,digest,secret))return reply(403,{error:'Request rejected'});
       const input=await readInput(request) as Record<string,unknown>;

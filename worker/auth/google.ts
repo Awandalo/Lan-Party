@@ -35,7 +35,7 @@ class RecentAuthenticationRequired extends Error {
   constructor(readonly method?: string) { super('Confirm your existing sign-in method before continuing.'); }
 }
 function flowCookie(value: string, local: boolean) {
-  return `${local ? 'lan_google_local' : cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${local?'':'; Secure'}`;
+  return `${local ? 'lan_google_local' : cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${value?600:0}${local?'':'; Secure'}`;
 }
 function profileCookie(value: string, local: boolean, maxAge: number) {
   return `${local?'lan_google_profile_local':'__Host-lan_google_profile'}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${local?'':'; Secure'}`;
@@ -103,6 +103,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
   const url=new URL(request.url), action=url.pathname.split('/').pop();
   if (!authRouteEnabled(request,env,env.AUTH_SESSION_MODE) || !authRouteEnabled(request,env,env.GOOGLE_AUTH_MODE)) return reply(404,{error:'Not found'});
   if (request.method!==(['callback','methods','profile'].includes(action??'')?'GET':'POST')) return reply(405,{error:'Method not allowed'});
+  let callbackLink:Flow|undefined;
   try {
     const origin=authOrigin(request,env); googleClient(env);
     if (action==='callback') {
@@ -112,6 +113,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       const held=await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='exchanging' WHERE state_digest=?
         AND phase='pending' AND expires_at>? RETURNING state_digest`).bind(flow.state_digest,now()).first();
       if (!held) throw new Error('Replayed callback');
+      if(flow.purpose==='link')callbackLink=flow;
       // Claimed before network: uncertain exchange is never automatically retried.
       const identity=await exchangeGoogle(env,url,state,flow.nonce,flow.verifier,origin.origin+'/api/auth/google/callback',flow.purpose==='reauth');
       if (!recipientAllowed(request,env,identity.email)) throw new Error('Identity unavailable');
@@ -157,13 +159,20 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=? AND phase='exchanging'
             AND expires_at>? AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=? AND status='active')
             AND EXISTS(SELECT 1 FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
-              WHERE r.session_digest=? AND r.expires_at>? AND s.revoked_at IS NULL AND s.expires_at>?)
-            AND ${mfa.sql} RETURNING state_digest`).bind(flow.state_digest,now(),flow.user_id,flow.auth_version,session.digest,now(),now(),...mfa.values),
+              WHERE r.session_digest=? AND r.user_id=? AND r.auth_version=? AND r.method=? AND r.authenticated_at=?
+                AND r.authenticated_at<=unixepoch() AND r.expires_at>unixepoch()
+                AND (r.method<>'google' OR r.authenticated_at>unixepoch()-120)
+                AND s.user_id=r.user_id AND s.auth_version=r.auth_version AND s.revoked_at IS NULL AND s.expires_at>unixepoch())
+            AND ${mfa.sql} RETURNING state_digest`).bind(flow.state_digest,now(),flow.user_id,flow.auth_version,session.digest,
+              flow.user_id,flow.auth_version,primary.method,primary.authenticated_at,...mfa.values),
           env.DB.prepare(`INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at)
             SELECT ?,?,'google',?,?,? WHERE changes()=1`).bind(crypto.randomUUID(),flow.user_id,googleIssuer,identity.subject,now()),
           env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),flow.user_id),
         ]);
-        if (linkedResult[1].meta.changes!==1) {await requireRecentMfa(env.DB,session.account,session.digest);throw new Error('Account changed');}
+        if (linkedResult[1].meta.changes!==1) {
+          await requireRecentMfa(env.DB,session.account,session.digest);await recent(env.DB,session.account,session.digest,primary.method);
+          throw new Error('Account changed');
+        }
         // The generation change revoked every old session. Replace only this
         // proven caller's session; never reread and adopt a later generation.
         const replacement=await completePrimary(env.DB,
@@ -359,9 +368,15 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     }
     return reply(404,{error:'Not found'});
   } catch (error) {
-    if(error instanceof RecentMfaRequired)return action==='callback'?redirect('/account/security?mfa=required'):
+    // Only the callback that claimed this link may retire it. A competing/replayed
+    // callback must never cancel another request's in-flight exchange.
+    if(callbackLink)await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce=''
+      WHERE state_digest=? AND purpose='link' AND phase='exchanging'`).bind(callbackLink.state_digest).run();
+    const clearLink=callbackLink?flowCookie('',!hostedDev(request,env)):undefined;
+    if(error instanceof RecentMfaRequired)return action==='callback'?redirect('/account/security?mfa=required',clearLink):
       reply(428,{code:'mfa_required',error:'Confirm two-factor authentication before changing your sign-in methods.'});
-    if (action==='callback') return redirect('/login?google=unavailable');
+    if (action==='callback') return redirect(callbackLink&&error instanceof RecentAuthenticationRequired?
+      '/account/security?primary=required':'/login?google=unavailable',clearLink);
     if (error instanceof RecentAuthenticationRequired) return reply(428,{code:'reauth_required',
       method:error.method??'existing',error:error.message});
     if (error instanceof LoginChallenge) return reply(403,{code:error.invalid?'challenge_failed':'challenge_required',siteKey:error.siteKey,error:'Complete the security check.'});

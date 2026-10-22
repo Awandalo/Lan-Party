@@ -1,5 +1,58 @@
 # Phase 3.8.5 — local security regression and DEV acceptance preparation
 
+## R2-F1 — Q review follow-up, 2026-10-22
+
+Owner authorization is recorded in #14 comment `6349210582` and confirmed in Codex.
+This correction is for isolated review publication only. Remote dev/main, migrations,
+configuration, hosted MFA and deployment remain unchanged and separately gated.
+
+1. **Fixed — atomic primary proof.** OAuth linking now checks the exact primary
+   method/timestamp and user/session/generation inside its D1 batch. The database
+   clock checks future timestamps, expiry and Google's stricter 120-second window.
+   A regression leaves the proof record unchanged and waits for the actual database
+   clock to cross the boundary after precheck, before executing the write. Separate
+   tests change proof age/method/generation and retain independently fresh MFA.
+2. **Confirmed — local D1 atomicity.** The matrix below exercises the actual local
+   workerd/D1 batch and its `changes()` assertions. No database migration changed.
+3. **Fixed UX / known limitation — lost response.** An uncertain response disables
+   the form and offers a normal-login link, with no automatic retry. Discarding a
+   successful response still revokes the old session and spends a recovery code;
+   this security tradeoff remains. A runtime test completes normal password + TOTP
+   login afterwards, verifies the code stays spent and credentials remain intact.
+4. **Fixed cleanup / confirmed — stale callback.** Only the callback that claimed a
+   link can consume its failed exchange, erase verifier/nonce and expire the OAuth
+   cookie. Stale-MFA/primary redirects keep the existing valid session, grant no new
+   authentication and cannot link on replay. A return-page hint never restarts OAuth.
+5. **Known release gate.** The review branch includes divergent prerequisite history
+   and is not a wholesale merge candidate for remote dev. A remote-dev-based release
+   candidate, complete publication review and rollout approval remain separate work.
+
+| Failure / binding point | Local runtime evidence |
+| --- | --- |
+| Lease expired before proof | `step-up preserves CSRF/origin, rejects invalid code and an expired lease without spending recovery proof`: no proof consumed or source revoked |
+| First insert: `auth_sessions` | `each session insert failure ...`: injected SQL ABORT and zero-row IGNORE each roll back code consumption/source revocation |
+| Second insert: `auth_session_mfa` | Same test, both failure modes; new session rolls back and original session/assurance remain |
+| Third insert: `auth_recent_authentication` | Same test, both failure modes; new session/assurance roll back and original recent-primary row remains |
+| Concurrent TOTP / recovery step-ups | One winner per source session; consumed proof cannot replay on the replacement session |
+| Replacement proof binding | Exact replacement digest/user/generation/method/original primary time/expiry checked; MFA row joins the new session and original factor |
+| Lost entire step-up response | Old cookie rejected; repeated old-source request is `401 session_required`; code stays spent; normal primary + TOTP login succeeds |
+| Stale linking callbacks | No provider/generation mutation; consumed exchange, erased verifier/nonce, expired cookie and callback replay rejection verified |
+
+Focused verification: 53 Google/R2 tests passed (36 Google and 17 R2), plus three
+affected Google/R1 recovery tests. The expanded replacement-binding test passed
+again after adding its assertions. Existing unaffected evidence is retained below;
+there is no claim that all suites were rerun. Strict TypeScript and default and
+hosted-DEV builds pass. No new failing check was encountered in this correction.
+
+Browser evidence uses intercepted fictional responses: stale-MFA return performs
+zero link requests before and after explicit step-up; uncertain submission sends
+one step-up request, disables retry, clears the code and offers normal login; the
+link reaches the fictional login destination. Stale-primary return shows feedback
+with zero OAuth starts. The reproducible fixture is
+`worker/tests/fixtures/mfa-assurance-ui.html` (serve with local Vite). This is separate
+from real hosted Google/D1/Turnstile acceptance, which was not run. Unchanged schema/
+integrity and unrelated suites were omitted under targeted-testing policy.
+
 ## R2 local implementation — 2026-10-22
 
 Issue #14's owner-authorized correction adds strict two-minute LAN Party MFA guards

@@ -14,7 +14,8 @@ import { MFA_ENROLLMENT_AVAILABLE } from '../lib/mfa-mode';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
   const {session,status,refresh}=useAuth();
-  const [methods,setMethods]=useState<{password:boolean;google:boolean}|null>(null),[feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false);
+  const [methods,setMethods]=useState<{password:boolean;google:boolean}|null>(null),[feedback,setFeedback]=useState(()=>new URLSearchParams(window.location.search).get('primary')==='required'?
+    'Google was not connected. Confirm your sign-in method and select Connect Google again.':''),[busy,setBusy]=useState(false);
   const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
   const [disconnecting,setDisconnecting]=useState(false),[passwordSetupOpen,setPasswordSetupOpen]=useState(passwordSetupRequested());

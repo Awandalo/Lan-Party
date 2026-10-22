@@ -25,7 +25,22 @@ before(async()=>{
  function raceDatabase(db){
   const tracked=new WeakMap();
   const isWrite=sql=>/UPDATE user_password_credentials SET|INSERT INTO user_password_credentials|DELETE FROM user_auth_providers|UPDATE auth_oidc_transactions SET phase='consumed'.*phase='exchanging'/s.test(sql);
-  async function expire(statements){if(!expireWrite||!statements.some(s=>isWrite(tracked.get(s))))return;expireWrite=false;
+  async function expire(statements){if(!expireWrite||!statements.some(s=>isWrite(tracked.get(s))))return;const change=expireWrite;expireWrite=false;
+   if(change==='google-age'||change==='password-age'){
+    const at=Math.floor(Date.now()/1000)-(change==='google-age'?121:301);
+    await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=?').bind(at,at+300).run();return;
+   }
+   if(change==='method'){await db.prepare("UPDATE auth_recent_authentication SET method='google'").run();return;}
+   if(change==='generation'){await db.prepare('UPDATE auth_recent_authentication SET auth_version=auth_version+1').run();return;}
+   if(change==='wait-primary'){
+    const at=await db.prepare('SELECT authenticated_at FROM auth_recent_authentication').first('authenticated_at');
+    const deadline=Date.now()+5000;
+    while(await db.prepare('SELECT unixepoch() AS clock').first('clock')<at+120){
+     if(Date.now()>deadline)throw Error('Fixture database clock did not advance');
+     await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    return;
+   }
    const old=await db.prepare('SELECT * FROM auth_session_mfa').first();
    await db.batch([db.prepare('DELETE FROM auth_session_mfa'),db.prepare('INSERT INTO auth_session_mfa(session_digest,user_id,auth_version,factor_id,method,verified_at,primary_method,primary_authenticated_at) VALUES (?,?,?,?,?,?,?,?)')
     .bind(old.session_digest,old.user_id,old.auth_version,old.factor_id,old.method,Math.floor(Date.now()/1000)-121,old.primary_method,old.primary_authenticated_at)]);
@@ -36,7 +51,8 @@ before(async()=>{
  export default{async fetch(request,env){if(new URL(request.url).pathname!='/fixture')return app.fetch(request,{...env,DB:raceDatabase(env.DB)});
   const {action,args}=await request.json();
   if(action==='hash')return Response.json(await hashPassword(args[0],env.PASSWORD_PEPPER));
-  if(action==='expireNextWrite'){expireWrite=true;return Response.json(true);}
+  if(action==='expireNextWrite'){expireWrite=args[0]??true;return Response.json(true);}
+  if(action==='primaryBoundary'){const at=Math.floor(Date.now()/1000)-116;await env.DB.prepare("UPDATE auth_recent_authentication SET method='google',authenticated_at=?,expires_at=?").bind(at,at+300).run();return Response.json(at);}
   if(action==='signals'){const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'loopback');for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
   if(action==='secret')return Response.json(await encryptTotpSecret(args[0],env,{environment:'local',userId:args[1],id:args[2],purpose:'active'}));
   if(action==='verifier')return Response.json(await recoveryVerifier(...args));
@@ -132,22 +148,30 @@ test('no-factor accounts and pre-MFA schema retain password behavior',async()=>{
 test('prepared MFA write guard rejects concurrent revocation, missing proof and generation changes',async()=>{
  for(const change of ['revoke','missing','generation'])await local(async({call,account,source})=>assert.equal(await call('race',account,source,change),false));
 });
-test('step-up rotates session, preserves primary age, allows subsequent mutation and rejects replay',()=>local(async({request,headers,db,source,time})=>{
+test('step-up rotates session, preserves primary age, allows subsequent mutation and rejects replay',()=>local(async({request,headers,db,source,time,account})=>{
  await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=?').bind(time-200,time+100).run();
  const r=await request('mfa/step-up',{method:'recovery',code:recovery},headers);assert.equal(r.status,200,JSON.stringify(await r.clone().json()));
  const Cookie=cookies(r);assert.equal((await request('session',undefined,headers)).status,401);
  const session=await request('session',undefined,{Cookie});assert.equal(session.status,200);const next={Cookie,'X-CSRF-Token':(await session.json()).csrfToken};
  assert.equal(await db.prepare('SELECT authenticated_at FROM auth_recent_authentication WHERE session_digest<>?').bind(source).first('authenticated_at'),time-200);
+ const target=digest(Cookie.split(';')[0].split('=')[1]);
+ assert.deepEqual(await db.prepare('SELECT session_digest,user_id,auth_version,method,authenticated_at,expires_at FROM auth_recent_authentication WHERE session_digest=?').bind(target).first(),
+  {session_digest:target,user_id:account.userId,auth_version:0,method:'password',authenticated_at:time-200,expires_at:time+100});
+ const bound=await db.prepare('SELECT s.token_digest,m.session_digest,m.user_id,m.auth_version,m.factor_id FROM auth_sessions s JOIN auth_session_mfa m ON m.session_digest=s.token_digest WHERE s.token_digest=?').bind(target).first();
+ assert.equal(bound.token_digest,bound.session_digest);assert.equal(bound.user_id,account.userId);assert.equal(bound.auth_version,0);
+ assert.equal(bound.factor_id,await db.prepare('SELECT factor_id FROM auth_totp_factors').first('factor_id'));
  assert.equal((await request('mfa/step-up',{method:'recovery',code:recovery},next)).status,401);
  assert.equal((await request('google/change-password',{password,newPassword:password+' new'},next)).status,200);
 },{age:121}));
-test('TOTP step-up has one concurrent winner, revokes source and never reuses a code',()=>local(async({request,call,headers,db})=>{
- const code=await call('otp',secret),responses=await Promise.all([request('mfa/step-up',{method:'totp',code},headers),request('mfa/step-up',{method:'totp',code},headers)]);
+test('TOTP and recovery step-up have one concurrent winner, revoke source and never reuse a code',async()=>{
+ for(const method of ['totp','recovery'])await local(async({request,call,headers,db})=>{
+ const code=method==='totp'?await call('otp',secret):recovery,responses=await Promise.all([request('mfa/step-up',{method,code},headers),request('mfa/step-up',{method,code},headers)]);
  assert.equal(responses.filter(r=>r.status===200).length,1);
  const Cookie=cookies(responses.find(r=>r.status===200)),session=await(await request('session',undefined,{Cookie})).json();
- assert.equal((await request('mfa/step-up',{method:'totp',code},{Cookie,'X-CSRF-Token':session.csrfToken})).status,401);
+ assert.equal((await request('mfa/step-up',{method,code},{Cookie,'X-CSRF-Token':session.csrfToken})).status,401);
  assert.equal(await db.prepare('SELECT count(*) FROM auth_sessions WHERE revoked_at IS NULL').first('count(*)'),1);
-},{age:121}));
+ },{age:121});
+});
 test('step-up preserves CSRF/origin, rejects invalid code and an expired lease without spending recovery proof',()=>local(async({request,headers,call,account,source,db})=>{
  assert.equal((await request('mfa/step-up',{method:'recovery',code:recovery},{...headers,'X-CSRF-Token':'invalid'})).status,403);
  assert.equal((await request('mfa/step-up',{method:'recovery',code:recovery},{...headers,Origin:'https://example.invalid'})).status,403);
@@ -156,13 +180,29 @@ test('step-up preserves CSRF/origin, rejects invalid code and an expired lease w
  assert.equal(await db.prepare('SELECT consumed_at FROM auth_mfa_recovery_codes').first('consumed_at'),null);
  assert.equal((await request('session',undefined,headers)).status,200);
 },{age:121}));
-test('failed session creation rolls back step-up proof consumption and source revocation',()=>local(async({request,headers,db})=>{
- await db.exec("CREATE TRIGGER fixture_session_failure BEFORE INSERT ON auth_sessions BEGIN SELECT RAISE(ABORT,'fictional failure'); END;");
+test('each session insert failure rolls back step-up recovery consumption and source revocation',async()=>{
+ for(const table of ['auth_sessions','auth_session_mfa','auth_recent_authentication'])for(const failure of ["ABORT,'fictional failure'",'IGNORE'])await local(async({request,headers,db,source})=>{
+ await db.exec(`CREATE TRIGGER fixture_session_failure BEFORE INSERT ON ${table} BEGIN SELECT RAISE(${failure}); END;`);
  assert.equal((await request('mfa/step-up',{method:'recovery',code:recovery},headers)).status,401);
  assert.equal(await db.prepare('SELECT consumed_at FROM auth_mfa_recovery_codes').first('consumed_at'),null);
  assert.equal((await request('session',undefined,headers)).status,200);
  assert.equal(await db.prepare('SELECT count(*) FROM auth_sessions').first('count(*)'),1);
-},{age:121}));
+ assert.equal(await db.prepare('SELECT count(*) FROM auth_session_mfa').first('count(*)'),1);
+ assert.equal(await db.prepare('SELECT count(*) FROM auth_recent_authentication').first('count(*)'),1);
+ assert.equal(await db.prepare('SELECT session_digest FROM auth_recent_authentication').first('session_digest'),source);
+ },{age:121});
+});
+test('unchanged primary proof ages past 120 seconds between callback precheck and database write',()=>local(async({request,headers,call,db,instance})=>{
+ const at=await call('primaryBoundary');
+ const started=await request('google/start',{purpose:'link'},headers);assert.equal(started.status,200);
+ const url=new URL((await started.json()).url),Cookie=headers.Cookie+'; '+cookies(started);
+ await call('expireNextWrite','wait-primary');
+ const r=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{headers:{Cookie},redirect:'manual'});
+ assert.equal(r.headers.get('location'),'/account/security?primary=required');
+ assert.equal(await db.prepare('SELECT authenticated_at FROM auth_recent_authentication').first('authenticated_at'),at);
+ assert.equal(await db.prepare('SELECT count(*) FROM user_auth_providers').first('count(*)'),0);
+ assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),0);
+},{provider:false}));
 test('step-up does not renew expired Google proof or allow Google-only disconnection',()=>local(async({request,headers,db,time})=>{
  await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=?').bind(time-121,time+179).run();
  const r=await request('mfa/step-up',{method:'recovery',code:recovery},headers);assert.equal(r.status,200);
@@ -198,8 +238,50 @@ test('Google link rechecks MFA after OAuth and inside its batch; recent proof li
   assert.equal(await db.prepare('SELECT count(*) FROM user_auth_providers').first('count(*)'),stale!=='none'?0:1);
   assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),stale!=='none'?0:1);
   if(stale==='none')assert.equal((await request('session',undefined,{Cookie:cookies(callback)})).status,200);
+  if(stale!=='none'){
+   assert.match(callback.headers.get('set-cookie'),/lan_google_local=;.*Max-Age=0/);
+   const flow=await db.prepare('SELECT phase,verifier,nonce FROM auth_oidc_transactions').first();
+   assert.deepEqual(flow,{phase:'consumed',verifier:'',nonce:''});
+   const replay=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{headers:{Cookie},redirect:'manual'});
+   assert.equal(replay.headers.get('location'),'/login?google=unavailable');
+   assert.equal(await db.prepare('SELECT count(*) FROM user_auth_providers').first('count(*)'),0);
+   assert.equal((await request('session',undefined,headers)).status,200);
+   const stepped=await request('mfa/step-up',{method:'recovery',code:recovery},headers);assert.equal(stepped.status,200);
+   const nextCookie=cookies(stepped),afterStepUp=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),
+    {headers:{Cookie:nextCookie+'; '+cookies(started)},redirect:'manual'});
+   assert.equal(afterStepUp.headers.get('location'),'/login?google=unavailable');
+   assert.equal((await request('session',undefined,{Cookie:nextCookie})).status,200);
+   assert.equal(await db.prepare('SELECT count(*) FROM user_auth_providers').first('count(*)'),0);
+  }
  },{provider:false});
 });
+test('OAuth link atomically fences primary age, method and generation independently of fresh MFA',async()=>{
+ for(const change of ['google-age','password-age','method','generation'])await local(async({request,headers,call,db,instance})=>{
+  const started=await request('google/start',{purpose:'link'},headers);assert.equal(started.status,200);
+  const url=new URL((await started.json()).url),Cookie=headers.Cookie+'; '+cookies(started);
+  await call('expireNextWrite',change);
+  const r=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{headers:{Cookie},redirect:'manual'});
+  assert.equal(r.headers.get('location'),'/account/security?primary=required',change);
+  assert.match(r.headers.get('set-cookie'),/lan_google_local=;.*Max-Age=0/);
+  assert.equal(await db.prepare('SELECT count(*) FROM user_auth_providers').first('count(*)'),0);
+  assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),0);
+  assert.equal(await db.prepare('SELECT phase FROM auth_oidc_transactions').first('phase'),'consumed');
+ },{provider:false,credential:change!=='google-age'});
+});
+test('lost step-up response requires normal primary plus MFA login; recovery code stays spent and no mutation is retried',()=>local(async({request,headers,call,db})=>{
+ const result=await request('mfa/step-up',{method:'recovery',code:recovery},headers);assert.equal(result.status,200);
+ // Deliberately discard the replacement cookie as if the whole response were lost.
+ const retry=await request('mfa/step-up',{method:'recovery',code:recovery},headers);assert.equal(retry.status,401);assert.equal((await retry.json()).code,'session_required');
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.notEqual(await db.prepare('SELECT consumed_at FROM auth_mfa_recovery_codes').first('consumed_at'),null);
+ assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'),0);
+ const login=await request('login',{email:'r2@example.test',password});assert.equal((await login.json()).next,'/mfa');
+ const Cookie=cookies(login),challenge=await(await request('mfa/challenge',undefined,{Cookie})).json();
+ const verified=await request('mfa/complete',{method:'totp',code:await call('otp',secret)},{Cookie,'X-CSRF-Token':challenge.csrfToken});assert.equal(verified.status,200);
+ assert.equal((await request('session',undefined,{Cookie:cookies(verified)})).status,200);
+ assert.equal(await db.prepare('SELECT count(*) FROM user_password_credentials').first('count(*)'),1);
+ assert.equal(await db.prepare('SELECT count(*) FROM user_auth_providers').first('count(*)'),1);
+},{age:121}));
 test('step-up retains conditional server-verified single-use Turnstile before proof consumption',()=>local(async({request,headers,call,db})=>{
  await call('signals');
  assert.equal((await request('mfa/step-up',{method:'recovery',code:recovery},headers)).status,403);
