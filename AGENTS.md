@@ -10,7 +10,7 @@ Baseline: Development-Workflow v1.2.1 at immutable revision
 `cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`.
 The owner authorized the additive adoption and directional routing update on
 2026-10-22 in this conversation; the exact scope, retained project directives and
-one unresolved linking deviation are recorded in
+the approved project-specific linking fallback are recorded in
 [workflow governance](docs/development-workflow/governance.md).
 
 Before affected work, read that governance document and the adopted

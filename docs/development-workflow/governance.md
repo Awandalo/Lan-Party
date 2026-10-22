@@ -19,7 +19,8 @@ only the updated areas. It is not a framework-owner change to the source rules.
 
 Applicable governance and development, Git, communication, security, testing,
 release/environment and adoption guidance is adopted locally through the map
-below, except the unresolved connector-only linking provision. No framework task
+below, with the approved project-specific CLI linking fallback below replacing
+the source's connector-only linking-write provision for this project. No framework task
 history, other-project permissions, personal profile or release authority is copied.
 
 | Source at the pinned revision | Local authoritative location |
@@ -108,7 +109,12 @@ DIRECTIVE CONFLICT — STOP
 - Required owner decision or clarification: <competent owner and exact decision>
 ```
 
-## Retained directives and unresolved deviation
+<a id="retained-directives-and-unresolved-deviation"></a>
+
+## Retained directives and approved linking fallback
+
+The linking difference was resolved by the owner's explicit project decision on
+2026-10-22. The legacy anchor above preserves links to the earlier assessment.
 
 Preserve the existing stack, naming/layout, Windows/npm workflow, roadmap authority,
 privacy/security, Jotform cutover, production/database protection, risk-based testing,
@@ -119,17 +125,38 @@ repositories (not global automated discovery), bounded research and parent-linki
 permissions, notification-only codex-ready handling and independent host approvals.
 Directional routing narrows eligibility; it creates no new execution/write scope.
 
-**Unresolved deviation — FW-COM-001, native parent/sub-issue procedure:** the pinned
-framework requires connector-only linking writes and stopping when unsupported.
-The owner's retained project rule in communication protocol “Temporary parent-linking
-instructions” permits a narrowly scoped authenticated CLI write fallback. This
-provision of the framework is not adopted as matching local policy; neither rule
-is silently removed or broadened. Before using that fallback under this integration,
-stop the affected CLI linking action and obtain a competent-owner resolution of
-the framework/project conflict. Connector-supported linking within existing scope
-and independent work can continue. No actual relationship operation is performed
-by this adoption. Framework-owner authorization for a source change or an owner
-decision to retire the local fallback is outside this preservation request.
+**Approved project-specific rule — native parent/sub-issue linking.** On 2026-10-22,
+Awandalo explicitly confirmed in this trusted conversation that LAN Party's narrow
+CLI fallback is the correct rule because the connector cannot perform the linking
+write, and requested that this be documented. This is explicit project directive
+change intent resolving the previously recorded adoption difference. It retains
+the original 2026-10-20 standing linking authorization; no new write scope is added.
+
+Capability evidence: inspection of the GitHub tools exposed in this session on
+2026-10-22 found no native parent/sub-issue relationship write action. The generic
+GitHub fetch tool supports GET only. This is a current-surface capability observation,
+not a claim that all connectors or future versions lack the operation, nor a live
+linking test. Recheck capability before use and prefer a supported connector action
+if one becomes available.
+
+When that write is unavailable, use the existing authenticated GitHub CLI only for
+the exact parent attachment described in the communication protocol: resolved child
+database ID, explicit parent in `Awandalo/Lan-Party`, and `replace_parent:false`.
+Keep all reads and post-write verification through the connector. No new credentials,
+read fallback, reparenting, detachment, generalized HTTP helper or expanded authority
+is allowed. Host/tool approvals remain mandatory; lack of authenticated CLI access,
+ambiguous targets, conflicting relationships or uncertain writes still stop the
+operation under the existing procedure. Do not request another conversational
+approval merely for an attachment already within this standing scope.
+
+Source difference: pinned FW-COM-001 says to stop if the connector linking write is
+unavailable. That source provision is not adopted locally; the explicitly approved
+LAN Party alternative above governs this operation. The framework repository and
+immutable pin are unchanged, and this decision propagates nowhere else. Existing
+verification, temporary-instruction cleanup and sanitized completion-report rules
+remain intact. No actual relationship operation or credential change is performed
+by this documentation update. Any rollback of a real relationship needs separate
+authority; this exception permits attachment only.
 
 ## Updates and review boundaries
 

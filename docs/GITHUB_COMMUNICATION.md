@@ -151,10 +151,10 @@ The temporary instruction must explicitly address TechDevie using
    `/repos/Awandalo/Lan-Party/issues/PARENT/sub_issues`, the resolved `sub_issue_id`
    and explicit `replace_parent:false`. No new credentials, permissions, scripts or
    blanket shell grants. Normal host/tool approvals remain mandatory.
-   This retained project CLI allowance conflicts with the pinned framework's
-   connector-only linking rule. Follow the conflict procedure in
-   [workflow governance](development-workflow/governance.md#retained-directives-and-unresolved-deviation)
-   before using it; this adoption does not silently resolve that conflict.
+   This is the owner-approved LAN Party rule when the connector cannot attach
+   native parent/sub-issue relationships. Its scope and capability evidence are in
+   [workflow governance](development-workflow/governance.md#retained-directives-and-approved-linking-fallback)
+   and no additional conversational approval is needed within that scope.
 4. Verify both directions through the connector, preserving existing children.
    After success, re-read the child description and remove only the explicitly
    delimited temporary linking instruction. Preserve all requirements, other text,
