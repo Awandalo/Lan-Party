@@ -430,10 +430,10 @@ unpushed work. Hosted MFA acceptance and PROD authentication are not established
 | Phase | Current scope and dependency | Status / issue |
 | --- | --- | --- |
 | 3.8 | MFA Security; retain 3.8.1 design, 3.8.2 foundations, 3.8.3 shared login, 3.8.4 management and 3.8.5 security regression | Local implementation/review; [#9](https://github.com/Awandalo/Lan-Party/issues/9) remains open for disposition |
-| 3.8.5.1 | R1 recovery-code exhaustion and safe continuation decision | [#13](https://github.com/Awandalo/Lan-Party/issues/13), preparing; no implementation approval |
-| 3.8.5.2 | R2 recent MFA assurance before credential/provider changes; reuse valid two-minute assurance | [#14](https://github.com/Awandalo/Lan-Party/issues/14), preparing; no implementation approval |
-| 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15), preparing; no activation approval |
-| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), gated planning; separate migration/key/push/deployment/testing approvals |
+| 3.8.5.1 | R1 restricted replacement and bounded encrypted recovery-code redisplay | [#13](https://github.com/Awandalo/Lan-Party/issues/13), R1-F1 static review accepted; hosted eligibility correction in local #10 candidate, acceptance pending |
+| 3.8.5.2 | R2 recent MFA assurance before credential/provider changes; reuse valid two-minute assurance | [#14](https://github.com/Awandalo/Lan-Party/issues/14), R2-F1 corrective evidence reviewed by Q per owner; integrated-candidate review/hosted acceptance pending |
+| 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15), static review accepted at d330e66; hosted acceptance pending |
+| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), isolated local integration/testing authorized; separate commit/push/migration/key/deployment/testing approvals required |
 | 3.9 | Account Lifecycle Management after MFA security and DEV acceptance | [#16](https://github.com/Awandalo/Lan-Party/issues/16), planning only |
 | 3.10 | Polish & Fixes after MFA and account lifecycle acceptance | [#17](https://github.com/Awandalo/Lan-Party/issues/17), planning only |
 

@@ -1,5 +1,187 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
+## Phase 3.8.6 integration candidate — local only
+
+The owner authorized a clean candidate based on remote dev
+`30a290dda147a92ab519d8c1c69a4846b6a8e090`, retaining its governance/communication
+history and only the reviewed application dependencies through R3 `d330e66`.
+R3 static acceptance is recorded in #10; prior local-only statements below are
+historical checkpoints. This candidate is not committed, published or activated.
+
+Restricted recovery now uses the same canonical-DEV eligibility gate as management,
+including its availability hint and Google recovery initiation/callback. Recovery
+setup, replacement and encrypted redisplay select the same `dev` crypto context;
+loopback continues to use `local`. Restricted contexts never become ordinary sessions.
+All deadlines, proof freshness, code consumption, transaction guards and notices
+retain the reviewed R1 policy. No migration or key format changes are needed.
+
+Only the state/browser-bound, cryptographically validated Google callback permits
+cross-site fetch metadata for a GET navigation to the exact callback pathname with
+`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`. Management/recovery API
+mutations still reject cross-site requests; Origin and forwarded-header checks remain
+mandatory where supplied. Missing fetch metadata retains existing callback compatibility;
+the OAuth state, nonce, PKCE and bound provider subject remain authoritative.
+
+Local synthetic navigation fixtures are not hosted browser evidence. Deployment must
+verify actual Worker/routes/D1 identity, migrations 0013/0014, backed-up keys and
+binding preservation, then separately authorize real browser/account/email tests.
+The DEV build marker cannot attest live infrastructure. Do not enable hosted
+enrollment until the enforcing code, schema, keys and recovery path are ready.
+After enrollment, rollback must preserve MFA enforcement and decryptability;
+pre-MFA rollback or automatic D1 restoration is forbidden. #9/#10/#14/#15 stay open.
+
+## R3 — canonical DEV eligibility, locally implemented (issue #15)
+
+Owner authorized local edits/tests on 2026-10-22. No commit, push, remote binding,
+migration or hosted activation is authorized by this implementation.
+
+`mfaManagementEnvironment` gates enrollment, management and R2 step-up, and supplies
+`status.enrollmentAvailable`. Login challenge/completion are deliberately outside
+this management gate, so an existing factor cannot be bypassed or locked out solely
+because management eligibility is unavailable.
+
+| Context | Management eligibility |
+| --- | --- |
+| HTTP loopback + local-only sessions + local transport | Existing local behavior preserved |
+| Exact canonical HTTPS DEV + trusted DEV bundle + all DEV configuration below | Eligible, subject to normal session/primary/MFA/CSRF/rate-limit checks |
+| Default/PROD bundle, absent or wrong compiled target | Denied even if runtime variables are copied from DEV |
+| PROD, preview, workers.dev alias, other port/protocol/hostname | Denied |
+| Missing/wrong DEV environment, canonical origin, hosted session mode, Resend transport or usable MFA key ring | Denied |
+| Conflicting Host/Origin/protocol, Forwarded or X-Forwarded-Host, cross-site request | Denied; proxy claims never establish identity |
+
+The DEV-only Wrangler `define` is a build-time identity containing the configured
+Worker name `lan-party-dev` and DEV D1 UUID. The default configuration supplies no
+identity. Existing `AUTH_ENVIRONMENT=dev`, exact `AUTH_PUBLIC_ORIGIN`, hosted session
+mode, Resend transport and valid keys are independent runtime prerequisites. No
+new runtime activation toggle or secret is introduced. `X-Forwarded-Proto=https`
+is compatible; contradictory protocol headers are rejected. The default Worker
+and its PROD D1 configuration are unchanged.
+
+Wrangler's [environment configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
+supports environment-specific build substitutions; the installed schema confirms
+`define` is not inherited into other named environments. Local checks bind the
+literal marker to the exact DEV Worker/D1 configuration, and actual DEV dry-run
+packaging confirms substitution. This is trusted deployment-configuration identity,
+**not a runtime attestation of the actual Worker name or D1 UUID**: an operator who
+deploys the DEV artifact/configuration to another Worker or swaps its binding can
+defeat that operational assumption. #10 must independently verify the actual Worker,
+route and D1 identity, reject overrides, and stop on mismatches before publication.
+Request headers and dashboard variables cannot change the compiled marker.
+
+Enrollment/management/step-up now use `dev` AES-GCM context on hosted DEV, and retain
+`local` context on loopback. The UI permits only local development or a hosted-DEV
+build at the canonical origin, then requires explicit backend availability. Denial,
+malformed status or outage offers no active MFA settings/step-up controls. The
+existing factor remains enforced on login regardless of presentation availability.
+
+R1 restricted replacement and `challenge.recoveryAvailable` remain local-only;
+this assignment does not authorize expanding that separate recovery surface. Hosted
+activation must explicitly resolve this limitation under #10, not assume all R1
+functionality became hosted-eligible. All real email/account testing stays gated.
+
+Rollout recommendation: independently review this local diff; separately authorize
+isolated review publication and a clean remote-dev-based integration candidate.
+Never merge the divergent R2 review branch wholesale. Before #10 deployment verify
+exact Worker/D1/routes, pending migrations and a fresh private recovery checkpoint,
+key backup/configuration and existing email controls, and test the exact candidate.
+Only after explicit rollout approval publish through the existing DEV workflow;
+verify deployed version/health/negative hosts and perform separately approved real
+browser acceptance. Stop on any identity, migration, key, CI, health or auth-boundary
+failure. Worker rollback does not restore D1 or unenroll accounts; never roll back
+to code incapable of enforcing already-enrolled MFA. Restoration requires its own
+approval; do not automatically restore or remove factors.
+
+## R2 — local credential-mutation assurance (issue #14)
+
+R2-F1 review correction: the OAuth linking transaction also binds the exact
+primary-proof method, timestamp, user/session and generation, rechecking expiry
+using the database clock (Google strictly younger than 120 seconds; password's
+existing 300-second proof lifetime). MFA remains an independent guard. A claimed
+failed link consumes its OAuth transaction, clears verifier/nonce and expires its
+browser cookie; competing/replayed callbacks cannot cancel the claimed exchange.
+Stale primary proof returns a Security-page explanation without restarting OAuth.
+An uncertain step-up response disables in-place retries and offers explicit normal
+login; authentication still requires primary proof plus MFA and never refunds a code.
+
+Owner authorized local implementation on 2026-10-22; independent review and hosted
+acceptance remain pending. No new migration or remote configuration is required
+by this correction. R3 and rollout #10 remain separately gated.
+
+- Password add/change and Google link/unlink require LAN Party MFA proof strictly
+  younger than 120 seconds for enrolled accounts, both before work and inside the
+  guarded credential/provider transaction. The database clock rejects a proof that
+  expires during hashing or OAuth. Proof is bound to the current user, live session,
+  factor and authentication generation. Google provider MFA does not satisfy it.
+- Non-enrolled accounts (including the pre-0013 schema) retain existing primary
+  authentication rules. Partial MFA schema still fails closed. Existing primary
+  proof requirements are additional to MFA and are not extended by step-up.
+- Opening Account Security does not request a code. A protected action with stale
+  MFA returns `428 mfa_required`; an expired Google link callback returns to Security
+  with that presentation hint, without linking. An explicit local-only step-up
+  accepts TOTP or an unused recovery code through existing throttles and conditional
+  Turnstile verification. The source session is the one-use browser binding.
+- Step-up atomically consumes/advances the proof, revokes that source session and
+  issues a new session/CSRF with fresh MFA, retaining the original primary proof
+  time. Guard failures roll back all three changes. It does not change credentials,
+  factors, generation, other sessions or recovery sets. A lost successful response
+  can require signing in again; no automatic retry or recovery-code refund occurs.
+- The UI clears submitted passwords/codes, refreshes the rotated session and asks
+  the user to select the intended action again. It never automatically replays a
+  credential mutation. Existing mutation-specific sign-out/rotation and last-method
+  protections are unchanged. The step-up endpoint retains the literal local gate;
+  this implementation does not authorize or enable hosted MFA.
+
+## R1 Option B — owner-authorized local implementation (issue #13)
+
+This section supersedes the earlier R1 decision-pending language for the new
+replacement path only. Existing ordinary recovery-code login and management keep
+their distinct proofs; a last-code warning points users to restricted replacement
+before spending their last code on a normal login. Optional MFA remains role-neutral.
+
+- Local-only `/api/auth/mfa/recovery/` and the existing `/mfa` page provide explicit
+  start, setup, primary refresh, commit, protected reveal, ACK, cancel and status.
+  Hosted recovery/enrollment remains unavailable; R2/R3 and hosted #10 are separate.
+- Fresh primary login creates the existing pending MFA context. One unused recovery
+  code is atomically redeemed to create a unique browser/user/source/factor/set/
+  generation-bound operation with a fixed five-minute deadline. The source pending
+  login is consumed without issuing a session. Lost start responses can query the
+  stable operation and resume without another redemption. Closing before commit
+  clears staging but never refunds the spent recovery code.
+- New TOTP possession and primary proof younger than two minutes are checked before
+  and inside the guarded D1 switch. Atomic replacement deletes old factor/code
+  authority, creates exactly ten new verifiers, advances generation and revokes
+  existing sessions. SQL assertions turn zero-row guards into statement errors so
+  the batch actually rolls back. There is no old-factor fallback after success.
+- Code ciphertext uses existing AES-GCM keys with a distinct versioned purpose and
+  authenticated environment/user/operation/new-factor/set/next-generation/browser/
+  source/display-expiry context. Plaintext is never persisted. The fixed five-minute
+  display window starts at commit, separately from the recovery deadline.
+- Commit returns no codes. Each explicit reveal requires fresh primary proof and a
+  non-replayed TOTP from the new authenticator, returning the same ten codes. ACK
+  clears ciphertext and repeated ACK is non-sensitive within the surviving context.
+  An authorized response already in flight cannot be recalled by a later ACK.
+  Expiry rejects access even before bounded request-driven cleanup runs; D1 backups
+  may retain ciphertext and keys are not automatically destroyed/rotated.
+- Recovery cookies are HttpOnly, host-scoped, Secure outside loopback and SameSite=Lax
+  to support the Google callback. Every mutation independently requires exact origin,
+  CSRF and custom request headers. Normal pending/session cookies retain their policy.
+  Password refresh checks the existing credential. Google refresh binds a normal
+  validated state/nonce/PKCE transaction server-side to the restricted operation and
+  exact linked subject; it cannot issue a session, link an identity or use email as
+  ownership proof. Refresh never extends either deadline.
+- Completion requires a fresh normal primary + new-MFA login. Lost display/context
+  after a committed switch can use the new authenticator for normal login and code
+  regeneration. Loss of the last code and browser context before commit remains a
+  possible self-service dead end; no email/support/password-only MFA bypass exists.
+- Replacement notification uses the existing guarded, budgeted mail path only after
+  commit. Sanitized notification failure never reverses replacement. No automatic
+  delivery or mutation retry. Local fictional mail and intercepted Google/Turnstile
+  fixtures only; no live-account/real-email or hosted acceptance is claimed.
+
+Additive migration 0014, focused workerd/D1 tests and intercepted browser fixtures
+cover this implementation; migrations 0001–0013 remain unchanged. Independent review,
+local commit approval conditions and separate remote rollout gates remain in force.
+
 Status: architecture approved; Phase 3.8.2–4 foundations, shared login, local
 enrollment and MFA management implemented locally. Remote migrations, keys, hosted
 activation, push and deployment are not approved.

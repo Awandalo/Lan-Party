@@ -50,24 +50,40 @@ export class LoginLimiter {
     return (row?.n ?? 0) > 0;
   }
   async reserve(email: string): Promise<LoginReservation> {
-    const pair = [email, this.ip], lease = await this.digest(['pending', pair]);
-    const slots = await Promise.all(Array.from({ length: 5 }, (_, i) => this.digest(['failure-slot', pair, i])));
+    return this.reserveGroups(['pending',[email,this.ip]], [['failure-slot',[email,this.ip],5]]);
+  }
+  async reserveMfa(userId:string, challenge:string):Promise<LoginReservation> {
+    // One expiring account lease coordinates the three sliding failure windows.
+    // Restarting a challenge cannot reset the account or account/IP counters.
+    return this.reserveGroups(['mfa-pending',userId], [
+      ['mfa-challenge',challenge,5],['mfa-pair',[userId,this.ip],5],['mfa-account',userId,10],
+    ]);
+  }
+  private async reserveGroups(identity:unknown, scopes:[string,unknown,number][]):Promise<LoginReservation> {
+    const lease=await this.digest(identity);
+    const groups=await Promise.all(scopes.map(([name,value,n])=>Promise.all(Array.from({length:n},(_,i)=>this.digest([name,value,i])))));
+    const allowed=groups.map(g=>`(SELECT COUNT(*) FROM ${table} WHERE key_hash IN (${marks(g.length)}) AND expires_at>?)<${g.length}`).join(' AND ');
     const deadline = Date.now() + 1000;
     while (true) {
       const now = this.now(), expires = now + 30, owner = await this.digest(['owner', crypto.randomUUID()]);
+      const allowance=groups.flatMap(g=>[...g,now]);
       const held = await this.db.batch([this.db.prepare(`INSERT INTO ${table}(key_hash,hits,expires_at)
-        SELECT ?,1,? WHERE (SELECT COUNT(*) FROM ${table} WHERE key_hash IN (${marks(5)}) AND expires_at>?)<5
+        SELECT ?,1,? WHERE ${allowed}
         ON CONFLICT(key_hash) DO UPDATE SET hits=1,expires_at=excluded.expires_at
         WHERE ${table}.expires_at<=? RETURNING expires_at`)
-        .bind(lease, expires, ...slots, now, now),
+        .bind(lease, expires, ...allowance, now),
         this.db.prepare(`INSERT INTO ${table}(key_hash,hits,expires_at) SELECT ?,1,? WHERE changes()=1`).bind(owner, expires)]);
       if (held[0].results.length === 1) {
         const failureSignals = await Promise.all((['ip', 'global'] as const).map(scope => this.signalKeys(scope, 'failure', now)));
-        return new LoginReservation(this.db, lease, owner, expires, slots, failureSignals, () => this.now());
+        return new LoginReservation(this.db, lease, owner, expires, groups, failureSignals, () => this.now());
       }
-      const failed = await this.db.prepare(`SELECT COUNT(*) AS n,MIN(expires_at) AS earliest FROM ${table}
-        WHERE key_hash IN (${marks(5)}) AND expires_at>?`).bind(...slots, now).first<{ n: number; earliest: number }>();
-      if (failed?.n === 5) throw new LoginLimited(Math.max(1, failed.earliest - now));
+      let cooldown=0;
+      for(const slots of groups){
+        const failed = await this.db.prepare(`SELECT COUNT(*) AS n,MIN(expires_at) AS earliest FROM ${table}
+          WHERE key_hash IN (${marks(slots.length)}) AND expires_at>?`).bind(...slots, now).first<{n:number;earliest:number}>();
+        if(failed?.n===slots.length)cooldown=Math.max(cooldown,failed.earliest-now);
+      }
+      if(cooldown>0)throw new LoginLimited(cooldown);
       if (Date.now() >= deadline) throw new LoginBusy('Another check is pending');
       await new Promise(resolve => setTimeout(resolve, 50));
     }
@@ -75,8 +91,13 @@ export class LoginLimiter {
 }
 
 export class LoginReservation {
-  constructor(private db: D1Database, private lease: string, private owner: string, private expires: number, private slots: string[],
+  constructor(private db: D1Database, private lease: string, private owner: string, private expires: number, private groups: string[][],
     private signals: { key: string; end: number }[], private clock: () => number) {}
+  activeCondition(){
+    return {sql:`EXISTS(SELECT 1 FROM ${table} WHERE key_hash=? AND hits=1 AND expires_at=? AND expires_at>unixepoch())
+      AND EXISTS(SELECT 1 FROM ${table} WHERE key_hash=? AND expires_at=?)`,
+      values:[this.owner,this.expires,this.lease,this.expires]};
+  }
   async finish(failed: boolean): Promise<boolean> {
     const now = this.clock();
     // An unguessable per-attempt owner row fences completion, including same-second
@@ -85,13 +106,13 @@ export class LoginReservation {
     const statements = [this.db.prepare(`UPDATE ${table} SET hits=2 WHERE key_hash=? AND hits=1
       AND expires_at=? AND expires_at>? AND EXISTS(SELECT 1 FROM ${table} WHERE key_hash=? AND expires_at=?) RETURNING key_hash`).bind(this.owner, this.expires, now, this.lease, this.expires)];
     if (failed) {
-      statements.push(this.db.prepare(`WITH slots(k,n) AS (VALUES ${this.slots.map((_, i) => `(?,${i})`).join(',')})
+      for(const slots of this.groups)statements.push(this.db.prepare(`WITH slots(k,n) AS (VALUES ${slots.map((_, i) => `(?,${i})`).join(',')})
         INSERT INTO ${table}(key_hash,hits,expires_at)
         SELECT slots.k,1,? FROM slots LEFT JOIN ${table} existing ON existing.key_hash=slots.k
         WHERE (existing.key_hash IS NULL OR existing.expires_at<=?) AND ${owned}
         ORDER BY slots.n LIMIT 1
         ON CONFLICT(key_hash) DO UPDATE SET hits=1,expires_at=excluded.expires_at WHERE expires_at<=?
-        RETURNING key_hash`).bind(...this.slots, now + 900, now, this.owner, this.expires, now, now));
+        RETURNING key_hash`).bind(...slots, now + 900, now, this.owner, this.expires, now, now));
       for (const signal of this.signals) statements.push(this.db.prepare(`INSERT INTO ${table}(key_hash,hits,expires_at)
         SELECT ?,1,? WHERE ${owned} ON CONFLICT(key_hash) DO UPDATE SET hits=min(30,hits+1)`)
         .bind(signal.key, signal.end, this.owner, this.expires, now));
@@ -100,7 +121,7 @@ export class LoginReservation {
       .bind(this.lease, this.expires, this.owner, this.expires, now));
     statements.push(this.db.prepare(`DELETE FROM ${table} WHERE key_hash=? AND hits=2 AND expires_at=? RETURNING key_hash`).bind(this.owner, this.expires));
     const result = await this.db.batch(statements);
-    return result[0].results.length === 1 && (!failed || result[1].results.length === 1)
+    return result[0].results.length === 1 && (!failed || result.slice(1,1+this.groups.length).every(r=>r.results.length===1))
       && result[result.length - 2].results.length === 1
       && result[result.length - 1].results.length === 1;
   }

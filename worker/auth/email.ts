@@ -2,7 +2,7 @@ import { emailAddress } from './accounts';
 import { authenticationEmail } from './email-template';
 
 export interface AccountMail { to: string; url: string; expiresAt: number; idempotencyKey: string;
-  purpose?: 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed' }
+  purpose?: 'email-verification' | 'password-reset' | 'password-setup' | 'password-added' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' }
 export interface EmailTransport { send(mail: AccountMail): Promise<void> }
 export interface EmailEnvironment {
   AUTH_EMAIL_TRANSPORT?: string;

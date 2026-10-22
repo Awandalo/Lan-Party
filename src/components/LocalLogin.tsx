@@ -11,6 +11,7 @@ export default function LocalLogin() {
   const navigate = useNavigate();
   const [params]=useSearchParams();
   const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
+  const pending=useRef(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [siteKey, setSiteKey] = useState(''), [challengeToken, setChallengeToken] = useState<string | null>(null);
@@ -18,18 +19,20 @@ export default function LocalLogin() {
   if (session) return <Navigate to="/account" replace />;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (pending.current) return;
     if (siteKey && !challengeToken) { setFeedback('Complete the security check before signing in.'); return; }
     const form = event.currentTarget, data = new FormData(form);
     const input = { email: String(data.get('email') ?? ''), password: String(data.get('password') ?? ''),
       ...(challengeToken ? { turnstileToken: challengeToken } : {}) };
-    setBusy(true); setFeedback(''); setVerificationRequired(false);
+    pending.current=true;setBusy(true); setFeedback(''); setVerificationRequired(false);
     try {
       const response = await fetch('/api/auth/login', { method: 'POST', credentials: 'same-origin', redirect: 'error',
         headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1' }, body: JSON.stringify(input),
         signal: AbortSignal.timeout(15000) });
       if (response.ok) {
-        if (await refresh()) navigate('/account', { replace: true });
+        const result=await response.json();
+        if(result.next==='/mfa')navigate('/mfa',{replace:true});
+        else if (await refresh()) navigate('/account', { replace: true });
         else setFeedback('Login could not be confirmed. Check that your browser accepts secure cookies, then reload.');
       } else if ([400, 401].includes(response.status)) setFeedback('Email or password is incorrect.');
       else if (response.status === 429) {
@@ -55,7 +58,7 @@ export default function LocalLogin() {
       setChallengeToken(null); setChallengeAttempt(value => value + 1);
       const password = form.elements.namedItem('password');
       if (password instanceof HTMLInputElement) password.value = '';
-      setBusy(false); requestAnimationFrame(() => feedbackRef.current?.focus());
+      pending.current=false;setBusy(false); requestAnimationFrame(() => feedbackRef.current?.focus());
     }
   }
   return <section className="page-section login-page"><div className="panel login-card">

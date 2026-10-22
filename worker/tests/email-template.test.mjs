@@ -7,6 +7,15 @@ const { build } = createRequire(require.resolve('wrangler/package.json'))('esbui
 const { outputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../auth/email-template.ts', import.meta.url))],
   bundle: true, write: false, format: 'esm', platform: 'node' });
 const { authenticationEmail } = await import('data:text/javascript;base64,' + Buffer.from(outputFiles[0].text).toString('base64'));
+test('MFA notifications describe committed changes without secret material or approval links',()=>{
+ for(const purpose of ['mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced']){
+  const mail=authenticationEmail('https://dev.lan-party.club/account/security',purpose);
+  assert.match(mail.text,/security notification/);assert.match(mail.text,/If you didn't make this change/);
+  assert.doesNotMatch(mail.text,/#|token=|secret=|otpauth:|works once|[A-Z2-7]{26}/);
+  assert.throws(()=>authenticationEmail('https://dev.lan-party.club/account/security#private',purpose));
+  assert.ok(mail.subject.includes('LAN Party'));
+ }
+});
 
 test('verification and recovery share branded HTML and explicit plain text without external assets', () => {
   for (const [purpose, path, subject, expiry, action] of [

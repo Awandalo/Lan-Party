@@ -359,17 +359,18 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   `docs/MFA_SECURITY_REVIEW.md` for evidence and limitations.
 - [ ] Q/Owner disposition of [3.8.5 regression #9](https://github.com/Awandalo/Lan-Party/issues/9);
   a completed local report does not close the remaining security/acceptance gates.
-- [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** owner
-  decide recovery-code exhaustion/continuation and interruption policy before implementation.
-- [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** prepare
-  recent MFA assurance before credential/provider writes, reusing valid two-minute
-  proof. Implementation awaits separate approval; primary proof remains required.
-- [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** prepare
-  canonical-DEV-only enrollment gating; no hosted activation is approved.
+- [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** review
+  local canonical-DEV restricted-recovery integration after R1-F1 static acceptance;
+  verify actual browser/Google interruption behavior during separately approved acceptance.
+- [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** preserve
+  recent MFA assurance before credential/provider writes and independent primary proof;
+  review the integrated candidate after Q's R2-F1 corrective-evidence review.
+- [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** static
+  review accepted at d330e66; retain environment identity and hosted acceptance gates.
 - [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** after #9
   disposition and #13–#15 resolution, separately approve DEV preflight/recovery,
-  migration 0013, backed-up MFA keys, push/deployment and controlled hosted acceptance.
-  All four follow-ups remain `codex-preparing`; do not start from roadmap/label alone.
+  migrations 0013/0014, backed-up MFA keys, commit/push/deployment and controlled hosted acceptance.
+  Owner authorized isolated local preparation/testing only; no remote execution or issue closure.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account

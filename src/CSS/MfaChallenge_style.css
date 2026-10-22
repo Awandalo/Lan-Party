@@ -1,0 +1,8 @@
+.mfa-challenge-card { max-width: 34rem; margin: 2rem auto; padding: clamp(1.25rem, 4vw, 2.5rem); }
+.mfa-challenge-card fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 1rem; min-width: 0; }
+.mfa-challenge-card label { font-weight: 600; }
+.mfa-challenge-card input { width: 100%; min-width: 0; min-height: 48px; box-sizing: border-box; padding: .8rem;
+  border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); color: var(--text); font: inherit; }
+.mfa-challenge-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.mfa-challenge-card > .button { margin-top: 1rem; width: 100%; }
+.mfa-challenge-card [role=status] { overflow-wrap: anywhere; }
