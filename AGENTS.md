@@ -3,6 +3,33 @@
 These permanent instructions apply throughout this repository. Read `PROJECT.md`
 for requirements, architecture, roadmap, and decisions awaiting owner review.
 
+## Repository identity and adopted workflow
+
+Expected repository: `Awandalo/Lan-Party`, host `github.com`.
+Baseline: Development-Workflow v1.2.1 at immutable revision
+`cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`.
+The owner authorized the additive adoption and directional routing update on
+2026-10-22 in this conversation; the exact scope, retained project directives and
+one unresolved linking deviation are recorded in
+[workflow governance](docs/development-workflow/governance.md).
+
+Before affected work, read that governance document and the adopted
+[workflow standards](docs/development-workflow/standards.md), in addition to the
+existing rules below. For GitHub coordination read
+[the communication protocol](docs/GITHUB_COMMUNICATION.md). Read
+[RELEASE.md](RELEASE.md) for an explicitly requested release operation only.
+These local rules govern continuing work without repeated onboarding.
+
+Before changes or external effects, verify the actual Git root, effective origin
+host/repository, branch, working tree including staged/untracked work, applicable
+parent/nested `AGENTS.md` and `AGENTS.override.md`, and trusted authorization.
+Before issue discovery, research, reporting or relationship operations, also verify
+the repository through the existing connector and every requested issue target.
+All must match the expected repository. Stop the affected operation on a missing,
+ambiguous or mismatched identity; never infer it from an account or switch projects.
+Preserve unrelated work and existing project directives. New framework versions
+require relevance review and authorization; no automatic synchronization applies.
+
 ## Technology and scope
 
 - Use React, TypeScript, and Vite for the frontend.
@@ -145,7 +172,7 @@ Use these locations when implementation begins:
   Explicitly authorized Git transport operations such as fetch/push retain their
   existing approval rules; this does not grant any Git or GitHub write operation.
 - For `Awandalo/Lan-Party`, the owner grants standing authorization to research
-  open `codex-research` issues and post sanitized `[TECHDEVIE]` findings through
+  open `codex-research` issues and post sanitized `[TECHDEVIE → Q]` findings through
   the connector. Follow the protocol's revision/claim journal and bounded
   research-only scope. This permits no implementation, tests/builds, commits,
   pushes, deployment, infrastructure/database operations or other GitHub writes.

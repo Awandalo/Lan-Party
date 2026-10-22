@@ -10,8 +10,8 @@ const initial = () => ({ version: 1, repository, issues: {}, error: null });
 const connectorFixture = () => ({ issue: { number: 42,
   html_url: `https://github.com/${repository}/issues/42`, state: 'open',
   labels: [{ name: 'codex-ready' }], title: 'Fictional connector issue',
-  body: '[Q]\nFictional task', updated_at: '2026-10-20T12:00:00Z', comments: 1 },
-  comments: [{ node_id: 'C1', body: '[Q]\nFictional comment', updated_at: '2026-10-20T12:00:00Z' }] });
+  body: '[Q → TECHDEVIE]\nFictional task', updated_at: '2026-10-20T12:00:00Z', comments: 1 },
+  comments: [{ node_id: 'C1', body: '[Q → TECHDEVIE]\nFictional comment', updated_at: '2026-10-20T12:00:00Z' }] });
 function researchReader(labels = ['codex-research'], snapshot = connectorFixture()) {
   snapshot.issue.labels = labels.map((name) => ({ name }));
   return connectorReader([{ before: snapshot, after: structuredClone(snapshot) }]);
@@ -41,17 +41,74 @@ test('own comments neither restart completed research nor notify; new Q revision
   assert.deepEqual(own.researchCandidates, []);
   const relabeled = await inspect(researchReader(['codex-ready', 'codex-research'], snapshot), own.next);
   assert.deepEqual(relabeled.researchCandidates, []);
-  snapshot.comments.push({ node_id: 'C3', updated_at: '2026-10-20T12:02:00Z', body: '[Q]\nNew research question' });
+  snapshot.comments.push({ node_id: 'C3', updated_at: '2026-10-20T12:02:00Z', body: '[Q → TECHDEVIE]\nNew research question' });
   snapshot.issue.comments++;
   const revised = await inspect(researchReader(undefined, snapshot), own.next);
   assert.equal(revised.researchCandidates.length, 1);
   assert.notEqual(revised.researchCandidates[0].revision, revision);
 });
-test('unknown and own issue markers do not authorize automatic research', async () => {
-  for (const body of ['Unmarked input', '[TECHDEVIE]\nOwn report']) {
+test('only explicit Q or owner assignments to TechDevie are research eligible', async () => {
+  for (const body of ['[Q → TECHDEVIE]\nQuestion', '[OWNER → TECHDEVIE]\r\nQuestion']) {
+    const snapshot = connectorFixture(); snapshot.issue.body = body;
+    assert.equal((await inspect(researchReader(undefined, snapshot), initial())).researchCandidates.length, 1);
+  }
+  for (const body of ['Unmarked input', '[TECHDEVIE]\nOwn report', '[Q]\nLegacy',
+    '[OWNER]\nLegacy', '[Q → OWNER]\nDecision', '[OWNER → Q]\nReview',
+    '[TECHDEVIE → Q]\nReport', '[TECHDEVIE → OWNER]\nBlocker',
+    '[OTHER → TECHDEVIE]\nUnknown', '[Q -> TECHDEVIE]\nWrong arrow',
+    '> [Q → TECHDEVIE]\nQuoted', 'Introduction\n[Q → TECHDEVIE]', '[Q → Q]\nSelf']) {
     const snapshot = connectorFixture(); snapshot.issue.body = body;
     assert.deepEqual((await inspect(researchReader(undefined, snapshot), initial())).researchCandidates, []);
   }
+});
+
+test('directional reports and comments to other recipients cannot restart research', async () => {
+  const snapshot = connectorFixture();
+  let result = await inspect(researchReader(undefined, snapshot), initial());
+  const revision = result.researchCandidates[0].revision;
+  result.next.issues[42].research = { revision, status: 'completed', commentId: 123 };
+  for (const [index, marker] of ['[TECHDEVIE → Q]', '[TECHDEVIE → OWNER]', '[Q → OWNER]', '[OWNER → Q]', '[Q]', '[OWNER]'].entries()) {
+    snapshot.comments.push({ node_id: `extra${index}`, updated_at: '2026-10-22T12:00:00Z', body: `${marker}\nUnrelated` });
+    snapshot.issue.comments++;
+    result = await inspect(researchReader(undefined, snapshot), result.next);
+    assert.deepEqual(result.researchCandidates, []);
+    assert.equal(result.next.issues[42].researchRevision, revision);
+    if (marker.startsWith('[TECHDEVIE')) assert.deepEqual(result.notifications, []);
+  }
+});
+
+test('old cached author-only eligibility is reread, cleared and cannot be claimed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'lan-party-monitor-'));
+  const path = join(directory, 'GIT_ISSUES.md');
+  try {
+    const snapshot = connectorFixture(); snapshot.issue.body = '[Q]\nLegacy';
+    const first = await inspect(researchReader(undefined, snapshot), initial());
+    const record = first.next.issues[42];
+    delete record.routingVersion;
+    record.researchRevision = 'a'.repeat(64);
+    record.research = { revision: record.researchRevision, status: 'uncertain' };
+    const priorClaim = structuredClone(record.research);
+    await writeFile(path, '```json\n' + JSON.stringify(first.next) + '\n```\n');
+    await assert.rejects(researchAction('claim', 42, record.researchRevision, null, path));
+    const second = await inspect(researchReader(undefined, snapshot), first.next);
+    assert.deepEqual(second.researchCandidates, []);
+    assert.equal(second.next.issues[42].routingVersion, 2);
+    assert.equal(second.next.issues[42].researchRevision, null);
+    assert.deepEqual(second.next.issues[42].research, priorClaim);
+    assert.deepEqual(second.notifications, []);
+  } finally { await removeFixture(directory); }
+});
+
+test('routing transition preserves existing blocked claims for newly addressed work', async () => {
+  const snapshot = connectorFixture();
+  const first = await inspect(researchReader(undefined, snapshot), initial());
+  const record = first.next.issues[42];
+  delete record.routingVersion;
+  record.research = { revision: 'b'.repeat(64), status: 'uncertain' };
+  const second = await inspect(researchReader(undefined, snapshot), first.next);
+  assert.equal(second.researchCandidates[0].blocked, true);
+  assert.equal(second.researchCandidates[0].status, 'uncertain');
+  assert.deepEqual(second.next.issues[42].research, record.research);
 });
 test('research claim and completion persist atomically and prevent duplicate claims', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'lan-party-monitor-'));

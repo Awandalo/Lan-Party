@@ -6,7 +6,16 @@ import { fileURLToPath } from 'node:url';
 export const repository = 'Awandalo/Lan-Party';
 export const journalPath = fileURLToPath(new URL('../.wrangler/github-monitor/GIT_ISSUES.md', import.meta.url));
 const hash = (value) => createHash('sha256').update(value).digest('hex');
-const role = (body) => /^\[(OWNER|Q|TECHDEVIE)\]\r?$/.exec(body.split('\n')[0])?.[1] ?? 'UNRECOGNIZED';
+const routingVersion = 2;
+function route(body) {
+  const firstLine = body.split('\n')[0].replace(/\r$/, '');
+  const directional = /^\[(OWNER|Q|TECHDEVIE) → (OWNER|Q|TECHDEVIE)\]$/.exec(firstLine);
+  if (directional && directional[1] !== directional[2]) {
+    return { author: directional[1], recipient: directional[2] };
+  }
+  return { author: /^\[(OWNER|Q|TECHDEVIE)\]$/.exec(firstLine)?.[1] ?? 'UNRECOGNIZED', recipient: null };
+}
+const addressedAssignment = (routing) => ['Q', 'OWNER'].includes(routing.author) && routing.recipient === 'TECHDEVIE';
 const empty = () => ({ version: 1, repository, issues: {}, error: null });
 export const watchedLabels = ['codex-ready', 'codex-research'];
 const labelsFor = (nodes) => watchedLabels.filter((name) => nodes.some((label) => label.name === name));
@@ -64,7 +73,7 @@ export async function inspect(reader, previous, timestamp = new Date().toISOStri
   const notifications = [];
   const researchCandidates = [];
   function queueResearch(number, record) {
-    if (!record?.watchLabels?.includes('codex-research') || !record.researchRevision) return;
+    if (record?.routingVersion !== routingVersion || !record.watchLabels?.includes('codex-research') || !record.researchRevision) return;
     const state = record.research;
     if (state?.status === 'completed' && state.revision === record.researchRevision) return;
     researchCandidates.push({ number, revision: record.researchRevision,
@@ -76,7 +85,7 @@ export async function inspect(reader, previous, timestamp = new Date().toISOStri
     if (!Number.isSafeInteger(item.number) || item.number <= 0) throw new Error('invalid_metadata');
     const prior = previous.issues[item.number];
     const revision = `${item.updatedAt}:${item.titleHash}:${item.commentRevision}${item.labelRevision ? `:${item.labelRevision}` : ''}`;
-    if (prior?.revision === revision) { queueResearch(item.number, prior); continue; }
+    if (prior?.revision === revision && prior.routingVersion === routingVersion) { queueResearch(item.number, prior); continue; }
     const detail = await reader.detail(item.number);
     if (detail.updatedAt !== item.updatedAt) throw new Error('github_changed_during_read');
     if (commentRevision(detail.comments) !== item.commentRevision) throw new Error('github_changed_during_read');
@@ -85,7 +94,8 @@ export async function inspect(reader, previous, timestamp = new Date().toISOStri
     if (item.labelRevision && item.labelRevision !== hash(labels.join(','))) throw new Error('github_changed_during_read');
     const bodyHash = hash(detail.body);
     const routes = [];
-    const bodyRole = role(detail.body);
+    const bodyRoute = route(detail.body);
+    const bodyRole = bodyRoute.author;
     if (prior && JSON.stringify(prior.watchLabels ?? ['codex-ready']) !== JSON.stringify(labels)) {
       routes.push(...labels.map((label) => `label:${label}`));
     }
@@ -95,8 +105,9 @@ export async function inspect(reader, previous, timestamp = new Date().toISOStri
     for (const comment of detail.comments) {
       const fingerprint = hash(`${comment.updatedAt}\n${comment.body}`);
       comments[comment.id] = fingerprint;
-      const marker = role(comment.body);
-      if (marker !== 'TECHDEVIE') researchComments.push([comment.id, fingerprint]);
+      const routing = route(comment.body);
+      const marker = routing.author;
+      if (addressedAssignment(routing)) researchComments.push([comment.id, fingerprint]);
       if (prior?.comments[comment.id] !== fingerprint && marker !== 'TECHDEVIE') routes.push(`comment:${marker}`);
     }
     if (routes.length) notifications.push({ number: item.number, url: `https://github.com/${repository}/issues/${item.number}`, routes });
@@ -105,8 +116,8 @@ export async function inspect(reader, previous, timestamp = new Date().toISOStri
       lastCommentId: detail.comments.at(-1)?.id ?? null,
       lastNotifiedRevision: routes.length ? revision : prior?.lastNotifiedRevision ?? null,
       status: routes.length ? 'reported' : 'seen', inspectedAt: timestamp,
-      watchLabels: labels, research: prior?.research ?? null,
-      researchRevision: labels.includes('codex-research') && ['Q', 'OWNER'].includes(bodyRole)
+      routingVersion, watchLabels: labels, research: prior?.research ?? null,
+      researchRevision: labels.includes('codex-research') && addressedAssignment(bodyRoute)
         ? hash(JSON.stringify([item.titleHash, bodyHash, researchComments])) : null,
     };
     queueResearch(item.number, record);
@@ -170,7 +181,7 @@ export async function researchAction(action, number, revision, commentId = null,
   const result = await updateJournal((previous) => {
     const next = structuredClone(previous);
     const record = next.issues[number];
-    if (!record?.watchLabels?.includes('codex-research') || !record.researchRevision) throw new Error('research_not_eligible');
+    if (record?.routingVersion !== routingVersion || !record.watchLabels?.includes('codex-research') || !record.researchRevision) throw new Error('research_not_eligible');
     const prior = record.research;
     if (action === 'attention') {
       if (!prior || prior.status === 'completed' || prior.revision !== revision) throw new Error('research_claim_mismatch');
