@@ -368,12 +368,14 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   step-up, reusing valid two-minute proof. Primary proof remains independently required.
   Independent review and hosted acceptance remain pending. Owner authorized review-branch
   publication on 2026-10-22; remote dev publication and deployment remain separately gated.
-- [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** prepare
-  canonical-DEV-only enrollment gating; no hosted activation is approved.
+- [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** review
+  locally implemented canonical-DEV-only enrollment/management/step-up gate and
+  backend-confirmed UI. Isolated review-branch publication authorized; hosted activation remains gated. Verify actual
+  deployment identity and separately resolve R1's local-only replacement before rollout.
 - [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** after #9
   disposition and #13–#15 resolution, separately approve DEV preflight/recovery,
   migration 0013, backed-up MFA keys, push/deployment and controlled hosted acceptance.
-  All four follow-ups remain `codex-preparing`; do not start from roadmap/label alone.
+  Issue labels do not authorize execution; retain each independent review/owner gate.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account

@@ -28,6 +28,7 @@ function keys(config:MfaKeys){
     return ring as Record<string,string>;
   }catch{throw Error('MFA key configuration unavailable');}
 }
+export function mfaKeysReady(config:MfaKeys){try{keys(config);return true;}catch{return false;}}
 export function generateTotpSecret(){return base32.encode(crypto.getRandomValues(new Uint8Array(20))).replace(/=+$/,'');}
 function secretBytes(secret:string){
   if(!/^[A-Z2-7]{32}$/.test(secret))throw Error('MFA secret unavailable');

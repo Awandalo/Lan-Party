@@ -31,7 +31,7 @@ export async function requireRecentMfa(db:D1Database,account:AccountIdentity,dig
 // place (verified_at must never be later than that session's creation time).
 // Primary authentication keeps its original timestamp; MFA is not primary proof.
 export async function stepUp(db:D1Database,account:AccountIdentity,source:string,code:string,method:'totp'|'recovery',
-  keys:MfaKeys,now:number,reservation:LoginReservation){
+  keys:MfaKeys,now:number,reservation:LoginReservation,environment:'local'|'dev'='local'){
   const row=await db.prepare(`SELECT f.*,m.primary_method,m.primary_authenticated_at,
     r.method AS recent_method,r.authenticated_at AS recent_at
     FROM auth_totp_factors f JOIN auth_session_mfa m ON m.factor_id=f.factor_id AND m.user_id=f.user_id
@@ -44,7 +44,7 @@ export async function stepUp(db:D1Database,account:AccountIdentity,source:string
       last_step:number;recovery_set_id:string;primary_method:string;primary_authenticated_at:number;recent_method:string|null;recent_at:number|null}>();
   if(!row)return null;
   const secret=await decryptTotpSecret({ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id},keys,
-    {environment:'local',userId:account.userId,id:row.factor_id,purpose:'active'});
+    {environment,userId:account.userId,id:row.factor_id,purpose:'active'});
   let step:number|null=null,verifier:string|null=null;
   if(method==='totp'){
     step=await verifyTotp(secret,code,now,row.last_step);if(step===null)return null;

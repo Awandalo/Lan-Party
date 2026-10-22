@@ -1,15 +1,23 @@
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import {Link} from 'react-router';
 import LoginChallenge from './LoginChallenge';
+import {MFA_ENROLLMENT_AVAILABLE} from '../lib/mfa-mode';
+import {readMfaStatus} from '../lib/mfa-status';
 import '../CSS/MfaStepUp_style.css';
 
 export default function MfaStepUp({csrf,onVerified,onCancel,onBusy}:{csrf:string;onVerified:()=>Promise<unknown>;onCancel:()=>void;onBusy:(busy:boolean)=>void}){
   const pending=useRef(false),field=useRef<HTMLInputElement>(null),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
   const [method,setMethod]=useState<'totp'|'recovery'>('totp'),[siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const [uncertain,setUncertain]=useState(false);
+  const [available,setAvailable]=useState<boolean|null>(null);
+  useEffect(()=>{const controller=new AbortController();setAvailable(null);
+    if(MFA_ENROLLMENT_AVAILABLE)void readMfaStatus(controller.signal).then(status=>{if(!controller.signal.aborted)setAvailable(status.enabled&&status.enrollmentAvailable);}).catch(()=>{if(!controller.signal.aborted)setAvailable(false);});
+    else setAvailable(false);
+    return()=>controller.abort();
+  },[csrf]);
   async function submit(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(pending.current||uncertain)return;
+    event.preventDefault();if(pending.current||uncertain||available!==true)return;
     const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();
     pending.current=true;setBusy(true);onBusy(true);setFeedback('');
     try{
@@ -23,6 +31,9 @@ export default function MfaStepUp({csrf,onVerified,onCancel,onBusy}:{csrf:string
     }catch{setUncertain(true);setFeedback('Confirmation could not be established. Sign in again to recover your session. A submitted recovery code may already be used. No automatic retry was made.');}
     finally{pending.current=false;setBusy(false);onBusy(false);setProof(null);setAttempt(n=>n+1);requestAnimationFrame(()=>field.current?.focus());}
   }
+  if(available!==true)return <section className="account-confirmation"><h2>Confirm two-factor authentication</h2>
+    <p role="status">{available===null?'Checking MFA availability…':'MFA confirmation is unavailable in this environment. Sign in again to continue.'}</p>
+    {available===false&&<Link to="/login">Sign in again</Link>}</section>;
   return <section className="account-confirmation mfa-step-up" aria-labelledby="step-up-heading"><h2 id="step-up-heading">Confirm two-factor authentication</h2>
     <p>Confirm a code before changing your sign-in methods. Afterwards, select your account action again. No account change has been submitted.</p>
     <form onSubmit={submit}><fieldset disabled={busy||uncertain}><label htmlFor="step-up-method">Confirmation method</label>

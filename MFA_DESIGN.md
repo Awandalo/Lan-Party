@@ -1,5 +1,66 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
+## R3 — canonical DEV eligibility, locally implemented (issue #15)
+
+Owner authorized local edits/tests on 2026-10-22. No commit, push, remote binding,
+migration or hosted activation is authorized by this implementation.
+
+`mfaManagementEnvironment` gates enrollment, management and R2 step-up, and supplies
+`status.enrollmentAvailable`. Login challenge/completion are deliberately outside
+this management gate, so an existing factor cannot be bypassed or locked out solely
+because management eligibility is unavailable.
+
+| Context | Management eligibility |
+| --- | --- |
+| HTTP loopback + local-only sessions + local transport | Existing local behavior preserved |
+| Exact canonical HTTPS DEV + trusted DEV bundle + all DEV configuration below | Eligible, subject to normal session/primary/MFA/CSRF/rate-limit checks |
+| Default/PROD bundle, absent or wrong compiled target | Denied even if runtime variables are copied from DEV |
+| PROD, preview, workers.dev alias, other port/protocol/hostname | Denied |
+| Missing/wrong DEV environment, canonical origin, hosted session mode, Resend transport or usable MFA key ring | Denied |
+| Conflicting Host/Origin/protocol, Forwarded or X-Forwarded-Host, cross-site request | Denied; proxy claims never establish identity |
+
+The DEV-only Wrangler `define` is a build-time identity containing the configured
+Worker name `lan-party-dev` and DEV D1 UUID. The default configuration supplies no
+identity. Existing `AUTH_ENVIRONMENT=dev`, exact `AUTH_PUBLIC_ORIGIN`, hosted session
+mode, Resend transport and valid keys are independent runtime prerequisites. No
+new runtime activation toggle or secret is introduced. `X-Forwarded-Proto=https`
+is compatible; contradictory protocol headers are rejected. The default Worker
+and its PROD D1 configuration are unchanged.
+
+Wrangler's [environment configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
+supports environment-specific build substitutions; the installed schema confirms
+`define` is not inherited into other named environments. Local checks bind the
+literal marker to the exact DEV Worker/D1 configuration, and actual DEV dry-run
+packaging confirms substitution. This is trusted deployment-configuration identity,
+**not a runtime attestation of the actual Worker name or D1 UUID**: an operator who
+deploys the DEV artifact/configuration to another Worker or swaps its binding can
+defeat that operational assumption. #10 must independently verify the actual Worker,
+route and D1 identity, reject overrides, and stop on mismatches before publication.
+Request headers and dashboard variables cannot change the compiled marker.
+
+Enrollment/management/step-up now use `dev` AES-GCM context on hosted DEV, and retain
+`local` context on loopback. The UI permits only local development or a hosted-DEV
+build at the canonical origin, then requires explicit backend availability. Denial,
+malformed status or outage offers no active MFA settings/step-up controls. The
+existing factor remains enforced on login regardless of presentation availability.
+
+R1 restricted replacement and `challenge.recoveryAvailable` remain local-only;
+this assignment does not authorize expanding that separate recovery surface. Hosted
+activation must explicitly resolve this limitation under #10, not assume all R1
+functionality became hosted-eligible. All real email/account testing stays gated.
+
+Rollout recommendation: independently review this local diff; separately authorize
+isolated review publication and a clean remote-dev-based integration candidate.
+Never merge the divergent R2 review branch wholesale. Before #10 deployment verify
+exact Worker/D1/routes, pending migrations and a fresh private recovery checkpoint,
+key backup/configuration and existing email controls, and test the exact candidate.
+Only after explicit rollout approval publish through the existing DEV workflow;
+verify deployed version/health/negative hosts and perform separately approved real
+browser acceptance. Stop on any identity, migration, key, CI, health or auth-boundary
+failure. Worker rollback does not restore D1 or unenroll accounts; never roll back
+to code incapable of enforcing already-enrolled MFA. Restoration requires its own
+approval; do not automatically restore or remove factors.
+
 ## R2 — local credential-mutation assurance (issue #14)
 
 R2-F1 review correction: the OAuth linking transaction also binds the exact

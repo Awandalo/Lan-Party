@@ -15,6 +15,7 @@ import {beginManagement,cancelManagement,finishManagement,proveManagement,MfaPri
 import {passwordNotice} from './password-notification';
 import {recoveryAuthentication} from './mfa-recovery-http';
 import {stepUp} from './mfa-assurance';
+import {mfaManagementEnvironment} from './mfa-environment';
 
 function name(request:Request,kind:string){return (loopback(new URL(request.url))?'lan_mfa_local_':'__Host-lan_mfa_')+kind;}
 export function mfaCookie(request:Request,kind:string,value:string,maxAge=300){
@@ -47,9 +48,10 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
   const managing=url.pathname.includes('/manage/');
   const routes=['challenge','status','complete','cancel','step-up','enroll/start','enroll/verify','enroll/cancel','enroll/activate','manage/start','manage/verify','manage/finish','manage/cancel'];
   if(!routes.some(route=>url.pathname==='/api/auth/mfa/'+route))return reply(404,{error:'Not found'});
-  // A literal server-side loopback/local-mode gate. Hosted enrollment cannot be
-  // enabled by a frontend build flag, a dashboard variable or a forged Host header.
-  if((enrolling||managing||action==='step-up')&&(!loopback(url)||env.AUTH_SESSION_MODE!=='local-only'||env.AUTH_EMAIL_TRANSPORT!=='local'))return reply(404,{error:'Not found'});
+  // This gate never applies to login challenge/completion: an enrolled account
+  // must still satisfy MFA even when management configuration is unavailable.
+  const managementEnvironment=mfaManagementEnvironment(request,env);
+  if((enrolling||managing||action==='step-up')&&!managementEnvironment)return reply(404,{error:'Not found'});
   const get=!enrolling&&['challenge','status'].includes(action??'');
   if(request.method!==(get?'GET':'POST'))return reply(405,{error:'Method not allowed'});
   try{
@@ -70,7 +72,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       if(await limiter.observe()||input.turnstileToken!==undefined)await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
       const held=await limiter.reserveMfa(account.userId,await mfaDigest('step-up',digest));let done=false;
       try{
-        const result=await stepUp(env.DB,account,digest,input.code,input.method as 'totp'|'recovery',env,now,held);
+        const result=await stepUp(env.DB,account,digest,input.code,input.method as 'totp'|'recovery',env,now,held,managementEnvironment!);
         if(!await held.finish(!result))throw Error('Check expired');done=true;
         return result?primaryResponse(request,result,false,'/account/security'):reply(401,{error:'Code not accepted. Check it or use an unused recovery code.'});
       }finally{if(!done)await held.finish(false);}
@@ -83,7 +85,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       const input=await readInput(request) as Record<string,unknown>;
       if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['purpose','token','method','code','acknowledgment','confirmed','turnstileToken'].includes(k)))return reply(400,{error:'Invalid request'});
       const c={userId:account.userId,authVersion:account.authVersion,sessionDigest:digest,browserDigest:await mfaDigest('management-browser',digest),now};
-      if(action==='start'&&['disable','regenerate'].includes(input.purpose as string))return reply(200,await beginManagement(env.DB,c,input.purpose as 'disable'|'regenerate',env,'local'));
+      if(action==='start'&&['disable','regenerate'].includes(input.purpose as string))return reply(200,await beginManagement(env.DB,c,input.purpose as 'disable'|'regenerate',env,managementEnvironment!));
       if(typeof input.token!=='string'||!/^[a-f0-9]{64}$/.test(input.token))return reply(400,{error:'Invalid request'});
       if(action==='cancel'){await cancelManagement(env.DB,c,input.token);return reply(200,{message:'Changes cancelled.'});}
       if(action==='verify'&&['totp','recovery'].includes(input.method as string)&&typeof input.code==='string'&&input.code.length<=40){
@@ -91,13 +93,13 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
         if(await limiter.observe()||input.turnstileToken!==undefined)await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
         const held=await limiter.reserveMfa(account.userId,await mfaDigest('transaction',input.token));let done=false;
         try{
-          const result=await proveManagement(env.DB,c,input.token,input.code,input.method as 'totp'|'recovery',env,'local',held);
+          const result=await proveManagement(env.DB,c,input.token,input.code,input.method as 'totp'|'recovery',env,managementEnvironment!,held);
           if(!await held.finish(!result))throw Error('Check expired');done=true;
           return result?reply(200,result):reply(401,{error:'Code not accepted. Check it or use an unused recovery code.'});
         }finally{if(!done)await held.finish(false);}
       }
       if(action==='finish'&&input.confirmed===true&&typeof input.acknowledgment==='string'&&/^[a-f0-9]{64}$/.test(input.acknowledgment)){
-        const result=await finishManagement(env.DB,c,input.token,input.acknowledgment,env,'local');
+        const result=await finishManagement(env.DB,c,input.token,input.acknowledgment,env,managementEnvironment!);
         const notification=await passwordNotice(request,env,account,result.purpose==='disable'?'mfa-disabled':'mfa-regenerated');
         const response=primaryResponse(request,{kind:'session',token:result.token},false,'/account/security');
         return new Response(JSON.stringify({next:'/account/security',notification}),{status:200,headers:response.headers});
@@ -108,7 +110,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
       if(!account)return reply(401,{error:'Sign in again.'});
       return reply(200,{enabled:!!await env.DB.prepare('SELECT user_id FROM auth_totp_factors WHERE user_id=?').bind(account.userId).first(),
-        enrollmentAvailable:loopback(url)&&env.AUTH_SESSION_MODE==='local-only'&&env.AUTH_EMAIL_TRANSPORT==='local'});
+        enrollmentAvailable:managementEnvironment!==null});
     }
     if(enrolling){
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
@@ -118,12 +120,12 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       const input=await readInput(request) as Record<string,unknown>;
       if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['token','code','acknowledgment'].includes(k)))return reply(400,{error:'Invalid request'});
       const c={userId:account.userId,authVersion:account.authVersion,sessionDigest:digest,browserDigest:await mfaDigest('enrollment-browser',digest),now};
-      if(action==='start'&&Object.keys(input).length===0)return reply(200,await beginEnrollment(env.DB,c,env,'local','LAN Party member'));
+      if(action==='start'&&Object.keys(input).length===0)return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,'LAN Party member'));
       if(typeof input.token!=='string'||!/^[a-f0-9]{64}$/.test(input.token))return reply(400,{error:'Invalid request'});
-      if(action==='verify'&&typeof input.code==='string'&&/^[0-9]{6}$/.test(input.code))return reply(200,await verifyEnrollment(env.DB,c,input.token,input.code,env,'local',secret));
+      if(action==='verify'&&typeof input.code==='string'&&/^[0-9]{6}$/.test(input.code))return reply(200,await verifyEnrollment(env.DB,c,input.token,input.code,env,managementEnvironment!,secret));
       if(action==='cancel'){await cancelEnrollment(env.DB,c,input.token);return reply(200,{message:'Setup cancelled.'});}
       if(action==='activate'&&typeof input.acknowledgment==='string'&&/^[a-f0-9]{64}$/.test(input.acknowledgment)){
-        const statements=await prepareEnrollmentActivation(env.DB,c,input.token,input.acknowledgment,env,'local');
+        const statements=await prepareEnrollmentActivation(env.DB,c,input.token,input.acknowledgment,env,managementEnvironment!);
         const row=await env.DB.prepare(`SELECT * FROM auth_mfa_transactions WHERE token_digest=? AND phase='verified'`).bind(await mfaDigest('transaction',input.token)).first<{
           user_id:string;auth_version:number;factor_id:string;primary_method:string;primary_authenticated_at:number;verified_at:number}>();
         if(!row)throw Error('Setup unavailable');

@@ -1,5 +1,62 @@
 # Phase 3.8.5 — local security regression and DEV acceptance preparation
 
+## R3 local eligibility implementation — 2026-10-22
+
+Publication addendum: the owner subsequently authorized committing the 16 R3 files
+and publishing them on a separate review branch. The implementation/evidence below
+records the pre-publication state; remote dev/main publication and hosted activation
+remain unauthorized. Review R3 against the exact R2-F1 base, not as a wholesale
+integration of the branch's inherited history.
+
+Issue #15's bounded local implementation was explicitly authorized in Codex. The
+current base is R2-F1 `ea8d7762515aa38c9c893fcf632c829c666d5e04`; R3 is uncommitted
+and unstaged. The remote review base is 16 ahead/6 behind remote dev, with 57 changed
+files in that comparison, so it is not a wholesale integration candidate. Remote dev
+remains `30a290dda147a92ab519d8c1c69a4846b6a8e090`. Unrelated governance/monitor/DNS work
+is preserved. No remote configuration, account, migration, activation or deployment
+was performed.
+
+The fail-closed management gate and exact configuration/host matrix are documented
+in `MFA_DESIGN.md`. The DEV-only build marker is independent of request headers and
+runtime flags; default/mismatched bundles deny all nine management routes even with
+otherwise DEV runtime settings. It does not intrinsically attest the actual Worker
+or bound database: trusted deployment configuration must be checked again at #10.
+R1 restricted replacement remains local-only and is an explicit hosted-rollout gap,
+not silently enabled by this R3 change.
+
+Verification: **127 affected tests passed** (119 existing Google/MFA/R1/R2, plus eight
+R3 tests containing the host/configuration/build matrices). The strengthened exact
+Wrangler database-name check passed again. TypeScript, default/hosted-DEV Vite builds,
+and actual `wrangler deploy --dry-run --env dev` packaging passed. Packaging names
+the DEV D1 binding and embeds the expected marker; it does not attest remote routing.
+No migration changed; no separate migration/integrity suite was rerun. Broader shared
+authentication regressions were run because route eligibility and crypto context
+cross security boundaries. Unrelated event/news/DNS suites were omitted.
+
+R3 tests cover missing/wrong build identity, all DEV prerequisites, key availability,
+default/PROD config, alias/preview/protocol/port/forwarded-header rejection, compiled
+frontend flags, malformed/unavailable backend confirmation, every protected route,
+canonical DEV enrollment → password/Google MFA login → step-up → disable with DEV
+ciphertext, pending-session denial and CSRF. Default/mismatched builds still require
+and complete password/Google MFA login while refusing management. Provider requests
+are intercepted and emails fictional; no external send takes place.
+
+Initial fixture failures were corrected: the installed TypeScript API did not expose
+the attempted JSONC parser (the test now uses Wrangler's own read-only parser); the
+fixture omitted its worker-local password and required hosted Turnstile bindings;
+Miniflare rewrites Host to its internal loopback listener even for synthetic HTTPS
+URLs. Test-only transport normalization restores the explicitly supplied fixture
+Host, preserving forged-host negative cases. Application guards were not weakened.
+Final runs have no outstanding failure.
+
+Actual local browser fixture: backend denial shows factor status but no setup,
+management or step-up controls; explicit backend approval shows setup; outages show
+unavailable feedback; all cases record zero mutations. Fixture:
+`worker/tests/fixtures/mfa-environment-ui.html`. This is not real hosted routing,
+Google/Resend/Turnstile acceptance or remote-account testing. Exact live binding,
+route, migration/key readiness, release integration and real-browser acceptance
+remain separately authorized #10 work. Q independent review remains required.
+
 ## R2-F1 — Q review follow-up, 2026-10-22
 
 Owner authorization is recorded in #14 comment `6349210582` and confirmed in Codex.

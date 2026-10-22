@@ -648,7 +648,7 @@ test('concurrent activation has one winner and a changed generation prevents a p
  });
 });
 
-test('hosted enrollment cannot be enabled by frontend build variables',async()=>{
+test('an unrecognized MFA build flag does not expose enrollment UI outside the approved browser context',async()=>{
  const result=await build({entryPoints:['src/lib/mfa-mode.ts'],bundle:true,write:false,format:'esm',platform:'node',define:{'import.meta.env.DEV':'false','import.meta.env.VITE_MFA_MODE':'"hosted-dev"'}});
  const module=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
  assert.equal(module.MFA_ENROLLMENT_AVAILABLE,false);
