@@ -1,0 +1,33 @@
+import {useRef,useState} from 'react';
+import type {FormEvent} from 'react';
+import LoginChallenge from './LoginChallenge';
+import '../CSS/MfaStepUp_style.css';
+
+export default function MfaStepUp({csrf,onVerified,onCancel,onBusy}:{csrf:string;onVerified:()=>Promise<unknown>;onCancel:()=>void;onBusy:(busy:boolean)=>void}){
+  const pending=useRef(false),field=useRef<HTMLInputElement>(null),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
+  const [method,setMethod]=useState<'totp'|'recovery'>('totp'),[siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
+  async function submit(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(pending.current)return;
+    const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();
+    pending.current=true;setBusy(true);onBusy(true);setFeedback('');
+    try{
+      const response=await fetch('/api/auth/mfa/step-up',{method:'POST',credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(15000),
+        headers:{'X-LAN-Request':'1','X-CSRF-Token':csrf,'Content-Type':'application/json'},body:JSON.stringify({method,code,...(proof?{turnstileToken:proof}:{})})});
+      const body=await response.json();
+      if(response.ok){await onVerified();return;}
+      if(response.status===403&&body.siteKey)setSiteKey(body.siteKey);
+      setFeedback(response.status===429?`Please wait ${response.headers.get('Retry-After')??''} seconds before trying again.`:body.error??'Confirmation unavailable.');
+    }catch{setFeedback('Confirmation could not be established. No automatic retry was made. Reload before trying again.');}
+    finally{pending.current=false;setBusy(false);onBusy(false);setProof(null);setAttempt(n=>n+1);requestAnimationFrame(()=>field.current?.focus());}
+  }
+  return <section className="account-confirmation mfa-step-up" aria-labelledby="step-up-heading"><h2 id="step-up-heading">Confirm two-factor authentication</h2>
+    <p>Confirm a code before changing your sign-in methods. Afterwards, select your account action again. No account change has been submitted.</p>
+    <form onSubmit={submit}><fieldset disabled={busy}><label htmlFor="step-up-method">Confirmation method</label>
+      <select id="step-up-method" value={method} onChange={event=>setMethod(event.target.value as 'totp'|'recovery')}><option value="totp">Authenticator code</option><option value="recovery">Unused recovery code</option></select>
+      <label htmlFor="step-up-code">{method==='totp'?'Authenticator code':'Recovery code'}</label>
+      <input ref={field} id="step-up-code" name="code" autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} maxLength={40} required autoFocus/>
+      {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
+      <button className="button" aria-busy={busy}>{busy?'Confirming…':'Confirm code'}</button>
+      <button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button>
+    </fieldset></form><p role="status" aria-live="polite">{feedback}</p></section>;
+}

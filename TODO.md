@@ -363,9 +363,11 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   locally implemented owner-approved Option B: restricted replacement, atomic factor/code
   switch, fixed recovery/display windows and encrypted same-set redisplay (local 0014).
   Keep open until independent security review; no hosted activation or rollout implied.
-- [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** prepare
-  recent MFA assurance before credential/provider writes, reusing valid two-minute
-  proof. Implementation awaits separate approval; primary proof remains required.
+- [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** review
+  owner-authorized local credential/provider write guards and explicit session-rotating
+  step-up, reusing valid two-minute proof. Primary proof remains independently required.
+  Independent review and hosted acceptance remain pending. Owner authorized review-branch
+  publication on 2026-10-22; remote dev publication and deployment remain separately gated.
 - [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** prepare
   canonical-DEV-only enrollment gating; no hosted activation is approved.
 - [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** after #9

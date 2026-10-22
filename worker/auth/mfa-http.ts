@@ -14,6 +14,7 @@ import {LoginChallenge,verifyLoginChallenge} from './turnstile';
 import {beginManagement,cancelManagement,finishManagement,proveManagement,MfaPrimaryRequired} from './mfa-management';
 import {passwordNotice} from './password-notification';
 import {recoveryAuthentication} from './mfa-recovery-http';
+import {stepUp} from './mfa-assurance';
 
 function name(request:Request,kind:string){return (loopback(new URL(request.url))?'lan_mfa_local_':'__Host-lan_mfa_')+kind;}
 export function mfaCookie(request:Request,kind:string,value:string,maxAge=300){
@@ -44,11 +45,11 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
   if(new URL(request.url).pathname.startsWith('/api/auth/mfa/recovery/'))return recoveryAuthentication(request,env);
   const url=new URL(request.url),enrolling=url.pathname.includes('/enroll/'),action=url.pathname.split('/').pop();
   const managing=url.pathname.includes('/manage/');
-  const routes=['challenge','status','complete','cancel','enroll/start','enroll/verify','enroll/cancel','enroll/activate','manage/start','manage/verify','manage/finish','manage/cancel'];
+  const routes=['challenge','status','complete','cancel','step-up','enroll/start','enroll/verify','enroll/cancel','enroll/activate','manage/start','manage/verify','manage/finish','manage/cancel'];
   if(!routes.some(route=>url.pathname==='/api/auth/mfa/'+route))return reply(404,{error:'Not found'});
   // A literal server-side loopback/local-mode gate. Hosted enrollment cannot be
   // enabled by a frontend build flag, a dashboard variable or a forged Host header.
-  if((enrolling||managing)&&(!loopback(url)||env.AUTH_SESSION_MODE!=='local-only'||env.AUTH_EMAIL_TRANSPORT!=='local'))return reply(404,{error:'Not found'});
+  if((enrolling||managing||action==='step-up')&&(!loopback(url)||env.AUTH_SESSION_MODE!=='local-only'||env.AUTH_EMAIL_TRANSPORT!=='local'))return reply(404,{error:'Not found'});
   const get=!enrolling&&['challenge','status'].includes(action??'');
   if(request.method!==(get?'GET':'POST'))return reply(405,{error:'Method not allowed'});
   try{
@@ -57,6 +58,23 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       ||request.headers.has('Origin')&&request.headers.get('Origin')!==origin.origin
       ||request.headers.has('Sec-Fetch-Site')&&request.headers.get('Sec-Fetch-Site')!=='same-origin')return reply(403,{error:'Request rejected'});
     const now=Math.floor(Date.now()/1000);
+    if(action==='step-up'){
+      const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
+      if(!account||!token||account.emailVerifiedAt===null)return reply(401,{error:'Sign in again.'});
+      const digest=await digestToken(token,'session');
+      if(!await validAuthMutation(request,origin.origin,digest,secret))return reply(403,{error:'Request rejected'});
+      const input=await readInput(request) as Record<string,unknown>;
+      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['method','code','turnstileToken'].includes(k))
+        ||!['totp','recovery'].includes(input.method as string)||typeof input.code!=='string'||input.code.length>40)return reply(400,{error:'Invalid request'});
+      const limiter=await LoginLimiter.create(env.DB,secret,authClientIP(request,env).toLowerCase());
+      if(await limiter.observe()||input.turnstileToken!==undefined)await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
+      const held=await limiter.reserveMfa(account.userId,await mfaDigest('step-up',digest));let done=false;
+      try{
+        const result=await stepUp(env.DB,account,digest,input.code,input.method as 'totp'|'recovery',env,now,held);
+        if(!await held.finish(!result))throw Error('Check expired');done=true;
+        return result?primaryResponse(request,result,false,'/account/security'):reply(401,{error:'Code not accepted. Check it or use an unused recovery code.'});
+      }finally{if(!done)await held.finish(false);}
+    }
     if(managing){
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
       if(!account||!token||account.emailVerifiedAt===null)return reply(401,{error:'Sign in again.'});

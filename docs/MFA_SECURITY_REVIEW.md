@@ -1,5 +1,32 @@
 # Phase 3.8.5 — local security regression and DEV acceptance preparation
 
+## R2 local implementation — 2026-10-22
+
+Issue #14's owner-authorized correction adds strict two-minute LAN Party MFA guards
+to password add/change and Google link/unlink, including the actual D1 write.
+Expired proof returns a focused step-up without a credential mutation. Explicit
+local-only TOTP/recovery step-up rotates the source session atomically and preserves
+the original primary proof time. See `MFA_DESIGN.md` for the current model.
+
+The historical R2 findings below describe the pre-fix code. Local implementation
+does not constitute independent security acceptance or hosted validation; #14/#9
+remain open. No migration, remote account, secret or deployment was changed.
+
+Verification: 116 distinct affected MFA/Google/recovery tests passed across targeted
+batches (102 existing and 14 new R2 tests). The first combined run exposed two
+historical gap expectations and one invalid fixture expiry; those were corrected
+and affected tests rerun. A later Turnstile fixture used a too-short fictional
+secret; its correction and challenge/replay regression passed. No outstanding
+test failure remains. Strict TypeScript and default/hosted-DEV Vite builds passed.
+Workerd fixtures cover all four writes, expiry between precheck and write, session/
+generation fencing, TOTP concurrency/replay, recovery rollback/lease failure,
+primary-proof age preservation, CSRF/origin and conditional single-use Turnstile.
+The browser fixture uses intercepted fictional responses: no prompt/mutation on
+load, explicit step-up success/failure, no automatic mutation retry, cleared input,
+keyboard focus and a 375px layout without horizontal overflow. This is not hosted
+browser/D1 acceptance or real Google/Turnstile/email testing. Unrelated suites and
+standalone migration/integrity reruns were omitted because schema is unchanged.
+
 R1 follow-up: issue #13's owner-approved Option B is now implemented locally with
 additive migration 0014; see `MFA_DESIGN.md` for its exact state/expiry/crypto model.
 The historical findings below remain evidence for the pre-fix ordinary-login path.

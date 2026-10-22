@@ -62,7 +62,7 @@ test('Google-only and combined accounts share MFA; adding the first password and
  const {start,callback,complete,session,request,db}=fixture;
  const flow=await start();await callback(flow);const initial=await session(await complete(flow));
  const enrolled=await enrollMfa(fixture,initial);
- const signin=await callback(await start());assert.equal(signin.headers.get('location'),'/mfa');
+ const signin=await callback(await start(),{amr:['pwd','mfa'],acr:'fictional-provider-mfa'});assert.equal(signin.headers.get('location'),'/mfa');
  const headers=await finishMfa(fixture,signin,enrolled.codes[0]);
  const added=await request('google/add-password',{password:'fictional MFA password'},headers);assert.equal(added.status,200);
  assert.equal((await added.clone().json()).next,'/account/security');
@@ -146,14 +146,38 @@ test('Google reauthentication uses only the fixed server-bound MFA return action
  const result=await callback(reauth,{}, {Cookie:Cookie+'; '+headers.Cookie});assert.equal(result.headers.get('location'),'/account/security#mfa');
 }));
 
-test('expired MFA assurance still requires a new challenge after session replacement',()=>local(async fixture=>{
+test('expired MFA assurance blocks first-password setup before any credential mutation',()=>local(async fixture=>{
  const {request,start,callback,complete,session,db}=fixture;
  const flow=await start();await callback(flow);const enrolled=await enrollMfa(fixture,await session(await complete(flow)));
  const old=await db.prepare('SELECT * FROM auth_session_mfa').first();
  await db.prepare('DELETE FROM auth_session_mfa').run();
  await db.prepare(`INSERT INTO auth_session_mfa(session_digest,user_id,auth_version,factor_id,method,verified_at,primary_method,primary_authenticated_at)
   VALUES (?,?,?,?,?,?,?,?)`).bind(old.session_digest,old.user_id,old.auth_version,old.factor_id,old.method,old.verified_at-121,old.primary_method,old.primary_authenticated_at).run();
- const added=await request('google/add-password',{password:'fictional MFA password'},enrolled.headers);assert.equal(added.status,200);assert.equal((await added.json()).next,'/mfa');
+ const added=await request('google/add-password',{password:'fictional MFA password'},enrolled.headers);assert.equal(added.status,428);assert.equal((await added.json()).code,'mfa_required');
+ assert.equal(await db.prepare('SELECT count(*) n FROM user_password_credentials').first('n'),0);
+}));
+
+test('password changes reject stale MFA without changing credentials, factor, codes or sessions',()=>local(async fixture=>{
+ const {request,start,callback,complete,session,db}=fixture;
+ const flow=await start();await callback(flow);
+ const initial=await session(await complete(flow));
+ const added=await request('google/add-password',{password:'fictional retained password'},initial);
+ const enrolled=await enrollMfa(fixture,await session(added));
+ const old=await db.prepare('SELECT * FROM auth_session_mfa').first();
+ await db.batch([
+  db.prepare('DELETE FROM auth_session_mfa WHERE session_digest=?').bind(old.session_digest),
+  db.prepare(`INSERT INTO auth_session_mfa(session_digest,user_id,auth_version,factor_id,method,verified_at,primary_method,primary_authenticated_at)
+   VALUES (?,?,?,?,?,?,?,?)`).bind(old.session_digest,old.user_id,old.auth_version,old.factor_id,old.method,old.verified_at-121,old.primary_method,old.primary_authenticated_at),
+ ]);
+ const factor=await db.prepare('SELECT * FROM auth_totp_factors').first();
+ const codes=(await db.prepare('SELECT * FROM auth_mfa_recovery_codes ORDER BY verifier').all()).results;
+ const changed=await request('google/change-password',{password:'fictional retained password',newPassword:'fictional changed password'},enrolled.headers);
+ assert.equal(changed.status,428);assert.equal((await changed.json()).code,'mfa_required');
+ assert.deepEqual(await db.prepare('SELECT * FROM auth_totp_factors').first(),factor);
+ assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_recovery_codes ORDER BY verifier').all()).results,codes);
+ assert.equal((await request('session',undefined,enrolled.headers)).status,200);
+ const login=await request('login',{email:'google@example.test',password:'fictional retained password'});
+ assert.equal((await login.json()).next,'/mfa');
 }));
 test('Google signup creates one UUID and normal member number without password; linked sign-in preserves identity',()=>local(async({db,start,callback,complete,session,request})=>{
  const flow=await start();assert.equal((await callback(flow)).headers.get('location'),'/google-complete');

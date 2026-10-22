@@ -22,6 +22,7 @@ import {recoveryContext} from './mfa-recovery-http';
 import {recoveryOperation,assertOne} from './mfa-recovery';
 import {loopback} from './environment';
 import {mfaDigest} from './mfa-crypto';
+import {RecentMfaRequired,requireRecentMfa} from './mfa-assurance';
 
 export interface GoogleEnvironment extends AuthenticationEnvironment, GoogleConfiguration { GOOGLE_AUTH_MODE?: string }
 interface Flow { state_digest: string; browser_digest: string; purpose: 'signin'|'link'|'reauth'; phase: string;
@@ -147,6 +148,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           return redirect(flow.return_action==='mfa'?'/account/security#mfa':'/account/security#add-password');
         }
         const primary=await recent(env.DB,session.account,session.digest);
+        const mfa=await requireRecentMfa(env.DB,session.account,session.digest);
         const rotation=await rotationProof(env.DB,session.account.userId,session.account.authVersion,session.digest,now());
         // A different account owning this email is never silently merged.
         const collision=await env.DB.prepare('SELECT id FROM users WHERE email_normalized=? AND id<>?').bind(identity.email,flow.user_id).first();
@@ -156,12 +158,12 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
             AND expires_at>? AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=? AND status='active')
             AND EXISTS(SELECT 1 FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
               WHERE r.session_digest=? AND r.expires_at>? AND s.revoked_at IS NULL AND s.expires_at>?)
-            RETURNING state_digest`).bind(flow.state_digest,now(),flow.user_id,flow.auth_version,session.digest,now(),now()),
+            AND ${mfa.sql} RETURNING state_digest`).bind(flow.state_digest,now(),flow.user_id,flow.auth_version,session.digest,now(),now(),...mfa.values),
           env.DB.prepare(`INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at)
             SELECT ?,?,'google',?,?,? WHERE changes()=1`).bind(crypto.randomUUID(),flow.user_id,googleIssuer,identity.subject,now()),
           env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),flow.user_id),
         ]);
-        if (linkedResult[1].meta.changes!==1) throw new Error('Account changed');
+        if (linkedResult[1].meta.changes!==1) {await requireRecentMfa(env.DB,session.account,session.digest);throw new Error('Account changed');}
         // The generation change revoked every old session. Replace only this
         // proven caller's session; never reread and adopt a later generation.
         const replacement=await completePrimary(env.DB,
@@ -225,7 +227,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       }else if (purpose!=='signin') {
         session=await current(request,env);
         if (!await validAuthMutation(request,origin.origin,session.digest,env.AUTH_RATE_LIMIT_SECRET!)) return reply(403,{error:'Request rejected'});
-        if (purpose==='link') await recent(env.DB,session.account,session.digest);
+        if (purpose==='link') {await requireRecentMfa(env.DB,session.account,session.digest);await recent(env.DB,session.account,session.digest);}
       }
       const browser=generateToken(),state=generateToken(),nonce=generateToken(),verifier=generateToken(),time=now();
       // Bound simultaneous transactions, including callers who discard cookies.
@@ -282,6 +284,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     }
     const session=await current(request,env),{account,digest}=session;
     if (!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!)) return reply(403,{error:'Request rejected'});
+    const mfa=['change-password','add-password','unlink'].includes(action??'')?await requireRecentMfa(env.DB,account,digest):null;
     if (action==='reauth-password' || action==='change-password') {
       if (Object.keys(input).some(k=>!(action==='change-password'?['password','newPassword','turnstileToken']:['password','turnstileToken']).includes(k)) || typeof input.password!=='string') return reply(400,{error:'Invalid request'});
       if(action==='change-password' && (typeof input.newPassword!=='string'||!isValidPassword(input.newPassword)))return reply(400,{error:'Use a 12–128 character new password.'});
@@ -299,9 +302,9 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           const result=await env.DB.prepare(`UPDATE user_password_credentials SET password_hash=?,password_changed_at=?,updated_at=?
             WHERE user_id=? AND password_hash=? AND EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id
               WHERE u.id=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.auth_version=?
-              AND s.token_digest=? AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?) RETURNING user_id`)
-            .bind(hash,time,time,account.userId,credential,account.userId,account.authVersion,digest,now()).first();
-          if(!result)return reply(409,{error:'Your account changed. Sign in again before trying.'});
+              AND s.token_digest=? AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?) AND ${mfa!.sql} RETURNING user_id`)
+            .bind(hash,time,time,account.userId,credential,account.userId,account.authVersion,digest,now(),...mfa!.values).first();
+          if(!result){await requireRecentMfa(env.DB,account,digest);return reply(409,{error:'Your account changed. Sign in again before trying.'});}
           const notification=await passwordNotice(request,env,account,'password-changed');
           return reply(200,{next:'/login',notification},{'Set-Cookie':clearSessionCookie()});
         }
@@ -316,11 +319,12 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           AND EXISTS(SELECT 1 FROM users u JOIN user_password_credentials c ON c.user_id=u.id WHERE u.id=?
             AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.auth_version=?)
           AND EXISTS(SELECT 1 FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
-            WHERE r.session_digest=? AND r.method='password' AND r.expires_at>? AND s.revoked_at IS NULL AND s.expires_at>?) RETURNING id`)
-          .bind(account.userId,account.userId,account.authVersion,digest,now(),now()),
+            WHERE r.session_digest=? AND r.method='password' AND r.expires_at>? AND s.revoked_at IS NULL AND s.expires_at>?) AND ${mfa!.sql} RETURNING id`)
+          .bind(account.userId,account.userId,account.authVersion,digest,now(),now(),...mfa!.values),
         env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),account.userId),
       ]);
-      return result[0].results.length===1?reply(200,{next:'/login'},{'Set-Cookie':clearSessionCookie()}):reply(400,{error:'Keep another usable sign-in method.'});
+      if(result[0].results.length!==1){await requireRecentMfa(env.DB,account,digest);return reply(400,{error:'Keep another usable sign-in method.'});}
+      return reply(200,{next:'/login'},{'Set-Cookie':clearSessionCookie()});
     }
     if (action==='request-password') return reply(404,{error:'Not found'});
     if (action==='add-password') {
@@ -340,11 +344,11 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
             WHERE r.session_digest=? AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.method='google'
               AND r.expires_at>? AND r.authenticated_at>? AND r.authenticated_at<=?
               AND s.user_id=u.id AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?)
-          AND NOT EXISTS(SELECT 1 FROM user_password_credentials c WHERE c.user_id=u.id) RETURNING user_id`)
-          .bind(hash,now(),now(),now(),account.userId,account.authVersion,digest,now(),now()-googleFreshnessSeconds,now(),now()),
+          AND NOT EXISTS(SELECT 1 FROM user_password_credentials c WHERE c.user_id=u.id) AND ${mfa!.sql} RETURNING user_id`)
+          .bind(hash,now(),now(),now(),account.userId,account.authVersion,digest,now(),now()-googleFreshnessSeconds,now(),now(),...mfa!.values),
         env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND changes()=1').bind(now(),account.userId),
       ]);
-      if(result[0].results.length!==1)return reply(409,{error:'Password setup is no longer available. Sign in again and check your login methods.'});
+      if(result[0].results.length!==1){await requireRecentMfa(env.DB,account,digest);return reply(409,{error:'Password setup is no longer available. Sign in again and check your login methods.'});}
       const notification=await passwordNotice(request,env,account,'password-added');
       // The credential write revokes every old session. Replace only this browser's
       // session at the expected generation; never adopt a concurrent newer change.
@@ -355,6 +359,8 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     }
     return reply(404,{error:'Not found'});
   } catch (error) {
+    if(error instanceof RecentMfaRequired)return action==='callback'?redirect('/account/security?mfa=required'):
+      reply(428,{code:'mfa_required',error:'Confirm two-factor authentication before changing your sign-in methods.'});
     if (action==='callback') return redirect('/login?google=unavailable');
     if (error instanceof RecentAuthenticationRequired) return reply(428,{code:'reauth_required',
       method:error.method??'existing',error:error.message});

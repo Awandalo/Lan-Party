@@ -105,6 +105,53 @@ async function managementFixture(fixture){
  return {...enrolled,headers,c,start,prove,finish};
 }
 
+test('last recovery code spent on login cannot authorize management or be replayed as its proof',()=>local(async fixture=>{
+ const {db,request}=fixture,enrolled=await enrollHttp(fixture);await enrolled.activate();
+ // Model a lost authenticator and nine previously consumed fictional codes.
+ await db.prepare(`UPDATE auth_mfa_recovery_codes SET consumed_at=created_at WHERE verifier NOT IN
+  (SELECT verifier FROM auth_mfa_recovery_codes ORDER BY verifier LIMIT 1)`).run();
+ const remaining=await db.prepare('SELECT verifier FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('verifier');
+ const user=await db.prepare('SELECT id FROM users').first('id'),set=await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id');
+ let finalCode;
+ for(const code of enrolled.codes.codes)if(await fixture.call('recoveryVerifier',user,set,code)===remaining)finalCode=code;
+ const pending=await challengeHttp(request),login=await request('mfa/complete',{method:'recovery',code:finalCode},pending);
+ assert.equal(login.status,200);
+ const Cookie=cookieJar(login),session=await(await request('session',undefined,{Cookie})).json();
+ const headers={Cookie,'X-CSRF-Token':session.csrfToken};
+ const start=await request('mfa/manage/start',{purpose:'regenerate'},headers);assert.equal(start.status,200);
+ const tx=await start.json();
+ assert.equal((await request('mfa/manage/verify',{token:tx.token,method:'recovery',code:finalCode},headers)).status,401);
+ assert.equal((await request('mfa/manage/finish',{token:tx.token,acknowledgment:'00'.repeat(32),confirmed:true},headers)).status,503);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),0);
+}));
+
+test('losing a regeneration display after spending the last recovery proof preserves the factor but leaves no usable codes',()=>local(async fixture=>{
+ const {db,request}=fixture,m=await managementFixture(fixture);
+ const verifier=await fixture.call('recoveryVerifier',m.c.userId,await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),m.codes.codes[0]);
+ await db.prepare('UPDATE auth_mfa_recovery_codes SET consumed_at=created_at WHERE verifier<>?').bind(verifier).run();
+ const old=await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id');
+ const tx=await m.start('regenerate');assert.equal((await m.prove(tx)).status,200);
+ // Discard the one-time display/acknowledgment, then cancel exactly as an interrupted browser would.
+ assert.equal((await request('mfa/manage/cancel',{token:tx.token},m.headers)).status,200);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),old);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),0);
+ assert.equal((await request('session',undefined,m.headers)).status,200);
+ assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+}));
+
+test('pending challenges cannot authorize security methods, management, logout, or enrollment, and a new login supersedes the old context',()=>local(async fixture=>{
+ const {request}=fixture,m=await managementFixture(fixture),first=await challengeHttp(request);
+ for(const [route,input] of [['session',undefined],['mfa/status',undefined],['mfa/enroll/start',{}],['mfa/manage/start',{purpose:'disable'}],['logout',{}]]){
+  assert.notEqual((await request(route,input,first)).status,200,route+' accepted a pending context');
+ }
+ const second=await request('login',{email:profile.email,password:profile.password},first);
+ assert.equal((await second.clone().json()).next,'/mfa');
+ assert.equal((await request('mfa/challenge',undefined,first)).status,401);
+ const Cookie=cookieJar(second),challenge=await(await request('mfa/challenge',undefined,{Cookie})).json();
+ assert.equal((await request('mfa/complete',{method:'recovery',code:m.codes.codes[0]},{Cookie,'X-CSRF-Token':challenge.csrfToken})).status,200);
+}));
+
 test('MFA disable preserves account identity, credentials, Google mapping, roles and member history while revoking MFA and sessions',()=>local(async fixture=>{
  const {db,request,call}=fixture,m=await managementFixture(fixture);
  await db.prepare('INSERT INTO registration_rate_limits(key_hash,hits,expires_at) VALUES (?,7,?)').bind('fa'.repeat(32),m.c.now+900).run();

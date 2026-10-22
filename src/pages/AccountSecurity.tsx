@@ -9,6 +9,7 @@ import LoginChallenge from '../components/LoginChallenge';
 import PasswordInput from '../components/PasswordInput';
 import SecurityActionIcon from '../components/SecurityActionIcon';
 import MfaSettings from '../components/MfaSettings';
+import MfaStepUp from '../components/MfaStepUp';
 import { MFA_ENROLLMENT_AVAILABLE } from '../lib/mfa-mode';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
@@ -18,6 +19,7 @@ export default function AccountSecurity(){
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
   const [disconnecting,setDisconnecting]=useState(false),[passwordSetupOpen,setPasswordSetupOpen]=useState(passwordSetupRequested());
   const [needsGoogle,setNeedsGoogle]=useState(false);
+  const [needsMfa,setNeedsMfa]=useState(()=>new URLSearchParams(window.location.search).get('mfa')==='required');
   const [mfaOpen,setMfaOpen]=useState(mfaSettingsRequested());
   const [googleBusy,setGoogleBusy]=useState(false),googlePending=useRef(false);
   const googleButton=useRef<GoogleButtonHandle>(null),activeSession=useRef(session?.csrfToken),actionPending=useRef(false);
@@ -26,7 +28,8 @@ export default function AccountSecurity(){
   const passwordPanel=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(needsGoogle)passwordPanel.current?.focus();},[needsGoogle]);
   activeSession.current=session?.csrfToken;
-  function clearAction(){setMfaOpen(false);clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);setNeedsPassword(false);setDisconnecting(false);setFeedback('');setSiteKey('');setProof(null);setAttempt(n=>n+1);}
+  function clearAction(){setNeedsMfa(false);setMfaOpen(false);clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);setNeedsPassword(false);setDisconnecting(false);setFeedback('');setSiteKey('');setProof(null);setAttempt(n=>n+1);}
+  function requestMfa(){googleButton.current?.cancelLink(false);clearAction();setNeedsMfa(true);}
   function selectAction(action:'password'|'disconnect'){
     if(actionPending.current||googlePending.current)return;
     googleButton.current?.cancelLink();clearAction();
@@ -62,12 +65,14 @@ export default function AccountSecurity(){
           const result=await googleRequest('unlink',{},csrf),outcome=await result.json();
           if(activeSession.current!==csrf)return;
           if(result.ok&&outcome.next==='/login'){clearPasswordSetup();window.location.assign('/login');navigating=true;}
+          else if(result.status===428&&outcome.code==='mfa_required')requestMfa();
           else setFeedback(outcome.error??'Disconnection could not be confirmed. Reload before trying again.');
         }else{
           setNeedsPassword(false);
           setFeedback(googleButton.current?.resumeLink(csrf)?'Identity confirmed.':'Identity confirmed. Select your account action to continue.');
         }
       }
+      else if(r.status===428&&body.code==='mfa_required')requestMfa();
       else if(r.status===428&&body.code==='reauth_required'){
         if(body.method==='google')setNeedsGoogle(true);
         if(body.method!=='google')requestPasswordConfirmation();
@@ -83,11 +88,15 @@ export default function AccountSecurity(){
   function managePassword(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(actionPending.current)return;const data=new FormData(event.currentTarget);
     const password=String(data.get('newPassword')??'');
-    if(methods?.password)void action('change-password',{password:String(data.get('currentPassword')??''),newPassword:password,...(proof?{turnstileToken:proof}:{})});
+    const currentPassword=String(data.get('currentPassword')??'');event.currentTarget.reset();
+    if(methods?.password)void action('change-password',{password:currentPassword,newPassword:password,...(proof?{turnstileToken:proof}:{})});
     else void action('add-password',{password});
   }
   return <section className="page-section account-security-page"><div className="panel account-security-card"><h1>Account security</h1>
     <p>All your account security settings in one place.</p>
+    {needsMfa&&<MfaStepUp key={csrf} csrf={csrf} onBusy={value=>{actionPending.current=value;setBusy(value);}} onCancel={clearAction} onVerified={async()=>{
+      if(!await refresh())throw Error('Session unavailable');clearAction();setFeedback('Two-factor authentication confirmed. Select your account action again.');
+    }}/>}
     {methods&&<><section className="connected-accounts" aria-labelledby="connected-accounts-heading">
       <h2 id="connected-accounts-heading">Connected accounts</h2>
       <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd className="security-method-status">{methods.password?'Connected':'Not connected'}
@@ -106,7 +115,7 @@ export default function AccountSecurity(){
           <button type="button" className="button button-secondary" disabled={busy||googleBusy} onClick={()=>{clearAction();requestAnimationFrame(()=>passwordTrigger.current?.focus());}}>Cancel</button>
         </div></dd>}</div>
         <div><dt>Google</dt><dd className="security-method-status">{methods.google?'Connected':'Not connected'}
-      {!methods.google&&<GoogleButton iconOnly key={csrf} ref={googleButton} purpose="link" csrf={csrf} disabled={busy||googleBusy||needsPassword} onStart={clearAction} onPendingChange={googleProgress} onRecentAuthenticationRequired={requestPasswordConfirmation}/>}
+      {!methods.google&&<GoogleButton iconOnly key={csrf} ref={googleButton} purpose="link" csrf={csrf} disabled={busy||googleBusy||needsPassword} onStart={clearAction} onPendingChange={googleProgress} onRecentAuthenticationRequired={requestPasswordConfirmation} onMfaRequired={requestMfa}/>}
       {methods.google&&methods.password&&!needsPassword&&<button ref={disconnectTrigger} className="security-icon-action" aria-label="Disconnect Google" title="Disconnect Google" disabled={busy||googleBusy} onClick={()=>selectAction('disconnect')}><SecurityActionIcon action="unlink"/></button>}</dd>
       {methods.google&&!methods.password&&<dd className="security-method-controls"><p>Add a password before disconnecting Google. At least one usable sign-in method must remain.</p></dd>}
       {methods.password&&needsPassword&&<dd className="security-method-controls"><div ref={confirmationRef} tabIndex={-1} className="account-confirmation">

@@ -5,10 +5,10 @@ import { googleRequest } from '../lib/google';
 import { GoogleLinkIntent } from '../lib/google-link-intent';
 import SecurityActionIcon from './SecurityActionIcon';
 
-export interface GoogleButtonHandle { resumeLink: (session: string) => boolean; cancelLink: () => void }
+export interface GoogleButtonHandle { resumeLink: (session: string) => boolean; cancelLink: (restoreFocus?:boolean) => void }
 
-export default function GoogleButton({purpose='signin',returnAction,csrf,onRecentAuthenticationRequired,onStart,onPendingChange,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';returnAction?:'mfa'|'recovery';csrf?:string;iconOnly?:boolean;
-  onRecentAuthenticationRequired?:()=>void;onStart?:()=>void;onPendingChange?:(pending:boolean)=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
+export default function GoogleButton({purpose='signin',returnAction,csrf,onRecentAuthenticationRequired,onMfaRequired,onStart,onPendingChange,ref,disabled=false,iconOnly=false}:{purpose?:'signin'|'link'|'reauth';returnAction?:'mfa'|'recovery';csrf?:string;iconOnly?:boolean;
+  onRecentAuthenticationRequired?:()=>void;onMfaRequired?:()=>void;onStart?:()=>void;onPendingChange?:(pending:boolean)=>void;ref?:Ref<GoogleButtonHandle>;disabled?:boolean}) {
   const intent=useRef(new GoogleLinkIntent()),inFlight=useRef(false),mounted=useRef(true);
   const trigger=useRef<HTMLButtonElement>(null);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -17,7 +17,7 @@ export default function GoogleButton({purpose='signin',returnAction,csrf,onRecen
   useImperativeHandle(ref,()=>({resumeLink(session){
     if(purpose!=='link'||session!==csrf||!intent.current.consume(session)||inFlight.current)return false;
     void start();return true;
-  },cancelLink(){intent.current.cancel();setFeedback('');setSiteKey('');setToken(null);setAttempt(n=>n+1);requestAnimationFrame(()=>trigger.current?.focus());}}));
+  },cancelLink(restoreFocus=true){intent.current.cancel();setFeedback('');setSiteKey('');setToken(null);setAttempt(n=>n+1);if(restoreFocus)requestAnimationFrame(()=>trigger.current?.focus());}}));
   async function start(){
     if(inFlight.current)return;
     if(siteKey&&!token){setFeedback('Complete the security check first.');return;}
@@ -28,6 +28,7 @@ export default function GoogleButton({purpose='signin',returnAction,csrf,onRecen
       if(!mounted.current)return;
       if(response.ok){const url=new URL(body.url);if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();window.location.assign(url.href);navigating=true;}
       else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then select Google again.');}
+      else if(response.status===428&&body.code==='mfa_required'){intent.current.cancel();onMfaRequired?.();setFeedback('Confirm two-factor authentication, then select Connect Google again.');}
       else if(response.status===428&&body.code==='reauth_required'){
         if(purpose==='link'&&csrf)intent.current.begin(csrf);
         onRecentAuthenticationRequired?.();setFeedback('Confirm your password to connect Google. Your other sessions will be signed out.');

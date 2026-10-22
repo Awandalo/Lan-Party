@@ -1,5 +1,35 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
+## R2 — local credential-mutation assurance (issue #14)
+
+Owner authorized local implementation on 2026-10-22; independent review and hosted
+acceptance remain pending. No new migration or remote configuration is required
+by this correction. R3 and rollout #10 remain separately gated.
+
+- Password add/change and Google link/unlink require LAN Party MFA proof strictly
+  younger than 120 seconds for enrolled accounts, both before work and inside the
+  guarded credential/provider transaction. The database clock rejects a proof that
+  expires during hashing or OAuth. Proof is bound to the current user, live session,
+  factor and authentication generation. Google provider MFA does not satisfy it.
+- Non-enrolled accounts (including the pre-0013 schema) retain existing primary
+  authentication rules. Partial MFA schema still fails closed. Existing primary
+  proof requirements are additional to MFA and are not extended by step-up.
+- Opening Account Security does not request a code. A protected action with stale
+  MFA returns `428 mfa_required`; an expired Google link callback returns to Security
+  with that presentation hint, without linking. An explicit local-only step-up
+  accepts TOTP or an unused recovery code through existing throttles and conditional
+  Turnstile verification. The source session is the one-use browser binding.
+- Step-up atomically consumes/advances the proof, revokes that source session and
+  issues a new session/CSRF with fresh MFA, retaining the original primary proof
+  time. Guard failures roll back all three changes. It does not change credentials,
+  factors, generation, other sessions or recovery sets. A lost successful response
+  can require signing in again; no automatic retry or recovery-code refund occurs.
+- The UI clears submitted passwords/codes, refreshes the rotated session and asks
+  the user to select the intended action again. It never automatically replays a
+  credential mutation. Existing mutation-specific sign-out/rotation and last-method
+  protections are unchanged. The step-up endpoint retains the literal local gate;
+  this implementation does not authorize or enable hosted MFA.
+
 ## R1 Option B — owner-authorized local implementation (issue #13)
 
 This section supersedes the earlier R1 decision-pending language for the new
