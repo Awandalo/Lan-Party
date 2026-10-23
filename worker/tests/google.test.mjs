@@ -15,7 +15,8 @@ before(async()=>{
   import app from './worker/index';
   import {localMailbox} from './worker/auth/email';
   import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
-  let sends=0;
+  // Clock control exists only in this offline Worker fixture, isolated per Miniflare instance.
+  let sends=0,fixtureTime;const realNow=Date.now.bind(Date);Date.now=()=>fixtureTime??realNow();
   globalThis.fetch=async(input,init)=>{
    const url=String(input);
    if(url==='https://oauth2.googleapis.com/token'){
@@ -29,7 +30,7 @@ before(async()=>{
    if(url==='https://api.resend.com/emails'){sends++;return Response.json({id:'synthetic'});}
    throw Error('External request blocked in offline fixture');
   };
-  export default {async fetch(request,env){if(new URL(request.url).pathname==='/fixture/otp'){const {secret}=await request.json();return Response.json(await generate({secret:base32.decode(secret),crypto:otpCrypto,epoch:Math.floor(Date.now()/1000)}));}if(new URL(request.url).pathname==='/fixture/notifications')return Response.json({added:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-added'),changed:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-changed')});if(new URL(request.url).pathname==='/fixture/sends')return Response.json(sends);return app.fetch(request,env);}};
+  export default {async fetch(request,env){if(new URL(request.url).pathname==='/fixture/clock'){fixtureTime=await request.json();return Response.json(true);}if(new URL(request.url).pathname==='/fixture/otp'){const {secret}=await request.json();return Response.json(await generate({secret:base32.decode(secret),crypto:otpCrypto,epoch:Math.floor(Date.now()/1000)}));}if(new URL(request.url).pathname==='/fixture/notifications')return Response.json({added:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-added'),changed:!!localMailbox.take('google@example.test',Math.floor(Date.now()/1000),'password-changed')});if(new URL(request.url).pathname==='/fixture/sends')return Response.json(sends);return app.fetch(request,env);}};
  `},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
  migrations=[];
  for(const name of(await readdir(new URL('../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort()){
@@ -524,12 +525,30 @@ test('Google reauthentication rejects old or missing auth_time and a different p
  assert.equal((await request('google/add-password',{password:'fictional new password'},headers)).status,428);
 }));
 
-test('Google initiation uses conditional server-validated challenge; missing or replayed proofs never bypass it',()=>local(async({request})=>{
- for(let i=0;i<59;i++)assert.equal((await request('google/start',{purpose:'signin'})).status,200);
- const required=await request('google/start',{purpose:'signin'});assert.equal(required.status,403);assert.equal((await required.json()).code,'challenge_required');
- const input={purpose:'signin',turnstileToken:'fictional-single-use-proof'};
- assert.equal((await request('google/start',input)).status,200);assert.equal((await request('google/start',input)).status,403);
-}));
+test('Google initiation uses conditional server-validated challenge; missing or replayed proofs never bypass it',async()=>{
+ const minute=Math.floor(1800000000000/60000)*60000;
+ for(const rollover of [false,true])await local(async({instance,request})=>{
+  const clock=async milliseconds=>assert.equal((await instance.dispatchFetch(origin+'/fixture/clock',{
+   method:'POST',body:JSON.stringify(milliseconds),
+  })).status,200);
+  try{
+  // Freeze the actual Worker clock just before rollover; Node-side mocks do not
+  // control Miniflare. Every request below still uses the real limiter and D1.
+  await clock(minute+59999);
+  for(let i=0;i<59;i++)assert.equal((await request('google/start',{purpose:'signin'})).status,200);
+  if(rollover){
+   await clock(minute+60000);
+   // Reproduce the CI failure's legitimate 200 after a new fixed window starts.
+   assert.equal((await request('google/start',{purpose:'signin'})).status,200);
+   for(let i=0;i<58;i++)assert.equal((await request('google/start',{purpose:'signin'})).status,200);
+  }
+  const required=await request('google/start',{purpose:'signin'});assert.equal(required.status,403);assert.equal((await required.json()).code,'challenge_required');
+  const input={purpose:'signin',turnstileToken:'fictional-single-use-proof'};
+  assert.equal((await request('google/start',input)).status,200);assert.equal((await request('google/start',input)).status,403);
+  }finally{await clock(null);}
+ });
+});
+
 test('expired or stale recent proof and changed callback account generation reject linking',()=>local(async({request,start,callback,session,db})=>{
  const password='fictional original password';await request('register',{nickname:'Existing Player',firstName:'Fictional',lastName:'Tester',email:'google@example.test',password});
  await db.prepare('UPDATE users SET email_verified_at=unixepoch()').run();const headers=await session(await request('login',{email:'google@example.test',password}));
