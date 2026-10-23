@@ -15,6 +15,7 @@ before(async()=>{
  import {encryptTotpSecret,recoveryVerifier,mfaDigest} from './worker/auth/mfa-crypto';
  import {mfaMutationGuard,stepUp} from './worker/auth/mfa-assurance';import {LoginLimiter} from './worker/auth/login-limits';
  import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
+ let fixtureTime;const realNow=Date.now.bind(Date);Date.now=()=>fixtureTime??realNow();
  globalThis.fetch=async(url,init)=>{
   if(String(url)==='https://www.googleapis.com/oauth2/v3/certs')return Response.json({keys:[${JSON.stringify(jwk)}]});
   if(String(url)==='https://oauth2.googleapis.com/token')return Response.json({access_token:'fixture',token_type:'Bearer',expires_in:300,id_token:new URLSearchParams(init.body).get('code')});
@@ -50,15 +51,21 @@ before(async()=>{
  }
  export default{async fetch(request,env){if(new URL(request.url).pathname!='/fixture')return app.fetch(request,{...env,DB:raceDatabase(env.DB)});
   const {action,args}=await request.json();
+  if(action==='clock'){fixtureTime=args[0]===null?undefined:args[0]*1000;return Response.json(true);}
   if(action==='hash')return Response.json(await hashPassword(args[0],env.PASSWORD_PEPPER));
   if(action==='expireNextWrite'){expireWrite=args[0]??true;return Response.json(true);}
   if(action==='primaryBoundary'){const at=Math.floor(Date.now()/1000)-116;await env.DB.prepare("UPDATE auth_recent_authentication SET method='google',authenticated_at=?,expires_at=?").bind(at,at+300).run();return Response.json(at);}
-  if(action==='signals'){const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'loopback');for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
+  if(action==='signals'){fixtureTime=realNow();const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'loopback');for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
   if(action==='secret')return Response.json(await encryptTotpSecret(args[0],env,{environment:'local',userId:args[1],id:args[2],purpose:'active'}));
   if(action==='verifier')return Response.json(await recoveryVerifier(...args));
   if(action==='otp')return Response.json(await generate({secret:base32.decode(args[0]),crypto:otpCrypto,epoch:Math.floor(Date.now()/1000)}));
   if(action==='guard'){
-   const g=await mfaMutationGuard(env.DB,...args);return Response.json(!!await env.DB.prepare('SELECT 1 WHERE '+g.sql).bind(...g.values).first());
+   const [account,digest,time]=args,g=await mfaMutationGuard(env.DB,account,digest);
+   // Control SQLite's clock in this predicate-only fixture, not just Node/Worker
+   // Date.now. The production guard and all its security conditions stay intact.
+   if(time!==undefined&&!Number.isSafeInteger(time))throw Error('Invalid fixture clock');
+   const sql=time===undefined?g.sql:g.sql.replaceAll('unixepoch()',String(time));
+   return Response.json(!!await env.DB.prepare('SELECT 1 WHERE '+sql).bind(...g.values).first());
   }
   if(action==='race'){
    const [account,digest,change]=args,g=await mfaMutationGuard(env.DB,account,digest);
@@ -109,14 +116,19 @@ async function local(run,{mfa=true,credential=true,provider=true,age=0,legacy=fa
   const Cookie='__Host-lan_session='+token,session=await(await request('session',undefined,{Cookie})).json(),headers={Cookie,'X-CSRF-Token':session.csrfToken};
   const account={userId:id,authVersion:0,status:'active',emailVerifiedAt:time-600};
   await run({db,request,call,headers,account,source,time,instance});
- }finally{await instance.dispose();}
+ }finally{
+  try{await instance.dispatchFetch(origin+'/fixture',{method:'POST',body:JSON.stringify({action:'clock',args:[null]})});}
+  finally{await instance.dispose();}
+ }
 }
 
 test('MFA guard uses strict two-minute boundary and accepts only current proof',async()=>{
- for(const age of [0,119,120,121])await local(async({call,account,source})=>{
-  assert.equal(await call('guard',account,source),age<120);
-  assert.equal(await call('guard',account,'cd'.repeat(32)),false);
-  assert.equal(await call('guard',{...account,authVersion:1},source),false);
+ for(const age of [0,119,120,121])await local(async({call,account,source,time})=>{
+  assert.equal(await call('guard',account,source,time),age<120,'proof age '+age);
+  assert.equal(await call('guard',account,'cd'.repeat(32),time),false);
+  assert.equal(await call('guard',{...account,authVersion:1},source,time),false);
+  if(age===119)assert.equal(await call('guard',account,source,time+1),false,'expiry at exactly 120 seconds');
+  if(age===0)assert.equal(await call('guard',account,source,time-1),false,'future proof rejected');
  },{age});
 });
 test('stale MFA blocks every credential mutation before primary checks; browsing does not prompt',()=>local(async({request,headers,db})=>{

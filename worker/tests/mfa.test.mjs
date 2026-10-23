@@ -22,17 +22,19 @@ before(async()=>{
     if(String(url)==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:JSON.parse(init.body).response==='synthetic-mfa-proof',hostname:'127.0.0.1',action:'login'});
     throw Error('No external requests allowed in MFA fixture');
   };
+  let fixtureTime;const realNow=Date.now.bind(Date);Date.now=()=>fixtureTime??realNow();
   let failNotices=false,notices=[];const originalSend=localMailbox.send.bind(localMailbox);
   localMailbox.send=async mail=>{if(mail.purpose?.startsWith('mfa-')){notices.push(mail.purpose);if(failNotices)throw Error('Synthetic notification failure');}return originalSend(mail);};
   export default {async fetch(request,env){
    if(new URL(request.url).pathname!=='/fixture')return app.fetch(request,env);
    const {action,args=[]}=await request.json();try{
+    if(action==='clock'){fixtureTime=args[0]===null?undefined:args[0]*1000;return Response.json(true);}
     if(action==='take')return Response.json(localMailbox.take('mfa@example.test',Math.floor(Date.now()/1000),'email-verification'));
     if(action==='notices')return Response.json(notices);
     if(action==='failNotices'){failNotices=true;return Response.json(true);}
     if(action==='resetmail')return Response.json(localMailbox.take('mfa@example.test',Math.floor(Date.now()/1000),'password-reset'));
     if(action==='challengeAt')return Response.json(!!await pendingLogin(env.DB,...args));
-    if(action==='signals'){const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,args[0]);for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
+    if(action==='signals'){fixtureTime=realNow();const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,args[0]);for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
     if(action==='missingKeys'){
       const row=await pendingLogin(env.DB,args[0],args[1],args[3]);
       const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'loopback'),held=await limiter.reserveMfa(row.user_id,row.token_digest);
@@ -160,7 +162,7 @@ test('MFA disable preserves account identity, credentials, Google mapping, roles
  await db.prepare("INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at) VALUES (?,?,'google','https://accounts.google.com','fictional-disable-subject',?)")
   .bind(randomUUID(),m.c.userId,m.c.now).run();
  const tables=['user_password_credentials','user_auth_providers','user_nicknames','member_numbers','user_roles','registration_rate_limits','auth_email_daily_budget'];
- const before={};for(const table of tables.filter(t=>t!=='registration_rate_limits'))before[table]=(await db.prepare('SELECT * FROM '+table).all()).results;
+ const before={};for(const table of tables.filter(t=>t!=='registration_rate_limits'))before[table]=(await db.prepare('SELECT * FROM '+table+' ORDER BY rowid').all()).results;
  const identity=await db.prepare('SELECT id,email,email_normalized,first_name,last_name,status,email_verified_at FROM users').first();
  const tx=await m.start('disable'),checked=await m.prove(tx);assert.equal(checked.status,200);const proof=await checked.json();
  assert.equal((await request('mfa/manage/finish',{token:tx.token,acknowledgment:proof.acknowledgment,confirmed:false},m.headers)).status,400);
@@ -169,7 +171,7 @@ test('MFA disable preserves account identity, credentials, Google mapping, roles
  const newCsrf=(await current.json()).csrfToken;
  assert.equal((await request('session',undefined,m.headers)).status,401);
  assert.deepEqual(await db.prepare('SELECT id,email,email_normalized,first_name,last_name,status,email_verified_at FROM users').first(),identity);
- for(const [table,rows] of Object.entries(before))assert.deepEqual((await db.prepare('SELECT * FROM '+table).all()).results,rows,table);
+ for(const [table,rows] of Object.entries(before))assert.deepEqual((await db.prepare('SELECT * FROM '+table+' ORDER BY rowid').all()).results,rows,table);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),0);
  assert.equal(await db.prepare('SELECT hits FROM registration_rate_limits WHERE key_hash=?').bind('fa'.repeat(32)).first('hits'),7);
@@ -190,8 +192,10 @@ test('regeneration stages ten codes once, retains the old set until acknowledgme
  assert.equal((await request('mfa/manage/finish',{token:tx.token,acknowledgment:'00'.repeat(32),confirmed:true},m.headers)).status,503);
  const staged=await db.prepare("SELECT verified_at,recovery_set_id FROM auth_mfa_transactions WHERE purpose='regenerate'").first();
  // A later acknowledgment must carry the earlier purpose-bound proof, not renew it.
- await new Promise(resolve=>setTimeout(resolve,1100));
- const result=await m.finish(tx,proof);assert.equal(result.status,200);
+ let result;
+ try{
+  await call('clock',Math.max(Math.floor(Date.now()/1000),staged.verified_at+2));
+  result=await m.finish(tx,proof);assert.equal(result.status,200);
  const sessionDigest=createHash('sha256').update('lan-party:session:v1:'+cookieJar(result).split(';')[0].split('=')[1]).digest('hex');
  const assurance=await db.prepare('SELECT verified_at FROM auth_session_mfa WHERE session_digest=?').bind(sessionDigest).first();
  assert.equal(assurance.verified_at,staged.verified_at);
@@ -200,6 +204,7 @@ test('regeneration stages ten codes once, retains the old set until acknowledgme
  const headers=await challengeHttp(request);
  assert.equal((await request('mfa/complete',{method:'recovery',code:m.codes.codes[1]},headers)).status,401);
  assert.equal((await request('mfa/complete',{method:'recovery',code:proof.codes[0]},headers)).status,200);
+ }finally{await call('clock',null);}
 }));
 
 test('cancelled, expired and lost regeneration displays preserve the active set and cannot be acknowledged later',()=>local(async fixture=>{
@@ -314,11 +319,11 @@ test('TOTP login advances replay cutoff, concurrent completion has one winner, a
  // Enrollment already consumed this step. Move fixture cutoff back solely to test a fresh login code.
  const factor=await db.prepare('SELECT * FROM auth_totp_factors').first();
  await db.exec('DROP TRIGGER auth_mfa_step_monotonic;');await db.prepare('UPDATE auth_totp_factors SET last_step=?').bind(factor.last_step-1).run();
- const headers=await challengeHttp(request),code=await call('generate',{secret:setup.secret,epoch:Math.floor(Date.now()/1000)});
+ const headers=await challengeHttp(request),codeTime=Math.floor(Date.now()/1000),code=await call('generate',{secret:setup.secret,epoch:codeTime});
  const results=await Promise.all([request('mfa/complete',{method:'totp',code},headers),request('mfa/complete',{method:'totp',code},headers)]);
  assert.equal(results.filter(r=>r.status===200).length,1);
  const next=await challengeHttp(request);assert.equal((await request('mfa/complete',{method:'totp',code},next)).status,401);
- assert.equal(await db.prepare('SELECT last_step FROM auth_totp_factors').first('last_step'),Math.floor(Date.now()/30000));
+ assert.equal(await db.prepare('SELECT last_step FROM auth_totp_factors').first('last_step'),Math.floor(codeTime/30));
 }));
 
 test('recovery redemption and session issuance roll back together, are single-use across challenges, and survive generation revocation',()=>local(async fixture=>{
@@ -437,7 +442,10 @@ async function local(run,{legacy=false}={}){
   const stage=async c=>{const setup=await begin(c);const code=await call('generate',{secret:setup.secret,epoch:c.now});
    const codes=await call('verifyEnrollment',c,setup.token,code,keyConfig,'local','22'.repeat(32));return {setup,codes};};
   await run({db,apply,instance,raw,call,request,seed,begin,stage});
- }finally{await instance.dispose();}
+ }finally{
+  try{await instance.dispatchFetch(origin+'/fixture',{method:'POST',body:JSON.stringify({action:'clock',args:[null]})});}
+  finally{await instance.dispose();}
+ }
 }
 
 test('MFA crypto uses RFC SHA1 vectors and enforces six digits, clock window and replay cutoff in workerd',()=>local(async({call})=>{

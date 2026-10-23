@@ -29,11 +29,11 @@ before(async()=>{
  export default {async fetch(request,env){
   if(new URL(request.url).pathname!=='/fixture')return app.fetch(request,env);
   const {action,args=[]}=await request.json();try{
-   if(action==='clock'){fixtureTime=args[0]*1000;return Response.json(true);}
+   if(action==='clock'){fixtureTime=args[0]===null?undefined:args[0]*1000;return Response.json(true);}
    if(action==='primaryCookies')return primaryResponse(request,args[0]);
    if(action==='mail')return Response.json(localMailbox.take('recovery@example.test',Math.floor(Date.now()/1000),args[0]??'email-verification'));
    if(action==='failNotice'){failNotices=true;return Response.json(true);}
-   if(action==='signals'){const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,args[0]);for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
+   if(action==='signals'){fixtureTime=realNow();const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,args[0]);for(let i=0;i<60;i++)await limiter.observe();return Response.json(true);}
    if(action==='otp')return Response.json(await generate({secret:base32.decode(args[0]),crypto:otpCrypto,epoch:args[1]}));
    if(action==='primary')return Response.json(await completePrimary(env.DB,...args));
    if(action==='pending')return Response.json(await pendingLogin(env.DB,...args));
@@ -100,14 +100,17 @@ async function local(run,{upgrade=false,googleOnly=false}={}){
   const begin=async()=>{assert.equal((await start()).status,200);return call('recoverySetup',c,keys,'local');};
   const commit=async()=>{const replacement=await begin();const code=await call('otp',replacement.secret,c.now);assert.ok(await call('commitRecovery',c,code));return replacement;};
   await run({db,request,raw,call,c,h,codes:codes.codes,oldSetup:setup,user,factor,start,begin,commit,instance,pending});
- }finally{await instance.dispose();}
+ }finally{
+  try{await instance.dispatchFetch(origin+'/fixture',{method:'POST',body:JSON.stringify({action:'clock',args:[null]})});}
+  finally{await instance.dispose();}
+ }
 }
 
 test('last code starts restricted recovery, atomically replaces factor and preserves account/ledger',()=>local(async f=>{
  const {db,c,call,user,factor}=f;
  const keep=await call('recoveryVerifier',user.id,factor.recovery_set_id,f.codes[0]);
  await db.prepare('UPDATE auth_mfa_recovery_codes SET consumed_at=created_at WHERE verifier<>?').bind(keep).run();
- const ledger=await db.prepare('SELECT * FROM member_numbers').all();const password=await db.prepare('SELECT * FROM user_password_credentials').first();
+ const ledger=await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all();const password=await db.prepare('SELECT * FROM user_password_credentials').first();
  const replacement=await f.commit(),op=await call('recoveryOperation',c);
  assert.equal(op.phase,'committed');assert.equal(op.expires_at-op.created_at,300);assert.equal(op.display_expires_at-op.committed_at,300);
  assert.equal(op.secret_ciphertext,null);assert.ok(op.display_ciphertext);assert.ok(!op.display_ciphertext.includes(f.codes[0]));
@@ -116,7 +119,7 @@ test('last code starts restricted recovery, atomically replaces factor and prese
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),10);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE set_id=?').bind(factor.recovery_set_id).first('n'),0);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_sessions WHERE revoked_at IS NULL').first('n'),0);
- assert.deepEqual((await db.prepare('SELECT * FROM member_numbers').all()).results,ledger.results);
+ assert.deepEqual((await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all()).results,ledger.results);
  assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),password);
  assert.notEqual(replacement.secret,f.oldSetup.secret);
  assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results,[]);

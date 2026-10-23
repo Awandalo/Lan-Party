@@ -161,6 +161,36 @@ Use these locations when implementation begins:
   registration flows, attendance totals, and permission boundaries when relevant.
 - Successful compilation does not establish that the application functions correctly.
 
+### Test reliability
+
+- Assert contracts and security outcomes. Compare D1 rows/columns rather than full
+  response envelopes or volatile metadata such as `meta.duration`. Normalize row
+  order by a stable key when comparing sets; assert order only when it is required.
+- Control clocks for exact expiry, rate-limit rollover and TOTP boundaries. Node,
+  Worker isolates and SQLite can have different clocks: a Node mock does not control
+  Worker `Date.now()` or SQLite `unixepoch()`. Use explicitly scoped fixture clocks
+  for the operation under test, preserve the production predicates, and restore
+  clocks/mocks in `finally`. Retain real database-clock integration/race coverage.
+- Capture the time used to generate a TOTP when asserting its step; do not derive
+  expected values from a later wall-clock read. Use explicit time advancement instead
+  of arbitrary sleeps. A real-clock integration test must wait for an observed
+  condition with a bounded deadline, not assume a delay establishes that condition.
+- Give each test isolated fictional state and dispose Worker/database fixtures even
+  on failure. Do not rely on prior tests, shared mutable state or incidental random
+  ordering; preserve real application cryptographic randomness and replay checks.
+  Intercept external providers locally; real provider acceptance belongs to hosted
+  testing with separate authorization.
+- Classify failures as application regression, test defect, CI-environment defect
+  or unknown before editing. Never weaken thresholds/assertions, skip security tests,
+  add retry-until-green or hide a failed run. Repeat focused tests only to diagnose
+  or validate a specific nondeterministic mechanism; report every relevant failure.
+- Use changed-area local checks, normal broader CI on authorized publication, and
+  separately approved hosted acceptance. None substitutes for the others. Reuse
+  unchanged successful evidence rather than manually repeating the full suite.
+- For recurring problems: fix the first occurrence, inspect related patterns on
+  the second, and address/document the common cause on the third. Apply this
+  proportionately; it grants no broad rewrite or publication/deployment authority.
+
 ## 7. Collaboration with the project owner
 
 - Use the connected GitHub tools for all GitHub API reads (issues, comments,

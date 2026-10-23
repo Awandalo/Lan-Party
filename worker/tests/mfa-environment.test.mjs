@@ -190,7 +190,7 @@ async function restricted(f,login){
 }
 test('hosted last-code replacement uses DEV encryption, bounded redisplay and fresh normal MFA login',()=>local(async f=>{
  const {db,request,call,id}=f,time=Math.floor(Date.now()/1000),before=await db.prepare('SELECT * FROM auth_totp_factors').first();
- const ledger=await db.prepare('SELECT * FROM member_numbers').all(),credentials=await db.prepare('SELECT * FROM user_password_credentials').first();
+ const ledger=await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all(),credentials=await db.prepare('SELECT * FROM user_password_credentials').first();
  let h=await restricted(f,await request('login',{email:'r3@example.test',password}));
  assert.equal((await request('mfa/recovery/start',{code:recovery,confirmed:true},{...h,'X-CSRF-Token':'a'.repeat(64)})).status,403);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_operations').first('n'),0);
@@ -225,7 +225,7 @@ test('hosted last-code replacement uses DEV encryption, bounded redisplay and fr
  // guard; the new recovery set is a valid second factor for a fresh normal login.
  await call('clock',Math.floor(Date.now()/1000));
  const fresh=await request('login',{email:'r3@example.test',password});await f.session(await f.finish(fresh,codes[0]));
- assert.deepEqual((await db.prepare('SELECT * FROM member_numbers').all()).results,ledger.results);assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),credentials);
+ assert.deepEqual((await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all()).results,ledger.results);assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),credentials);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');
 },{enabled:true}));
 
