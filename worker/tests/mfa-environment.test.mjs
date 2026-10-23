@@ -225,7 +225,7 @@ test('hosted last-code replacement uses DEV encryption, bounded redisplay and fr
  // guard; the new recovery set is a valid second factor for a fresh normal login.
  await call('clock',Math.floor(Date.now()/1000));
  const fresh=await request('login',{email:'r3@example.test',password});await f.session(await f.finish(fresh,codes[0]));
- assert.deepEqual(await db.prepare('SELECT * FROM member_numbers').all(),ledger);assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),credentials);
+ assert.deepEqual((await db.prepare('SELECT * FROM member_numbers').all()).results,ledger.results);assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),credentials);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');
 },{enabled:true}));
 
