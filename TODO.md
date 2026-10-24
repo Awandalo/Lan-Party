@@ -367,10 +367,15 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   review the integrated candidate after Q's R2-F1 corrective-evidence review.
 - [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** static
   review accepted at d330e66; retain environment identity and hosted acceptance gates.
-- [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** after #9
-  disposition and #13–#15 resolution, separately approve DEV preflight/recovery,
-  migrations 0013/0014, backed-up MFA keys, commit/push/deployment and controlled hosted acceptance.
-  Owner authorized isolated local preparation/testing only; no remote execution or issue closure.
+- [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** migrations
+  0013–0015, backed-up DEV keys and publication through 7b1c17b completed under
+  separate owner approvals. Hosted Gate T remains **BLOCKED** after the owner's
+  regeneration test failed (comment 6387546649); do not resume hosted attempts.
+  - [ ] Review the local regeneration continuation/single-panel and related layout
+    correction, fictional integrated-browser evidence and cross-action proof test.
+  - [ ] Obtain separate owner approval before committing/publishing this correction;
+    verify CI/deployment before requesting renewed owner-assisted recovery acceptance.
+  - [ ] Complete remaining hosted acceptance and owner/Q disposition; keep #10 open.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account

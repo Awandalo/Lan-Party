@@ -1,0 +1,13 @@
+.mfa-regeneration-panel { min-width: 0; }
+.mfa-regeneration-panel h3 { margin: 0 0 .75rem; }
+.mfa-regeneration-panel .eyebrow { color: var(--accent); margin-bottom: .75rem; }
+.mfa-regeneration-panel form, .mfa-regeneration-primary { min-width: 0; }
+.mfa-regeneration-panel fieldset { display: grid; gap: .75rem; border: 0; padding: 0; margin-block: 1rem; min-width: 0; }
+.mfa-regeneration-panel fieldset label { font-weight: 600; }
+.mfa-regeneration-panel fieldset input { width: 100%; min-width: 0; min-height: 48px; padding: .8rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); color: var(--text); font: inherit; }
+.mfa-regeneration-panel fieldset .password-input input { padding-right: 3.5rem; }
+.mfa-regeneration-panel .button { width: 100%; margin: .35rem 0; white-space: normal; text-align: center; }
+.mfa-regeneration-panel fieldset .button { margin: 0; }
+.mfa-regeneration-panel [role="status"] { margin-block: .75rem; }
+.mfa-regeneration-panel .mfa-regeneration-codes { margin-block: 1rem; padding: 0; list-style: none; }
+.mfa-regeneration-codes li { padding: .5rem; border: 1px solid var(--border); border-radius: .35rem; overflow-wrap: anywhere; }

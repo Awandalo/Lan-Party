@@ -507,3 +507,54 @@ and password/Google TOTP evidence is retained; recovery Gate T remains paused.
 A different live session, even for the same account, cannot adopt a pending reveal.
 An explicit terminal response clears the old view and refreshes account context;
 wrong MFA codes remain ordinary proof failures and do not discard the displayed set.
+
+## Hosted regeneration failure and local UI correction — 2026-10-24
+
+Issue #10 comment 6387546649 records the owner's failed hosted attempt and full
+Gate T stop. This supersedes the GO-to-test handoff at 6385491838. Published
+7b1c17b's 411 passing CI tests/deployment health remain evidence for that revision,
+not hosted recovery acceptance. No new codes were reported revealed or activated;
+UI cancellation text is not independent evidence of the remote database state.
+
+Reproduced with fictional local integrated MfaManagement/MfaRegeneration state:
+1. Start with stale primary proof returns 428 before an operation token exists.
+   Successful inline password confirmation hid the only panel because visibility
+   depended on operation-or-primaryRequired, leaving no explicit continuation.
+2. Regeneration was marked active only after a successful start. While still at
+   the initial primary prompt, Disable remained selectable and could open the old
+   management confirmation alongside the regeneration prompt. Existing standalone
+   regeneration coverage did not exercise this parent/child interaction.
+3. The new form lacked the fieldset used by Account Security's input styles,
+   causing the narrow default input and uneven controls.
+
+The local correction tracks the engaged workflow from its first click through
+cancel/success, independently of receipt creation. Password confirmation retains
+one panel and offers explicit Continue to authenticator; Google continuation also
+works before token creation. Both request the normal guarded start, without an
+automatic mutation retry. Actual operation-bound MFA proof still enables Reveal;
+no browser state substitutes for server authorization. Competing management is
+unavailable during regeneration, and the old panel/focus handler cannot compete.
+Dedicated component CSS/fieldset styling provides full-width labeled controls,
+step headings and loading/disabled feedback, with shorter instructions.
+
+Verification: 13 targeted regeneration tests passed, including a new workerd test
+showing that regeneration proof does not refresh ordinary MFA assurance or permit
+an unrelated Google disconnection. Strict TypeScript and hosted-DEV build passed.
+Actual fictional integrated-browser checks reproduced the original two defects,
+then passed password/Google initial continuation, wrong-code/Reveal gating,
+cancel/restart, one-panel enforcement, same-set stale-proof continuation, explicit
+activation, clipboard-denial fallback, uncertain reveal/activation and status-only
+recovery. A 360px fixture container had one panel, a 240px input and no panel
+horizontal overflow. This is narrow-container evidence, not a real mobile-device
+or live Google/clipboard-provider acceptance result. The actual AccountSecurity,
+AuthProvider and MfaSettings tree also passed: switching from password settings
+clears the old form, primary/MFA confirmation reaches enabled Reveal, and switching
+to another account action clears the code view with one confirmation panel.
+No unrelated local suites or
+remote database checks were repeated; no worker, schema, key or provider changes.
+
+No confirmed authorization crossover was found in the scoped local paths. Existing
+codes legitimately spent as proof remain spent; the owner's actual remote state
+was not inspected or changed. Keep Gate T blocked until exact-diff review, separate
+owner publication approval, green CI/DEV verification and renewed hosted-test
+approval. This local correction has not been committed, pushed or deployed.

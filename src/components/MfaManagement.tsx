@@ -17,7 +17,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
  const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
  const pending=useRef(false),panel=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),trigger=useRef<HTMLButtonElement>(null),mounted=useRef(true);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
- useEffect(()=>{if(open&&!transaction)requestAnimationFrame(()=>trigger.current?.focus());},[open]);
+ useEffect(()=>{if(open&&!transaction&&!regenerationActive)requestAnimationFrame(()=>trigger.current?.focus());},[open]);
  function clear(){setTransaction(null);setPurpose(null);setSaved(false);setReauth(false);setProof(null);setSiteKey('');if(field.current)field.current.value='';}
  async function request(action:string,input:object){
   const response=await fetch('/api/auth/mfa/manage/'+action,{method:'POST',credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(15000),
@@ -77,7 +77,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
 </dd></div></dl>
   <p>Your authenticator or a recovery code protects both sign-in methods.</p>
   <MfaRegeneration csrf={csrf} open={open} disabled={disabled||busy||!!transaction} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActivated={onActivated} onActive={setRegenerationActive}/>
-  {open&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
+  {open&&!regenerationActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
    {reauth?<><p>Confirm your identity. No MFA setting has been changed.</p>{methods.password&&<form onSubmit={primary}><fieldset disabled={busy}><label htmlFor="mfa-primary-password">Current password</label><PasswordInput id="mfa-primary-password" name="password" autoComplete="current-password" required autoFocus/>
     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button">Confirm password</button></fieldset></form>}
     {methods.google&&<GoogleButton purpose="reauth" returnAction="mfa" csrf={csrf} disabled={busy} onPendingChange={value=>{pending.current=value;setBusy(value);onBusy(value);}}/>}</>:

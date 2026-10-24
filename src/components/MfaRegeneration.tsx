@@ -4,20 +4,22 @@ import {flushSync} from 'react-dom';
 import PasswordInput from './PasswordInput';
 import LoginChallenge from './LoginChallenge';
 import {googleRequest} from '../lib/google';
+import '../CSS/MfaRegeneration_style.css';
 
 type Props={csrf:string;open:boolean;disabled:boolean;methods:{password:boolean;google:boolean};onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;onActive?:(active:boolean)=>void};
 type Operation={token:string;acknowledgment?:string};
 export default function MfaRegeneration(props:Props){
+ const [engaged,setEngaged]=useState(false);
  const [operation,setOperation]=useState<Operation|null>(null),[codes,setCodes]=useState<string[]>([]),[saved,setSaved]=useState(false);
  const [primaryRequired,setPrimaryRequired]=useState(false),[mfaRequired,setMfaRequired]=useState(true),[verified,setVerified]=useState(false);
  const [method,setMethod]=useState<'totp'|'recovery'>('totp'),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
  const [siteKey,setSiteKey]=useState(''),[challenge,setChallenge]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
  const [uncertain,setUncertain]=useState(false),[revealAttempted,setRevealAttempted]=useState(false);
  const panel=useRef<HTMLDivElement>(null);
- useEffect(()=>{if(operation||primaryRequired)panel.current?.focus();},[operation!==null,primaryRequired,mfaRequired,codes.length]);
+ useEffect(()=>{if(engaged)panel.current?.focus();},[engaged,operation!==null,primaryRequired,mfaRequired,codes.length]);
  const receipt=useRef<Operation|null>(null),pending=useRef<string|null>(null),mounted=useRef(true),callbacks=useRef(props);
  callbacks.current=props;
- function clear(){receipt.current=null;setOperation(null);setCodes([]);setSaved(false);setVerified(false);setUncertain(false);setRevealAttempted(false);setPrimaryRequired(false);setMfaRequired(true);setSiteKey('');setChallenge(null);callbacks.current.onActive?.(false);}
+ function clear(){receipt.current=null;setEngaged(false);setOperation(null);setCodes([]);setSaved(false);setVerified(false);setUncertain(false);setRevealAttempted(false);setPrimaryRequired(false);setMfaRequired(true);setSiteKey('');setChallenge(null);callbacks.current.onActive?.(false);}
  function abandon(){const old=receipt.current;const activating=pending.current==='finish';clear();
   if(old&&!activating)void fetch('/api/auth/mfa/manage/cancel',{method:'POST',credentials:'same-origin',redirect:'error',keepalive:true,
    headers:{'X-LAN-Request':'1','Content-Type':'application/json','X-CSRF-Token':props.csrf},body:JSON.stringify({token:old.token,regeneration:true})}).catch(()=>{});
@@ -37,7 +39,7 @@ export default function MfaRegeneration(props:Props){
   // Receipt and codes never survive navigation, bfcache restoration, or a session change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[props.csrf]);
- useEffect(()=>{if(!props.open&&receipt.current&&!pending.current)abandon();},[props.open]);
+ useEffect(()=>{if(!props.open&&engaged&&!pending.current)abandon();},[props.open,engaged]);
  async function run(action:string,input:object={}){
   if(pending.current)return;
   const old=receipt.current;pending.current=action;if(action==='reveal')setRevealAttempted(true);setBusy(true);callbacks.current.onBusy(true);setFeedback('');
@@ -73,7 +75,7 @@ export default function MfaRegeneration(props:Props){
   pending.current='primary';setBusy(true);callbacks.current.onBusy(true);
   try{const response=await googleRequest('reauth-password',{password,...(challenge?{turnstileToken:challenge}:{})},props.csrf),body=await response.json();
    if(!mounted.current)return;
-   if(response.ok){setPrimaryRequired(false);setMfaRequired(true);setVerified(false);setFeedback('Sign-in method confirmed. Confirm your authenticator next.');}
+   if(response.ok){setPrimaryRequired(false);setMfaRequired(true);setVerified(false);setFeedback(receipt.current?'Sign-in method confirmed. Confirm your authenticator next.':'Sign-in method confirmed. Continue to your authenticator.');}
    else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then confirm your password again.');}
    else if(response.status===403){clear();await callbacks.current.onActivated();setFeedback('Request authorization changed. Check your current account settings.');}
    else setFeedback('Identity confirmation failed. No automatic retry was made.');
@@ -93,29 +95,48 @@ export default function MfaRegeneration(props:Props){
  }
  function verify(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();void run('verify',{method,code,...(challenge?{turnstileToken:challenge}:{})});}
  async function copy(){try{await navigator.clipboard.writeText(codes.join('\n'));setFeedback('Codes copied. Save them privately, then acknowledge and activate.');}catch{setFeedback('Clipboard access was unavailable. Select and copy the codes manually.');}}
+ function begin(){
+  if(pending.current||props.disabled)return;
+  setEngaged(true);callbacks.current.onActive?.(true);props.onOpen();void run('start',{purpose:'regenerate'});
+ }
+ const step=primaryRequired||!operation?'Confirm sign-in':mfaRequired?'Confirm authenticator':!codes.length?'Reveal codes':'Save and activate';
  return <div className="mfa-regeneration">
-  {!operation&&<button className="button button-secondary" disabled={props.disabled||busy} onClick={()=>{props.onOpen();void run('start',{purpose:'regenerate'});}}>Regenerate recovery codes</button>}
-  {(operation||primaryRequired)&&<div className="account-confirmation" ref={panel} tabIndex={-1} aria-busy={busy} aria-label="Recovery code regeneration">
-   <p>New codes remain inactive until you explicitly activate them. Your previous codes remain active, except any spent as proof.</p>
-   <p>Reveal works once. There is no viewing or regeneration countdown. Refreshing, leaving or closing this view loses the display. Activation requires a valid session and fresh identity confirmation.</p>
-   {primaryRequired&&<div><p>Confirm your sign-in method. Your pending set and visible codes are unchanged.</p>
-    {props.methods.password&&<form onSubmit={primary}><label htmlFor="regeneration-password">Current password</label><PasswordInput id="regeneration-password" name="password" autoComplete="current-password" required disabled={busy}/><button className="button" disabled={busy}>Confirm password</button></form>}
-    {props.methods.google&&<button className="button button-secondary" disabled={busy} onClick={()=>void google()}>Confirm Google in another tab</button>}
-    {operation&&<button className="button button-secondary" disabled={busy} onClick={()=>void run('check')}>Continue securely</button>}
+  {!engaged&&<button className="button button-secondary" disabled={props.disabled||busy} onClick={begin}>Regenerate recovery codes</button>}
+  {engaged&&<section className="account-confirmation mfa-regeneration-panel" ref={panel} tabIndex={-1} aria-busy={busy} aria-label="Recovery code regeneration">
+   <h3>Regenerate recovery codes</h3>
+   <p className="eyebrow">{step}</p>
+   <p>Previous codes stay active until you activate the new set, except any spent as proof.</p>
+   {primaryRequired&&<div className="mfa-regeneration-primary">
+    <p>Confirm your sign-in method to continue.{codes.length>0?' Your displayed codes will stay here.':''}</p>
+    {props.methods.password&&<form onSubmit={primary}><fieldset disabled={busy}>
+     <label htmlFor="regeneration-password">Current password</label><PasswordInput id="regeneration-password" name="password" autoComplete="current-password" required/>
+     <button className="button" disabled={!!siteKey&&!challenge}>{busy?'Confirming…':'Confirm password'}</button>
+    </fieldset></form>}
+    {props.methods.google&&<button className="button button-secondary" disabled={busy||!!siteKey&&!challenge} onClick={()=>void google()}>Confirm Google in another tab</button>}
+    <button className="button button-secondary" disabled={busy} onClick={()=>void run(operation?'check':'start',operation?{}:{purpose:'regenerate'})}>Continue securely</button>
    </div>}
-   {operation&&!primaryRequired&&mfaRequired&&<form onSubmit={verify}><label htmlFor="regeneration-code">{method==='totp'?'Six-digit authenticator code':'Unused recovery code'}</label>
-    <input id="regeneration-code" name="code" autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} pattern={method==='totp'?'[0-9]{6}':undefined} maxLength={method==='totp'?6:40} required disabled={busy}/>
-    <button className="button" disabled={busy||!!siteKey&&!challenge}>Confirm authenticator</button>
-    <button type="button" className="button button-secondary" disabled={busy} onClick={()=>setMethod(method==='totp'?'recovery':'totp')}>{method==='totp'?'Use a recovery code':'Use authenticator'}</button></form>}
+   {!operation&&!primaryRequired&&!busy&&<button className="button" onClick={()=>void run('start',{purpose:'regenerate'})}>Continue to authenticator</button>}
+   {operation&&!primaryRequired&&mfaRequired&&<form onSubmit={verify}><fieldset disabled={busy}>
+    <label htmlFor="regeneration-code">{method==='totp'?'Six-digit authenticator code':'Unused recovery code'}</label>
+    <input id="regeneration-code" name="code" autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} pattern={method==='totp'?'[0-9]{6}':undefined} maxLength={method==='totp'?6:40} required/>
+    <button className="button" disabled={!!siteKey&&!challenge}>{busy?'Checking…':'Confirm authenticator'}</button>
+    <button type="button" className="button button-secondary" onClick={()=>setMethod(method==='totp'?'recovery':'totp')}>{method==='totp'?'Use a recovery code':'Use authenticator'}</button>
+   </fieldset></form>}
    {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setChallenge}/>}
-   {operation&&!codes.length&&<button className="button" disabled={busy||!verified||revealAttempted} onClick={()=>void run('reveal')}>Reveal recovery codes</button>}
-   {codes.length>0&&<><p><strong>Not active yet.</strong> Save these ten codes privately.</p><ul aria-label="New recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
+   {operation&&!codes.length&&!primaryRequired&&<>
+    {!verified&&<p>Confirm your authenticator to enable Reveal.</p>}
+    <button className="button" disabled={busy||!verified||revealAttempted} onClick={()=>void run('reveal')}>{busy&&pending.current==='reveal'?'Revealing…':'Reveal recovery codes'}</button>
+   </>}
+   {codes.length>0&&<><p><strong>Not active yet.</strong> Save these ten codes privately. They are shown once, with no countdown. Leaving or refreshing this view loses the display.</p>
+    <ul className="mfa-regeneration-codes" aria-label="New recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
     <button className="button button-secondary" disabled={busy} onClick={()=>void copy()}>Copy all codes</button>
     <label className="mfa-saved"><input type="checkbox" checked={saved} disabled={busy} onChange={event=>setSaved(event.target.checked)}/>I have saved the new recovery codes</label>
-    <button className="button" disabled={busy||!saved||uncertain||primaryRequired||mfaRequired} onClick={()=>void run('finish',{acknowledgment:operation?.acknowledgment,confirmed:true})}>Activate new recovery codes</button></>}
+    <button className="button" disabled={busy||!saved||uncertain||primaryRequired||mfaRequired} onClick={()=>void run('finish',{acknowledgment:operation?.acknowledgment,confirmed:true})}>{busy&&pending.current==='finish'?'Activating…':'Activate new recovery codes'}</button>
+   </>}
    {operation&&codes.length>0&&<button className="button button-secondary" disabled={busy} onClick={()=>void run('check')}>Check current operation</button>}
-   <button className="button button-secondary" disabled={busy} onClick={()=>operation?void run('cancel'):(clear(),setFeedback('No changes made.'))}>Cancel / Not now</button>
-  </div>}
-  <p role="status" aria-live="polite">{feedback}</p>
+   <p role="status" aria-live="polite">{busy?'Working…':feedback}</p>
+   <button className="button button-secondary" disabled={busy} onClick={()=>operation?void run('cancel'):(clear(),setFeedback('No regeneration was started.'))}>Cancel / Not now</button>
+  </section>}
+  {!engaged&&<p role="status" aria-live="polite">{feedback}</p>}
  </div>;
 }
