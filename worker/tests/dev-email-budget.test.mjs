@@ -19,6 +19,7 @@ const expectedHistory = [
   '0012_create_oidc_transactions.sql',
   '0013_create_account_mfa.sql',
   '0014_create_mfa_recovery_operations.sql',
+  '0015_create_mfa_regeneration_operations.sql',
 ];
 function assertMigrationHistory(names) {
   assert.deepEqual(names, expectedHistory, 'Discovered SQL migrations must match the reviewed history');
