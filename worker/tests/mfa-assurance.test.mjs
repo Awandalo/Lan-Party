@@ -302,3 +302,29 @@ test('step-up retains conditional server-verified single-use Turnstile before pr
  const Cookie=cookies(r),session=await(await request('session',undefined,{Cookie})).json();
  assert.equal((await request('mfa/step-up',{method:'recovery',code:recovery,turnstileToken:'fixture-challenge'},{Cookie,'X-CSRF-Token':session.csrfToken})).status,403);
 },{age:121}));
+
+test('Google-only reauthentication preserves the same revealed regeneration and rejects a different signed subject',()=>local(async({db,request,headers,instance,call})=>{
+ const started=await request('mfa/manage/start',{purpose:'regenerate'},headers);assert.equal(started.status,200);const op=await started.json();
+ assert.equal((await request('mfa/manage/verify',{token:op.token,method:'totp',code:await call('otp',secret)},headers)).status,200);
+ const revealed=await request('mfa/manage/reveal',{token:op.token},headers);assert.equal(revealed.status,200);const shown=await revealed.json();
+ const pendingSet=await db.prepare('SELECT new_set_id FROM auth_mfa_regeneration_operations').first('new_set_id');
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=authenticated_at-121,expires_at=expires_at-121').run();
+ assert.equal((await request('mfa/manage/finish',{token:op.token,acknowledgment:shown.acknowledgment,confirmed:true},headers)).status,428);
+ const signed=(nonce,subject)=>{const time=Math.floor(Date.now()/1000),parts=[{alg:'RS256',kid:'fixture'},
+  {iss:'https://accounts.google.com',aud:'fixture.apps.googleusercontent.com',sub:subject,email:'r2@example.test',email_verified:true,nonce,iat:time,exp:time+300,auth_time:time}]
+  .map(v=>Buffer.from(JSON.stringify(v)).toString('base64url')),content=parts.join('.');return content+'.'+sign('RSA-SHA256',Buffer.from(content),privateKey).toString('base64url');};
+ for(const subject of ['wrong-fixture-subject','fixture-subject']){
+  const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers);assert.equal(launch.status,200);
+  const url=new URL((await launch.json()).url);assert.equal(url.href.includes(op.token),false);assert.equal(url.href.includes(shown.codes[0]),false);
+  const callback=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:signed(url.searchParams.get('nonce'),subject)}),{headers:{Cookie:headers.Cookie+'; '+cookies(launch)},redirect:'manual'});
+  assert.equal(callback.status,303);
+  assert.equal(callback.headers.get('location'),subject==='fixture-subject'?'/account/security#mfa':'/login?google=unavailable');
+  assert.equal(callback.headers.getSetCookie().some(v=>v.startsWith('__Host-lan_session=')),false);
+  assert.equal(await db.prepare('SELECT new_set_id FROM auth_mfa_regeneration_operations').first('new_set_id'),pendingSet);
+  assert.equal((await request('session',undefined,headers)).status,200);
+ }
+ assert.equal((await request('mfa/manage/verify',{token:op.token,method:'recovery',code:recovery},headers)).status,200);
+ assert.equal((await request('mfa/manage/reveal',{token:op.token},headers)).status,503);
+ const done=await request('mfa/manage/finish',{token:op.token,acknowledgment:shown.acknowledgment,confirmed:true},headers);assert.equal(done.status,200);
+ assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),pendingSet);
+},{credential:false}));

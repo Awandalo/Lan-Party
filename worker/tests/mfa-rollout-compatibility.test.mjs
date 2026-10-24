@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url),wr=createRequire(require.resolve('w
 const {Miniflare,convertV4MiniflareOptions}=wr('miniflare'),{build}=wr('esbuild');
 const base='30a290dda147a92ab519d8c1c69a4846b6a8e090',origin='http://127.0.0.1:5173';
 
-test('exact currently published pre-MFA Worker remains compatible with 0013/0014 before any factor enrollment',async()=>{
+test('exact pinned historical pre-MFA Worker remains compatible with additive 0013-0015 before any factor enrollment',async()=>{
  const root=fileURLToPath(new URL('../../',import.meta.url));
  const script=(await build({stdin:{resolveDir:root,contents:`import app from './worker/index';import {localMailbox} from './worker/auth/email';
  globalThis.fetch=async()=>{throw Error('External traffic forbidden in compatibility fixture');};
@@ -25,7 +25,7 @@ test('exact currently published pre-MFA Worker remains compatible with 0013/0014
    let rest=(await readFile(new URL('../../migrations/'+name,import.meta.url),'utf8')).replace(/--[^\n]*/g,'').trim(),parts=[];
    while(rest){const end=rest.startsWith('CREATE TRIGGER')?rest.indexOf('\nEND;')+5:rest.indexOf(';')+1;if(end<=0||end===4)throw Error('Incomplete fixture SQL');parts.push(rest.slice(0,end));rest=rest.slice(end).trim();}migrations.push(parts);
   }
-  assert.equal(migrations.length,14);for(const parts of migrations.slice(0,12))await db.batch(parts.map(s=>db.prepare(s)));
+  assert.equal(migrations.length,15);for(const parts of migrations.slice(0,12))await db.batch(parts.map(s=>db.prepare(s)));
   const request=(action,input,headers={})=>instance.dispatchFetch(origin+'/api/auth/'+action,{method:input===undefined?'GET':'POST',headers:{Origin:origin,'X-LAN-Request':'1','Content-Type':'application/json',...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
   const profile={email:'rollout@example.test',nickname:'Rollout Fixture',firstName:'Fictional',lastName:'Tester',password:'fictional rollout password'};
   assert.equal((await request('register',profile)).status,202);

@@ -521,3 +521,18 @@ $env:WRANGLER_SEND_METRICS = 'false'
 This uses ignored workspace storage for Wrangler preferences/logs, without copying
 OAuth credentials or changing the checked-in configuration. Close that session
 after validation; do not use this isolated configuration for remote operations.
+
+### 0015 — no-timer recovery-code regeneration
+
+`0015_create_mfa_regeneration_operations.sql` adds an operation table, phase/identity
+constraints, a per-account pending-operation index and invalidation/cleanup triggers.
+It does not alter historical migrations, existing active factors, credentials, codes,
+member numbers, budgets or rates. No `expires_at`/deadline or recoverable plaintext is
+stored. Session/generation/factor revocation is distinct from operation age. Staged
+verifiers become active only through the guarded explicit activation batch.
+
+Apply remotely only after exact DEV-target approval and a fresh private Time Travel
+checkpoint; verify all previous migrations remain applied once and integrity/preservation
+checks pass. Schema must be installed before publishing the new Worker. Missing 0015
+fails regeneration closed while preserving existing MFA login and ordinary accounts.
+Existing MFA-aware authentication must remain enforced during any recovery/rollback.

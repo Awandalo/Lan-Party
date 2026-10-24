@@ -583,3 +583,54 @@ Next approvals after the authorized Phase 3.8.5 local review: recovery and
 pre-mutation freshness decisions and hosted-gating/manual acceptance; separately any
 push/DEV deployment, fresh DEV recovery/migration 0013, independent backed-up MFA
 keys, and hosted enrollment/controlled account and email tests. No PROD rollout.
+
+## Owner-approved no-regeneration-timer correction (2026-10-24)
+
+Issue #10 comment 6384552935 authorizes local implementation/testing and eventual
+DEV publication, with a separate explicit gate for remote migration 0015. The
+no-timer decision in comment 6382704846 supersedes earlier 600-second regeneration
+proposals; it does not change login/enrollment/disable expiry or proof freshness.
+
+Migration 0015 adds `auth_mfa_regeneration_operations` only. It has no operation
+expiry or plaintext/ciphertext storage. It binds one pending operation per account
+to its original session, generation, factor and active set. Normal session expiry,
+revocation and account/factor changes still invalidate authority. New authorized
+starts abandon the preceding pending operation; terminal rows are pruned in bounded
+batches. No age-based cancellation, lease renewal or scheduled infrastructure exists.
+
+The state machine is prepared -> revealed -> activated, or cancelled. Preparation
+requires current primary authentication and an existing MFA session. Actual MFA
+proof is purpose-bound and required before reveal. Reveal atomically claims its
+single response, inserts ten verifiers and returns plaintext only after the batch
+commits. A lost response cannot re-reveal. Codes stay in current-view memory only;
+selection, blur, switching apps and waiting never hide them. Copy is user-triggered.
+Explicit saved acknowledgment and activation retain fresh primary and MFA proof
+(strictly less than 120 seconds at the DB-clock write boundary). Stale proof prompts
+real reauthentication without replacing the displayed pending set. Timestamps are
+never refreshed merely because a receipt or codes were read.
+
+Password confirmation uses the existing verifier/limiter. Google confirmation opens
+a user-requested separate tab using the existing subject/state/nonce/PKCE flow. The
+original view sends no code or regeneration receipt to it; Continue securely asks
+the server about proof on the exact original session. A changed account/session is
+not silently adopted. Actual new TOTP/recovery proof refreshes only the operation's
+proof record, not ordinary session assurance. Final session replacement records the
+actual new primary/MFA evidence after the atomic set switch and generation change.
+
+Refresh, original-view navigation, pagehide, bfcache restoration, explicit cancellation
+and session-invalid responses discard plaintext and receipts. Cancellation on leave
+is best-effort; browser close cannot guarantee remote cleanup. Server authority still
+requires the original live session and fresh proof; one-time reveal prevents a second
+display. An in-flight activation is never automatically replayed. An uncertain result
+blocks another activation until an explicit operation-status check; a confirmed
+activation can be recognized using the receipt under the authenticated next generation.
+
+The old set stays active until activation, except any code spent as legitimate proof.
+Cancellation/revocation cleanup deletes only inactive staged verifiers. A last code
+spent as proof is never refunded; restricted lost-authenticator replacement keeps its
+separate existing policy. Exactly the winning activation invokes the existing budgeted,
+allowlisted security notification; delivery failure does not reverse the committed set.
+
+Remote migration, publication/deployment and hosted recovery acceptance remain distinct
+states. No hosted recovery result is established by this local implementation. Do not
+roll back to pre-MFA authentication after enrollment or replace encryption keys.

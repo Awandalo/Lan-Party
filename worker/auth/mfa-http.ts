@@ -16,6 +16,7 @@ import {passwordNotice} from './password-notification';
 import {recoveryAuthentication} from './mfa-recovery-http';
 import {stepUp} from './mfa-assurance';
 import {mfaManagementEnvironment} from './mfa-environment';
+import {startRegeneration,isRegeneration,regenerationStatus,proveRegeneration,revealRegeneration,cancelRegeneration,finishRegeneration,RegenerationProofRequired,RegenerationUnavailable} from './mfa-regeneration';
 
 function name(request:Request,kind:string){return (loopback(new URL(request.url))?'lan_mfa_local_':'__Host-lan_mfa_')+kind;}
 export function mfaCookie(request:Request,kind:string,value:string,maxAge=300){
@@ -46,7 +47,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
   if(new URL(request.url).pathname.startsWith('/api/auth/mfa/recovery/'))return recoveryAuthentication(request,env);
   const url=new URL(request.url),enrolling=url.pathname.includes('/enroll/'),action=url.pathname.split('/').pop();
   const managing=url.pathname.includes('/manage/');
-  const routes=['challenge','status','complete','cancel','step-up','enroll/start','enroll/verify','enroll/cancel','enroll/activate','manage/start','manage/verify','manage/finish','manage/cancel'];
+  const routes=['challenge','status','complete','cancel','step-up','enroll/start','enroll/verify','enroll/cancel','enroll/activate','manage/start','manage/verify','manage/finish','manage/cancel','manage/reveal','manage/check'];
   if(!routes.some(route=>url.pathname==='/api/auth/mfa/'+route))return reply(404,{error:'Not found'});
   // This gate never applies to login challenge/completion: an enrolled account
   // must still satisfy MFA even when management configuration is unavailable.
@@ -79,13 +80,42 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
     }
     if(managing){
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
-      if(!account||!token||account.emailVerifiedAt===null)return reply(401,{error:'Sign in again.'});
+      if(!account||!token||account.emailVerifiedAt===null)return reply(401,{code:'session_required',error:'Sign in again.'});
       const digest=await digestToken(token,'session');
       if(!await validAuthMutation(request,origin.origin,digest,secret))return reply(403,{error:'Request rejected'});
       const input=await readInput(request) as Record<string,unknown>;
-      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['purpose','token','method','code','acknowledgment','confirmed','turnstileToken'].includes(k)))return reply(400,{error:'Invalid request'});
+      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['purpose','token','method','code','acknowledgment','confirmed','turnstileToken','regeneration'].includes(k)))return reply(400,{error:'Invalid request'});
       const c={userId:account.userId,authVersion:account.authVersion,sessionDigest:digest,browserDigest:await mfaDigest('management-browser',digest),now};
-      if(action==='start'&&['disable','regenerate'].includes(input.purpose as string))return reply(200,await beginManagement(env.DB,c,input.purpose as 'disable'|'regenerate',env,managementEnvironment!));
+      if(action==='start'&&input.purpose==='regenerate'){if(Object.keys(input).some(k=>k!=='purpose'))return reply(400,{error:'Invalid request'});return reply(200,{...await startRegeneration(env.DB,c),regeneration:true});}
+      if(input.regeneration!==undefined&&input.regeneration!==true)return reply(400,{error:'Invalid request'});
+      if(typeof input.token==='string'&&(input.regeneration===true||await isRegeneration(env.DB,input.token))){
+        const allowed=action==='verify'?['token','method','code','turnstileToken']:action==='finish'?['token','acknowledgment','confirmed']:['token'];
+        if(Object.keys(input).some(k=>k!=='regeneration'&&!allowed.includes(k)))return reply(400,{error:'Invalid request'});
+        if(action==='check')return reply(200,await regenerationStatus(env.DB,c,input.token));
+        if(action==='cancel'){await cancelRegeneration(env.DB,c,input.token);return reply(200,{message:'Changes cancelled. Previous codes remain active.'});}
+        if(action==='reveal')return reply(200,await revealRegeneration(env.DB,c,input.token,env,managementEnvironment!));
+        if(action==='verify'&&['totp','recovery'].includes(input.method as string)&&typeof input.code==='string'&&input.code.length<=40){
+          const limiter=await LoginLimiter.create(env.DB,secret,authClientIP(request,env).toLowerCase());
+          if(await limiter.observe()||input.turnstileToken!==undefined)await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
+          const held=await limiter.reserveMfa(account.userId,await mfaDigest('regeneration',input.token));let done=false;
+          try{
+            const result=await proveRegeneration(env.DB,c,input.token,input.code,input.method as 'totp'|'recovery',env,managementEnvironment!,held);
+            if(!await held.finish(!result))throw Error('Check expired');done=true;
+            return result?reply(200,result):reply(401,{error:'Code not accepted. Check it or use an unused recovery code.'});
+          }finally{if(!done)await held.finish(false);}
+        }
+        if(action==='finish'&&input.confirmed===true&&typeof input.acknowledgment==='string'&&/^[a-f0-9]{64}$/.test(input.acknowledgment)){
+          const result=await finishRegeneration(env.DB,c,input.token,input.acknowledgment,env,managementEnvironment!);
+          const notification=await passwordNotice(request,env,account,'mfa-regenerated');
+          const response=primaryResponse(request,{kind:'session',token:result.token},false,'/account/security');
+          return new Response(JSON.stringify({next:'/account/security',notification}),{status:200,headers:response.headers});
+        }
+        return reply(400,{error:'Invalid request'});
+      }
+      // Old timed regeneration receipts cannot reveal or activate through this API.
+      if(typeof input.token==='string'&&await env.DB.prepare("SELECT 1 FROM auth_mfa_transactions WHERE token_digest=? AND purpose='regenerate'")
+        .bind(await mfaDigest('transaction',input.token)).first())return reply(409,{error:'Start a new regeneration. Previous codes remain active.'});
+      if(action==='start'&&['disable'].includes(input.purpose as string))return reply(200,await beginManagement(env.DB,c,input.purpose as 'disable'|'regenerate',env,managementEnvironment!));
       if(typeof input.token!=='string'||!/^[a-f0-9]{64}$/.test(input.token))return reply(400,{error:'Invalid request'});
       if(action==='cancel'){await cancelManagement(env.DB,c,input.token);return reply(200,{message:'Changes cancelled.'});}
       if(action==='verify'&&['totp','recovery'].includes(input.method as string)&&typeof input.code==='string'&&input.code.length<=40){
@@ -160,6 +190,8 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       return primaryResponse(request,{kind:'session',token:result.token});
     }finally{if(!finalized)await held.finish(false);}
   }catch(error){
+    if(error instanceof RegenerationUnavailable)return reply(410,{code:'regeneration_ended',error:'This regeneration is no longer available. Check your current account settings.'});
+    if(error instanceof RegenerationProofRequired)return reply(428,{code:'reauth_required',primaryRequired:error.primary,error:error.primary?'Confirm your sign-in method, then verify your authenticator.':'Confirm your authenticator to continue. Your pending codes are unchanged.'});
     if(error instanceof MfaPrimaryRequired)return reply(428,{code:'reauth_required',error:'Confirm your sign-in method, then select the MFA action again.'});
     if(error instanceof LoginLimited){const response=reply(429,{error:'Too many attempts. Wait before trying again.'});response.headers.set('Retry-After',String(error.retryAfter));return response;}
     if(error instanceof LoginChallenge)return reply(403,{code:'challenge_required',siteKey:error.siteKey,error:'Complete the security check.'});

@@ -460,3 +460,50 @@ never automatically erase factors or restore over newer participant activity.
 
 No DEV acceptance, production readiness, external penetration test or Free-tier
 CPU suitability is claimed by these local results.
+
+## Local no-timer regeneration correction — 2026-10-24
+
+Authorized by issue #10 comment 6384552935 and the owner's direct Codex approval.
+Design source: owner decision 6382704846 and accepted plan 6382757425. This is local
+implementation/verification evidence, not independent review or hosted acceptance.
+
+Migration 0015 and the dedicated regeneration service separate operation lifetime
+from strict proof freshness. No operation deadline is stored. Server-atomic explicit
+reveal returns plaintext once, with verifiers only in storage; activation retains
+DB-clock primary/MFA freshness, exact session/generation/factor binding and one-winner
+set/session mutation. Original login/enrollment/disable and restricted replacement
+expiry policies remain intact. Incorrect MFA proof does not clear the revealed view;
+only an actual session-required response invokes session-loss handling. Encryption
+key availability is checked before reveal and activation. Uncertain reveal is not
+resubmitted; uncertain activation requires explicit read-only status inspection.
+
+Changed-area coverage comprises 104 distinct test cases across executed batches and
+targeted correction reruns: 45 MFA, 18 assurance/Google, 12 environment, 28 restricted
+recovery, 1 historical rollout compatibility. All observed failures were resolved:
+the MFA fixture needed migrations 0014/0015; Google was enabled only in its new
+reauthentication scenario; compatibility now expects 15 migrations; session expiry
+is seeded without mutating immutable assurance. Failed preliminary fixture runs are
+not presented as green. No tests skipped, softened, or retried without a correction.
+
+Actual local browser checks used MfaRegeneration with entirely fictional intercepted
+transports: explicit hidden-until-reveal, selection/manual copy, denied clipboard,
+controlled one-day clock advancement without hiding codes, stale proof and incorrect
+code retaining the same list, continuation, unmount/return abandonment, and uncertain
+reveal/activation without resubmission. The browser Google-tab API was intercepted;
+it is not a real OAuth acceptance result. Separately, workerd tests validate signed
+Google reauthentication, wrong-subject rejection, unchanged original session and
+same-set activation. Real provider/tab behavior remains owner-hosted acceptance.
+Strict TypeScript and hosted-DEV/default builds passed. Full unrelated local suites
+were omitted; normal full CI remains a publication prerequisite.
+
+Limits: browser close cancellation is best-effort; session validity and fresh proof
+remain server requirements. Clipboard/OS history and owner-saved copies cannot be
+wiped by the application. Last recovery proof remains consumed on abandonment.
+The additive remote migration needs its own exact-target approval/checkpoint before
+publication. No remote schema, deployment, secrets, accounts, recovery codes, emails
+or PROD state changed during this implementation. Existing passed hosted enrollment
+and password/Google TOTP evidence is retained; recovery Gate T remains paused.
+
+A different live session, even for the same account, cannot adopt a pending reveal.
+An explicit terminal response clears the old view and refreshes account context;
+wrong MFA codes remain ordinary proof failures and do not discard the displayed set.
