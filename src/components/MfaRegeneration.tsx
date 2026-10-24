@@ -116,7 +116,7 @@ export default function MfaRegeneration(props:Props){
   if(pending.current||props.disabled)return;
   setEngaged(true);callbacks.current.onActive?.(true);props.onOpen();void run('start',{purpose:'regenerate'});
  }
- const step=primaryRequired||!operation?'Confirm sign-in':mfaRequired?'Confirm authenticator':!codes.length?'Reveal codes':'Save and activate';
+ const step=busy&&!operation?'Checking security requirements':primaryRequired||!operation?'Confirm sign-in':mfaRequired?'Confirm authenticator':!codes.length?'Reveal codes':'Save and activate';
  function cancel(){if(receipt.current)void run('cancel');else{clear();setFeedback('No regeneration was started.');}}
  const primaryControls=<div className="mfa-regeneration-primary">
   <p>{codes.length?'Confirm your identity to activate this same saved set.':'Confirm your sign-in method to continue.'}</p>
@@ -157,7 +157,7 @@ export default function MfaRegeneration(props:Props){
     <button className="button" disabled={busy||!saved||uncertain||primaryRequired||mfaRequired} onClick={()=>void run('finish',{acknowledgment:operation?.acknowledgment,confirmed:true})}>{busy&&pending.current==='finish'?'Activating…':'Activate'}</button>{!primaryRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}</div>
    </>}
    {operation&&codes.length>0&&uncertain&&<button className="button button-secondary" disabled={busy} onClick={()=>void run('check')}>Check activation result</button>}
-   <p role="status" aria-live="polite">{busy?'Working…':feedback}</p>
+   <p role="status" aria-live="polite">{busy&&!operation?'Checking your session and sign-in freshness. No recovery codes have been activated…':busy?'Checking securely…':feedback}</p>
    {!codes.length&&!primaryRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}
   </section>}
   {!engaged&&<p role="status" aria-live="polite">{feedback}</p>}

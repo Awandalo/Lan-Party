@@ -592,3 +592,43 @@ Secondary read-only loading inspection found session -> methods -> MFA-status st
 and methods refetch on session refresh. No authenticated hosted latency measurement,
 speculative cache or endpoint redesign. Google's optional claim configuration/eligibility
 may still prevent fresh proof; no live callback cause is asserted or security bypassed.
+
+## Account Security loading follow-up — local evidence (2026-10-24)
+
+Owner requested measurement and a small frontend-only correction under issue #10.
+On base 977d04f, cold loading serialized session -> methods -> MFA status. Methods
+also refetched for every new session response object, including unchanged sessions.
+Regeneration already mounted its panel immediately, but its initial server wait
+showed only Working without describing the security check. No hosted backend
+latency measurement was available through the permitted browser surface; these
+findings do not assert a measured D1 bottleneck or a live provider diagnosis.
+
+An actual local browser fixture with fictional 400 ms responses measured:
+
+| Measurement | Before | After |
+| --- | --- | --- |
+| Account Security heading/shell | 415 ms | 5–7 ms |
+| Usable connected/MFA settings | 1,227 ms | 818–838 ms |
+| Regeneration panel after click | Already immediate; vague feedback | 3 ms; explicit security-check feedback |
+| Next authenticator interface | Must await start response | 409–414 ms, including the same 400 ms response delay |
+
+These are controlled local observations, not hosted latency promises. No server
+check was removed to improve the numbers. Independent methods/MFA reads now overlap
+after session availability. Only displayed metadata is retained for an unchanged
+session; method/status reads are discarded on session changes, and malformed or
+failed reads expose no actionable settings. Requests are abortable and time-bounded.
+MFA operation completion refreshes its status and the session; unchanged sessions
+no longer cause an unrelated methods refetch. No full-page reload was added.
+
+Session checks still occur through the existing AuthProvider. No browser storage,
+authentication assurance, TOTP seed, recovery code, operation receipt or authorization
+decision was introduced as a reusable credential/cache. Existing regeneration
+receipt checks, CSRF binding, freshness, session invalidation and uncertain-result
+handling remain server-authoritative. No Worker, migration, secret or policy change.
+
+Focused verification includes loading-shell rendering before authentication,
+actions unavailable before independent metadata completes, actual fictional-browser
+request counts and refresh/rotation/expiry/error behavior, plus directly interacting
+MFA recovery/Google regressions. Full unrelated local database suites are not needed
+for this frontend-only change; hosted acceptance/performance requires later approval
+and publication. Current work is local and uncommitted.

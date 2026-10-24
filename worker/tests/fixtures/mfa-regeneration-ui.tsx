@@ -4,10 +4,11 @@ import {createRoot} from 'react-dom/client';
 import MfaRegeneration from '../../../src/components/MfaRegeneration';
 import MfaManagement from '../../../src/components/MfaManagement';
 import AccountSecurity from '../../../src/pages/AccountSecurity';
-import {AuthProvider} from '../../../src/lib/auth';
-import {BrowserRouter} from 'react-router';
+import {AuthProvider,useAuth} from '../../../src/lib/auth';
+import {BrowserRouter,Link,Routes,Route} from 'react-router';
 import '../../../src/CSS/main.css';
 import '../../../src/CSS/AccountSecurity_style.css';
+let expired=false,sessionGeneration=0;
 let operation=false,seen=false,primary=true,mfa=false,active=false,reveals=0,cancels=0,googleTabs=0,loseReveal=false,loseActivation=false,contextChanged=false;
 const codes=Array.from({length:10},(_,i)=>String.fromCharCode(65+i)+'AAA-AAAA-AAAA-AAAA-AAAA-AAAA-AA');
 const token='a'.repeat(64),ack='b'.repeat(64);
@@ -24,10 +25,26 @@ window.setTimeout=((handler:TimerHandler,delay=0,...args:unknown[])=>{
 window.clearTimeout=(id?:number)=>{if(id!==undefined)timers.delete(id);nativeClearTimeout(id);};
 function advance(){offset+=86400000;for(const [id,timer] of timers){if(timer.at<=Date.now()){timers.delete(id);nativeClearTimeout(id);timer.run();}}primary=false;mfa=false;}
 window.open=()=>{googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
+const perfDelay=Number(new URL(location.href).searchParams.get('delay')??0);
+const perfStarted=performance.now(),perfCounts:Record<string,number>={},perfTimes:Record<string,number>={};
+let clickAt=0;
+const meter=document.createElement('pre');meter.style.whiteSpace='pre-wrap';meter.style.overflowWrap='anywhere';meter.setAttribute('aria-label','Safe performance measurements');document.body.append(meter);
+function measure(){
+ const elapsed=()=>Math.round(performance.now()-perfStarted);
+ if(Array.from(document.querySelectorAll('h1')).some(h=>h.textContent==='Account security')&&!('shell' in perfTimes))perfTimes.shell=elapsed();
+ if(document.querySelector('[aria-label="Disable MFA"]')&&!('settings' in perfTimes))perfTimes.settings=elapsed();
+ if(clickAt&&document.querySelector('[aria-label="Recovery code regeneration"]')&&!('panel' in perfTimes))perfTimes.panel=Math.round(performance.now()-clickAt);
+ if(clickAt&&document.querySelector('#regeneration-code')&&!('authenticator' in perfTimes))perfTimes.authenticator=Math.round(performance.now()-clickAt);
+ meter.textContent=JSON.stringify({delay:perfDelay,requests:perfCounts,milliseconds:perfTimes});
+}
+new MutationObserver(measure).observe(document.getElementById('root')!,{childList:true,subtree:true});
+document.addEventListener('click',e=>{if((e.target as HTMLElement).textContent==='Regenerate recovery codes'){clickAt=performance.now();delete perfTimes.panel;delete perfTimes.authenticator;}},true);
 window.fetch=async(input,init)=>{
  const path=String(input),data=JSON.parse(String(init?.body??'{}'));
- if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:'c'.repeat(64),emailVerified:true,...(new URL(window.location.href).searchParams.has('remaining')?{recoveryCodesRemaining:Number(new URL(window.location.href).searchParams.get('remaining'))}:{})});
- if(path==='/api/auth/google/methods')return Response.json({password:true,google:true});
+ perfCounts[path]=(perfCounts[path]??0)+1;measure();if(perfDelay)await new Promise(resolve=>nativeSetTimeout(resolve,perfDelay));
+ if(path==='/api/auth/session'&&expired)return Response.json({}, {status:401});
+ if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:(sessionGeneration?'e':'c').repeat(64),emailVerified:true,...(new URL(window.location.href).searchParams.has('remaining')?{recoveryCodesRemaining:Number(new URL(window.location.href).searchParams.get('remaining'))}:{})});
+ if(path==='/api/auth/google/methods')return Response.json(new URL(location.href).searchParams.has('bad-methods')?{password:'invalid',google:true}:{password:true,google:true});
  if(path==='/api/auth/mfa/status')return Response.json({enabled:true,enrollmentAvailable:true});
  if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state='+'d'.repeat(64)});
  if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!new URL(window.location.href).searchParams.has('google-unavailable'),unavailable:false});
@@ -51,6 +68,7 @@ window.fetch=async(input,init)=>{
  if(action==='finish'&&data.acknowledgment===ack&&data.confirmed===true){active=true;operation=false;if(loseActivation){loseActivation=false;throw Error('Fictional lost activation response');}return Response.json({notification:'attempted'});}
  throw Error('Unexpected fictional request');
 };
+function FixtureSessionControls(){const {refresh}=useAuth();return <><button onClick={()=>void refresh()}>Refresh same fictional session</button><button onClick={()=>{sessionGeneration++;void refresh();}}>Rotate fictional session</button><button onClick={()=>{expired=true;void refresh();}}>Expire fictional session</button></>;}
 function App(){const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[show,setShow]=useState(true),[version,setVersion]=useState(0);
  return <main className="page-section"><div className="panel account-security-card" style={{maxWidth:new URL(window.location.href).searchParams.has('mobile')?360:640,marginInline:'auto'}}><h1>Fictional recovery-code UI test</h1><p>No real accounts, credentials, messages or provider requests.</p>
  <button onClick={()=>{advance();setVersion(n=>n+1);}}>Advance beyond one day (proof stale only)</button>
@@ -58,7 +76,7 @@ function App(){const [open,setOpen]=useState(false),[busy,setBusy]=useState(fals
  <button onClick={()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Fictional denial');}}});}}>Deny clipboard</button>
  <button onClick={()=>setVersion(n=>n+1)}>Inspect safe counters</button>
  <p aria-label="Fixture counters">{JSON.stringify({version,seen,reveals,cancels,active,googleTabs})}</p>
- {show&&(new URL(window.location.href).searchParams.has('account')?<BrowserRouter><AuthProvider><AccountSecurity/></AuthProvider></BrowserRouter>:new URL(window.location.href).searchParams.has('integration')?<MfaManagement csrf={'c'.repeat(64)} open={open} disabled={busy} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={setBusy} onActivated={async()=>{setVersion(n=>n+1);}}/>:<MfaRegeneration csrf={'c'.repeat(64)} open={open} disabled={false} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={()=>{}} onActivated={async()=>{setVersion(n=>n+1);}}/>)}
+ {show&&(new URL(window.location.href).searchParams.has('account')?<BrowserRouter><AuthProvider>{perfDelay?<><FixtureSessionControls/><Link to="/account">Fixture overview</Link><Link to="/account/security">Fixture settings</Link><Routes><Route path="/login" element={<p>Fictional signed-out page</p>}/><Route path="/account" element={<p>Fictional overview</p>}/><Route path="*" element={<AccountSecurity/>}/></Routes></>:<AccountSecurity/>}</AuthProvider></BrowserRouter>:new URL(window.location.href).searchParams.has('integration')?<MfaManagement csrf={'c'.repeat(64)} open={open} disabled={busy} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={setBusy} onActivated={async()=>{setVersion(n=>n+1);}}/>:<MfaRegeneration csrf={'c'.repeat(64)} open={open} disabled={false} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={()=>{}} onActivated={async()=>{setVersion(n=>n+1);}}/>)}
  </div></main>;
 }
 const fixtureRoot=createRoot(document.getElementById('root')!);fixtureRoot.render(<App/>);

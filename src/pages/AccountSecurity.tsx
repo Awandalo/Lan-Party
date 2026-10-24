@@ -19,10 +19,19 @@ export default function AccountSecurity(){
  if(new URLSearchParams(location.search).get('recovery')==='1')return <section className="page-section account-security-page"><div className="panel account-security-card"><MfaRecovery/></div></section>;
  return <SecuritySettings/>;
 }
+function SecurityLoading({failed=false}:{failed?:boolean}){
+ return <section className="page-section account-security-page"><div className="panel account-security-card"><h1>Account security</h1>
+ <p>All your account security settings in one place.</p><p role="status">{failed?'Account security is unavailable. Reload before trying again.':'Checking your session…'}</p>
+ <section aria-busy={!failed}><h2>Connected accounts</h2><p>Settings will appear after your session is checked.</p></section>
+ <section aria-busy={!failed}><h2>Two-factor authentication</h2><p>Security actions are unavailable until checks complete.</p></section></div></section>;
+}
 function SecuritySettings(){
   const {session,status,refresh}=useAuth();
-  const [methods,setMethods]=useState<{password:boolean;google:boolean}|null>(null),[feedback,setFeedback]=useState(()=>new URLSearchParams(window.location.search).get('primary')==='required'?
+  const [methodSnapshot,setMethods]=useState<{csrf:string;password:boolean;google:boolean}|null>(null),[feedback,setFeedback]=useState(()=>new URLSearchParams(window.location.search).get('primary')==='required'?
     'Google was not connected. Confirm your sign-in method and select Connect Google again.':''),[busy,setBusy]=useState(false);
+  const [methodsFailed,setMethodsFailed]=useState(false);
+  const sessionKey=session?.csrfToken;
+  const methods=methodSnapshot?.csrf===sessionKey?methodSnapshot:null;
   const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const [needsPassword,setNeedsPassword]=useState(false),confirmationRef=useRef<HTMLDivElement>(null);
   const [disconnecting,setDisconnecting]=useState(false),[passwordSetupOpen,setPasswordSetupOpen]=useState(passwordSetupRequested());
@@ -47,9 +56,16 @@ function SecuritySettings(){
   function googleProgress(pending:boolean){googlePending.current=pending;setGoogleBusy(pending);}
   function requestPasswordConfirmation(){setPasswordSetupOpen(false);setNeedsGoogle(false);setDisconnecting(false);setNeedsPassword(true);requestAnimationFrame(()=>confirmationRef.current?.focus());}
   function cancelConfirmation(){googleButton.current?.cancelLink();setNeedsPassword(false);setDisconnecting(false);setFeedback('');setSiteKey('');setProof(null);requestAnimationFrame(()=>disconnectTrigger.current?.focus());}
-  useEffect(()=>{if(session)void googleRequest('methods').then(async r=>{if(r.ok)setMethods(await r.json());else setFeedback('Account security is unavailable.');}).catch(()=>setFeedback('Account security is unavailable.'));},[session]);
-  if(status==='loading')return <p role="status">Checking session…</p>;
-  if(status==='error')return <p role="status">Account security is unavailable. Reload before trying again.</p>;
+  // Display metadata survives an unchanged-session refresh; it is never authentication proof.
+  useEffect(()=>{setMethodsFailed(false);if(!sessionKey){setMethods(null);return;}const controller=new AbortController();
+    void fetch('/api/auth/google/methods',{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1'},signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])})
+     .then(async r=>{if(!r.ok)throw Error();const body=await r.json();if(typeof body.password!=='boolean'||typeof body.google!=='boolean')throw Error();
+      if(!controller.signal.aborted)setMethods({csrf:sessionKey,password:body.password,google:body.google});})
+     .catch(()=>{if(!controller.signal.aborted){setMethods(null);setMethodsFailed(true);}});
+    return()=>controller.abort();
+  },[sessionKey]);
+  if(status==='loading')return <SecurityLoading/>;
+  if(status==='error')return <SecurityLoading failed/>;
   if(!session)return <Navigate to="/login" replace/>;
   const csrf=session.csrfToken;
   async function action(name:string,input:object={}){
@@ -63,7 +79,6 @@ function SecuritySettings(){
         clearPasswordSetup();setPasswordSetupOpen(false);setNeedsGoogle(false);
         // Read the rotated HttpOnly session and its new CSRF proof before another action.
         if(await refresh()){
-          setMethods({password:true,google:true});
           setFeedback('Password added successfully. You can now sign in using Google or your password.'+(body.notification==='unconfirmed'?' Security notification delivery could not be confirmed.':''));
           requestAnimationFrame(()=>passwordTrigger.current?.focus());
         }
@@ -105,6 +120,7 @@ function SecuritySettings(){
     {needsMfa&&<MfaStepUp key={csrf} csrf={csrf} onBusy={value=>{actionPending.current=value;setBusy(value);}} onCancel={clearAction} onVerified={async()=>{
       if(!await refresh())throw Error('Session unavailable');clearAction();setFeedback('Two-factor authentication confirmed. Select your account action again.');
     }}/>}
+    {!methods&&<section aria-busy={!methodsFailed}><h2>Connected accounts</h2><p role="status">{methodsFailed?'Connected accounts are unavailable. Reload before trying again.':'Loading connected accounts…'}</p></section>}
     {methods&&<><section className="connected-accounts" aria-labelledby="connected-accounts-heading">
       <h2 id="connected-accounts-heading">Connected accounts</h2>
       <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd className="security-method-status">{methods.password?'Connected':'Not connected'}
@@ -134,9 +150,8 @@ function SecuritySettings(){
         <button className="button">{busy?'Confirming…':disconnecting?'Confirm & disconnect':'Confirm and continue'}</button>
         <button type="button" className="button button-secondary" disabled={busy} onClick={cancelConfirmation}>Cancel</button>
         </fieldset></form></div></dd>}</div></dl>
-    </section>
+    </section></>}
       {MFA_ENROLLMENT_AVAILABLE&&<MfaSettings csrf={csrf} methods={methods} open={mfaOpen} disabled={busy||googleBusy} onOpen={()=>{if(actionPending.current||googlePending.current)return;googleButton.current?.cancelLink();clearAction();setMfaOpen(true);}} onBusy={value=>{actionPending.current=value;setBusy(value);}} onActivated={refresh}/>}
-    </>}
     <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2>
       <dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified ? 'Verified' : 'Not verified'}</dd></div></dl>
     </section>
