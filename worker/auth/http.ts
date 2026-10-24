@@ -1,3 +1,4 @@
+import {mfaSchemaReady} from './mfa-session';
 import { emailAddress, publicAccount } from './accounts';
 import { fromHex } from './encoding';
 import { findPasswordCredential } from './database';
@@ -103,8 +104,18 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     const memberNumber = await env.DB.prepare('SELECT CAST(member_number AS TEXT) AS value FROM member_numbers WHERE user_id=? AND registered=1')
       .bind(account.userId).first<string>('value');
     if (!memberNumber) throw new Error('Account member number unavailable');
+    let recoveryCodesRemaining:number|undefined;
+    // Optional owner-only warning data must never turn a committed login into a failure.
+    try{if(await mfaSchemaReady(env.DB)){
+      const result=await env.DB.prepare(`SELECT count(c.verifier) AS remaining FROM auth_session_mfa m
+       JOIN auth_totp_factors f ON f.user_id=m.user_id AND f.factor_id=m.factor_id
+       LEFT JOIN auth_mfa_recovery_codes c ON c.user_id=f.user_id AND c.set_id=f.recovery_set_id AND c.consumed_at IS NULL
+       WHERE m.session_digest=? AND m.user_id=? AND m.auth_version=? AND m.method='recovery' GROUP BY m.session_digest`)
+       .bind(digest,account.userId,account.authVersion).first<{remaining:number}>();
+      if(result&&Number.isSafeInteger(result.remaining)&&result.remaining>=0&&result.remaining<=10)recoveryCodesRemaining=result.remaining;
+    }}catch{/* Login remains valid; warning metadata can be refreshed later. */}
     return reply(200, { account: publicAccount({ userId: account.userId, nickname, memberNumber }), emailVerified: account.emailVerifiedAt !== null,
-      csrfToken: await sessionCsrfToken(digest, env.AUTH_RATE_LIMIT_SECRET) });
+      csrfToken: await sessionCsrfToken(digest, env.AUTH_RATE_LIMIT_SECRET),...(recoveryCodesRemaining===undefined?{}:{recoveryCodesRemaining}) });
   } catch (error) {
     if (error instanceof LoginLimited) return reply(429,
       { error: 'Too many login attempts. Please wait before trying again.' }, { 'Retry-After': String(error.retryAfter) });

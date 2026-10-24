@@ -1,6 +1,8 @@
+import MfaRecovery from '../components/MfaRecovery';
+import RecoveryWarning from '../components/RecoveryWarning';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, Navigate } from 'react-router';
+import { Link, Navigate, useLocation } from 'react-router';
 import { useAuth } from '../lib/auth';
 import { clearPasswordSetup, googleRequest, passwordSetupRequested,mfaSettingsRequested } from '../lib/google';
 import GoogleButton from '../components/GoogleButton';
@@ -13,6 +15,11 @@ import MfaStepUp from '../components/MfaStepUp';
 import { MFA_ENROLLMENT_AVAILABLE } from '../lib/mfa-mode';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
+ const location=useLocation();
+ if(new URLSearchParams(location.search).get('recovery')==='1')return <section className="page-section account-security-page"><div className="panel account-security-card"><MfaRecovery/></div></section>;
+ return <SecuritySettings/>;
+}
+function SecuritySettings(){
   const {session,status,refresh}=useAuth();
   const [methods,setMethods]=useState<{password:boolean;google:boolean}|null>(null),[feedback,setFeedback]=useState(()=>new URLSearchParams(window.location.search).get('primary')==='required'?
     'Google was not connected. Confirm your sign-in method and select Connect Google again.':''),[busy,setBusy]=useState(false);
@@ -94,7 +101,7 @@ export default function AccountSecurity(){
     else void action('add-password',{password});
   }
   return <section className="page-section account-security-page"><div className="panel account-security-card"><h1>Account security</h1>
-    <p>All your account security settings in one place.</p>
+    <p>All your account security settings in one place.</p><RecoveryWarning remaining={session.recoveryCodesRemaining}/>
     {needsMfa&&<MfaStepUp key={csrf} csrf={csrf} onBusy={value=>{actionPending.current=value;setBusy(value);}} onCancel={clearAction} onVerified={async()=>{
       if(!await refresh())throw Error('Session unavailable');clearAction();setFeedback('Two-factor authentication confirmed. Select your account action again.');
     }}/>}

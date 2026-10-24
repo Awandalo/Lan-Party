@@ -1,3 +1,4 @@
+import RecoveryWarning from '../components/RecoveryWarning';
 import { useState } from 'react';
 import { Navigate } from 'react-router';
 import { useAuth } from '../lib/auth';
@@ -24,6 +25,7 @@ export default function Account() {
   }
   return <section className="page-section account-page"><div className="panel account-card">
     <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
+    <RecoveryWarning remaining={session.recoveryCodesRemaining}/>
     <div className="account-updates">
       <section aria-labelledby="account-events"><h2 id="account-events">Upcoming events</h2><span className="status-label">Coming soon</span><p>Your next LAN adventures will appear here. Event registration is not available yet.</p></section>
       <section aria-labelledby="account-polls"><h2 id="account-polls">Upcoming polls</h2><span className="status-label">Coming soon</span><p>Help shape the party when polls become available.</p></section>

@@ -11,3 +11,7 @@
 .mfa-regeneration-panel [role="status"] { margin-block: .75rem; }
 .mfa-regeneration-panel .mfa-regeneration-codes { margin-block: 1rem; padding: 0; list-style: none; }
 .mfa-regeneration-codes li { padding: .5rem; border: 1px solid var(--border); border-radius: .35rem; overflow-wrap: anywhere; }
+.mfa-regeneration-panel .mfa-actions { display: flex; gap: .65rem; flex-wrap: wrap; }
+.mfa-regeneration-panel .mfa-actions .button { flex: 1 1 7rem; width: auto; margin: 0; }
+.account-security-card .button:disabled { background: var(--surface-raised); border-color: var(--border); color: var(--muted); opacity: .75; cursor: not-allowed; }
+@media (max-width: 480px) { .mfa-regeneration-panel .mfa-actions .button { flex-basis: 100%; } }

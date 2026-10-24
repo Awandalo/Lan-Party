@@ -1,3 +1,8 @@
+import {startSessionRecovery,RecoveryMfaRequired} from './mfa-recovery-session';
+import {readSessionCookie,clearSessionCookie} from './cookies';
+import {resolveSession} from './sessions';
+import {digestToken} from './tokens';
+import {randomMfaToken} from './mfa-crypto';
 import type {AuthenticationEnvironment} from './http';
 import type {MfaKeys} from './mfa-crypto';
 import type {RecoveryOperation} from './mfa-recovery';
@@ -37,13 +42,27 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
  const url=new URL(request.url),action=url.pathname.split('/').pop();
  const environment=mfaManagementEnvironment(request,env);
  if(!environment)return reply(404,{error:'Not found'});
- if(!['status','start','setup','primary','commit','reveal','ack','cancel'].includes(action??''))return reply(404,{error:'Not found'});
+ if(!['status','start','from-session','setup','primary','commit','reveal','ack','cancel'].includes(action??''))return reply(404,{error:'Not found'});
  if(request.method!==(action==='status'?'GET':'POST'))return reply(405,{error:'Method not allowed'});
  try{
   const origin=authOrigin(request,env),secret=env.AUTH_RATE_LIMIT_SECRET,c=recoveryContext(request);
   if(!secret||url.search||request.headers.has('Content-Encoding')||request.headers.get('X-LAN-Request')!=='1'
    ||request.headers.has('Origin')&&request.headers.get('Origin')!==origin.origin
    ||request.headers.has('Sec-Fetch-Site')&&request.headers.get('Sec-Fetch-Site')!=='same-origin')return reply(403,{error:'Request rejected'});
+  if(action==='from-session'){
+   const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,c.now):null;
+   if(!account||!token||account.emailVerifiedAt===null)return reply(401,{error:'Sign in again.'});
+   const source=await digestToken(token,'session');
+   if(!await validAuthMutation(request,origin.origin,source,secret))return reply(403,{error:'Request rejected'});
+   const input=await readInput(request) as Record<string,unknown>;
+   if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).join(',')!=='confirmed'||input.confirmed!==true)return reply(400,{error:'Explicit confirmation required'});
+   const context={token:randomMfaToken(),browser:randomMfaToken(),now:c.now};
+   await cleanupRecovery(env.DB,c.now);
+   await startSessionRecovery(env.DB,context,account.userId,account.authVersion,source,env,environment);
+   const created=await recoveryOperation(env.DB,context);if(!created)throw Error('Recovery handoff uncertain');
+   const response=reply(200,{next:'/account/security?recovery=1'});response.headers.append('Set-Cookie',clearSessionCookie());
+   recoveryCookies(response,request,context,created);return response;
+  }
   await cleanupRecovery(env.DB,c.now);
   const op=await recoveryOperation(env.DB,c),pending=op?null:await pendingLogin(env.DB,c.token,c.browser,c.now);
   if(!op&&!pending)return reply(401,{error:'Recovery unavailable or expired. Log in again.'});
@@ -91,7 +110,8 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
    return response;
   }finally{if(!done)await held.finish(false);}
  }catch(error){
-  if(error instanceof RecoveryPrimaryRequired)return reply(428,{code:'reauth_required',error:'Confirm your sign-in method again. The recovery deadline is unchanged.'});
+  if(error instanceof RecoveryMfaRequired)return reply(428,{code:'mfa_required',error:'Fresh authenticator or recovery-login proof is required. If no usable method remains, contact a LAN Party administrator.'});
+  if(error instanceof RecoveryPrimaryRequired)return reply(428,{code:'reauth_required',error:action==='from-session'?'Confirm your sign-in method before starting replacement.':'Confirm your sign-in method again. The recovery deadline is unchanged.'});
   if(error instanceof LoginLimited){const r=reply(429,{error:'Too many attempts. Wait before trying again.'});r.headers.set('Retry-After',String(error.retryAfter));return r;}
   if(error instanceof LoginChallenge)return reply(403,{code:'challenge_required',siteKey:error.siteKey,error:'Complete the security check.'});
   if(error instanceof LoginBusy)return reply(503,{error:'Another check is pending. Try again shortly.'});

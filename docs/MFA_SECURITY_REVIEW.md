@@ -558,3 +558,37 @@ codes legitimately spent as proof remain spent; the owner's actual remote state
 was not inspected or changed. Keep Gate T blocked until exact-diff review, separate
 owner publication approval, green CI/DEV verification and renewed hosted-test
 approval. This local correction has not been committed, pushed or deployed.
+
+## Follow-up recovery policy / Account Security handoff — local evidence
+
+Owner approved design 6388349812 and scoped publication after verification. Base:
+13db403. No new migration or secret. The 0014 one-use source handoff preserves strict
+primary/MFA age, session/generation/factor/set binding and atomic rollback. Restricted
+cookies cannot access ordinary accounts. Existing pre-login replacement remains.
+Google primary uses actual signed fresh reauthentication, never token issue time or
+an unverified new-tab event. No general management-proof reuse is authorized.
+
+135 distinct affected Google/MFA assurance/login/regeneration/recovery cases passed
+across the broad changed-area batch and correction reruns. The first stale-proof
+fixture aged an earlier live session; selecting the actual recovery-login session
+resolved it without weakening assertions. A later local SQL-template delimiter typo
+blocked compilation; corrected it and reran all five new Account Security cases plus
+TypeScript. No unresolved failure is presented as passing. Tests cover post-consumption
+counts 3/2/1/0, successful final-code login/replay denial, one-winner handoff and zero-code
+replacement, CSRF/stale proof, rollback/cancellation, write-boundary revocation/generation/
+set races, Google-only signed reauthentication/provider preservation, cross-action proof
+isolation and regeneration cleanup. Missing/stale/future/wrong-subject claims fail closed.
+
+Actual fictional browser checks cover the real Account Security component tree:
+nonblocking 2/1/0 warnings, direct password-to-TOTP continuation, TOTP-only regeneration,
+same revealed set through stale proof and Google/status continuation, honest unavailable
+Google feedback, compact controls, explicit replacement confirmation/stale-MFA rejection
+and restricted subview excluding ordinary account controls. TypeScript and hosted-DEV/
+default builds passed. No real accounts, email, provider request, secrets, database
+migration or PROD operation was involved. Full unrelated local suites were not repeated;
+normal CI must validate publication. Hosted acceptance remains partial/not accepted.
+
+Secondary read-only loading inspection found session -> methods -> MFA-status stages
+and methods refetch on session refresh. No authenticated hosted latency measurement,
+speculative cache or endpoint redesign. Google's optional claim configuration/eligibility
+may still prevent fresh proof; no live callback cause is asserted or security bypassed.

@@ -373,8 +373,9 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   regeneration test failed (comment 6387546649); do not resume hosted attempts.
   - [ ] Review the local regeneration continuation/single-panel and related layout
     correction, fictional integrated-browser evidence and cross-action proof test.
-  - [ ] Obtain separate owner approval before committing/publishing this correction;
+  - [x] Owner approved scoped warning/replacement/Google/GUI correction publication;
     verify CI/deployment before requesting renewed owner-assisted recovery acceptance.
+  - [ ] Verify warning/replacement/Google/GUI correction CI/DEV before renewed hosted tests.
   - [ ] Complete remaining hosted acceptance and owner/Q disposition; keep #10 open.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
@@ -861,4 +862,3 @@ Saved to `public/lan-hall.png` using the built-in image generator. Final prompt:
 ```text
 Use case: photorealistic-natural. Asset type: decorative side background for a personal LAN party website. Wide overhead overview of a large LAN gaming hall reminiscent of a DreamHack LAN gathering, dense rows of desktop gaming monitors, keyboards, computer towers and seated player silhouettes. Almost pitch-black room with only monitors casting cool cyan, blue and occasional muted green light, no overhead lights, realistic candid photographic atmosphere. Rows recede into darkness, foreground computers clear. Wide landscape composition with interesting monitor detail on both outer sides. No text, branding, watermark, readable screen content or recognizable faces. Generate only the photograph, not a webpage.
 ```
-

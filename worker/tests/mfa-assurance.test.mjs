@@ -316,10 +316,14 @@ test('Google-only reauthentication preserves the same revealed regeneration and 
  for(const subject of ['wrong-fixture-subject','fixture-subject']){
   const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers);assert.equal(launch.status,200);
   const url=new URL((await launch.json()).url);assert.equal(url.href.includes(op.token),false);assert.equal(url.href.includes(shown.codes[0]),false);
+  assert.deepEqual(JSON.parse(url.searchParams.get('claims')),{id_token:{auth_time:{essential:true}}});
+  assert.equal((await request('google/reauth-status',{state:url.searchParams.get('state')},{...headers,'X-CSRF-Token':'invalid'})).status,403);
+  assert.equal((await(await request('google/reauth-status',{state:url.searchParams.get('state')},headers)).json()).confirmed,false);
   const callback=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:signed(url.searchParams.get('nonce'),subject)}),{headers:{Cookie:headers.Cookie+'; '+cookies(launch)},redirect:'manual'});
   assert.equal(callback.status,303);
   assert.equal(callback.headers.get('location'),subject==='fixture-subject'?'/account/security#mfa':'/login?google=unavailable');
   assert.equal(callback.headers.getSetCookie().some(v=>v.startsWith('__Host-lan_session=')),false);
+  assert.equal((await(await request('google/reauth-status',{state:url.searchParams.get('state')},headers)).json()).confirmed,subject==='fixture-subject');
   assert.equal(await db.prepare('SELECT new_set_id FROM auth_mfa_regeneration_operations').first('new_set_id'),pendingSet);
   assert.equal((await request('session',undefined,headers)).status,200);
  }
@@ -339,3 +343,34 @@ test('regeneration-bound proof cannot authorize an unrelated sensitive account a
  assert.equal((await request('mfa/manage/check',{token:op.token,regeneration:true},headers)).status,200);
  assert.equal(await db.prepare('SELECT phase FROM auth_mfa_regeneration_operations').first('phase'),'prepared');
 },{age:121}));
+
+test('Google MFA continuation rejects missing, stale and future signed auth_time without minting fresh proof',()=>local(async({request,headers,instance,db})=>{
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=authenticated_at-121,expires_at=expires_at-121').run();
+ for(const age of [null,121,-5]){
+  const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers);assert.equal(launch.status,200);
+  const url=new URL((await launch.json()).url),time=Math.floor(Date.now()/1000);
+  const claims={iss:'https://accounts.google.com',aud:'fixture.apps.googleusercontent.com',sub:'fixture-subject',email:'r2@example.test',email_verified:true,nonce:url.searchParams.get('nonce'),iat:time,exp:time+300,...(age===null?{}:{auth_time:time-age})};
+  const content=[{alg:'RS256',kid:'fixture'},claims].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url')).join('.');
+  const token=content+'.'+sign('RSA-SHA256',Buffer.from(content),privateKey).toString('base64url');
+  const callback=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:token}),{headers:{Cookie:headers.Cookie+'; '+cookies(launch)},redirect:'manual'});
+  assert.equal(callback.headers.get('location'),'/login?google=unavailable');
+  const status=await request('google/reauth-status',{state:url.searchParams.get('state')},headers);assert.equal(status.status,200);assert.equal((await status.json()).confirmed,false);
+  assert.equal(await db.prepare("SELECT method FROM auth_recent_authentication").first('method'),'google');
+  assert.ok(await db.prepare('SELECT authenticated_at<=unixepoch()-120 AS stale FROM auth_recent_authentication').first('stale'));
+ }
+},{credential:false}));
+
+test('Account Security replacement cancels staged regeneration without changing the active factor or reusing its proof',()=>local(async({request,headers,call,db})=>{
+ const old=await db.prepare('SELECT factor_id,recovery_set_id FROM auth_totp_factors').first();
+ const started=await request('mfa/manage/start',{purpose:'regenerate'},headers);assert.equal(started.status,200);const op=await started.json();
+ assert.equal((await request('mfa/manage/verify',{token:op.token,method:'totp',code:await call('otp',secret)},headers)).status,200);
+ assert.equal((await request('mfa/manage/reveal',{token:op.token},headers)).status,200);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),11);
+ const handoff=await request('mfa/recovery/from-session',{confirmed:true},headers);assert.equal(handoff.status,200);
+ assert.equal(await db.prepare('SELECT phase FROM auth_mfa_regeneration_operations').first('phase'),'cancelled');
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),1);
+ assert.deepEqual(await db.prepare('SELECT factor_id,recovery_set_id FROM auth_totp_factors').first(),old);
+ assert.equal((await request('session',undefined,headers)).status,401);
+ assert.equal((await request('google/unlink',{},headers)).status,503);
+ const Cookie=cookies(handoff),status=await request('mfa/recovery/status',undefined,{Cookie});assert.equal(status.status,200);assert.equal((await status.json()).phase,'pending');
+}));

@@ -1,3 +1,4 @@
+import MfaReplacement from './MfaReplacement';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import GoogleButton from './GoogleButton';
@@ -11,7 +12,7 @@ import '../CSS/MfaEnrollment_style.css';
 type Purpose='disable'|'regenerate';
 type Pending={token:string;expiresAt:number;acknowledgment?:string;codes?:string[]};
 export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActivated,methods}:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean;google:boolean}}){
- const [regenerationActive,setRegenerationActive]=useState(false);
+ const [regenerationActive,setRegenerationActive]=useState(false),[replacementActive,setReplacementActive]=useState(false);
  const [purpose,setPurpose]=useState<Purpose|null>(null),[transaction,setTransaction]=useState<Pending|null>(null);
  const [feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false),[method,setMethod]=useState<'totp'|'recovery'>('totp'),[saved,setSaved]=useState(false),[reauth,setReauth]=useState(false);
  const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
@@ -73,11 +74,12 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
  }
  return <section className="mfa-enrollment" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
   <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">Enabled
-   {!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
+   {!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
 </dd></div></dl>
   <p>Your authenticator or a recovery code protects both sign-in methods.</p>
-  <MfaRegeneration csrf={csrf} open={open} disabled={disabled||busy||!!transaction} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActivated={onActivated} onActive={setRegenerationActive}/>
-  {open&&!regenerationActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
+  <MfaRegeneration csrf={csrf} open={open} disabled={disabled||busy||!!transaction||replacementActive} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActivated={onActivated} onActive={setRegenerationActive}/>
+  <MfaReplacement csrf={csrf} open={open} disabled={disabled||busy||regenerationActive||!!transaction} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActive={setReplacementActive}/>
+  {open&&!regenerationActive&&!replacementActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
    {reauth?<><p>Confirm your identity. No MFA setting has been changed.</p>{methods.password&&<form onSubmit={primary}><fieldset disabled={busy}><label htmlFor="mfa-primary-password">Current password</label><PasswordInput id="mfa-primary-password" name="password" autoComplete="current-password" required autoFocus/>
     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button">Confirm password</button></fieldset></form>}
     {methods.google&&<GoogleButton purpose="reauth" returnAction="mfa" csrf={csrf} disabled={busy} onPendingChange={value=>{pending.current=value;setBusy(value);onBusy(value);}}/>}</>:

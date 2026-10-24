@@ -13,6 +13,7 @@ const jwk={...publicKey.export({format:'jwk'}),kid:'fixture',alg:'RS256',use:'si
 let script,migrations;
 before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
+ import {startSessionRecovery} from './worker/auth/mfa-recovery-session';
  import app from './worker/index';import * as recovery from './worker/auth/mfa-recovery';
  import * as cryptoMfa from './worker/auth/mfa-crypto';import {localMailbox} from './worker/auth/email';
  import {pendingLogin,completePrimary} from './worker/auth/mfa-login';import {LoginLimiter} from './worker/auth/login-limits';
@@ -29,6 +30,16 @@ before(async()=>{
  export default {async fetch(request,env){
   if(new URL(request.url).pathname!=='/fixture')return app.fetch(request,env);
   const {action,args=[]}=await request.json();try{
+   if(action==='handoffRace'){
+    const [context,user,version,session,change]=args;
+    const db={prepare:sql=>env.DB.prepare(sql),async batch(statements){
+     if(change==='revoke')await env.DB.prepare('UPDATE auth_sessions SET revoked_at=unixepoch() WHERE token_digest=?').bind(session).run();
+     if(change==='generation')await env.DB.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=unixepoch() WHERE id=?').bind(user).run();
+     if(change==='set')await env.DB.prepare('UPDATE auth_totp_factors SET recovery_set_id=? WHERE user_id=?').bind(crypto.randomUUID(),user).run();
+     return env.DB.batch(statements);
+    }};
+    await startSessionRecovery(db,context,user,version,session,env,'local');return Response.json(true);
+   }
    if(action==='clock'){fixtureTime=args[0]===null?undefined:args[0]*1000;return Response.json(true);}
    if(action==='primaryCookies')return primaryResponse(request,args[0]);
    if(action==='mail')return Response.json(localMailbox.take('recovery@example.test',Math.floor(Date.now()/1000),args[0]??'email-verification'));
@@ -474,3 +485,87 @@ test('concurrent acknowledgments are safe and a later generation cancels committ
   assert.equal(await f.db.prepare('SELECT display_ciphertext FROM auth_mfa_recovery_operations').first('display_ciphertext'),null);
  });
 });
+
+async function recoveryLogin(f,remaining=0){
+ for(let i=remaining+1;i<f.codes.length;i++){
+  const verifier=await f.call('recoveryVerifier',f.user.id,f.factor.recovery_set_id,f.codes[i]);
+  await f.db.prepare('UPDATE auth_mfa_recovery_codes SET consumed_at=created_at WHERE verifier=?').bind(verifier).run();
+ }
+ const challenge=await(await f.request('mfa/challenge',undefined,f.h)).json();
+ const logged=await f.request('mfa/complete',{method:'recovery',code:f.codes[0]},{Cookie:f.h.Cookie,'X-CSRF-Token':challenge.csrfToken});
+ assert.equal(logged.status,200);
+ const Cookie=jar(logged),session=await(await f.request('session',undefined,{Cookie})).json();
+ return {Cookie,'X-CSRF-Token':session.csrfToken,remaining:session.recoveryCodesRemaining};
+}
+test('Account Security recovery counts are post-consumption, owner-only, and never block final-code login',async()=>{
+ for(const remaining of [3,2,1,0])await local(async f=>{
+  const h=await recoveryLogin(f,remaining);assert.equal(h.remaining,remaining);
+  assert.equal((await f.request('session')).status,401);
+  const pending=await f.call('primary',{userId:f.user.id,authVersion:f.user.auth_version,status:'active',emailVerifiedAt:f.c.now},'password',f.c.now);
+  const Cookie=jar(await f.raw('primaryCookies',{kind:'pending',...pending}));
+  const challenge=await(await f.request('mfa/challenge',undefined,{Cookie})).json();
+  assert.equal((await f.request('mfa/complete',{method:'recovery',code:f.codes[0]},{Cookie,'X-CSRF-Token':challenge.csrfToken})).status,401);
+ });
+});
+test('Account Security last-code handoff is single-use, restricted, and completes replacement after exhaustion',()=>local(async f=>{
+ const h=await recoveryLogin(f);assert.equal(h.remaining,0);
+ const rows=await f.db.prepare('SELECT count(*) AS n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n');assert.equal(rows,0);
+ const races=await Promise.all([f.request('mfa/recovery/from-session',{confirmed:true},h),f.request('mfa/recovery/from-session',{confirmed:true},h)]);
+ assert.equal(races.filter(r=>r.status===200).length,1);
+ const response=races.find(r=>r.status===200),Cookie=jar(response);
+ assert.equal((await f.request('session',undefined,{Cookie})).status,401);
+ assert.equal((await f.request('session',undefined,h)).status,401);
+ const status=await(await f.request('mfa/recovery/status',undefined,{Cookie})).json();assert.equal(status.phase,'pending');
+ const headers={Cookie,'X-CSRF-Token':status.csrfToken};
+ const setup=await(await f.request('mfa/recovery/setup',{},headers)).json();assert.equal(typeof setup.secret,'string');
+ const code=await f.call('otp',setup.secret,Math.floor(Date.now()/1000));
+ const committed=await f.request('mfa/recovery/commit',{code},headers);assert.equal(committed.status,200);
+ assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),10);
+ assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,401);
+ assert.notEqual(await f.db.prepare('SELECT factor_id FROM auth_totp_factors').first('factor_id'),f.factor.factor_id);
+}));
+test('Account Security handoff preserves CSRF, fresh proof, rollback, and one-use cancellation boundaries',async()=>{
+ for(const defect of ['csrf','primary','stale-mfa','rollback'])await local(async f=>{
+  const h=await recoveryLogin(f);let expected=428;
+  if(defect==='csrf'){h['X-CSRF-Token']='invalid';expected=403;}
+  if(defect==='primary')await f.db.prepare('UPDATE auth_recent_authentication SET authenticated_at=authenticated_at-121,expires_at=expires_at-121').run();
+  if(defect==='stale-mfa'){
+   const m=await f.db.prepare("SELECT * FROM auth_session_mfa WHERE method='recovery' AND session_digest IN (SELECT token_digest FROM auth_sessions WHERE revoked_at IS NULL)").first();
+   await f.db.batch([f.db.prepare('DELETE FROM auth_session_mfa WHERE session_digest=?').bind(m.session_digest),f.db.prepare('INSERT INTO auth_session_mfa(session_digest,user_id,auth_version,factor_id,method,verified_at,primary_method,primary_authenticated_at) VALUES(?,?,?,?,?,?,?,?)').bind(m.session_digest,m.user_id,m.auth_version,m.factor_id,m.method,m.verified_at-121,m.primary_method,m.primary_authenticated_at)]);
+  }
+  if(defect==='rollback'){expected=503;await f.db.exec("CREATE TRIGGER fixture_handoff_abort BEFORE UPDATE OF revoked_at ON auth_sessions BEGIN SELECT RAISE(ABORT,'fictional failure'); END;");}
+  assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,expected,defect);
+  assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_operations').first('n'),0);
+  assert.equal((await f.request('session',undefined,h)).status,200);
+ });
+ await local(async f=>{
+  const h=await recoveryLogin(f),r=await f.request('mfa/recovery/from-session',{confirmed:true},h);assert.equal(r.status,200);
+  const Cookie=jar(r),status=await(await f.request('mfa/recovery/status',undefined,{Cookie})).json();
+  assert.equal((await f.request('mfa/recovery/cancel',{confirmed:true},{Cookie,'X-CSRF-Token':status.csrfToken})).status,200);
+  assert.equal((await f.request('mfa/recovery/setup',{}, {Cookie,'X-CSRF-Token':status.csrfToken})).status,401);
+  assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),0);
+ });
+});
+
+test('Account Security handoff fences revocation, generation and set changes inside its atomic write',async()=>{
+ for(const change of ['revoke','generation','set'])await local(async f=>{
+  await recoveryLogin(f);
+  const session=await f.db.prepare("SELECT session_digest FROM auth_session_mfa WHERE method='recovery'").first('session_digest');
+  const context={token:'ac'.repeat(32),browser:'bd'.repeat(32),now:Math.floor(Date.now()/1000)};
+  const r=await f.raw('handoffRace',context,f.user.id,f.user.auth_version,session,change);assert.equal(r.status,409,change);
+  assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_operations').first('n'),0);
+  assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),0);
+ });
+});
+
+test('Account Security Google-only handoff requires actual signed fresh reauthentication without spending another recovery code',()=>local(async f=>{
+ const h=await recoveryLogin(f);
+ assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,428,'ordinary Google app-login time is not fresh provider reauthentication');
+ const launch=await f.request('google/start',{purpose:'reauth',returnAction:'mfa'},h);assert.equal(launch.status,200);const url=new URL((await launch.json()).url);
+ const callback=await f.instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{headers:{Cookie:h.Cookie+'; '+jar(launch)},redirect:'manual'});
+ assert.equal(callback.headers.get('location'),'/account/security#mfa');
+ assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,200);
+ assert.equal(await f.db.prepare('SELECT count(*) n FROM user_auth_providers').first('n'),1);
+ assert.equal(await f.db.prepare('SELECT count(*) n FROM user_password_credentials').first('n'),0);
+ assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),0);
+},{googleOnly:true}));

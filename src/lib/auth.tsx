@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { isMemberNumber } from './member-number';
 
-interface Session { account: { userId: string; nickname: string; memberNumber: string }; csrfToken: string; emailVerified: boolean }
+interface Session { account: { userId: string; nickname: string; memberNumber: string }; csrfToken: string; emailVerified: boolean; recoveryCodesRemaining?:number }
 interface Authentication {
   session: Session | null;
   status: 'loading' | 'ready' | 'error';
@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         || !isMemberNumber(value.account?.memberNumber)
         || typeof value.emailVerified !== 'boolean'
         || !/^[0-9a-f]{64}$/.test(value.csrfToken)) throw new Error('Invalid session response');
+      if(value.recoveryCodesRemaining!==undefined&&(!Number.isInteger(value.recoveryCodesRemaining)||value.recoveryCodesRemaining<0||value.recoveryCodesRemaining>10))delete value.recoveryCodesRemaining;
       setSession(value); setStatus('ready'); return true;
     } catch { setSession(null); setStatus('error'); return false; }
   }, []);

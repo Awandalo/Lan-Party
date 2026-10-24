@@ -21,7 +21,7 @@ export async function authorizationURL(env: GoogleConfiguration, callback: strin
     scope: 'openid email profile', state, nonce, code_challenge_method: 'S256',
     code_challenge: await oauth.calculatePKCECodeChallenge(verifier) }).toString();
   if (linking || reauth) url.searchParams.set('prompt','select_account');
-  if (reauth) url.searchParams.set('max_age','0');
+  if (reauth) {url.searchParams.set('max_age','0');url.searchParams.set('claims',JSON.stringify({id_token:{auth_time:{essential:true}}}));}
   return url.href;
 }
 export interface GoogleIdentity extends GoogleNameSuggestions { subject: string; email: string; authoritative: boolean; authenticatedAt?: number }

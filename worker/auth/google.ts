@@ -145,6 +145,7 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
           const linked=await env.DB.prepare(`SELECT id FROM user_auth_providers WHERE user_id=? AND provider='google'
             AND identity_namespace IN ('https://accounts.google.com','accounts.google.com') AND provider_subject=?`).bind(flow.user_id,identity.subject).first();
           if (!linked) throw new Error('Wrong identity');
+          if(flow.return_action==='mfa'&&(identity.authenticatedAt===undefined||identity.authenticatedAt<=now()-120||identity.authenticatedAt>now()))throw Error('Fresh Google proof unavailable');
           await grant(env.DB,session.account,session.digest,'google',identity.authenticatedAt);
           await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=?`).bind(flow.state_digest).run();
           return redirect(flow.return_action==='mfa'?'/account/security#mfa':'/account/security#add-password');
@@ -215,6 +216,16 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
       || (request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site')!=='same-origin')) return reply(403,{error:'Request rejected'});
     const input=await readInput(request) as Record<string,unknown>;
     if (!input || typeof input!=='object' || Array.isArray(input)) return reply(400,{error:'Invalid request'});
+    if(action==='reauth-status'){
+      if(Object.keys(input).join(',')!=='state'||typeof input.state!=='string'||!/^[a-f0-9]{64}$/.test(input.state))return reply(400,{error:'Invalid request'});
+      const session=await current(request,env);
+      if(!await validAuthMutation(request,origin.origin,session.digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
+      const flow=await env.DB.prepare(`SELECT phase,expires_at FROM auth_oidc_transactions WHERE state_digest=? AND purpose='reauth'
+       AND return_action='mfa' AND user_id=? AND session_digest=? AND auth_version=?`)
+       .bind(await proofDigest(input.state),session.account.userId,session.digest,session.account.authVersion).first<{phase:string;expires_at:number}>();
+      const proof=flow?.phase==='consumed'?await recent(env.DB,session.account,session.digest,'google').catch(()=>null):null;
+      return reply(200,{confirmed:!!proof&&!!flow&&flow.expires_at>now(),unavailable:!flow||flow.expires_at<=now()||flow.phase==='consumed'&&!proof});
+    }
     // Bounded expired-context cleanup; no raw provider codes/tokens are logged.
     for (const table of ['auth_oidc_transactions','auth_recent_authentication','auth_password_setup'])
       await env.DB.prepare(`DELETE FROM ${table} WHERE rowid IN (SELECT rowid FROM ${table} WHERE expires_at<=? LIMIT 50)`).bind(now()).run();

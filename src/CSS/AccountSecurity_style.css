@@ -1,4 +1,4 @@
-.account-security-card { max-width: 40rem; margin-inline: auto; }
+.account-security-card { max-width: 48rem; margin-inline: auto; }
 .account-security-card fieldset { display: grid; gap: .7rem; border: 0; padding: 0; margin-block: 1rem; min-width: 0; }
 .account-security-card > .button { margin-block: .5rem; }
 .account-security-card button { font: inherit; cursor: pointer; }

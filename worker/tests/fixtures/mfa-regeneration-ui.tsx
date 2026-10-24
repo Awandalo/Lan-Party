@@ -26,10 +26,13 @@ function advance(){offset+=86400000;for(const [id,timer] of timers){if(timer.at<
 window.open=()=>{googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
 window.fetch=async(input,init)=>{
  const path=String(input),data=JSON.parse(String(init?.body??'{}'));
- if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:'c'.repeat(64),emailVerified:true});
+ if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:'c'.repeat(64),emailVerified:true,...(new URL(window.location.href).searchParams.has('remaining')?{recoveryCodesRemaining:Number(new URL(window.location.href).searchParams.get('remaining'))}:{})});
  if(path==='/api/auth/google/methods')return Response.json({password:true,google:true});
  if(path==='/api/auth/mfa/status')return Response.json({enabled:true,enrollmentAvailable:true});
- if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state=fictional'});
+ if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state='+'d'.repeat(64)});
+ if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!new URL(window.location.href).searchParams.has('google-unavailable'),unavailable:false});
+ if(path==='/api/auth/mfa/recovery/status')return Response.json({phase:'pending',expiresAt:Math.floor(Date.now()/1000)+300,csrfToken:'c'.repeat(64),password:true,google:true});
+ if(path==='/api/auth/mfa/recovery/from-session')return Response.json({code:'mfa_required',error:'Fictional stale MFA proof; sign in again with a usable method.'},{status:428});
  if(path==='/api/auth/google/reauth-password'){primary=true;mfa=false;return Response.json({confirmed:true});}
  if(!path.startsWith('/api/auth/mfa/manage/'))throw Error('External transport forbidden');
  const action=path.split('/').pop();

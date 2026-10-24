@@ -634,3 +634,42 @@ allowlisted security notification; delivery failure does not reverse the committ
 Remote migration, publication/deployment and hosted recovery acceptance remain distinct
 states. No hosted recovery result is established by this local implementation. Do not
 roll back to pre-MFA authentication after enrollment or replace encryption keys.
+
+## Account Security replacement and recovery warnings — owner-approved 2026-10-24
+
+Owner accepted issue #10 design 6388349812 and authorized this scoped iteration's
+implementation/testing and DEV publication after successful checks. No new schema
+or key is required. Retain the existing login-screen restricted replacement entry
+until Account Security replacement has passed its remaining hosted verification.
+
+A fresh recovery-login session may explicitly authorize one restricted replacement
+without accepting its spent code again. Existing 0014 unique source_digest claims
+that session once. Guarded INSERT plus source-session revocation share an atomic
+batch/assertions, bound to user/generation/active factor/set/browser and actual fresh
+primary/MFA evidence at SQLite's clock boundary. This is purpose-limited authority,
+not renewed general assurance. Only restricted cookies/subview are issued; they do
+not authorize ordinary account access. Existing replacement deadlines, new-TOTP
+checks, atomic switch/generation/session invalidation, protected display and notice
+remain. Authorized replacement continues at zero old codes. Stale proof, cancellation
+or expiry never refunds codes or bypasses MFA; administrator assistance may be needed.
+
+For Google on this handoff, normal app-login time is insufficient: require a completed
+session/user/generation-bound MFA reauthentication transaction and fresh signed
+auth_time. Explicitly request the optional claim; reject missing, stale, future or
+wrong-subject proof. CSRF-protected status confirms the exact transaction; tab closure
+is not proof. Do not substitute iat/Date.now or relax freshness. Real provider claim
+availability/settings remain unverified and may prevent Google-only self-service.
+
+Owner-only session metadata counts unused codes in the active set after consumption:
+3–10 normal, 2 warning, 1 stronger final-code warning, 0 future recovery login unavailable.
+Warnings link to Account Security and explain possible lockout until an administrator
+can assist. They never block successful login, accept spent codes or change the MFA
+requirement for password/Google. Optional metadata failure does not undo/replay login.
+Administrator assistance is guidance, not a new console, reset or recovery bypass.
+
+Ordinary regeneration UI uses TOTP only while backend recovery-code verification,
+normal recovery login and existing restricted replacement are preserved. Password
+confirmation continues directly; Reveal, saved acknowledgment and Activate remain
+explicit. No code-view/regeneration countdown is introduced. Stale proof controls
+sit by Activate, preserving the same set. Status recovery is shown only for uncertain
+activation, with no write retry. Confirm/Google/Cancel and Activate/Cancel are responsive.
