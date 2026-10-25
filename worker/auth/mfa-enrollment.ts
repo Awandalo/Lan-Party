@@ -31,7 +31,7 @@ async function pending(db:D1Database,c:EnrollmentContext,token:string,phase:'pen
     .bind(...values(await mfaDigest('transaction',token),c),phase,...guards(c)).first<Pending>();
   if(!row)throw Error('Enrollment unavailable');return row;
 }
-export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:MfaKeys,environment:'local'|'dev',label:string){
+export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:MfaKeys,environment:'local'|'dev',label:string,restart=false){
   context(c);
   const primary=await db.prepare(`SELECT r.method,r.authenticated_at FROM auth_recent_authentication r
     JOIN auth_sessions s ON s.token_digest=r.session_digest JOIN users u ON u.id=r.user_id
@@ -45,8 +45,17 @@ export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:M
   const token=randomMfaToken(),digest=await mfaDigest('transaction',token),id=crypto.randomUUID(),factorId=crypto.randomUUID(),secret=generateTotpSecret();
   const encrypted=await encryptTotpSecret(secret,config,cryptoContext(c,id,'pending',environment));
   const uri=provisioningUri(secret,label);
-  // Expired setups cannot block a new setup. Preserve active recovery sets.
+  // An explicitly confirmed restart retires only unfinished enrollment. The final
+  // INSERT assertion rolls the whole batch back if session/proof/factor guards lose.
   await db.batch([
+    ...(restart?[
+      db.prepare(`DELETE FROM auth_mfa_recovery_codes WHERE user_id=? AND set_id IN
+        (SELECT recovery_set_id FROM auth_mfa_transactions WHERE user_id=? AND purpose='enroll' AND phase IN ('pending','verified'))
+        AND NOT EXISTS(SELECT 1 FROM auth_totp_factors WHERE user_id=?)`).bind(c.userId,c.userId,c.userId),
+      db.prepare(`UPDATE auth_mfa_transactions SET phase='cancelled',secret_ciphertext=NULL,secret_nonce=NULL,key_id=NULL,ack_digest=NULL
+        WHERE user_id=? AND purpose='enroll' AND phase IN ('pending','verified')
+        AND NOT EXISTS(SELECT 1 FROM auth_totp_factors WHERE user_id=?)`).bind(c.userId,c.userId),
+    ]:[]),
     db.prepare(`DELETE FROM auth_mfa_recovery_codes WHERE user_id=? AND set_id IN
       (SELECT recovery_set_id FROM auth_mfa_transactions WHERE user_id=? AND purpose='enroll' AND expires_at<=?)
       AND NOT EXISTS(SELECT 1 FROM auth_totp_factors f WHERE f.user_id=auth_mfa_recovery_codes.user_id AND f.recovery_set_id=auth_mfa_recovery_codes.set_id)`)
@@ -64,7 +73,8 @@ export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:M
       .bind(digest,id,c.userId,c.authVersion,c.sessionDigest,c.browserDigest,factorId,primary.method,primary.authenticated_at,
         encrypted.ciphertext,encrypted.nonce,encrypted.keyId,c.now,c.now+600,c.userId,c.authVersion,c.sessionDigest,
         c.now,c.now,c.now,c.now-120,c.now,c.userId),
-  ]).then(results=>{if(results[2].results.length!==1)throw Error('Enrollment unavailable');});
+    db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Enrollment guard failed') END"),
+  ]).then(results=>{if(results.at(-2)?.results.length!==1)throw Error('Enrollment unavailable');});
   return {token,secret,uri,expiresAt:c.now+600}; // Only the initiating no-store response; never log.
 }
 export async function verifyEnrollment(db:D1Database,c:EnrollmentContext,token:string,code:string,config:MfaKeys,environment:'local'|'dev',rateSecret:string){

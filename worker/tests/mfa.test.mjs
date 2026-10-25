@@ -799,3 +799,68 @@ test('expired enrollment start requests reauthentication before staging and succ
  const setup=await started.json();assert.equal((await request('mfa/enroll/cancel',{token:setup.token},headers)).status,200);
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),0);
 },{google:true}));
+
+test('unfinished enrollment blocks a second start even after reloading client state',()=>local(async({request,seed,db})=>{
+ const {cookie}=await seed();const session=await(await request('session',undefined,{Cookie:cookie})).json();const headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,200);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,409);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll' AND phase='pending'").first('n'),1);
+}));
+
+test('explicit enrollment restart requires confirmation, CSRF and fresh proof and invalidates only unfinished setup',()=>local(async({request,seed,db,call})=>{
+ const {cookie,c}=await seed();await call('clock',c.now);const session=await(await request('session',undefined,{Cookie:cookie})).json(),headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
+ const old=await(await request('mfa/enroll/start',{},headers)).json();
+ const status=await(await request('mfa/status',undefined,headers)).json();assert.deepEqual(Object.keys(status).sort(),['enabled','enrollmentAvailable','pendingEnrollment']);assert.deepEqual(Object.keys(status.pendingEnrollment),['expiresAt']);
+ assert.equal((await request('mfa/enroll/start',{restart:true},headers)).status,400);
+ assert.equal((await request('mfa/enroll/start',{restart:true,confirmed:true},{...headers,'X-CSRF-Token':'invalid'})).status,403);
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=? WHERE session_digest=?').bind(c.now-120,c.now+180,c.sessionDigest).run();
+ assert.equal((await request('mfa/enroll/start',{restart:true,confirmed:true},headers)).status,428);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),1);
+ assert.equal((await request('google/reauth-password',{password:profile.password},headers)).status,200);
+ const restarted=await request('mfa/enroll/start',{restart:true,confirmed:true},headers);assert.equal(restarted.status,200);const next=await restarted.json();assert.notEqual(next.token,old.token);
+ assert.equal((await request('mfa/enroll/cancel',{token:old.token},headers)).status,409,'old handle cannot cancel the replacement');
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),1);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='cancelled' AND secret_ciphertext IS NULL").first('n'),1);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
+ assert.equal((await request('mfa/enroll/cancel',{token:next.token},headers)).status,200);
+ assert.equal((await(await request('mfa/status',undefined,headers)).json()).pendingEnrollment,undefined);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,200,'confirmed cancellation supports immediate fresh setup');
+},{google:true}));
+
+test('failed enrollment restart rolls back old staged codes and setup; successful restart removes staged codes',()=>local(async({request,seed,db,stage,call})=>{
+ const {cookie,c}=await seed();await call('clock',c.now);const {setup}=await stage(c),session=await(await request('session',undefined,{Cookie:cookie})).json(),headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
+ const before=(await db.prepare('SELECT * FROM auth_mfa_transactions').all()).results,codes=(await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results;assert.equal(codes.length,10);
+ await db.prepare("CREATE TRIGGER fixture_reject_restart BEFORE INSERT ON auth_mfa_transactions BEGIN SELECT RAISE(ABORT,'fictional insert failure'); END").run();
+ assert.equal((await request('mfa/enroll/start',{restart:true,confirmed:true},headers)).status,503);
+ assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_transactions').all()).results,before);assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results,codes);
+ await db.prepare('DROP TRIGGER fixture_reject_restart').run();
+ assert.equal((await request('mfa/enroll/start',{restart:true,confirmed:true},headers)).status,200);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes').first('n'),0);
+ assert.equal((await request('mfa/enroll/cancel',{token:setup.token},headers)).status,409);
+ assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+}));
+
+test('enrollment restart cannot remove active MFA or active recovery codes',()=>local(async fixture=>{
+ const {db,request}=fixture,m=await managementFixture(fixture),factor=await db.prepare('SELECT * FROM auth_totp_factors').first(),codes=(await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results;
+ const result=await request('mfa/enroll/start',{restart:true,confirmed:true},m.headers);assert.equal(result.status,409);assert.equal((await result.json()).code,'mfa_enabled');
+ assert.deepEqual(await db.prepare('SELECT * FROM auth_totp_factors').first(),factor);assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results,codes);
+}));
+
+
+test('enrollment restart rolls back retirement if fresh-proof guard is lost inside the atomic batch',()=>local(async({request,seed,db,stage,call})=>{
+ const {cookie,c}=await seed();await call('clock',c.now);await stage(c);const session=await(await request('session',undefined,{Cookie:cookie})).json(),headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
+ const before=(await db.prepare('SELECT * FROM auth_mfa_transactions').all()).results,codes=(await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results;
+ await db.prepare("CREATE TRIGGER fixture_expire_proof BEFORE UPDATE OF phase ON auth_mfa_transactions WHEN NEW.phase='cancelled' BEGIN DELETE FROM auth_recent_authentication; END").run();
+ assert.equal((await request('mfa/enroll/start',{restart:true,confirmed:true},headers)).status,503);
+ assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_transactions').all()).results,before);assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results,codes);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_recent_authentication').first('n'),1);
+}));
+
+test('concurrent explicitly confirmed enrollment restarts leave one usable pending setup',()=>local(async({request,seed,db,call})=>{
+ const {cookie,c}=await seed();await call('clock',c.now);const session=await(await request('session',undefined,{Cookie:cookie})).json(),headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,200);
+ const results=await Promise.all([request('mfa/enroll/start',{restart:true,confirmed:true},headers),request('mfa/enroll/start',{restart:true,confirmed:true},headers)]);
+ for(const result of results)assert.equal(result.status,200);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),1);assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='cancelled'").first('n'),2);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
+}));

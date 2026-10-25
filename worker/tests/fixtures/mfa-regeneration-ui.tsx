@@ -8,6 +8,7 @@ import {AuthProvider,useAuth} from '../../../src/lib/auth';
 import {BrowserRouter,Link,Routes,Route} from 'react-router';
 import '../../../src/CSS/main.css';
 import '../../../src/CSS/AccountSecurity_style.css';
+const fixtureParams=new URL(location.href).searchParams;
 let expired=false,sessionGeneration=0;
 let operation=false,seen=false,primary=true,mfa=false,active=false,reveals=0,cancels=0,googleTabs=0,loseReveal=false,loseActivation=false,contextChanged=false;
 const codes=Array.from({length:10},(_,i)=>String.fromCharCode(65+i)+'AAA-AAAA-AAAA-AAAA-AAAA-AAAA-AA');
@@ -25,8 +26,9 @@ window.setTimeout=((handler:TimerHandler,delay=0,...args:unknown[])=>{
 window.clearTimeout=(id?:number)=>{if(id!==undefined)timers.delete(id);nativeClearTimeout(id);};
 function advance(){offset+=86400000;for(const [id,timer] of timers){if(timer.at<=Date.now()){timers.delete(id);nativeClearTimeout(id);timer.run();}}primary=false;mfa=false;}
 window.open=()=>{googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
-const perfDelay=Number(new URL(location.href).searchParams.get('delay')??0);
-if(new URL(location.href).searchParams.has('stale-primary'))primary=false;
+const perfDelay=Number(fixtureParams.get('delay')??0);
+if(fixtureParams.has('stale-primary'))primary=false;
+if(fixtureParams.has('pending-enrollment'))operation=true;
 const perfStarted=performance.now(),perfCounts:Record<string,number>={},perfTimes:Record<string,number>={};
 let clickAt=0;const cardHeights:number[]=[],panelHeights:number[]=[];
 const meter=document.createElement('pre');meter.style.whiteSpace='pre-wrap';meter.style.overflowWrap='anywhere';meter.setAttribute('aria-label','Safe performance measurements');document.body.append(meter);
@@ -47,23 +49,24 @@ window.fetch=async(input,init)=>{
  const path=String(input),data=JSON.parse(String(init?.body??'{}'));
  perfCounts[path]=(perfCounts[path]??0)+1;measure();if(perfDelay)await new Promise(resolve=>nativeSetTimeout(resolve,perfDelay));
  if(path==='/api/auth/session'&&expired)return Response.json({}, {status:401});
- if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:(sessionGeneration?'e':'c').repeat(64),emailVerified:true,...(new URL(window.location.href).searchParams.has('remaining')?{recoveryCodesRemaining:Number(new URL(window.location.href).searchParams.get('remaining'))}:{})});
- if(path==='/api/auth/google/methods')return Response.json(new URL(location.href).searchParams.has('bad-methods')?{password:'invalid',google:true}:{password:true,google:true});
- if(path==='/api/auth/mfa/status')return Response.json({enabled:!new URL(location.href).searchParams.has('enrollment'),enrollmentAvailable:true});
+ if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:(sessionGeneration?'e':'c').repeat(64),emailVerified:true,...(fixtureParams.has('remaining')?{recoveryCodesRemaining:Number(fixtureParams.get('remaining'))}:{})});
+ if(path==='/api/auth/google/methods')return Response.json(fixtureParams.has('bad-methods')?{password:'invalid',google:true}:{password:true,google:true});
+ if(path==='/api/auth/mfa/status')return Response.json({enabled:!fixtureParams.has('enrollment'),enrollmentAvailable:true,...(operation?{pendingEnrollment:{expiresAt:Math.floor(Date.now()/1000)+600}}:{})});
  if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state='+'d'.repeat(64)});
- if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!new URL(window.location.href).searchParams.has('google-unavailable'),unavailable:false});
+ if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!fixtureParams.has('google-unavailable'),unavailable:false});
  if(path==='/api/auth/mfa/recovery/status')return Response.json({phase:'pending',expiresAt:Math.floor(Date.now()/1000)+300,csrfToken:'c'.repeat(64),password:true,google:true});
  if(path==='/api/auth/mfa/recovery/from-session')return Response.json({code:'mfa_required',error:'Fictional stale MFA proof; sign in again with a usable method.'},{status:428});
  if(path==='/api/auth/google/reauth-password'){primary=true;mfa=false;return Response.json({confirmed:true});}
  if(path==='/api/auth/mfa/enroll/start'){
-  if(new URL(location.href).searchParams.has('enrollment-lost')){operation=true;throw Error('Fictional response lost after staging');}
+  if(fixtureParams.has('enrollment-lost')&&!data.restart){operation=true;throw Error('Fictional response lost after staging');}
   if(!primary)return Response.json({code:'reauth_required',error:'Confirm sign-in first.'},{status:428});
+  if(operation&&!(data.restart===true&&data.confirmed===true))return Response.json({code:'enrollment_pending'},{status:409});
   operation=true;const secret='A'.repeat(32);return Response.json({token,secret,uri:'otpauth://totp/LAN%20Party:fictional?secret='+secret+'&issuer=LAN%20Party&algorithm=SHA1&digits=6&period=30',expiresAt:Math.floor(Date.now()/1000)+600});
  }
- if(path==='/api/auth/mfa/enroll/cancel'){operation=false;cancels++;return Response.json({message:'Setup cancelled.'});}
+ if(path==='/api/auth/mfa/enroll/cancel'){operation=false;cancels++;if(fixtureParams.has('cancel-lost'))throw Error('Fictional lost cancel response');return Response.json({message:'Setup cancelled.'});}
  if(!path.startsWith('/api/auth/mfa/manage/'))throw Error('External transport forbidden');
  const action=path.split('/').pop();
- if(contextChanged&&data.token)return Response.json({code:'regeneration_ended',error:'Fictional session changed; check current settings.'},{status:new URL(window.location.href).searchParams.has('csrf-rejection')?403:410});
+ if(contextChanged&&data.token)return Response.json({code:'regeneration_ended',error:'Fictional session changed; check current settings.'},{status:fixtureParams.has('csrf-rejection')?403:410});
  if(action==='start'&&!primary)return Response.json({primaryRequired:true,error:'Confirm your sign-in method first.'},{status:428});
  if(action==='start'&&data.purpose==='disable')return Response.json({error:'Confirm your sign-in method first.'},{status:428});
  if(action==='start'){operation=true;seen=false;mfa=false;active=false;return Response.json({token,regeneration:true});}
@@ -80,13 +83,14 @@ window.fetch=async(input,init)=>{
 };
 function FixtureSessionControls(){const {refresh}=useAuth();return <><button onClick={()=>void refresh()}>Refresh same fictional session</button><button onClick={()=>{sessionGeneration++;void refresh();}}>Rotate fictional session</button><button onClick={()=>{expired=true;void refresh();}}>Expire fictional session</button></>;}
 function App(){const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[show,setShow]=useState(true),[version,setVersion]=useState(0);
- return <main className="page-section"><div className="panel account-security-card" style={{maxWidth:new URL(window.location.href).searchParams.has('mobile')?360:640,marginInline:'auto'}}><h1>Fictional recovery-code UI test</h1><p>No real accounts, credentials, messages or provider requests.</p>
+ return <main className="page-section"><div className="panel account-security-card" style={{maxWidth:fixtureParams.has('mobile')?360:640,marginInline:'auto'}}><h1>Fictional recovery-code UI test</h1><p>No real accounts, credentials, messages or provider requests.</p>
  <button onClick={()=>{advance();setVersion(n=>n+1);}}>Advance beyond one day (proof stale only)</button>
+ <button onClick={()=>window.dispatchEvent(new Event('focus'))}>Return from fictional Google confirmation</button>
  <button onClick={()=>setShow(false)}>Leave code view</button><button onClick={()=>{loseReveal=true;}}>Lose next reveal response</button><button onClick={()=>{loseActivation=true;}}>Lose next activation response</button><button onClick={()=>{contextChanged=true;}}>Switch fictional session</button><button onClick={()=>setShow(true)}>Return to new view</button>
  <button onClick={()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Fictional denial');}}});}}>Deny clipboard</button>
  <button onClick={()=>setVersion(n=>n+1)}>Inspect safe counters</button>
  <p aria-label="Fixture counters">{JSON.stringify({version,seen,reveals,cancels,active,googleTabs})}</p>
- {show&&(new URL(window.location.href).searchParams.has('account')?<BrowserRouter><AuthProvider>{perfDelay?<><FixtureSessionControls/><Link to="/account">Fixture overview</Link><Link to="/account/security">Fixture settings</Link><Routes><Route path="/login" element={<p>Fictional signed-out page</p>}/><Route path="/account" element={<p>Fictional overview</p>}/><Route path="*" element={<AccountSecurity/>}/></Routes></>:<AccountSecurity/>}</AuthProvider></BrowserRouter>:new URL(window.location.href).searchParams.has('integration')?<MfaManagement csrf={'c'.repeat(64)} open={open} disabled={busy} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={setBusy} onActivated={async()=>{setVersion(n=>n+1);}}/>:<MfaRegeneration csrf={'c'.repeat(64)} open={open} disabled={false} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={()=>{}} onActivated={async()=>{setVersion(n=>n+1);}}/>)}
+ {show&&(fixtureParams.has('account')?<BrowserRouter><AuthProvider>{perfDelay?<><FixtureSessionControls/><Link to="/account">Fixture overview</Link><Link to="/account/security">Fixture settings</Link><Routes><Route path="/login" element={<p>Fictional signed-out page</p>}/><Route path="/account" element={<p>Fictional overview</p>}/><Route path="*" element={<AccountSecurity/>}/></Routes></>:<AccountSecurity/>}</AuthProvider></BrowserRouter>:fixtureParams.has('integration')?<MfaManagement csrf={'c'.repeat(64)} open={open} disabled={busy} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={setBusy} onActivated={async()=>{setVersion(n=>n+1);}}/>:<MfaRegeneration csrf={'c'.repeat(64)} open={open} disabled={false} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={()=>{}} onActivated={async()=>{setVersion(n=>n+1);}}/>)}
  </div></main>;
 }
 const fixtureRoot=createRoot(document.getElementById('root')!);fixtureRoot.render(<App/>);

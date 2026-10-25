@@ -139,8 +139,10 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
     if(action==='status'){
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
       if(!account)return reply(401,{error:'Sign in again.'});
-      return reply(200,{enabled:!!await env.DB.prepare('SELECT user_id FROM auth_totp_factors WHERE user_id=?').bind(account.userId).first(),
-        enrollmentAvailable:managementEnvironment!==null});
+      const enabled=!!await env.DB.prepare('SELECT user_id FROM auth_totp_factors WHERE user_id=?').bind(account.userId).first();
+      const unfinished=!enabled&&managementEnvironment?await env.DB.prepare("SELECT expires_at FROM auth_mfa_transactions WHERE user_id=? AND purpose='enroll' AND phase IN ('pending','verified') AND expires_at>? LIMIT 1")
+        .bind(account.userId,now).first<{expires_at:number}>():null;
+      return reply(200,{enabled,enrollmentAvailable:managementEnvironment!==null,...(unfinished?{pendingEnrollment:{expiresAt:unfinished.expires_at}}:{})});
     }
     if(enrolling){
       const token=readSessionCookie(request),account=token?await resolveSession(env.DB,token,now):null;
@@ -148,18 +150,23 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       const digest=await digestToken(token,'session');
       if(!await validAuthMutation(request,origin.origin,digest,secret))return reply(403,{error:'Request rejected'});
       const input=await readInput(request) as Record<string,unknown>;
-      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['token','code','acknowledgment'].includes(k)))return reply(400,{error:'Invalid request'});
+      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!(action==='start'?['restart','confirmed']:['token','code','acknowledgment']).includes(k)))return reply(400,{error:'Invalid request'});
       const c={userId:account.userId,authVersion:account.authVersion,sessionDigest:digest,browserDigest:await mfaDigest('enrollment-browser',digest),now};
-      if(action==='start'&&Object.keys(input).length===0){
+      if(action==='start'){
+        const restart=input.restart===true&&input.confirmed===true;
+        if(Object.keys(input).length&&!restart)return reply(400,{error:'Explicit restart confirmation required.'});
+        if(await env.DB.prepare('SELECT 1 FROM auth_totp_factors WHERE user_id=?').bind(account.userId).first())return reply(409,{code:'mfa_enabled',error:'MFA is already enabled. Reload Account Security.'});
         // This refusal is before any enrollment write; keep beginEnrollment's own guards too.
         const primary=await env.DB.prepare('SELECT 1 FROM auth_recent_authentication WHERE user_id=? AND session_digest=? AND auth_version=? AND authenticated_at>? AND authenticated_at<=? AND expires_at>?')
           .bind(account.userId,digest,account.authVersion,now-120,now,now).first();
         if(!primary)throw new MfaPrimaryRequired();
-        return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,'LAN Party member'));
+        if(!restart&&await env.DB.prepare("SELECT 1 FROM auth_mfa_transactions WHERE user_id=? AND purpose='enroll' AND phase IN ('pending','verified') AND expires_at>? LIMIT 1").bind(account.userId,now).first())
+          return reply(409,{code:'enrollment_pending',error:'An unfinished setup exists. Explicitly restart it after confirming your identity.'});
+        return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,'LAN Party member',restart));
       }
       if(typeof input.token!=='string'||!/^[a-f0-9]{64}$/.test(input.token))return reply(400,{error:'Invalid request'});
       if(action==='verify'&&typeof input.code==='string'&&/^[0-9]{6}$/.test(input.code))return reply(200,await verifyEnrollment(env.DB,c,input.token,input.code,env,managementEnvironment!,secret));
-      if(action==='cancel'){await cancelEnrollment(env.DB,c,input.token);return reply(200,{message:'Setup cancelled.'});}
+      if(action==='cancel'){const cancelled=await cancelEnrollment(env.DB,c,input.token);return cancelled?reply(200,{message:'Setup cancelled.'}):reply(409,{code:'enrollment_ended',error:'Setup is no longer pending. Check current MFA status.'});}
       if(action==='activate'&&typeof input.acknowledgment==='string'&&/^[a-f0-9]{64}$/.test(input.acknowledgment)){
         const statements=await prepareEnrollmentActivation(env.DB,c,input.token,input.acknowledgment,env,managementEnvironment!);
         const row=await env.DB.prepare(`SELECT * FROM auth_mfa_transactions WHERE token_digest=? AND phase='verified'`).bind(await mfaDigest('transaction',input.token)).first<{
