@@ -140,6 +140,8 @@ export default function MfaRegeneration(props:Props){
    <h3>Regenerate recovery codes</h3>
    <p className="eyebrow">{step}</p>
    <p>Previous codes stay active until you activate the new set, except any spent as proof.</p>
+   <div className={!codes.length?'mfa-regeneration-stage':undefined}>
+   {busy&&!operation&&!primaryRequired&&!codes.length&&<div className="mfa-regeneration-loading-shape" aria-hidden="true"><span/><span/><span/></div>}
    {!codes.length&&primaryRequired&&primaryControls}
    {!codes.length&&operation&&!primaryRequired&&mfaRequired&&totpControls}
    {googleWaiting&&<button className="button button-secondary" disabled={busy} onClick={()=>void checkGoogle()}>Check Google confirmation</button>}
@@ -159,6 +161,7 @@ export default function MfaRegeneration(props:Props){
    {operation&&codes.length>0&&uncertain&&<button className="button button-secondary" disabled={busy} onClick={()=>void run('check')}>Check activation result</button>}
    <p role="status" aria-live="polite">{busy&&!operation?'Checking your session and sign-in freshness. No recovery codes have been activated…':busy?'Checking securely…':feedback}</p>
    {!codes.length&&!primaryRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}
+   </div>
   </section>}
   {!engaged&&<p role="status" aria-live="polite">{feedback}</p>}
  </div>;

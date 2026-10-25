@@ -26,20 +26,23 @@ window.clearTimeout=(id?:number)=>{if(id!==undefined)timers.delete(id);nativeCle
 function advance(){offset+=86400000;for(const [id,timer] of timers){if(timer.at<=Date.now()){timers.delete(id);nativeClearTimeout(id);timer.run();}}primary=false;mfa=false;}
 window.open=()=>{googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
 const perfDelay=Number(new URL(location.href).searchParams.get('delay')??0);
+if(new URL(location.href).searchParams.has('stale-primary'))primary=false;
 const perfStarted=performance.now(),perfCounts:Record<string,number>={},perfTimes:Record<string,number>={};
-let clickAt=0;const cardHeights:number[]=[];
+let clickAt=0;const cardHeights:number[]=[],panelHeights:number[]=[];
 const meter=document.createElement('pre');meter.style.whiteSpace='pre-wrap';meter.style.overflowWrap='anywhere';meter.setAttribute('aria-label','Safe performance measurements');document.body.append(meter);
 function measure(){
  const elapsed=()=>Math.round(performance.now()-perfStarted);
+ const panel=document.querySelector('[aria-label="Recovery code regeneration"]');if(panel){const height=Math.round(panel.getBoundingClientRect().height);if(panelHeights.at(-1)!==height)panelHeights.push(height);}
  const card=document.querySelector('.account-security-page .account-security-card');if(card){const height=Math.round(card.getBoundingClientRect().height);if(cardHeights.at(-1)!==height)cardHeights.push(height);}
  if(Array.from(document.querySelectorAll('h1')).some(h=>h.textContent==='Account security')&&!('shell' in perfTimes))perfTimes.shell=elapsed();
  if(document.querySelector('[aria-label="Disable MFA"]')&&!('settings' in perfTimes))perfTimes.settings=elapsed();
  if(clickAt&&document.querySelector('[aria-label="Recovery code regeneration"]')&&!('panel' in perfTimes))perfTimes.panel=Math.round(performance.now()-clickAt);
  if(clickAt&&document.querySelector('#regeneration-code')&&!('authenticator' in perfTimes))perfTimes.authenticator=Math.round(performance.now()-clickAt);
- meter.textContent=JSON.stringify({delay:perfDelay,requests:perfCounts,milliseconds:perfTimes,cardHeights});
+ if(clickAt&&document.querySelector('#regeneration-password')&&!('password' in perfTimes))perfTimes.password=Math.round(performance.now()-clickAt);
+ meter.textContent=JSON.stringify({delay:perfDelay,requests:perfCounts,milliseconds:perfTimes,cardHeights,panelHeights});
 }
 new MutationObserver(measure).observe(document.getElementById('root')!,{childList:true,subtree:true});
-document.addEventListener('click',e=>{if((e.target as HTMLElement).textContent==='Regenerate recovery codes'){clickAt=performance.now();delete perfTimes.panel;delete perfTimes.authenticator;}},true);
+document.addEventListener('click',e=>{if((e.target as HTMLElement).textContent==='Regenerate recovery codes'){clickAt=performance.now();delete perfTimes.panel;delete perfTimes.authenticator;delete perfTimes.password;panelHeights.length=0;}},true);
 window.fetch=async(input,init)=>{
  const path=String(input),data=JSON.parse(String(init?.body??'{}'));
  perfCounts[path]=(perfCounts[path]??0)+1;measure();if(perfDelay)await new Promise(resolve=>nativeSetTimeout(resolve,perfDelay));
