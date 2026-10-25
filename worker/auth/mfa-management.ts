@@ -11,7 +11,7 @@ export type ManagementPurpose='disable'|'regenerate';
 interface Management {
  token_digest:string;user_id:string;auth_version:number;factor_id:string;purpose:ManagementPurpose;phase:string;
  secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number;active_set:string;
- recovery_set_id:string|null;primary_method:'password'|'google';primary_authenticated_at:number;
+ recovery_set_id:string|null;primary_method:'password';primary_authenticated_at:number;
  verified_at:number;proof_method:'totp'|'recovery';expires_at:number;
 }
 const live=`EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id
@@ -20,7 +20,7 @@ const live=`EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id
  WHERE u.id=t.user_id AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.auth_version=t.auth_version
  AND s.token_digest=t.session_digest AND s.auth_version=u.auth_version AND s.revoked_at IS NULL
  AND s.created_at<=? AND s.expires_at>? AND m.user_id=u.id AND m.auth_version=u.auth_version AND m.factor_id=f.factor_id
- AND f.factor_id=t.factor_id AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.method=t.primary_method
+ AND f.factor_id=t.factor_id AND r.user_id=u.id AND r.method='password' AND r.auth_version=u.auth_version AND r.method=t.primary_method
  AND r.authenticated_at=t.primary_authenticated_at AND r.authenticated_at>? AND r.authenticated_at>unixepoch()-120
  AND r.authenticated_at<=? AND r.expires_at>?)`;
 const bound=`t.token_digest=? AND t.user_id=? AND t.auth_version=? AND t.session_digest=? AND t.browser_digest=?
@@ -56,7 +56,7 @@ export async function beginManagement(db:D1Database,c:EnrollmentContext,purpose:
   JOIN auth_sessions s ON s.token_digest=r.session_digest JOIN users u ON u.id=r.user_id
   WHERE u.id=? AND u.auth_version=? AND u.status='active' AND u.email_verified_at IS NOT NULL
   AND s.token_digest=? AND s.user_id=u.id AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?
-  AND r.auth_version=u.auth_version AND r.authenticated_at>? AND r.authenticated_at<=? AND r.expires_at>?`)
+  AND r.method='password' AND r.auth_version=u.auth_version AND r.authenticated_at>? AND r.authenticated_at<=? AND r.expires_at>?`)
   .bind(c.userId,c.authVersion,c.sessionDigest,c.now,c.now-120,c.now,c.now).first<{method:string;authenticated_at:number}>();
  if(!primary)throw new MfaPrimaryRequired('Confirm your sign-in method before continuing.');
  const factor=await db.prepare('SELECT *,recovery_set_id AS active_set FROM auth_totp_factors WHERE user_id=?').bind(c.userId).first<Management>();
@@ -76,7 +76,7 @@ export async function beginManagement(db:D1Database,c:EnrollmentContext,purpose:
     JOIN auth_recent_authentication r ON r.session_digest=s.token_digest WHERE u.id=? AND u.auth_version=? AND u.status='active'
     AND u.email_verified_at IS NOT NULL AND s.token_digest=? AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>?
     AND m.user_id=u.id AND m.auth_version=u.auth_version AND m.factor_id=f.factor_id AND f.factor_id=?
-    AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.method=? AND r.authenticated_at=? AND r.authenticated_at>unixepoch()-120)
+    AND r.user_id=u.id AND r.method='password' AND r.auth_version=u.auth_version AND r.method=? AND r.authenticated_at=? AND r.authenticated_at>unixepoch()-120)
     RETURNING token_digest`)
    .bind(digest,crypto.randomUUID(),c.userId,c.authVersion,c.sessionDigest,c.browserDigest,purpose,factor.factor_id,primary.method,primary.authenticated_at,c.now,expiresAt,
      c.userId,c.authVersion,c.sessionDigest,c.now,factor.factor_id,primary.method,primary.authenticated_at),

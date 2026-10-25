@@ -3,7 +3,7 @@ import type { AuthenticationEnvironment } from './http';
 import { authOrigin, emailTransport } from './environment';
 
 export async function passwordNotice(request: Request, env: AuthenticationEnvironment, account: AccountIdentity,
-  purpose: 'password-added'|'password-changed'|'mfa-enabled'|'mfa-disabled'|'mfa-regenerated'|'mfa-replaced') {
+  purpose: 'password-changed'|'mfa-enabled'|'mfa-disabled'|'mfa-regenerated'|'mfa-replaced') {
   // Call only after a committed, ownership-authorized credential write. A reset
   // proof also authorizes notifying its current address; it does not verify email.
   try {

@@ -3,10 +3,10 @@ import type {FormEvent} from 'react';
 import {flushSync} from 'react-dom';
 import PasswordInput from './PasswordInput';
 import LoginChallenge from './LoginChallenge';
-import {googleRequest} from '../lib/google';
+import {securityRequest} from '../lib/account-security';
 import '../CSS/MfaRegeneration_style.css';
 
-type Props={csrf:string;open:boolean;disabled:boolean;methods:{password:boolean;google:boolean};onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;onActive?:(active:boolean)=>void};
+type Props={csrf:string;open:boolean;disabled:boolean;methods:{password:boolean};onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;onActive?:(active:boolean)=>void};
 type Operation={token:string;acknowledgment?:string};
 export default function MfaRegeneration(props:Props){
  const [engaged,setEngaged]=useState(false);
@@ -16,12 +16,11 @@ export default function MfaRegeneration(props:Props){
  const [busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
  const [siteKey,setSiteKey]=useState(''),[challenge,setChallenge]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
  const [uncertain,setUncertain]=useState(false),[revealAttempted,setRevealAttempted]=useState(false);
- const panel=useRef<HTMLDivElement>(null),googleState=useRef<string|null>(null);
- const [googleWaiting,setGoogleWaiting]=useState(false);
+ const panel=useRef<HTMLDivElement>(null);
  useEffect(()=>{if(engaged)panel.current?.focus();},[engaged,operation!==null,primaryRequired,mfaRequired,codes.length]);
  const receipt=useRef<Operation|null>(null),pending=useRef<string|null>(null),mounted=useRef(true),callbacks=useRef(props);
  callbacks.current=props;
- function clear(){receipt.current=null;googleState.current=null;setGoogleWaiting(false);setEngaged(false);setOperation(null);setCodes([]);setSaved(false);setVerified(false);setUncertain(false);setRevealAttempted(false);setPrimaryRequired(false);setMfaRequired(true);setSiteKey('');setChallenge(null);callbacks.current.onActive?.(false);}
+ function clear(){receipt.current=null;setEngaged(false);setOperation(null);setCodes([]);setSaved(false);setVerified(false);setUncertain(false);setRevealAttempted(false);setPrimaryRequired(false);setMfaRequired(true);setSiteKey('');setChallenge(null);callbacks.current.onActive?.(false);}
  function abandon(){const old=receipt.current;const activating=pending.current==='finish';clear();
   if(old&&!activating)void fetch('/api/auth/mfa/manage/cancel',{method:'POST',credentials:'same-origin',redirect:'error',keepalive:true,
    headers:{'X-LAN-Request':'1','Content-Type':'application/json','X-CSRF-Token':props.csrf},body:JSON.stringify({token:old.token,regeneration:true})}).catch(()=>{});
@@ -34,11 +33,10 @@ export default function MfaRegeneration(props:Props){
  useEffect(()=>{
   mounted.current=true;
   const leave=()=>flushSync(()=>abandon());
-  const resume=()=>{if(document.visibilityState==='visible'&&!pending.current){if(googleState.current)void checkGoogle();else if(receipt.current)void run('check');}};
-  const focus=()=>{if(googleState.current&&!pending.current)void checkGoogle();};
+  const resume=()=>{if(document.visibilityState==='visible'&&!pending.current){if(receipt.current)void run('check');}};
   const restored=(event:PageTransitionEvent)=>{if(event.persisted)flushSync(()=>abandon());};
-  window.addEventListener('focus',focus);window.addEventListener('pagehide',leave);window.addEventListener('pageshow',restored);document.addEventListener('visibilitychange',resume);
-  return()=>{mounted.current=false;window.removeEventListener('focus',focus);window.removeEventListener('pagehide',leave);window.removeEventListener('pageshow',restored);document.removeEventListener('visibilitychange',resume);abandon();};
+  window.addEventListener('pagehide',leave);window.addEventListener('pageshow',restored);document.addEventListener('visibilitychange',resume);
+  return()=>{mounted.current=false;window.removeEventListener('pagehide',leave);window.removeEventListener('pageshow',restored);document.removeEventListener('visibilitychange',resume);abandon();};
   // Receipt and codes never survive navigation, bfcache restoration, or a session change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[props.csrf]);
@@ -76,7 +74,7 @@ export default function MfaRegeneration(props:Props){
  async function primary(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(pending.current)return;const form=event.currentTarget,password=String(new FormData(form).get('password')??'');form.reset();
   let confirmed=false;pending.current='primary';setBusy(true);callbacks.current.onBusy(true);
-  try{const response=await googleRequest('reauth-password',{password,...(challenge?{turnstileToken:challenge}:{})},props.csrf),body=await response.json();
+  try{const response=await securityRequest('reauth-password',{password,...(challenge?{turnstileToken:challenge}:{})},props.csrf),body=await response.json();
    if(!mounted.current)return;
    if(response.ok){confirmed=true;setPrimaryRequired(false);setMfaRequired(true);setVerified(false);setFeedback(receipt.current?'Sign-in method confirmed. Confirm your authenticator next.':'Sign-in method confirmed. Continue to your authenticator.');}
    else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then confirm your password again.');}
@@ -85,30 +83,6 @@ export default function MfaRegeneration(props:Props){
   }catch{setFeedback('Identity confirmation could not be confirmed. No automatic retry was made.');}
   finally{pending.current=null;callbacks.current.onBusy(false);if(mounted.current){setBusy(false);setChallenge(null);setAttempt(n=>n+1);}}
   if(confirmed&&!receipt.current&&mounted.current)await run('start',{purpose:'regenerate'});
- }
- async function google(){
-  if(pending.current)return;
-  const tab=window.open('about:blank','_blank');if(!tab){setFeedback('Allow the confirmation tab, then choose Confirm Google again. Your pending codes are unchanged.');return;}
-  tab.opener=null;pending.current='google';setBusy(true);callbacks.current.onBusy(true);
-  try{const response=await googleRequest('start',{purpose:'reauth',returnAction:'mfa',...(challenge?{turnstileToken:challenge}:{})},props.csrf),body=await response.json();
-   if(!response.ok){tab.close();if(response.status===403&&body.siteKey)setSiteKey(body.siteKey);else if(response.status===401||response.status===403){clear();await callbacks.current.onActivated();}throw Error();}
-   const url=new URL(body.url);if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();
-   const state=url.searchParams.get('state');if(!state||!/^[a-f0-9]{64}$/.test(state))throw Error();
-   googleState.current=state;setGoogleWaiting(true);tab.location.replace(url.href);setFeedback('Complete Google confirmation in the other tab, then return here. Confirmation will be checked securely without leaving this code view.');
-  }catch{tab.close();setFeedback('Google confirmation could not be started. No automatic retry was made. Complete any security check before trying again.');}
-  finally{pending.current=null;callbacks.current.onBusy(false);if(mounted.current){setBusy(false);setChallenge(null);setAttempt(n=>n+1);}}
- }
- async function checkGoogle(){
-  const state=googleState.current;if(!state||pending.current)return;pending.current='google-status';setBusy(true);callbacks.current.onBusy(true);let confirmed=false;
-  try{const r=await googleRequest('reauth-status',{state},props.csrf),body=await r.json();
-   if(!mounted.current)return;
-   if(!r.ok)throw Error();
-   confirmed=body.confirmed===true;
-   if(confirmed){googleState.current=null;setGoogleWaiting(false);setPrimaryRequired(false);setMfaRequired(true);setVerified(false);}
-   else setFeedback('Fresh Google identity could not be confirmed yet. Check the other tab. Google may not supply the required authentication-time proof; do not keep repeating sign-in. Use your password if available, or cancel.');
-  }catch{setFeedback('Google confirmation could not be checked. No action was retried.');}
-  finally{pending.current=null;setBusy(false);callbacks.current.onBusy(false);}
-  if(confirmed&&mounted.current)await run(receipt.current?'check':'start',receipt.current?{}:{purpose:'regenerate'});
  }
  function verify(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();void run('verify',{method,code,...(challenge?{turnstileToken:challenge}:{})});}
  async function copy(){try{await navigator.clipboard.writeText(codes.join('\n'));setFeedback('Codes copied. Save them privately, then acknowledge and activate.');}catch{setFeedback('Clipboard access was unavailable. Select and copy the codes manually.');}}
@@ -124,7 +98,6 @@ export default function MfaRegeneration(props:Props){
    {props.methods.password&&<><label htmlFor="regeneration-password">Current password</label><PasswordInput id="regeneration-password" name="password" autoComplete="current-password" required/></>}
    <div className="mfa-actions">
     {props.methods.password&&<button className="button" disabled={!!siteKey&&!challenge}>{busy?'Confirming…':'Confirm'}</button>}
-    {props.methods.google&&<button type="button" className="button button-secondary" disabled={!!siteKey&&!challenge} onClick={()=>void google()}>Google</button>}
     <button type="button" className="button button-secondary" onClick={cancel}>Cancel</button>
    </div>
   </fieldset></form>
@@ -144,7 +117,6 @@ export default function MfaRegeneration(props:Props){
    {busy&&!operation&&!primaryRequired&&!codes.length&&<div className="mfa-regeneration-loading-shape" aria-hidden="true"><span/><span/><span/></div>}
    {!codes.length&&primaryRequired&&primaryControls}
    {!codes.length&&operation&&!primaryRequired&&mfaRequired&&totpControls}
-   {googleWaiting&&<button className="button button-secondary" disabled={busy} onClick={()=>void checkGoogle()}>Check Google confirmation</button>}
    {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setChallenge}/>}
    {operation&&!codes.length&&!primaryRequired&&<>
     {!verified&&<p>Confirm your authenticator to enable Reveal.</p>}

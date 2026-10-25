@@ -70,9 +70,8 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
   if(action==='status'){
    const user=op?.user_id??pending!.user_id;
    const password=!!await env.DB.prepare('SELECT user_id FROM user_password_credentials WHERE user_id=?').bind(user).first();
-   const google=!!await env.DB.prepare("SELECT id FROM user_auth_providers WHERE user_id=? AND provider='google'").bind(user).first();
    const response=reply(200,{phase:op?.phase??'initial',expiresAt:op?.phase==='pending'?op.expires_at:op?.display_expires_at??pending!.expires_at,
-    csrfToken:await sessionCsrfToken(csrf,secret),password,google});
+    csrfToken:await sessionCsrfToken(csrf,secret),password});
    if(op)recoveryCookies(response,request,c,op);return response;
   }
   if(!await validAuthMutation(request,origin.origin,csrf,secret))return reply(403,{error:'Request rejected'});

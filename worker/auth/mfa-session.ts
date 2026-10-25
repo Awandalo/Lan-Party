@@ -18,5 +18,5 @@ export const mfaSessionCondition=`(NOT EXISTS(SELECT 1 FROM auth_totp_factors f 
 export const MFA_LOGIN_INTEGRATION_READY=true;
 export interface PendingMfaAuthentication {
   userId:string;authVersion:number;factorId:string;browserDigest:string;
-  primaryMethod:'password'|'google';primaryAuthenticatedAt:number;expiresAt:number;
+  primaryMethod:'password';primaryAuthenticatedAt:number;expiresAt:number;
 }

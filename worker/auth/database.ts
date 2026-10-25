@@ -33,14 +33,3 @@ export async function findPasswordCredential(db: D1Database, emailNormalized: st
     FROM users u JOIN user_password_credentials c ON c.user_id = u.id
     WHERE u.email_normalized = ? AND u.status = 'active'`).bind(emailNormalized).first<PasswordCredentialSnapshot>();
 }
-
-// Input must already be validated OIDC issuer + subject, never an email-address match.
-// This performs lookup only: no provider-token validation or automatic account linking.
-export async function findGoogleAccount(db: D1Database, issuer: string, subject: string): Promise<AccountIdentity | null> {
-  if (!['https://accounts.google.com', 'accounts.google.com'].includes(issuer)
-    || typeof subject !== 'string' || subject.length === 0 || subject.length > 255) return null;
-  return db.prepare(`SELECT u.id AS userId, u.status, u.email_verified_at AS emailVerifiedAt, u.auth_version AS authVersion
-    FROM user_auth_providers p JOIN users u ON u.id = p.user_id
-    WHERE p.provider = 'google' AND p.identity_namespace = ? AND p.provider_subject = ? AND u.status = 'active'`)
-    .bind(issuer, subject).first<AccountIdentity>();
-}

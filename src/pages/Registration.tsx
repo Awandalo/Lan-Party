@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
 import PasswordInput from '../components/PasswordInput';
-import GoogleButton from '../components/GoogleButton';
 import '../CSS/Registration_style.css';
 
 export default function Registration() {
@@ -57,7 +56,6 @@ export default function Registration() {
         {!successful && <>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
         <p className="registration-local-notice">{import.meta.env.DEV ? 'Use fictional .test details and a disposable password. ' : 'DEV testing is limited to approved test addresses. '}Verify your email before logging in.</p>
-        <GoogleButton /><p>or register with email and password</p>
         <form onSubmit={submit} aria-busy={busy}>
           <fieldset disabled={busy}>
             <legend className="registration-legend">All five fields are required</legend>

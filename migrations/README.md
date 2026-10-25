@@ -536,3 +536,24 @@ checkpoint; verify all previous migrations remain applied once and integrity/pre
 checks pass. Schema must be installed before publishing the new Worker. Missing 0015
 fails regeneration closed while preserving existing MFA login and ordinary accounts.
 Existing MFA-aware authentication must remain enforced during any recovery/rollback.
+
+## Provider retirement — pending approval
+
+Google OAuth is discontinued. Do not reapply or edit historical migrations.
+The removal PR changes no schema; see [the cleanup plan](../docs/GOOGLE_REMOVAL.md)
+for inert legacy structures, shared assurance preservation and separate approval gates.
+
+## 0016 — retired provider schema cleanup (prepared; remote approval required)
+
+The forward migration removes the three obsolete provider/OIDC/setup tables and
+rebuilds five transient authentication/MFA tables with password-only methods,
+retaining their existing security constraints/indexes/triggers. All sessions and
+in-flight operations are invalidated; inactive staged verifiers are removed. Users,
+passwords, active factors and active/spent code verifiers, application data, ledger
+and quotas remain. No old SQL file is modified and no FK enforcement is disabled.
+
+DEV data disposal is deliberately separate: `scripts/sql/reset-dev-data.sql` is
+never part of automatically applied migrations. The exact 20-table deletion scope
+excludes metadata/history, immutable member ledger/sequence, static RBAC and
+sending/rate budgets. A whole D1-resource rebuild is unnecessary. See
+[the execution proposal](../docs/GOOGLE_REMOVAL.md) for separate gates and commands.

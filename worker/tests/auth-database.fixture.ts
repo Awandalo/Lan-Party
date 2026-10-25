@@ -1,6 +1,6 @@
 // Test-only Worker: never imported by the application or deployed.
 import { D1ActionTokenStore } from '../auth/action-state';
-import { findGoogleAccount, findPasswordCredential } from '../auth/database';
+import { findPasswordCredential } from '../auth/database';
 import { hashPassword, verifyPassword } from '../auth/passwords';
 import { D1SessionStore, issueSession, resolveSession, revokeSession } from '../auth/sessions';
 import { digestToken } from '../auth/tokens';
@@ -123,14 +123,7 @@ const cases: Record<string, (db: D1Database) => Promise<void>> = {
     await rejects(() => actions.issue({ ...account, authVersion: 2 }, 'password-reset', now + 2));
   },
   async identities(db) {
-    const { account, email } = await user(db);
-    const subject = crypto.randomUUID();
-    check(!await findGoogleAccount(db, 'https://accounts.google.com', subject), 'No email-based automatic linking');
-    await db.prepare(`INSERT INTO user_auth_providers (id,user_id,provider,identity_namespace,provider_subject,linked_at)
-      VALUES (?,?,'google','https://accounts.google.com',?,?)`).bind(crypto.randomUUID(), account.userId, subject, now).run();
-    check((await findGoogleAccount(db, 'https://accounts.google.com', subject))?.userId === account.userId, 'Exact issuer subject mapping');
-    check(!await findGoogleAccount(db, 'https://untrusted.example.test', subject), 'Untrusted issuer rejected');
-    check(!await findGoogleAccount(db, 'https://accounts.google.com', email), 'Email is not provider subject');
+    await user(db);
     check(!await findPasswordCredential(db, "' OR 1=1 --"), 'Parameterized credential lookup');
   },
 };

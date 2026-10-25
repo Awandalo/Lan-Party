@@ -1,5 +1,18 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
+## Current authentication decision — 2026-10-25
+
+Google OAuth is discontinued. The removal candidate uses email/password with optional
+TOTP MFA and one-use recovery codes. The existing two-minute primary/MFA freshness,
+atomic consumption, CSRF, replay, generation and session-invalidation rules remain.
+No provider proof can authorize new pending MFA sessions or sensitive mutations.
+See [removal and cleanup plan](docs/GOOGLE_REMOVAL.md).
+
+The dated implementation/review receipts below are historical evidence; their Google
+paths, setup instructions and earlier activation gates are superseded and must not
+be used as current operational instructions. Historical SQL is intentionally immutable.
+
+
 ## Phase 3.8.6 integration candidate — local only
 
 The owner authorized a clean candidate based on remote dev

@@ -20,6 +20,7 @@ const expectedHistory = [
   '0013_create_account_mfa.sql',
   '0014_create_mfa_recovery_operations.sql',
   '0015_create_mfa_regeneration_operations.sql',
+  '0016_remove_google_oauth.sql',
 ];
 function assertMigrationHistory(names) {
   assert.deepEqual(names, expectedHistory, 'Discovered SQL migrations must match the reviewed history');
@@ -63,10 +64,10 @@ async function local(run) {
 const reserve = (db, now = day + 60, daily = 100, monthly = 3000) => policy.reserveDevEmailAttempt(db, now, daily, monthly);
 const count = db => db.prepare('SELECT COALESCE(SUM(attempts),0) AS n FROM auth_email_daily_budget').first('n');
 
-test('password setup and notifications use guarded Security URLs and the same shared budget',()=>local(async db=>{
+test('security notifications use guarded Security URLs and the same shared budget',()=>local(async db=>{
  const sent=[];const transport=new policy.DevResendEmailTransport(db,env,async(input,init)=>{sent.push(JSON.parse(init.body));return new Response('{}');},()=>day);
- for(const purpose of ['password-setup','password-added','password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'])await transport.send({...message,purpose,url:'https://dev.lan-party.club/account/security'+(purpose==='password-setup'?'#setup=fictional':''),idempotencyKey:'fictional-'+purpose});
- assert.equal(sent.length,7);assert.equal(await count(db),7);
+ for(const purpose of ['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'])await transport.send({...message,purpose,url:'https://dev.lan-party.club/account/security',idempotencyKey:'fictional-'+purpose});
+ assert.equal(sent.length,5);assert.equal(await count(db),5);
  for(const item of sent)assert.deepEqual(item.to,['recipient@example.test']);
 }));
 

@@ -7,14 +7,14 @@ export class RecoveryMfaRequired extends Error {}
 export async function startSessionRecovery(db:D1Database,c:RecoveryContext,user:string,version:number,session:string,keys:MfaKeys,environment:'local'|'dev'){
  const now=c.now;
  const row=await db.prepare(`SELECT f.factor_id,f.recovery_set_id,r.method,r.authenticated_at,m.method AS mfa_method,m.verified_at,
- (r.method='password' OR EXISTS(SELECT 1 FROM auth_oidc_transactions g WHERE g.session_digest=s.token_digest AND g.user_id=u.id AND g.auth_version=u.auth_version AND g.purpose='reauth' AND g.return_action='mfa' AND g.phase='consumed')) AS trusted_primary
+ (r.method='password') AS trusted_primary
  FROM users u JOIN auth_sessions s ON s.user_id=u.id JOIN auth_totp_factors f ON f.user_id=u.id
  JOIN auth_session_mfa m ON m.session_digest=s.token_digest
  LEFT JOIN auth_recent_authentication r ON r.session_digest=s.token_digest AND r.user_id=u.id AND r.auth_version=u.auth_version
  WHERE u.id=? AND u.auth_version=? AND u.status='active' AND u.email_verified_at IS NOT NULL
  AND s.token_digest=? AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.created_at<=? AND s.expires_at>?
  AND m.user_id=u.id AND m.auth_version=u.auth_version AND m.factor_id=f.factor_id AND m.verified_at<=?`)
- .bind(user,version,session,now,now,now).first<{factor_id:string;recovery_set_id:string;method:'password'|'google'|null;authenticated_at:number|null;mfa_method:'totp'|'recovery';verified_at:number;trusted_primary:number}>();
+ .bind(user,version,session,now,now,now).first<{factor_id:string;recovery_set_id:string;method:'password'|null;authenticated_at:number|null;mfa_method:'totp'|'recovery';verified_at:number;trusted_primary:number}>();
  if(!row||row.verified_at<=now-120)throw new RecoveryMfaRequired();
  if(!row.trusted_primary||!row.method||row.authenticated_at===null||row.authenticated_at<=now-120||row.authenticated_at>now)throw new RecoveryPrimaryRequired();
  const tokenDigest=await mfaDigest('transaction',c.token),id=await mfaDigest('recovery-operation',tokenDigest),browser=await mfaDigest('browser',c.browser);
@@ -32,7 +32,7 @@ export async function startSessionRecovery(db:D1Database,c:RecoveryContext,user:
  AND m.verified_at<=s.created_at AND m.method=? AND m.verified_at=? AND m.verified_at>unixepoch()-120 AND m.verified_at<=unixepoch()
  AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.method=? AND r.authenticated_at=?
  AND r.authenticated_at>unixepoch()-120 AND r.authenticated_at<=unixepoch() AND r.expires_at>unixepoch()
- AND (r.method='password' OR EXISTS(SELECT 1 FROM auth_oidc_transactions g WHERE g.session_digest=s.token_digest AND g.user_id=u.id AND g.auth_version=u.auth_version AND g.purpose='reauth' AND g.return_action='mfa' AND g.phase='consumed'))`)
+ AND (r.method='password')`)
  .bind(id,session,browser,factor,set,row.method,row.authenticated_at,sealed.ciphertext,sealed.nonce,sealed.keyId,now,now+300,
  user,version,session,row.factor_id,row.recovery_set_id,row.mfa_method,row.verified_at,row.method,row.authenticated_at),assertOne(db),
  db.prepare('UPDATE auth_sessions SET revoked_at=? WHERE token_digest=? AND user_id=? AND auth_version=? AND revoked_at IS NULL')

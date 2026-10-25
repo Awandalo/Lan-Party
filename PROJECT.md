@@ -21,7 +21,7 @@ adapters. Phase 3.3 registration, login/logout and Phase 3.4 email verification 
 implemented locally. Phase 3.6 password recovery and guarded DEV email integration
 are locally complete; hosted activation, live delivery verification and News APIs remain unfinished.
 Phase 3.1 now contains local, tested authentication primitives and contracts;
-public registration/login, real email delivery and Google sign-in remain unfinished. Persistence
+public registration/login and real email delivery remain unfinished at that historical checkpoint. Google OAuth is now discontinued. Persistence
 is implemented locally in the Phase 3.2 adapters described below.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
@@ -61,8 +61,8 @@ paid dependencies, and verify relevant platform limits before production deploym
 
 - Public visitors can view published events and register for events open to registration.
 - Public event registration must not require an organizer account or organizer login.
-- Every participant must have a user account. Traditional email/password and
-  optional Google login will share one central profile with multiple login methods.
+- Every participant must have a user account. Email/password and
+  optional TOTP MFA protect one central profile. Google OAuth is discontinued.
 - Organizers require secure authentication and server-side authorization.
 - Contact information and other private registration details must not appear in public
   attendance lists or public API responses.
@@ -212,8 +212,7 @@ The approved database and authentication decisions below supersede earlier propo
 - Future Worker APIs generate/validate UUIDs, validate and normalize email addresses,
   maintain timestamps, and allow only active prefixes for new selections. The
   database retains original email casing and compares supplied normalized values.
-- Password and Google authentication must eventually reference the same user
-  profile. Never automatically merge accounts solely because emails match.
+- Email/password authentication references the existing user profile. Never merge accounts solely because emails match.
 - Names and emails are private profile information; the schema does not authorize
   exposing them publicly. Public display-name policy, privacy, retention/deletion,
   and registration ownership must be resolved before registration APIs.
@@ -225,6 +224,10 @@ The approved database and authentication decisions below supersede earlier propo
 
 ### Approved Phase 2 authentication storage foundation
 
+This records the applied historical schema. Provider storage described below is
+retired from application use; see [the removal plan](docs/GOOGLE_REMOVAL.md) for
+separately approved physical cleanup.
+
 - `migrations/0003_create_auth_credentials.sql` adds strict external identity and
   password credential tables. It is applied and verified on Cloudflare DEV.
 - `users` stores profiles; `user_auth_providers` maps external identities to profiles
@@ -233,7 +236,7 @@ The approved database and authentication decisions below supersede earlier propo
   Multiple explicitly linked identities per user are supported. Account merging
   based solely on matching emails is prohibited.
 - Provider codes are nonblank and exclude `password`; only Google is initially
-  supported by future APIs. Provider allowlists and trusted issuer/subject validation
+  supported by the historical design, now discontinued. Provider allowlists and trusted issuer/subject validation
   belong to the Worker. Additional providers require separate approval.
 - `user_password_credentials` stores at most one current hash per profile. A user
   may have neither method during account setup, either method, or both. Both tables
@@ -433,7 +436,7 @@ unpushed work. Hosted MFA acceptance and PROD authentication are not established
 | 3.8.5.1 | R1 restricted replacement and bounded encrypted recovery-code redisplay | [#13](https://github.com/Awandalo/Lan-Party/issues/13), R1-F1 static review accepted; hosted eligibility correction in local #10 candidate, acceptance pending |
 | 3.8.5.2 | R2 recent MFA assurance before credential/provider changes; reuse valid two-minute assurance | [#14](https://github.com/Awandalo/Lan-Party/issues/14), R2-F1 corrective evidence reviewed by Q per owner; integrated-candidate review/hosted acceptance pending |
 | 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15), static review accepted at d330e66; hosted acceptance pending |
-| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), migrations 0013–0015/keys and DEV publication completed; Gate T PARTIAL: owner reports regeneration/notice/new-code login passed; approved warning/replacement/Google/GUI correction in local verification; remaining hosted acceptance pending |
+| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), migrations 0013–0015/keys and DEV publication completed; Gate T PARTIAL: owner reports regeneration/notice/new-code login passed; Google discontinued; password/MFA removal candidate pending review; remaining hosted acceptance pending |
 | 3.9 | Account Lifecycle Management after MFA security and DEV acceptance | [#16](https://github.com/Awandalo/Lan-Party/issues/16), planning only |
 | 3.10 | Polish & Fixes after MFA and account lifecycle acceptance | [#17](https://github.com/Awandalo/Lan-Party/issues/17), planning only |
 
@@ -446,9 +449,8 @@ Detailed pending tasks remain in [TODO.md](TODO.md#phase-38--mfa-security).
 
 ### Phase 3.1 — Authentication foundation
 
-The approved direction is email/password first, then Google OpenID Connect using
-the same UUID accounts, sessions and authorization. Never automatically link an
-external identity to an account solely because email addresses match.
+The current direction is email/password with optional TOTP MFA, reusing the same
+UUID accounts, sessions and authorization. Google OAuth is discontinued.
 
 Approved product requirements:
 
@@ -478,7 +480,7 @@ Approved product requirements:
   **Phase 3.8** (superseding earlier future Phase 3.9 references). See
   [MFA_DESIGN.md](MFA_DESIGN.md) for the approved architecture and local Phase 3.8.2–4
   implementation: migration 0013, encrypted TOTP secrets, recovery verifiers, shared
-  password/Google pending challenges, atomic assurance/session issuance and local
+  password pending challenges, atomic assurance/session issuance and local
   enrollment acknowledgment, purpose-bound disable/regenerate, recent-primary/MFA
   checks and guarded security notifications. Hosted MFA enrollment/management
   remain unavailable. Phase 3.8.5 local regression/preparation is owner-authorized;
@@ -649,9 +651,7 @@ Migration 0008 — implemented and validated locally, not remotely approved:
   stale session insertion fails. Mutation failures roll back token use. Concurrent
   attempts have one winner. Phase 3.2 now provides tested storage adapters for
   these recipes. Live recovery flows remain unfinished.
-- Existing Google identity storage is sufficient; no new Google identity table is
-  required. Later OIDC validation, state/nonce/PKCE and explicit linking still need
-  separate implementation and provider configuration.
+- External-provider authentication is discontinued. Retained provider storage is inert pending separately approved cleanup.
 
 ### Final password benchmark and development decision
 
@@ -681,8 +681,7 @@ testing, including sessions, abuse controls and realistic runtime variation.
 
 ### Phase 3.2 — Authentication Database (implemented locally)
 
-- `worker/auth/database.ts` reads private password credential snapshots and exact
-  Google issuer/subject mappings using parameterized queries. Credential verification
+- `worker/auth/database.ts` reads private password credential snapshots using parameterized queries. Credential verification
   must preserve the same auth generation through session issuance. There is no
   automatic email-based linking or OIDC-token validation in this repository layer.
 - `worker/auth/sessions.ts` implements the session-store contract, seven-day session
@@ -826,8 +825,8 @@ is supplementary, not a strict global limiter.
   compatibility. They establish local correctness, not hosted CPU or burst capacity.
   Shared signals can force challenge friction; same-IP targeted denial, challenge-solving
   attacks, high-cardinality storage abuse and Free-tier exhaustion remain risks.
-  Database latency can extend wall time. Google OIDC and optional MFA remain future
-  work with separately reviewed admission flows; no new account-wide lockout is added.
+  Database latency can extend wall time. Optional MFA was future
+  work at this checkpoint; the current MFA implementation is described in MFA_DESIGN.md. No new account-wide lockout is added.
 - **Phase 3.8.3 DEV configuration preflight (2026-10-18):** the owner created the
   widget; read-only inspection confirmed the public `AUTH_TURNSTILE_SITE_KEY`
   variable and encrypted `TURNSTILE_SECRET_KEY` binding on `lan-party-dev`.
@@ -1150,239 +1149,24 @@ separately approved DEV configuration. DEV HTTPS/health respond 200; the disable
 session API responds 404. Resend domain/key readiness is owner-confirmed; actual
 account allocation, delivery and integrated platform telemetry remain unverified.
 
-No public registration/login, verification, reset, delivery or Google flow is marked complete.
+No public registration/login, verification, reset or delivery flow is marked complete.
 No remote database access, manual deployment or provider configuration is authorized
 by this local implementation.
 
-### Phase 3.7 — Google authentication (implemented; activation pending)
+### Authentication methods — owner decision, 2026-10-25
 
-One UUID account can have password and Google methods. `oauth4webapi` 3.8.8 is
-pinned after published-package/security review: no runtime dependencies or install
-hooks; npm reported no known vulnerabilities at installation. Worker-only OIDC
-uses fixed Google endpoints, authorization code + PKCE S256, state, nonce, RS256
-signature/JWKS validation and issuer/audience/authorized-party/expiry checks.
-No access/refresh token is retained. The browser receives only host-only HttpOnly
-flow/session cookies, never Google tokens. Callback responses redirect immediately
-to clean local URLs with no-store/no-referrer headers; deployment observability
-must also avoid recording callback query strings before hosted enablement.
+Google OAuth is permanently discontinued after the final hosted freshness test
+returned `fresh-proof-unavailable`. Reintroduction requires an explicit owner reversal.
+The removal candidate supports email/password and optional TOTP MFA with one-use
+recovery codes. Password changes require the current password and, when enabled,
+fresh LAN Party MFA. Recovery never creates a first password or bypasses MFA.
+See [the removal and data-cleanup plan](docs/GOOGLE_REMOVAL.md).
 
-Migration `0012_create_oidc_transactions.sql` adds 10-minute OIDC transactions,
-five-minute session/generation-bound recent-authentication proofs, and 10-minute
-digest-only first-password email confirmations (legacy storage, unused by Phase 3.7.7).
-Existing provider storage is reused;
-partial unique indexes enforce one Google identity per account and one account per
-Google subject across issuer aliases. Unexpected historical duplicates fail migration
-preflight rather than being merged. Transactions are atomically claimed before code
-exchange; uncertain exchanges are never retried. At most 500 unexpired transactions
-are admitted; bounded opportunistic expiry cleanup limits retained transient data.
-PKCE verifier/nonce and pending identity/email are temporary private server-side
-context, not application logs. Idle retention still needs review before public use.
-
-New Google accounts confirm nickname and required private names; one D1 batch
-creates profile, nickname and provider mapping. Existing member-number triggers
-allocate the next regular number; UUIDs, ledger, RBAC and history are unchanged.
-Verified Gmail or verified Workspace identity evidence can verify a new profile's
-email. Third-party addresses without Workspace evidence require LAN Party email
-verification before login. Google email claims never overwrite an existing profile.
-Matching emails never auto-link or disclose account existence; members authenticate
-with their existing method and explicitly connect Google under Account → Security.
-DEV allowlisting and ordinary registration limits still gate account creation.
-
-Password confirmation uses the existing email+IP failure reservations and conditional
-Turnstile; Google initiation shares soft abuse signals and server-validated challenges.
-Google recent confirmation requires the already-linked subject, requests `max_age=0`
-and validates an authentication time within five minutes. All current proofs record
-method, single-factor assurance and `mfa_verified=0`; Phase 3.8 MFA (formerly proposed as 3.9) must explicitly extend
-the assurance contract, never infer MFA from Google identity alone. MFA stays optional
-for all roles. Linking, unlinking and first-password creation advance auth generation
-and invalidate previous sessions/proofs. Unlinking requires recent password proof and
-a retained password credential on an active verified account; last-method removal is
-refused. No password removal or email-changing feature is introduced.
-
-Google-only accounts cannot use ordinary forgot-password recovery. Adding a first
-password requires the same active session and server-verified Google assurance
-less than two minutes old. The Phase 3.7.7 owner decision explicitly replaces the
-previous independent email confirmation with recent Google authentication for this
-operation only. Email possession alone cannot add credentials. Security notifications
-use the existing allowlist, shared atomic 60-attempt budget and no retries.
-Loss of Google access before adding a password has no self-service recovery; manual
-identity recovery is a separate owner/security decision, not an implemented bypass.
-
-Required separate setup: personal Google Cloud project, External/Testing audience
-with approved testers, Web application OAuth client, scopes `openid email profile`,
-exact DEV redirect `https://dev.lan-party.club/api/auth/google/callback`. Server flow
-does not need a Google browser SDK or authorized JavaScript origins. Use a separate
-client for local loopback callbacks and for eventual PROD. Declare public DEV
-`GOOGLE_CLIENT_ID` and default-off `GOOGLE_AUTH_MODE`; store `GOOGLE_CLIENT_SECRET`
-only as a DEV encrypted Worker secret. Both existing session mode and Google mode
-must allow the canonical hostname. No new remote config is applied in this task.
-Google policy/branding and consent-page requirements must be checked before public
-release; privacy pages and disclosures remain a final Phase 3 gate.
-
-DEV configuration synchronization (2026-10-18): the owner reports the Google
-External/Testing client and approved tester are configured with the exact callback
-above. Active DEV binding metadata confirms public client ID, `GOOGLE_AUTH_MODE=off`
-and encrypted `GOOGLE_CLIENT_SECRET` presence. The exact public ID and disabled mode
-are declared under `env.dev.vars` alongside unchanged Turnstile configuration.
-Wrangler 4.149.0's normal `deploy --env dev` preserves existing encrypted secrets;
-the GitHub DEV workflow uses that path. No secret value was read or copied. Future
-client-ID changes must update this configuration too. Local populated-0011 upgrade
-tests confirm data preservation and atomic rejection of ambiguous Google mappings.
-Remote schema/history, duplicate-mapping and recovery preflight remain required
-before separately approved migration 0012; Google mode stays off until activation.
-
-Local fake-provider tests cover signature/claims, cookie/state/nonce replay, atomic
-creation/linking/password setup, rollback, expiry, challenge/recovery boundaries and
-session invalidation. Hosted Google consent, actual key configuration, CPU/reliability
-and real email confirmation remain unverified until separately approved DEV testing.
-The owner approved commit/push, automatic DEV deployment with Google off, and
-read-only migration preflight. A local pre-0012 compatibility test confirms normal
-verification, password login/recovery and logout remain functional without the new
-tables. DEV recovery/migration, Google activation and live tests still require
-separate approval. PROD remains unchanged.
-
-#### Google UX polish
-
-Login now presents email/password first, followed by an `or` divider and full-width
-Google action; recovery and registration links remain available. Signup can prefill
-editable private names from signature/claim-validated `given_name`/`family_name`.
-Missing or invalid suggestions are omitted independently using existing account-name
-rules. A domain-separated HMAC using the existing server-side rate-limit key protects
-a short-lived HttpOnly profile-hint cookie, bound to the original pending transaction
-and its expiry. Hosted cookies are Secure, SameSite=Lax and host-only; the local alias
-is loopback-only. Hints contain no provider tokens/email/identity authority and are
-returned only for the matching live pending flow with no-store/no-referrer headers.
-Names remain private and user-editable, are validated again at account creation, and
-never determine nickname, identity or permissions. Late hint responses do not replace
-user edits. The hint cookie is cleared on a new flow or successful signup and otherwise
-expires within the original ten-minute flow window. No schema change is required.
-
-Connected accounts is the first Security section: Email & password and Google
-connection states, a direct Connect Google action, and safe disconnection when a
-password method remains. Missing recent proof returns an explicit authenticated
-`reauth_required` response, revealing/focusing password confirmation in settings.
-Only an explicitly initiated Connect Google action can resume once after successful
-server-confirmed password authentication. The in-memory intent expires after five
-minutes, is bound to the current session CSRF proof, and is discarded on navigation
-or a session change. Failed/uncertain requests do not automatically retry. Linking still binds the
-OAuth transaction to that account/session/generation and validates the Google
-callback. After linking, the generation change revokes all old sessions; only the
-proven caller receives a fresh session at the expected next generation and returns
-to Security with Google Connected. A concurrent generation change prevents that
-session from being issued. Unlinking still requires retained-password proof and
-signs out existing sessions. Google-only accounts are not offered disconnection.
-Optional MFA belongs immediately below Connected accounts (current Phase 3.8;
-formerly proposed as 3.9). At this historical Google-UX checkpoint, no MFA enrollment,
-assurance bypass or policy change is implemented.
-
-Normal Google sign-in omits forced account selection and email hints so Google may
-reuse its existing session. Linking and Google reauthentication retain explicit
-account selection; reauthentication also retains `max_age=0` and validated recent
-`auth_time`. Google may still require account selection, consent or authentication.
-Security uses the existing dark/mint layout with full-width password fields; the
-account overview retains only the three inactive cards and member greeting, with
-Security reachable through Account → Settings.
-
-Security explanations are contextual. Disconnect Google always opens a cancellable
-password form; Confirm & disconnect first verifies the password server-side, then
-invokes the existing session-bound, recent-password-protected unlink operation.
-Wrong passwords never invoke unlink. Each step rechecks the active session, and an
-uncertain outcome is reported without automatic retry. Google-only users cannot
-disconnect their last method; Add password uses recent Google authentication under
-the Phase 3.7.7 policy below. Adding a password never disconnects Google.
-Pending controls ignore repeat submissions and remain disabled through successful
-navigation. Email verification is a separate status row, not a password-method status.
-
-#### Phase 3.7.6 — password management and Google signup
-
-Google signup checks its browser-bound pending context before showing the form.
-Only signature-validated, authoritative Google email ownership may reveal a bare
-existing-account conflict; no nickname, UUID or private account data is returned.
-Other email claims keep generic conflict handling. Matching email never links accounts.
-Private name suggestions remain editable; existing-member guidance is collapsed.
-
-Connected accounts → Email & password contains inline Add/Change password forms
-with Cancel, accessible focus and preserved fields on recoverable
-errors. Password change verifies the current password with the existing persistent
-limiter/Turnstile controls, then uses one guarded credential update. Existing triggers
-advance the authentication generation and invalidate sessions/tokens. Both methods
-retain the same UUID/member history; adding a password does not disconnect Google.
-
-A fresh, fully validated Google application sign-in grants server-side assurance for
-the new session. Google assurance must be less than **120 seconds** old when used;
-password proofs retain their existing five-minute policy. The schema's five-minute
-assurance storage lifetime is unchanged; the stricter Google age is checked by the
-application and again in atomic first-password creation. This is recent sign-in
-to LAN Party, not a claim that Google prompted for credentials within two minutes.
-Explicit Google reauthentication still validates provider `auth_time` and identity.
-
-Phase 3.7.7 replaces first-password email approval with the approved recent-Google
-policy. Add password is on the Email & password row and hides while its inline form
-is expanded. Add/change password use one new-password field with visibility control;
-changing a password still requires the current password. Fresh Google proof saves
-the first password immediately. Stale proof prompts the existing subject-validated
-Google reauthentication flow and returns to `/account/security#add-password`, which
-opens the form without submitting it. The fragment is a display hint, never proof.
-Passwords stay in form memory and must be re-entered after a redirect.
-The atomic insert checks current account/generation, active session, recent Google
-assurance ownership, a trusted Google provider mapping, and absence of a credential.
-The UUID credential key and guarded generation update prevent concurrent duplicates.
-Setup uses the existing persistent limiter in a separate `password-add` namespace
-with the existing admission thresholds; recovery limits are not shared or changed.
-The obsolete request-password endpoint returns 404; old email setup tokens no longer
-authorize credential creation. Applied migration 0012 and its legacy setup table,
-cleanup/revocation triggers and historical template support are retained unchanged.
-Registration verification, recovery, Google linking/disconnection and MFA policy
-are unchanged by this exception.
-Phase 3.7.8 keeps the current browser signed in after adding its first password:
-the guarded credential write revokes all old sessions, then issues a new HttpOnly
-session at exactly the expected next generation. The frontend refreshes its session
-and CSRF proof and shows Connected inline. A concurrent newer generation or failed
-replacement fails closed; the committed password remains usable through normal login.
-Password changes and recovery still invalidate all sessions and require sign-in.
-Connected accounts uses accessible 44px icon controls with forms beneath each method;
-navigation highlights only the current route. Ownership-proven Google conflicts show
-existing-account guidance without signup instructions or automatic linking.
-Phase 3.7.9 allows switching unsubmitted method actions directly, unmounting sensitive
-fields and clearing pending link/challenge proof with focus on the selected form.
-Submitted password and OAuth operations block conflicting actions until completion.
-Change password links to the existing `/forgot-password` flow; Google-only accounts
-still require recent Google proof to add their first password and cannot use reset
-to create a credential. The login recovery link remains available.
-
-Successful settings password additions/changes request a branded security notification
-to the verified address, after the guarded write succeeds. Only the winning operation
-sends, with a generation-based provider idempotency key. Recipient restrictions and
-the shared 60-attempt UTC-day budget include these notifications; there are no automatic
-retries. The DEV wrapper accepts token-free Security-page notification URLs.
-Notification failure emits only the static `auth.password_notification_unconfirmed`
-event, with no account, recipient, password, token or provider payload, and never reverses a completed password change;
-the operation feedback distinguishes requested from unconfirmed delivery. Added/changed
-notifications use separate copy without a blanket sign-out claim. There is **no
-durable outbox**: a crash/provider failure can lose a notification. Guaranteed eventual
-delivery would require a separately approved design/migration. Phase 3.7.9 reuses this
-notification helper after a successful atomic password reset, at the expected next
-generation, without disconnecting Google or signing in automatically. A reset proof
-permits notifying the current address even if email remains unverified; reset never
-marks it verified. Invalid/replayed/failed resets do not send notifications. Failed
-reset-email requests record only `auth.password_reset_delivery_unconfirmed`, retain
-generic public responses and revoke the unusable attempt without automatic retries.
-Provider timing can differ from missing-account requests; no constant-time delivery
-claim is made. The existing allowlist, budgets and request/redemption limits remain.
-
-Existing-member continuation is **a proposal, not implemented**. The current safe
-route still requires existing-account login, recent authentication under Security,
-and a fresh explicit Connect Google flow. Preserving an anonymous pending Google
-identity across login requires a separately approved transition: validate the live
-browser-bound transaction, bind it atomically to the authenticated account/session/
-generation only after recent-authentication assurance, then display a protected
-confirmation screen. A second CSRF-protected POST must atomically recheck the bound
-session, assurance, expiry, subject uniqueness and email conflicts, consume the
-transaction, create the link and advance the generation. No matching-email auto-link,
-session substitution, arbitrary return URL or MFA inference is permitted. Session or
-account changes, stale proof, replay and concurrent consumption must fail closed.
-Migration 0012 may support this transition, but its complete lifecycle and tests must
-be reviewed before implementation; none of its applied definitions is modified.
+The owner confirms all DEV data is disposable; no Google-only account transition
+is required. Forward migration 0016 and a separate DEV-only reset are prepared
+locally; execution, credential deletion, merge/deployment and hosted fresh-account
+testing remain separate gates. Migration history and immutable member allocation
+are retained. See the cleanup plan for exact operations and stop conditions.
 
 ### Final Phase 3 milestone — required before public registration
 

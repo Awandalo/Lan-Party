@@ -3,11 +3,10 @@ import type {FormEvent} from 'react';
 import {Link} from 'react-router';
 import QRCode from 'qrcode';
 import PasswordInput from './PasswordInput';
-import GoogleButton from './GoogleButton';
 import LoginChallenge from './LoginChallenge';
 import '../CSS/MfaRecovery_style.css';
 
-interface Status {phase:'initial'|'pending'|'committed'|'acknowledged';expiresAt:number;csrfToken:string;password:boolean;google:boolean}
+interface Status {phase:'initial'|'pending'|'committed'|'acknowledged';expiresAt:number;csrfToken:string;password:boolean}
 export default function MfaRecovery(){
  const [status,setStatus]=useState<Status|null>(null),[feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false);
  const [setup,setSetup]=useState<{secret:string;uri:string}|null>(null),[qr,setQr]=useState(''),[codes,setCodes]=useState<string[]>([]);
@@ -60,7 +59,6 @@ export default function MfaRecovery(){
    <p>The deadline is fixed. Confirming your identity does not extend it.</p>
    {status.password&&<form onSubmit={e=>submit(e,'primary','password')}><fieldset disabled={busy}><label htmlFor="recovery-password">Confirm current password</label>
     <PasswordInput id="recovery-password" name="password" required autoComplete="current-password" maxLength={256}/><button className="button button-secondary">Confirm identity</button></fieldset></form>}
-   {status.google&&<GoogleButton purpose="reauth" returnAction="recovery" csrf={status.csrfToken} disabled={busy} onPendingChange={setBusy}/>}
    {status.phase==='pending'&&<>
     <button className="button button-secondary" disabled={busy} onClick={()=>void run('setup')}>{setup?'Show the same setup again':'Set up replacement authenticator'}</button>
     {setup&&<><p>Scan this with your replacement authenticator, or enter the setup key. Keep the authenticator after saving.</p>
