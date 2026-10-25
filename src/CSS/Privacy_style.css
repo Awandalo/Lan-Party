@@ -1,0 +1,5 @@
+.privacy-page { max-width: 52rem; margin-inline: auto; overflow-wrap: anywhere; }
+.privacy-page > section { margin-top: 2rem; }
+.privacy-review { margin-block: 2rem; border-color: var(--warning); }
+.privacy-review h2 { color: var(--warning); }
+.privacy-address { font-weight: 600; }
