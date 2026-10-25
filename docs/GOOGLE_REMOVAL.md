@@ -1,72 +1,161 @@
-# Google OAuth discontinuation — review candidate
+# Google OAuth retirement — DEV execution proposal
 
-On 2026-10-25 the owner permanently discontinued Google OAuth after the final
-hosted DEV confirmation returned `fresh-proof-unavailable`. Reintroduction requires
-explicit owner reversal. This PR targets DEV; it authorizes no merge or deployment.
+## Decision and current state
 
-## Application changes
+On 2026-10-25 the owner permanently discontinued Google OAuth. Reintroduction
+requires explicit reversal. The owner subsequently confirmed **all existing DEV
+data is disposable**; no Google-only account transition or preservation is required.
+This does not approve executing the destructive files, merging, deployment or
+credential deletion. PR #24 remains the review vehicle; PROD stays untouched.
 
-- Email/password is the only primary authentication method. Optional TOTP MFA,
-  one-use recovery codes, conditional server-verified Turnstile and existing email
-  verification/password recovery remain. No account merging or automatic password
-  creation is introduced.
-- Google buttons, signup/linking, callback/exchange/claim validation, browser flow
-  state and provider dependency are removed. Former Google API paths return 404.
-- Password confirmation/change move to `/api/auth/security/`, preserving origin,
-  CSRF, session/generation, atomic failure allowances, Turnstile, fresh MFA write
-  guards, password validation, notification and password-change sign-out behavior.
-- Fresh primary proof for enrollment, regeneration and replacement must be password
-  proof. Legacy provider pending challenges/operations cannot create fresh authority.
-- Secrets or provider data are never read by the removal process.
+The application removal retains email/password, optional TOTP MFA, one-use recovery
+codes, Turnstile, strict freshness, CSRF/origin/session/generation checks, atomic
+reservations, password validation, notifications and sign-out rules. Google UI,
+routes, callbacks, claims, signup/linking, first-password setup, provider-only
+rotation and dependency are removed. Password management uses
+`/api/auth/security/{methods,reauth-password,change-password}`.
 
-## Schema and data — separate approval required
+## Smallest safe database option
 
-No database rebuild, SQL migration, remote query or data deletion is performed.
-Migrations 0001–0015 remain byte-for-byte unchanged. Removing a provider does not
-require rebuilding the entire database or losing UUIDs, member history, passwords,
-MFA factors, recovery codes, sessions, roles, registration or email budgets.
+Keep the existing D1 resource, UUID and binding. Do not delete/recreate the database
+or reapply 0001–0015. A resource rebuild adds binding/history/reseeding work and is
+unnecessary. Prepare two distinct files, never a DEV wipe in the shared migration chain:
 
-Existing `user_auth_providers` mappings and `auth_oidc_transactions`/
-`auth_password_setup`, their indexes/triggers and legacy enum values are retained
-as inert historical storage. `auth_recent_authentication` is shared password/MFA
-infrastructure and MUST remain. The obsolete `oidc_state_digest` column on restricted
-recovery is not used by the application. Strict legacy schema accepts old provider
-values, but runtime sensitive-action guards accept password proof only.
+1. `migrations/0016_remove_google_oauth.sql` is a forward schema cleanup. It drops
+   `user_auth_providers`, `auth_oidc_transactions` and `auth_password_setup`,
+   including their indexes. It rebuilds five **transient** password/MFA tables with
+   password-only primary-method constraints, removes `oidc_state_digest` and the
+   unused rotation purpose, and recreates their existing security indexes/triggers.
+   It revokes all sessions, invalidates in-flight MFA/primary/recovery operations
+   and erases inactive staged verifiers. It preserves users, passwords, active
+   encrypted factors and active/spent recovery-code verifiers, RBAC, ledger,
+   events/registrations/news and budgets. Existing factor protection is not disabled.
+2. `scripts/sql/reset-dev-data.sql` is a separately approved **DEV-only operational
+   reset**, outside automatic migrations. Its explicit 20-table DELETE list removes
+   disposable accounts/passwords, sessions/actions, MFA factors/codes/operations,
+   role assignments, nicknames/prefixes and event/location/registration/news data.
+   It retains static roles/permissions/grants, immutable member-number tombstones
+   and AUTOINCREMENT sequence, email budgets/extensions and rate-limit records.
+   No Cloudflare/internal metadata, migration-history table, schema object or
+   unrelated table is deleted. A fresh account receives the next unused member
+   number, not a promised #0011. Original account emails become available again.
 
-Before rollout, obtain owner approval for a small DEV-only aggregate account audit:
-identify passwordless accounts and affected sessions/operations without exporting
-personal data. Agree an explicit transition (or disposal of approved fictional DEV
-accounts). Do not silently set passwords, turn a provider session into password
-proof, bypass MFA or grant recovery through matching email. Normal password recovery
-continues to require an existing local credential. Affected users without a usable
-method require administrator assistance, not an automatic recovery bypass.
+The migration is applicable only after explicit environment-specific approval;
+even without the optional DEV reset, it signs everyone out and ends temporary
+recovery windows. Historical migration names remain in history by design; the
+live schema must have no retired provider/OIDC objects, columns or allowed methods.
 
-For complete physical cleanup, separately review a new forward migration (next
-number must be rechecked), targeted deletion of obsolete mappings/transactions,
-removal of obsolete indexes/tables and trigger reconstruction preserving shared
-password-assurance cleanup. Tightening CHECK enums/removing referenced columns may
-require rebuilding individual shared tables; do not improvise this during rollout.
-Migration proposal, fresh private recovery checkpoint, exact DEV target and execution
-approval are separate gates. Revoke affected sessions/operations explicitly before
-rollout; old ordinary sessions are not automatically revoked by changing code.
+## Gates and exact proposed order — not executed
 
-## Configuration cleanup and release gates
+Use the reviewed PR revision, installed project Wrangler and existing approved
+Windows authentication. Resolve one existing Node executable, use the review
+worktree as cwd, and verify the source files/checksums before any write. Commands
+below use PowerShell variables pointing to that executable and
+`node_modules/wrangler/bin/wrangler.js`. No new tokens, permissions or credentials.
 
-The candidate removes Google public vars from Wrangler and local examples; all
-other bindings, including Turnstile and MFA keys, remain. Existing encrypted
-`GOOGLE_CLIENT_SECRET` may survive deployment. Its DEV removal, dashboard-variable
-cleanup and Google Cloud client revocation require separate explicit operational
-approval. No remote config is changed by this PR; PROD is untouched.
+### P — independent review, then explicit merge AND automatic DEV deployment approval
 
-Review exact PR base/head and account-transition findings before approving DEV
-merge. A merge/push to dev automatically deploys. Verify actual deployed version,
-health, password login, stale-primary reauthentication, TOTP/recovery login,
-last-code replacement, code regeneration, notifications and expired/replayed proof
-rejection using private owner-controlled hosted testing after approval. Stop for
-unknown account impact or failing safeguards. Do not use pre-MFA code as rollback
-after factor enrollment; any fallback must retain MFA enforcement. Rolling back
-this removal must not silently reactivate the discontinued provider.
+Q reviews the revised PR, migration/reset SQL and local evidence. Approve both
+merge into dev and its automatic DEV deployment explicitly. **Deploy code first:**
+the Google-free Worker works with both old and cleaned schema, whereas the old
+Google Worker cannot safely use the cleaned schema. The deployment does not apply
+migrations. Verify CI, active Worker revision, homepage/login/health, old API 404s
+and required non-Google binding metadata. No hosted account tests yet.
 
-Historical migration constraints and dated security review receipts remain evidence,
-not current Google setup/activation instructions. New current privacy guidance is
-in [PRIVACY.md](PRIVACY.md); no PROD privacy page is changed by this DEV PR.
+### DB — exact migration and destructive-reset confirmation
+
+Approve the exact two files and their impact. Establish an owner-controlled quiet
+window; this is a maintenance operation, not an authorization bypass. Read-only
+preflight commands (all explicitly DEV):
+
+```powershell
+& $node $wrangler d1 info lan-party-dev --env dev --json
+& $node $wrangler d1 migrations list lan-party-dev --env dev --remote
+& $node $wrangler d1 execute lan-party-dev --env dev --remote --json --command "SELECT name,COUNT(*) AS copies FROM d1_migrations GROUP BY name ORDER BY name; PRAGMA quick_check; PRAGMA foreign_key_check;"
+```
+
+Require name `lan-party-dev`, UUID `a3c4cea6-ceb7-43b8-b9b7-b374726b35b4`,
+jurisdiction `eu`, 0001–0015 once each and **only 0016 pending**, integrity ok and
+no FK violations. Inspect names/counts only: no account details, factors or codes.
+The owner's all-DEV-disposable confirmation establishes retention scope; any
+unexpected application table/resource or source/config mismatch still stops execution.
+Record quota/rate/ledger/static-reference baselines; leave their values untouched.
+
+Immediately before EACH write, capture a fresh Time Travel checkpoint privately:
+
+```powershell
+$checkpoint = & $node $wrangler d1 time-travel info lan-party-dev --env dev --json
+# Check exit status; retain and validate JSON in a private owner recovery file
+# outside Git, logs, chat and GitHub. Do not print the bookmark.
+```
+
+Stop if capture/private retention cannot be verified. Proposed writes, separately
+from the read commands above:
+
+```powershell
+& $node $wrangler d1 migrations apply lan-party-dev --env dev --remote
+# Verify 0016 once, cleaned schema, quick_check=ok, FK check empty and preservation.
+# Capture/privately retain a second fresh checkpoint immediately before reset.
+& $node $wrangler d1 execute lan-party-dev --env dev --remote --file scripts/sql/reset-dev-data.sql
+```
+
+After reset verify all 20 targeted tables empty; retained history/ledger/sequence,
+RBAC, email budgets and rates unchanged; schema unchanged from post-0016; integrity
+ok and FK check empty. No account creation/email send is part of DB gate.
+
+### C — DEV-only configuration/credential cleanup
+
+After the Google-free Worker is confirmed active, separately approve removal of
+DEV `GOOGLE_CLIENT_SECRET` and any surviving plain `GOOGLE_AUTH_MODE`/
+`GOOGLE_CLIENT_ID` settings. Check names/presence only; do not retrieve secret values.
+The exact proposed secret operation is:
+
+```powershell
+& $node $wrangler secret delete GOOGLE_CLIENT_SECRET --env dev
+& $node $wrangler secret list --env dev
+```
+
+Secret deletion can publish a new Worker version; that DEV configuration deployment
+must be included in Gate C approval. Plain vars are already removed from source;
+if dashboard remnants survive, remove only those two names through the DEV Worker
+settings after explicit approval, preserving every other binding. Verify MFA key
+bindings, password/rate secrets, Turnstile and Resend names remain present and health
+is normal. Do not regenerate/remove MFA keys or touch Keeper.
+
+Prepare owner-performed Google Cloud retirement: in project `lan-party-512015`,
+open Google Auth Platform → Clients; verify `LAN Party - DEV` and its exact known
+public client ID with the DEV callback. After separate client-deletion approval,
+delete only this OAuth client. Do not delete the project, domain verification,
+branding, privacy policy or any PROD/other client. Do not request/capture its secret.
+
+### T — separate fresh-account and email authorization
+
+Owner chooses an approved allowlisted test recipient and enters credentials, TOTP
+setup/proof and recovery codes privately. Budget one verification email plus only
+the necessary approved security notices; no automatic resends. Test registration
+→ explicit email confirmation → password login → Security → MFA enrollment/ACK →
+password + TOTP login → one-use recovery login/replay rejection → regeneration and
+lost-authenticator replacement if included in that explicit scope. Verify stale
+primary proof prompts for password, pre-MFA context cannot access Account Security,
+spent codes never become reusable, fresh UUID/member allocation and no Google UI/API.
+An event registration remains unavailable in the current app; no completion claim
+or new event feature is part of this cleanup.
+
+## Failures and recovery
+
+Stop on auth/identity/jurisdiction/source mismatch, unexpected pending migrations,
+missing checkpoint, any write error/uncertain outcome, unexpected schema/data,
+quota/ledger change, FK or integrity failure, failed CI/deploy/health or security
+regression. No blind retry, automatic restore, forward repair or credential fallback.
+Read-only diagnostics do not authorize a repair. Preserve sanitized evidence and
+seek owner decision. Restore the relevant private checkpoint only with separate
+owner approval; Time Travel rolls back **the whole database**, including intervening
+legitimate work. Keep the quiet window. Code rollback must remain Google-free and
+MFA-aware (the application-removal commit supports old/new schema); never silently
+reactivate Google or roll authentication back to pre-MFA code after enrollment.
+
+Cloudflare documents [migration rollback and commands](https://developers.cloudflare.com/d1/wrangler-commands/)
+and [foreign-key enforcement](https://developers.cloudflare.com/d1/sql-api/foreign-keys/).
+Installed Wrangler help was checked; no unsupported jurisdiction flag, explicit
+BEGIN/COMMIT or foreign_keys=OFF is proposed. Schema/reset atomic rollback is tested
+locally; no hosted execution/result is claimed before the relevant approval gates.

@@ -27,7 +27,8 @@ every historical database row is automatically deleted. Fixed account/data reten
 periods and routine deletion procedures have not been established. Retention review
 must consider the ongoing purpose, account/security history and participant requests;
 do not promise automatic account deletion or a self-service mechanism that does not
-exist. Historical provider data remains pending separately approved cleanup.
+exist. Historical provider data remains remotely pending separately approved migration 0016
+and the owner-approved-in-principle disposable DEV reset; neither is claimed executed.
 
 Visitors can ask the organizers about access, correction, deletion and other privacy
 rights through the public contact. Requests require appropriate identity checks

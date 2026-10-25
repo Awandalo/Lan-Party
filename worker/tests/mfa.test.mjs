@@ -156,14 +156,12 @@ test('pending challenges cannot authorize security methods, management, logout, 
  assert.equal((await request('mfa/complete',{method:'recovery',code:m.codes.codes[0]},{Cookie,'X-CSRF-Token':challenge.csrfToken})).status,200);
 }));
 
-test('MFA disable preserves account identity, credentials, Google mapping, roles and member history while revoking MFA and sessions',()=>local(async fixture=>{
+test('MFA disable preserves account identity, credentials, roles and member history while revoking MFA and sessions',()=>local(async fixture=>{
  const {db,request,call}=fixture,m=await managementFixture(fixture);
  await db.prepare('INSERT INTO registration_rate_limits(key_hash,hits,expires_at) VALUES (?,7,?)').bind('fa'.repeat(32),m.c.now+900).run();
  await db.prepare('INSERT INTO auth_email_daily_budget(utc_day,attempts) VALUES (?,12)').bind(Math.floor(m.c.now/86400)*86400).run();
  await db.prepare("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,? FROM roles WHERE code='admin'").bind(m.c.userId,m.c.now).run();
- await db.prepare("INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at) VALUES (?,?,'google','https://accounts.google.com','fictional-disable-subject',?)")
-  .bind(randomUUID(),m.c.userId,m.c.now).run();
- const tables=['user_password_credentials','user_auth_providers','user_nicknames','member_numbers','user_roles','registration_rate_limits','auth_email_daily_budget'];
+ const tables=['user_password_credentials','user_nicknames','member_numbers','user_roles','registration_rate_limits','auth_email_daily_budget'];
  const before={};for(const table of tables.filter(t=>t!=='registration_rate_limits'))before[table]=(await db.prepare('SELECT * FROM '+table+' ORDER BY rowid').all()).results;
  const identity=await db.prepare('SELECT id,email,email_normalized,first_name,last_name,status,email_verified_at FROM users').first();
  const tx=await m.start('disable'),checked=await m.prove(tx);assert.equal(checked.status,200);const proof=await checked.json();
@@ -407,14 +405,14 @@ test('normal password recovery revokes sessions and pending challenges but never
  const Cookie=cookieJar(login),state=await(await request('mfa/challenge',undefined,{Cookie})).json();
  assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},{Cookie,'X-CSRF-Token':state.csrfToken})).status,200);
 }));
-async function local(run,{legacy=false,regeneration=true}={}){
+async function local(run,{legacy=false,regeneration=true,cleanup=true}={}){
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script,cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},
   bindings:{REGISTRATION_MODE:'local-only',AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin,
    AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32),PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),...keyConfig,
    AUTH_TURNSTILE_SITE_KEY:'synthetic-site-key',TURNSTILE_SECRET_KEY:'synthetic-only-turnstile-secret'}}));
  try{
   const db=await instance.getD1Database('DB');const apply=n=>db.batch(migrations[n-1].map(s=>db.prepare(s)));
-  for(let n=1;n<=12;n++)await apply(n);if(!legacy)for(let n=13;n<=(regeneration?migrations.length:14);n++)await apply(n);
+  for(let n=1;n<=12;n++)await apply(n);if(!legacy)for(let n=13;n<=(regeneration?(cleanup?migrations.length:15):14);n++)await apply(n);
   let ordinal=0;
   const request=(path,input,headers={})=>instance.dispatchFetch(origin+'/api/auth/'+path,{method:input===undefined?'GET':'POST',...(input===undefined?{}:{body:JSON.stringify(input)}),headers:{Origin:origin,'X-LAN-Request':'1','Content-Type':'application/json','CF-Connecting-IP':`203.0.113.${++ordinal}`,...headers}});
   const raw=(action,...args)=>instance.dispatchFetch(origin+'/fixture',{method:'POST',body:JSON.stringify({action,args})});
@@ -865,7 +863,7 @@ test('retired provider proof cannot create pending authentication or authorize e
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_transactions').first('n'),0);
  assert.equal((await request('security/reauth-password',{password:profile.password},headers)).status,200);
  assert.equal((await request('mfa/enroll/start',{},headers)).status,200);
-}));
+},{cleanup:false}));
 
 test('retired provider assurance cannot authorize regeneration or Account Security replacement',()=>local(async fixture=>{
  const {headers,c}=await managementFixture(fixture),{db,request}=fixture;
@@ -876,4 +874,65 @@ test('retired provider assurance cannot authorize regeneration or Account Securi
  assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results,before);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_regeneration_operations').first('n'),0);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_operations').first('n'),0);
+},{cleanup:false}));
+
+
+test('0016 removes retired schema, preserves active credentials and MFA, and invalidates all old authority',()=>local(async fixture=>{
+ const {db,apply,request}=fixture,m=await managementFixture(fixture);
+ await db.prepare("INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at) VALUES (?,?,'google','https://accounts.google.com','synthetic-retired-subject',?)").bind(randomUUID(),m.c.userId,m.c.now).run();
+ const tables=['users','user_password_credentials','auth_totp_factors','auth_mfa_recovery_codes','member_numbers','user_nicknames'];
+ const before={};for(const t of tables)before[t]=(await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results;
+ await apply(16);
+ for(const t of tables)assert.deepEqual((await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results,before[t],t);
+ const schema=(await db.prepare("SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL").all()).results;
+ assert.equal(schema.some(o=>/google|oidc|user_auth_providers|auth_password_setup/i.test(o.sql)),false);
+ for(const t of ['auth_recent_authentication','auth_mfa_transactions','auth_session_mfa','auth_mfa_recovery_operations','auth_mfa_regeneration_operations'])assert.equal(await db.prepare('SELECT count(*) n FROM '+t).first('n'),0,t);
+ assert.equal((await request('session',undefined,m.headers)).status,401);
+ const pending=await challengeHttp(request);
+ assert.equal((await request('security/methods',undefined,pending)).status,401);
+ const login=await request('mfa/complete',{method:'recovery',code:m.codes.codes[0]},pending);assert.equal(login.status,200);
+ assert.deepEqual(await(await request('security/methods',undefined,{Cookie:cookieJar(login)})).json(),{password:true});
+ assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+},{cleanup:false}));
+
+test('0016 failure rolls schema, credentials, factors and session revocation back atomically',()=>local(async fixture=>{
+ const {db}=fixture;await managementFixture(fixture);
+ const schema=async()=>(await db.prepare("SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name").all()).results;
+ const before=await schema(),sessions=(await db.prepare('SELECT * FROM auth_sessions ORDER BY id').all()).results;
+ const statements=migrations[15].map(s=>db.prepare(s));statements.splice(12,0,db.prepare("SELECT json('intentional local migration rollback')"));
+ await assert.rejects(db.batch(statements));assert.deepEqual(await schema(),before);
+ assert.deepEqual((await db.prepare('SELECT * FROM auth_sessions ORDER BY id').all()).results,sessions);
+ assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');
+},{cleanup:false}));
+
+async function resetStatements(db){
+ const sql=(await readFile(new URL('../../scripts/sql/reset-dev-data.sql',import.meta.url),'utf8')).replace(/--[^\n]*/g,'');
+ assert.doesNotMatch(sql,/DROP|PRAGMA|sqlite_|_cf_|d1_migrations|member_numbers/i);
+ return sql.split(';').map(s=>s.trim()).filter(Boolean).map(s=>db.prepare(s));
+}
+test('DEV reset removes disposable accounts but retains migration history, ledger, quotas and unrelated metadata; fresh MFA registration works',()=>local(async fixture=>{
+ const {db,request}=fixture,m=await managementFixture(fixture);
+ await db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT); CREATE TABLE unrelated_fixture(value TEXT);');
+ await db.prepare("INSERT INTO d1_migrations VALUES(1,'synthetic-history')").run();await db.prepare("INSERT INTO unrelated_fixture VALUES('keep')").run();
+ await db.prepare('INSERT INTO auth_email_daily_budget VALUES(?,12)').bind(Math.floor(m.c.now/86400)*86400).run();
+ const retained=['d1_migrations','unrelated_fixture','member_numbers','sqlite_sequence','roles','permissions','role_permissions','registration_rate_limits','auth_email_daily_budget','auth_email_budget_extensions'];
+ const before={};for(const t of retained)before[t]=(await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results;
+ await db.batch(await resetStatements(db));assert.equal(await db.prepare('SELECT count(*) n FROM users').first('n'),0);
+ for(const t of retained)assert.deepEqual((await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results,before[t],t);
+ assert.equal((await request('session',undefined,m.headers)).status,401);
+ const fresh=await enrollHttp(fixture),activated=await fresh.activate();assert.equal(activated.status,200);
+ const id=await db.prepare('SELECT id FROM users').first('id');assert.notEqual(id,m.c.userId);
+ assert.equal(await db.prepare('SELECT member_number FROM member_numbers WHERE user_id=?').bind(id).first('member_number'),12);
+ const pending=await challengeHttp(request),done=await request('mfa/complete',{method:'recovery',code:fresh.codes.codes[0]},pending);assert.equal(done.status,200);
+ assert.deepEqual(await(await request('security/methods',undefined,{Cookie:cookieJar(done)})).json(),{password:true});
+ assert.equal((await request('mfa/complete',{method:'recovery',code:fresh.codes.codes[0]},pending)).status,401);
+ assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+}));
+test('DEV reset write failure rolls back disposable data without restoring spent proof',()=>local(async fixture=>{
+ const {db}=fixture,m=await managementFixture(fixture);
+ const tables=['users','user_password_credentials','auth_totp_factors','auth_mfa_recovery_codes','auth_sessions'];
+ const before={};for(const t of tables)before[t]=(await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results;
+ const statements=await resetStatements(db);statements.splice(3,0,db.prepare("SELECT json('intentional local reset rollback')"));
+ await assert.rejects(db.batch(statements));for(const t of tables)assert.deepEqual((await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results,before[t],t);
+ assert.equal(m.codes.codes.length,10);assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));

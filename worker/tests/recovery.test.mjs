@@ -160,12 +160,9 @@ test('concurrent resets have one winner and leave only that password usable', ()
   assert.equal(await db.prepare('SELECT auth_version FROM users').first('auth_version'), 1);
 }));
 
-test('only a committed reset sends one notification, preserves Google and requires normal login',()=>local(async({instance,db,request,register,forgot,login,snapshot})=>{
+test('only a committed reset sends one notification, preserves account identity and requires normal login',()=>local(async({instance,db,request,register,forgot,login,snapshot})=>{
  await register();const cookie=(await login()).headers.get('set-cookie').split(';')[0];
  const account=await snapshot();
- await db.prepare(`INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at)
-   VALUES (?,?,'google','https://accounts.google.com','fictional-linked-subject',unixepoch())`).bind(randomUUID(),account.userId).run();
- const providersBefore=(await db.prepare('SELECT * FROM user_auth_providers').all()).results;
  const notice=async()=> (await instance.dispatchFetch(origin+'/fixture/notification')).json();
  const input=await forgot();assert.deepEqual(await notice(),{changed:false});
  assert.equal((await request('reset-password',{...input,token:'00'.repeat(32),password:newPassword})).status,400);
@@ -179,7 +176,7 @@ test('only a committed reset sends one notification, preserves Google and requir
  // The invalid and failed writes above consume two of this account's three attempts.
  assert.deepEqual(results.map(r=>r.status).sort(),[200,429]);
  assert.deepEqual(await notice(),{changed:true});assert.deepEqual(await notice(),{changed:false});
- assert.deepEqual((await db.prepare('SELECT * FROM user_auth_providers').all()).results,providersBefore);
+ assert.equal((await snapshot()).userId,account.userId);
  assert.equal((await request('session',undefined,{Cookie:cookie})).status,401);
  assert.equal((await login()).status,401);assert.equal((await login(newPassword)).status,200);
 }));

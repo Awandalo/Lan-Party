@@ -225,7 +225,7 @@ test('regeneration-bound proof cannot authorize an unrelated sensitive account a
  assert.equal((await request('mfa/manage/verify',{token:op.token,regeneration:true,method:'totp',code:await call('otp',secret)},headers)).status,200);
  assert.deepEqual((await db.prepare('SELECT * FROM auth_session_mfa').all()).results,before,'purpose-bound verification must not refresh ordinary session assurance');
  const unrelated=await request('security/change-password',{password,newPassword:password+' new'},headers);assert.equal(unrelated.status,428);assert.equal((await unrelated.json()).code,'mfa_required');
- assert.equal(await db.prepare('SELECT count(*) AS n FROM user_auth_providers').first('n'),0);
+ assert.equal(await db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE name='user_auth_providers'").first('n'),0);
  assert.equal((await request('mfa/manage/check',{token:op.token,regeneration:true},headers)).status,200);
  assert.equal(await db.prepare('SELECT phase FROM auth_mfa_regeneration_operations').first('phase'),'prepared');
 },{age:121}));

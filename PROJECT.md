@@ -1162,9 +1162,11 @@ recovery codes. Password changes require the current password and, when enabled,
 fresh LAN Party MFA. Recovery never creates a first password or bypasses MFA.
 See [the removal and data-cleanup plan](docs/GOOGLE_REMOVAL.md).
 
-The existing applied schema is retained pending separately approved cleanup.
-Google-only accounts require an owner-approved transition; deployment is blocked
-until their treatment and affected-session revocation have been reviewed.
+The owner confirms all DEV data is disposable; no Google-only account transition
+is required. Forward migration 0016 and a separate DEV-only reset are prepared
+locally; execution, credential deletion, merge/deployment and hosted fresh-account
+testing remain separate gates. Migration history and immutable member allocation
+are retained. See the cleanup plan for exact operations and stop conditions.
 
 ### Final Phase 3 milestone — required before public registration
 

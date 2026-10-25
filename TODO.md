@@ -279,8 +279,10 @@ real email/integrated CPU verification remain separately approved operations.
 - [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
   configuration, migrations, deployment/activation and controlled email test separately.
 - [ ] Review and approve the Google-removal PR; Google OAuth is permanently out of scope.
-- [ ] Separately authorize the passwordless-account transition, affected-session
-  invalidation and historical provider/OIDC schema cleanup before rollout.
+- [x] Owner confirms all DEV data is disposable; no account transition is required.
+- [ ] Review/approve 0016 schema cleanup and the exact DEV-only reset SQL, with
+  fresh private checkpoints and preservation of metadata, ledger and sending limits.
+- [ ] Separately approve DEV Google secret/variable cleanup and Google Cloud client retirement.
 - [ ] Separately approve DEV merge/deployment and controlled email/password + MFA acceptance.
 - [ ] Decide whether durable security-notification delivery is required; an outbox
   and any schema changes require separate approval.

@@ -74,7 +74,7 @@ async function local(run,{upgrade=false}={}){
 
   AUTH_TURNSTILE_SITE_KEY:'fictional-site',TURNSTILE_SECRET_KEY:'fictional-turnstile-secret-only'}}));
  try{
-  const db=await instance.getD1Database('DB');for(const parts of migrations.slice(0,upgrade?13:14))await db.batch(parts.map(s=>db.prepare(s)));
+  const db=await instance.getD1Database('DB');for(const parts of migrations.slice(0,upgrade?13:migrations.length))await db.batch(parts.map(s=>db.prepare(s)));
   const raw=(action,...args)=>instance.dispatchFetch(origin+'/fixture',{method:'POST',body:JSON.stringify({action,args})});
   const call=async(action,...args)=>{const r=await raw(action,...args);assert.equal(r.status,200,action);return r.json();};
   let ordinal=0;
