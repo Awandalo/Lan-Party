@@ -7,6 +7,7 @@ import {sessionCsrfToken} from './csrf';
 import {readInput} from './registration';
 import {digestToken,generateToken} from './tokens';
 import {resolveSession} from './sessions';
+import {validateNickname} from './nicknames';
 import {completeMfa,pendingLogin,sessionCompletion} from './mfa-login';
 import {beginEnrollment,verifyEnrollment,cancelEnrollment,prepareEnrollmentActivation} from './mfa-enrollment';
 import {LoginBusy,LoginLimited,LoginLimiter} from './login-limits';
@@ -162,7 +163,9 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
         if(!primary)throw new MfaPrimaryRequired();
         if(!restart&&await env.DB.prepare("SELECT 1 FROM auth_mfa_transactions WHERE user_id=? AND purpose='enroll' AND phase IN ('pending','verified') AND expires_at>? LIMIT 1").bind(account.userId,now).first())
           return reply(409,{code:'enrollment_pending',error:'An unfinished setup exists. Explicitly restart it after confirming your identity.'});
-        return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,'LAN Party member',restart));
+        const nickname=await env.DB.prepare('SELECT nickname FROM user_nicknames WHERE user_id=?').bind(account.userId).first<string>('nickname');
+        if(!nickname)throw Error('Account nickname unavailable');
+        return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,validateNickname(nickname).display,restart));
       }
       if(typeof input.token!=='string'||!/^[a-f0-9]{64}$/.test(input.token))return reply(400,{error:'Invalid request'});
       if(action==='verify'&&typeof input.code==='string'&&/^[0-9]{6}$/.test(input.code))return reply(200,await verifyEnrollment(env.DB,c,input.token,input.code,env,managementEnvironment!,secret));

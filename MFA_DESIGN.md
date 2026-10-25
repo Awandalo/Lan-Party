@@ -711,3 +711,31 @@ or selecting an account does not establish fresh proof. Missing, stale, future o
 incorrectly bound proof remains rejected. This correction changes error/return UX,
 not the accepted authentication policy or Google configuration. Hosted acceptance
 remains separate until an owner-controlled attempt verifies the actual provider.
+
+## Enrollment presentation polish — local verification, 2026-10-25
+
+The inactive authenticator row uses an accessible shield action, matching the
+password action. Setup explanation and unfinished-setup controls appear only
+once the user opens setup. Two-minute primary authentication remains enforced by
+the server; an expired proof requests password confirmation when setup is attempted.
+The normal unfinished view offers explicit restart rather than a redundant status
+read. Unknown status still fails closed and offers a read-only retry, never an
+automatic enrollment retry.
+
+Password confirmation, QR and code saving share one active card with a reserved
+minimum height (grows for zoom/content). Cancel/Close is a single footer control
+anchored at the bottom across these steps. Enrollment recovery codes now have a
+Copy all codes action with manual-copy fallback; copying does not acknowledge
+saving or enable MFA. Secrets remain transient and existing expiry/cancellation
+behavior is retained.
+
+New enrollment and replacement QR labels use the authenticated account's validated
+stored nickname, never a submitted label, email or private name. Issuer and TOTP
+parameters are unchanged. Existing authenticator entries are not renamed retroactively.
+
+Verification: 17 targeted enrollment/replacement cases passed, including stale
+proof, restart, CSRF/session binding, races, rollback and nickname labels. Local
+fictional browser checks covered idle/pending state, stale-proof continuation,
+copy success/failure, acknowledgment and cancellation. Password, QR and code steps
+kept the same card/footer position at desktop and 360px widths; no horizontal
+overflow. No hosted accounts/emails or database changes were used in these checks.

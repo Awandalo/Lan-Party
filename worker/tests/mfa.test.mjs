@@ -936,3 +936,14 @@ test('DEV reset write failure rolls back disposable data without restoring spent
  await assert.rejects(db.batch(statements));for(const t of tables)assert.deepEqual((await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results,before[t],t);
  assert.equal(m.codes.codes.length,10);assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
 }));
+
+
+test('enrollment QR uses the authenticated account nickname and never private names or submitted labels',()=>local(async({request,seed,db})=>{
+ const s=await seed(),Cookie=s.cookie,headers={Cookie,'X-CSRF-Token':(await(await request('session',undefined,{Cookie})).json()).csrfToken};
+ await db.prepare('UPDATE user_nicknames SET nickname=?').bind('Fictional Member').run();
+ const rejected=await request('mfa/enroll/start',{label:'Another member'},headers);assert.equal(rejected.status,400);
+ const response=await request('mfa/enroll/start',{},headers);assert.equal(response.status,200);
+ const setup=await response.json(),uri=new URL(setup.uri);assert.equal(decodeURIComponent(uri.pathname.slice(1)),'LAN Party:Fictional Member');
+ assert.equal(uri.searchParams.get('issuer'),'LAN Party');assert.equal(uri.searchParams.get('secret'),setup.secret);
+ assert.ok(!setup.uri.includes(profile.email));assert.ok(!setup.uri.includes(profile.lastName));
+}));

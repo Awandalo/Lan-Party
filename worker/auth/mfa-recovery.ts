@@ -1,3 +1,4 @@
+import {validateNickname} from './nicknames';
 import type {MfaKeys} from './mfa-crypto';
 import {mfaDigest,generateTotpSecret,encryptTotpSecret,decryptTotpSecret,generateRecoveryCodes,recoveryVerifier,
   verifyTotp,provisioningUri,sealRecoveryDisplay,openRecoveryDisplay} from './mfa-crypto';
@@ -74,7 +75,9 @@ export async function recoverySetup(db:D1Database,c:RecoveryContext,keys:MfaKeys
  const r=await recoveryOperation(db,c);if(!r||r.phase!=='pending')throw Error('Recovery unavailable');
  const secret=await decryptTotpSecret({ciphertext:r.secret_ciphertext,nonce:r.secret_nonce,keyId:r.key_id},keys,
   {environment,userId:r.user_id,id:r.new_factor_id,purpose:'pending'});
- return {secret,uri:provisioningUri(secret,'LAN Party recovery'),expiresAt:r.expires_at};
+ const nickname=await db.prepare('SELECT nickname FROM user_nicknames WHERE user_id=?').bind(r.user_id).first<string>('nickname');
+ if(!nickname)throw Error('Account nickname unavailable');
+ return {secret,uri:provisioningUri(secret,validateNickname(nickname).display),expiresAt:r.expires_at};
 }
 export async function grantRecoveryPrimary(db:D1Database,c:RecoveryContext,method:'password',at:number,expectedVersion:number){
  const r=await recoveryOperation(db,c);if(!r||at>c.now||at<=c.now-120)throw Error('Recovery unavailable');

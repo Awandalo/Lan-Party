@@ -111,6 +111,7 @@ async function local(run,{upgrade=false}={}){
 
 test('last code starts restricted recovery, atomically replaces factor and preserves account/ledger',()=>local(async f=>{
  const {db,c,call,user,factor}=f;
+ await db.prepare('UPDATE user_nicknames SET nickname=?').bind('Fictional Replacement').run();
  const keep=await call('recoveryVerifier',user.id,factor.recovery_set_id,f.codes[0]);
  await db.prepare('UPDATE auth_mfa_recovery_codes SET consumed_at=created_at WHERE verifier<>?').bind(keep).run();
  const ledger=await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all();const password=await db.prepare('SELECT * FROM user_password_credentials').first();
@@ -125,6 +126,7 @@ test('last code starts restricted recovery, atomically replaces factor and prese
  assert.deepEqual((await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all()).results,ledger.results);
  assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),password);
  assert.notEqual(replacement.secret,f.oldSetup.secret);
+ assert.equal(decodeURIComponent(new URL(replacement.uri).pathname.slice(1)),'LAN Party:Fictional Replacement');
  assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results,[]);
  assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');
 }));
