@@ -19,11 +19,16 @@ export default function AccountSecurity(){
  if(new URLSearchParams(location.search).get('recovery')==='1')return <section className="page-section account-security-page"><div className="panel account-security-card"><MfaRecovery/></div></section>;
  return <SecuritySettings/>;
 }
+function ConnectedLoading({failed=false}:{failed?:boolean}){
+ return <section className="connected-accounts" aria-busy={!failed}><h2>Connected accounts</h2><dl className="connected-methods">
+ {['Email & password','Google'].map(label=><div key={label}><dt>{label}</dt><dd className="security-method-status"><span role="status">{failed?'Unavailable':'Loading…'}</span><span className="security-action-placeholder" aria-hidden="true"/></dd></div>)}
+ </dl>{failed&&<p role="status">Connected accounts are unavailable. Reload before trying again.</p>}</section>;
+}
 function SecurityLoading({failed=false}:{failed?:boolean}){
  return <section className="page-section account-security-page"><div className="panel account-security-card"><h1>Account security</h1>
- <p>All your account security settings in one place.</p><p role="status">{failed?'Account security is unavailable. Reload before trying again.':'Checking your session…'}</p>
- <section aria-busy={!failed}><h2>Connected accounts</h2><p>Settings will appear after your session is checked.</p></section>
- <section aria-busy={!failed}><h2>Two-factor authentication</h2><p>Security actions are unavailable until checks complete.</p></section></div></section>;
+ <p>All your account security settings in one place.</p><ConnectedLoading failed={failed}/>
+ <section className="mfa-enrollment security-mfa-section" aria-busy={!failed}><h2>Two-factor authentication</h2><div className="mfa-summary"><span>Authenticator app</span><span role="status" aria-label={failed?'Account security unavailable':'Checking your session…'}>{failed?'Unavailable':'Loading…'}</span></div></section>
+ <section><h2>Email verification</h2><dl className="connected-methods"><div><dt>Email address</dt><dd role="status">{failed?'Unavailable':'Checking…'}</dd></div></dl></section></div></section>;
 }
 function SecuritySettings(){
   const {session,status,refresh}=useAuth();
@@ -120,7 +125,7 @@ function SecuritySettings(){
     {needsMfa&&<MfaStepUp key={csrf} csrf={csrf} onBusy={value=>{actionPending.current=value;setBusy(value);}} onCancel={clearAction} onVerified={async()=>{
       if(!await refresh())throw Error('Session unavailable');clearAction();setFeedback('Two-factor authentication confirmed. Select your account action again.');
     }}/>}
-    {!methods&&<section aria-busy={!methodsFailed}><h2>Connected accounts</h2><p role="status">{methodsFailed?'Connected accounts are unavailable. Reload before trying again.':'Loading connected accounts…'}</p></section>}
+    {!methods&&<ConnectedLoading failed={methodsFailed}/>}
     {methods&&<><section className="connected-accounts" aria-labelledby="connected-accounts-heading">
       <h2 id="connected-accounts-heading">Connected accounts</h2>
       <dl className="connected-methods"><div><dt>Email &amp; password</dt><dd className="security-method-status">{methods.password?'Connected':'Not connected'}

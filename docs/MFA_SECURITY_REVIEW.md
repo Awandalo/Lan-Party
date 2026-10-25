@@ -632,3 +632,32 @@ request counts and refresh/rotation/expiry/error behavior, plus directly interac
 MFA recovery/Google regressions. Full unrelated local database suites are not needed
 for this frontend-only change; hosted acceptance/performance requires later approval
 and publication. Current work is local and uncommitted.
+## Stable loading rows and compact authenticator controls — 2026-10-25
+
+Owner approved implementation, focused tests and DEV publication of Q handoff
+6389138565 against 6535065. The owner subsequently found the expected notification
+in spam. Record receipt with delayed discovery; actual delivery latency/provider
+classification remains unknown. No notification replay, transport change, sender
+change, allowlist change or real-account operation is justified by that observation.
+
+Controlled fictional 400 ms responses on the same desktop fixture measured card
+heights 463 -> 587 -> 968 px before this correction. Matching connected-account,
+authenticator and email-status placeholders now keep the initial load at 763 px
+throughout. This is local geometry evidence, not a universal CLS/hosted-latency
+claim. Error states, MFA-disabled accounts, warnings and deliberate form expansion
+can legitimately change height. Existing parallel reads and session-bound display
+metadata reuse remain; no new authentication cache or server shortcut.
+
+The enabled authenticator row is a keyboard-accessible expandable button, with
+Regenerate recovery codes / Replace authenticator side by side on desktop and
+stacked on mobile. Hidden content remains mounted; collapse is unavailable during
+an active management/replacement/regeneration operation to protect the code view.
+Existing cancellation, receipt/status/freshness checks and session invalidation
+remain unchanged. The login-screen replacement fallback is retained pending hosted
+acceptance. Divider cleanup removes the last row's duplicate separator and empty
+feedback spacing, retaining meaningful section/inter-row separation.
+
+Three focused rendering regressions and strict TypeScript/DEV build passed. Actual
+fictional browser checks cover stable loading geometry, expansion/collapse, operation
+locking, cancel/restart and responsive controls. No Worker, database, migration,
+secret, provider or PROD changes. Hosted acceptance remains partial.

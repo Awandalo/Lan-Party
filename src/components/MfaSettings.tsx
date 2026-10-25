@@ -11,9 +11,9 @@ export default function MfaSettings(props:{csrf:string;open:boolean;disabled:boo
   void readMfaStatus(AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])).then(body=>{if(!controller.signal.aborted)setStatus({...body,csrf:props.csrf});}).catch(()=>{if(!controller.signal.aborted)setFailed(true);}).finally(()=>{if(!controller.signal.aborted)setRefreshing(false);});
   return()=>controller.abort();
  },[props.csrf,revision]);
- if(status===null||failed)return <section><h2>Two-factor authentication</h2><p role="status">{failed?'MFA settings are unavailable. Reload before trying again.':'Checking MFA status…'}</p></section>;
+ if(status===null||failed)return <section className="mfa-enrollment security-mfa-section" aria-busy={!failed}><h2>Two-factor authentication</h2><div className="mfa-summary"><span>Authenticator app</span><span role="status" aria-label={failed?'MFA settings unavailable':'Checking MFA status…'}>{failed?'Unavailable':'Loading…'}</span></div>{failed&&<p>MFA settings are unavailable. Reload before trying again.</p>}</section>;
  if(!status.enrollmentAvailable)return <section><h2>Two-factor authentication</h2><p>Authenticator: {status.enabled?'Enabled':'Not enabled'}. MFA settings are unavailable in this environment.</p></section>;
- if(!props.methods)return <section aria-busy="true"><h2>Two-factor authentication</h2><p role="status">Waiting for connected accounts before enabling security actions…</p></section>;
+ if(!props.methods)return <section className="mfa-enrollment security-mfa-section" aria-busy="true"><h2>Two-factor authentication</h2><div className="mfa-summary"><span>Authenticator app</span><span role="status" aria-label="Waiting for sign-in methods">Loading…</span></div></section>;
  const ready={...props,disabled:props.disabled||refreshing,methods:props.methods,onActivated:async()=>{setRevision(n=>n+1);return props.onActivated();}};
  return status.enabled?<MfaManagement {...ready}/>:<MfaEnrollment {...ready}/>;
 }

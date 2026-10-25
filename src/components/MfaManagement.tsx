@@ -12,11 +12,13 @@ import '../CSS/MfaEnrollment_style.css';
 type Purpose='disable'|'regenerate';
 type Pending={token:string;expiresAt:number;acknowledgment?:string;codes?:string[]};
 export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActivated,methods}:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean;google:boolean}}){
+ const [expanded,setExpanded]=useState(open);
  const [regenerationActive,setRegenerationActive]=useState(false),[replacementActive,setReplacementActive]=useState(false);
  const [purpose,setPurpose]=useState<Purpose|null>(null),[transaction,setTransaction]=useState<Pending|null>(null);
  const [feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false),[method,setMethod]=useState<'totp'|'recovery'>('totp'),[saved,setSaved]=useState(false),[reauth,setReauth]=useState(false);
  const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
  const pending=useRef(false),panel=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),trigger=useRef<HTMLButtonElement>(null),mounted=useRef(true);
+ useEffect(()=>{if(open)setExpanded(true);},[open]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  useEffect(()=>{if(open&&!transaction&&!regenerationActive)requestAnimationFrame(()=>trigger.current?.focus());},[open]);
  function clear(){setTransaction(null);setPurpose(null);setSaved(false);setReauth(false);setProof(null);setSiteKey('');if(field.current)field.current.value='';}
@@ -72,13 +74,15 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
    else setFeedback('Your identity could not be confirmed. Try again later.');
   }catch{setFeedback('Confirmation unavailable. No automatic retry was made.');}finally{pending.current=false;setBusy(false);onBusy(false);setProof(null);setAttempt(n=>n+1);}
  }
- return <section className="mfa-enrollment" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
-  <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">Enabled
+ return <section className="mfa-enrollment security-mfa-section" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
+  <button type="button" className="mfa-summary" aria-expanded={expanded} aria-controls="mfa-options" disabled={disabled||busy||regenerationActive||replacementActive||!!transaction||reauth} onClick={()=>setExpanded(value=>!value)}><span>Authenticator app</span><span>Enabled <span aria-hidden="true">{expanded?'▴':'▾'}</span></span></button>
+  <div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects both sign-in methods.</p>
    {!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
-</dd></div></dl>
-  <p>Your authenticator or a recovery code protects both sign-in methods.</p>
+</div>
+  <div className="mfa-action-row">
   <MfaRegeneration csrf={csrf} open={open} disabled={disabled||busy||!!transaction||replacementActive} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActivated={onActivated} onActive={setRegenerationActive}/>
   <MfaReplacement csrf={csrf} open={open} disabled={disabled||busy||regenerationActive||!!transaction} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActive={setReplacementActive}/>
+  </div>
   {open&&!regenerationActive&&!replacementActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
    {reauth?<><p>Confirm your identity. No MFA setting has been changed.</p>{methods.password&&<form onSubmit={primary}><fieldset disabled={busy}><label htmlFor="mfa-primary-password">Current password</label><PasswordInput id="mfa-primary-password" name="password" autoComplete="current-password" required autoFocus/>
     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button">Confirm password</button></fieldset></form>}
@@ -94,6 +98,6 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
      <button className="button" disabled={!saved||busy} onClick={()=>void run('finish')}>{busy?'Saving…':purpose==='disable'?'Confirm disable MFA':'Activate new recovery codes'}</button></>}
    <button className="button button-secondary" disabled={busy} onClick={()=>void run('cancel')}>Cancel</button>
   </div>}
-  <p role="status" aria-live="polite">{feedback}</p>
+  <p role="status" aria-live="polite">{feedback}</p></div>
  </section>;
 }

@@ -30,3 +30,19 @@
 .security-google-action > p:empty { display: none; }
 .security-google-action > p, .security-google-action > .login-challenge { flex-basis: 100%; }
 .security-method-controls .account-confirmation { margin-top: 1rem; }
+
+/* Keep loading rows and validated display rows geometrically equivalent. */
+.security-action-placeholder { width: 44px; height: 44px; flex-shrink: 0; }
+.connected-methods > div:last-child { border-bottom: 0; }
+.account-security-card p:empty { display: none; }
+.security-mfa-section { min-block-size: 9rem; }
+.account-security-card .mfa-summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; min-height: 3.5rem; margin: 0; padding: .75rem 0; border: 0; border-radius: .35rem; background: transparent; color: var(--text); font: inherit; text-align: left; }
+.mfa-summary > span:last-child { color: var(--accent); text-align: right; }
+button.mfa-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.mfa-enabled-description { display: flex; align-items: center; gap: 1rem; justify-content: space-between; }
+.mfa-enabled-description p { margin: .75rem 0; }
+.mfa-action-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,14rem),1fr)); gap: .75rem; }
+.mfa-action-row > div { min-width: 0; }
+.mfa-action-row > div > .button { width: 100%; margin: 0; }
+.mfa-action-row > div:has(.mfa-regeneration-panel) { grid-column: 1 / -1; }
+@media (max-width: 480px) { .mfa-action-row { grid-template-columns: 1fr; } }

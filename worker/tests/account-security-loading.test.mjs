@@ -4,7 +4,8 @@ import {createRequire,Module} from 'node:module';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
 const output=(await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`
  import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';
- import {AuthProvider} from './src/lib/auth';import AccountSecurity from './src/pages/AccountSecurity';import MfaSettings from './src/components/MfaSettings';
+ import {AuthProvider} from './src/lib/auth';import AccountSecurity from './src/pages/AccountSecurity';import MfaSettings from './src/components/MfaSettings';import MfaManagement from './src/components/MfaManagement';
+ export const management=()=>renderToStaticMarkup(<MfaManagement csrf={'a'.repeat(64)} methods={{password:true,google:true}} open={false} disabled={false} onOpen={()=>{}} onBusy={()=>{}} onActivated={async()=>{}}/>);
  export const page=()=>renderToStaticMarkup(<MemoryRouter initialEntries={['/account/security']}><AuthProvider><AccountSecurity/></AuthProvider></MemoryRouter>);
  export const mfa=()=>renderToStaticMarkup(<MfaSettings csrf={'a'.repeat(64)} methods={null} open={false} disabled={false} onOpen={()=>{}} onBusy={()=>{}} onActivated={async()=>{}}/>);
  `},bundle:true,packages:'external',write:false,platform:'node',format:'cjs',jsx:'automatic',loader:{'.css':'empty'},define:{'import.meta.env.DEV':'true','import.meta.env.VITE_AUTH_MODE':'undefined'}})).outputFiles[0].text;
@@ -18,5 +19,8 @@ try{
  });
  test('independent MFA loading cannot enable actions before methods and server status are available',()=>{
   const html=ui.mfa();assert.match(html,/Checking MFA status/);assert.doesNotMatch(html,/<button|Regenerate recovery codes|Replace authenticator/);
+ });
+ test('authenticator management starts collapsed with accessible controls and does not unmount its operation views',()=>{
+  const html=ui.management();assert.match(html,/aria-expanded="false"/);assert.match(html,/aria-controls="mfa-options"/);assert.match(html,/<div id="mfa-options" hidden="">/);assert.match(html,/Regenerate recovery codes/);assert.match(html,/Replace authenticator/);
  });
 }finally{after(()=>{if(prior===undefined)delete globalThis.window;else globalThis.window=prior;});}
