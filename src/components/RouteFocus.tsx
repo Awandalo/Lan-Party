@@ -5,6 +5,7 @@ const titles: Record<string, string> = {
   '/': 'Home',
   '/events': 'Events',
   '/login': 'Login',
+  '/privacy': 'Privacy Policy',
 };
 
 export default function RouteFocus() {
