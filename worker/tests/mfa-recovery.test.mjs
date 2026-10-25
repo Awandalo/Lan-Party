@@ -563,7 +563,7 @@ test('Account Security Google-only handoff requires actual signed fresh reauthen
  assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,428,'ordinary Google app-login time is not fresh provider reauthentication');
  const launch=await f.request('google/start',{purpose:'reauth',returnAction:'mfa'},h);assert.equal(launch.status,200);const url=new URL((await launch.json()).url);
  const callback=await f.instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{headers:{Cookie:h.Cookie+'; '+jar(launch)},redirect:'manual'});
- assert.equal(callback.headers.get('location'),'/account/security#mfa');
+ assert.equal(callback.headers.get('location'),'/account/security?google_mfa=complete');
  assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,200);
  assert.equal(await f.db.prepare('SELECT count(*) n FROM user_auth_providers').first('n'),1);
  assert.equal(await f.db.prepare('SELECT count(*) n FROM user_password_credentials').first('n'),0);
