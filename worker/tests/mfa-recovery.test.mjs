@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {randomUUID,generateKeyPairSync,sign} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {readFile,readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -8,8 +8,6 @@ const require=createRequire(import.meta.url),wr=createRequire(require.resolve('w
 const {Miniflare,convertV4MiniflareOptions}=wr('miniflare'),{build}=wr('esbuild');
 const origin='http://127.0.0.1:5173',keys={MFA_ENCRYPTION_KEYS:JSON.stringify({fixture:'44'.repeat(32)}),MFA_ACTIVE_KEY_ID:'fixture'};
 const profile={nickname:'Recovery Fixture',firstName:'Fictional',lastName:'Participant',email:'recovery@example.test',password:'fictional recovery password'};
-const {privateKey,publicKey}=generateKeyPairSync('rsa',{modulusLength:2048});
-const jwk={...publicKey.export({format:'jwk'}),kid:'fixture',alg:'RS256',use:'sig'};
 let script,migrations;
 before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
@@ -22,8 +20,6 @@ before(async()=>{
  let failNotices=false,fixtureTime;const realNow=Date.now.bind(Date);Date.now=()=>fixtureTime??realNow();const send=localMailbox.send.bind(localMailbox);
  localMailbox.send=async mail=>{if(failNotices&&mail.purpose==='mfa-replaced')throw Error('Fictional notice failure');return send(mail);};
  globalThis.fetch=async(input,init)=>{
-  if(String(input)==='https://oauth2.googleapis.com/token')return Response.json({access_token:'fictional',token_type:'Bearer',expires_in:300,id_token:new URLSearchParams(init.body).get('code')});
-  if(String(input)==='https://www.googleapis.com/oauth2/v3/certs')return Response.json({keys:[${JSON.stringify(jwk)}]});
   if(String(input)==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:JSON.parse(init.body).response==='fictional-proof',hostname:'127.0.0.1',action:'login'});
   throw Error('External network blocked');
  };
@@ -71,11 +67,11 @@ before(async()=>{
  }
 });
 const jar=r=>r.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ');
-async function local(run,{upgrade=false,googleOnly=false}={}){
+async function local(run,{upgrade=false}={}){
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script,cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},bindings:{
   REGISTRATION_MODE:'local-only',AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin,
   PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32),...keys,
-  GOOGLE_AUTH_MODE:'local-only',GOOGLE_CLIENT_ID:'fictional.apps.googleusercontent.com',GOOGLE_CLIENT_SECRET:'fictional-google-secret',
+
   AUTH_TURNSTILE_SITE_KEY:'fictional-site',TURNSTILE_SECRET_KEY:'fictional-turnstile-secret-only'}}));
  try{
   const db=await instance.getD1Database('DB');for(const parts of migrations.slice(0,upgrade?13:14))await db.batch(parts.map(s=>db.prepare(s)));
@@ -92,14 +88,10 @@ async function local(run,{upgrade=false,googleOnly=false}={}){
   const codes=await(await request('mfa/enroll/verify',{token:setup.token,code:await call('otp',setup.secret,now)},headers)).json();
   assert.equal((await request('mfa/enroll/activate',{token:setup.token,acknowledgment:codes.acknowledgment},headers)).status,200);
   if(upgrade)await db.batch(migrations[13].map(s=>db.prepare(s)));
-  if(googleOnly){
-   const id=await db.prepare('SELECT id FROM users').first('id');
-   await db.prepare("INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at) VALUES(?,?,'google','https://accounts.google.com','fixture-google',?)").bind(randomUUID(),id,Math.floor(Date.now()/1000)).run();
-   await db.prepare('DELETE FROM user_password_credentials WHERE user_id=?').bind(id).run();
-  }
+
   now=Math.floor(Date.now()/1000);
   const user=await db.prepare('SELECT * FROM users').first(),factor=await db.prepare('SELECT * FROM auth_totp_factors').first();
-  const pending=await call('primary',{userId:user.id,authVersion:user.auth_version,status:'active',emailVerifiedAt:now},googleOnly?'google':'password',now);
+  const pending=await call('primary',{userId:user.id,authVersion:user.auth_version,status:'active',emailVerifiedAt:now},'password',now);
   const c={token:pending.token,browser:pending.browser,now};
   const Cookie=`lan_mfa_local_pending=${c.token}; lan_mfa_local_browser=${c.browser}`;
   const status=await(await request('mfa/recovery/status',undefined,{Cookie})).json();
@@ -145,7 +137,7 @@ test('interrupted start resumes without spending another code; no ordinary sessi
  assert.equal(op.phase,'pending');
  assert.equal((await f.request('session',undefined,f.h)).status,401);
  assert.equal((await f.request('mfa/manage/start',{purpose:'disable'},f.h)).status,401);
- assert.equal((await f.request('google/methods',undefined,f.h)).status,503);
+ assert.equal((await f.request('security/methods',undefined,f.h)).status,401);
  assert.equal(await f.call('pending',f.c.token,f.c.browser,f.c.now),null);
 }));
 
@@ -243,10 +235,17 @@ test('password primary refresh is checked and generic; expired window cannot be 
  assert.equal((await f.request('mfa/recovery/primary',{password:profile.password},f.h)).status,401);
 }));
 
-function jwt(nonce,subject='fixture-google',time=Math.floor(Date.now()/1000),issuedAt=Math.floor(Date.now()/1000)){
- const content=[{alg:'RS256',kid:'fixture'},{iss:'https://accounts.google.com',aud:'fictional.apps.googleusercontent.com',sub:subject,email:profile.email,email_verified:true,hd:'example.test',iat:issuedAt,exp:issuedAt+300,auth_time:time,nonce}].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url')).join('.');
- return content+'.'+sign('RSA-SHA256',Buffer.from(content),privateKey).toString('base64url');
-}
+test('status never bootstraps expired, cancelled, foreign or superseded browser recovery',()=>local(async f=>{
+ const initial=await f.request('mfa/recovery/status',undefined,f.h);
+ assert.equal(initial.status,200);assert.equal(initial.headers.getSetCookie().length,0);
+ await f.start();
+ const denied=async Cookie=>{const response=await f.request('mfa/recovery/status',undefined,{Cookie});assert.equal(response.status,401);assert.equal(response.headers.getSetCookie().length,0);};
+ await denied(`lan_mfa_local_pending=${f.c.token}; lan_mfa_local_browser=${'ab'.repeat(32)}`);
+ const old=await f.call('primary',{userId:f.user.id,status:'active',authVersion:f.user.auth_version,emailVerifiedAt:f.c.now},'password',f.c.now);
+ await f.call('closeRecovery',f.c,false);await denied(f.h.Cookie);
+ await f.call('clock',f.c.now+301);
+ await denied(`lan_mfa_local_pending=${old.token}; lan_mfa_local_browser=${old.browser}`);
+},{}));
 
 // Browser cookie rules relevant to this loopback fixture: host-only Path=/,
 // Max-Age expiry, Strict excluded cross-site, Lax only on safe top-level navigation.
@@ -267,62 +266,6 @@ function recoveryBrowser(){
  };
 }
 
-test('lost entire start response resumes through status and Google callback with Strict/Lax expiry rules',()=>local(async f=>{
- const browser=recoveryBrowser(),original=f.c.now;
- browser.receive(await f.raw('primaryCookies',f.pending),original);
- assert.match(browser.cookies(original),/lan_mfa_local_pending=/);
- assert.equal(browser.cookies(original,{crossSite:true,topLevel:true}),'');
- // Start later than primary login, so the recovery window outlives the original cookies.
- await f.call('clock',original+60);
- const lost=await f.request('mfa/recovery/start',{code:f.codes[0],confirmed:true},f.h);
- assert.equal(lost.status,200); // Deliberately discard ALL headers/body; no receive().
- const initial=await f.db.prepare('SELECT * FROM auth_mfa_recovery_operations').first();
- assert.equal(initial.expires_at,original+360);
- await f.call('clock',original+299);
- const resumed=await f.request('mfa/recovery/status',undefined,{Cookie:browser.cookies(original+299)});
- assert.equal(resumed.status,200);assert.equal(resumed.headers.get('cache-control'),'no-store');
- assert.equal(resumed.headers.getSetCookie().length,2);
- for(const value of resumed.headers.getSetCookie()){
-  assert.match(value,/HttpOnly; SameSite=Lax;/);
-  assert.equal(Number(/Max-Age=(\d+)/.exec(value)[1]),initial.expires_at+300-(original+299));
- }
- browser.receive(resumed,original+299);
- const state=await resumed.json();assert.equal(state.password,false);assert.equal(state.google,true);
- assert.equal(browser.cookies(original+299,{crossSite:true,topLevel:false}),'');
- assert.equal(browser.cookies(original+299,{crossSite:true,topLevel:true,method:'POST'}),'');
- await f.call('clock',original+301);
- const Cookie=browser.cookies(original+301);
- assert.doesNotMatch(Cookie,/lan_mfa_local_pending=|lan_mfa_local_browser=/);
- const flow=await f.request('google/start',{purpose:'reauth',returnAction:'recovery'},{Cookie,'X-CSRF-Token':state.csrfToken});
- assert.equal(flow.status,200);browser.receive(flow,original+301);
- const url=new URL((await flow.json()).url),callbackCookies=browser.cookies(original+301,{crossSite:true,topLevel:true});
- assert.match(callbackCookies,/lan_mfa_local_recovery=/);
- const callback=()=>f.instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'),'fixture-google',original+301,original+301)}),
-  {redirect:'manual',headers:{Cookie:callbackCookies}});
- assert.equal((await callback()).headers.get('location'),'/mfa?recovery=1');
- assert.equal((await callback()).headers.get('location'),'/login?google=unavailable');
- const after=await f.db.prepare('SELECT * FROM auth_mfa_recovery_operations').first();
- assert.equal(after.operation_digest,initial.operation_digest);assert.equal(after.expires_at,initial.expires_at);
- assert.equal(after.created_at,initial.created_at);assert.equal(after.display_expires_at,null);
- assert.equal(after.primary_authenticated_at,original+301);
- assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),1);
- assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_operations').first('n'),1);
- assert.equal((await f.request('session',undefined,{Cookie})).status,401);
- assert.equal((await f.request('mfa/manage/start',{purpose:'disable'},{Cookie,'X-CSRF-Token':state.csrfToken})).status,401);
-},{googleOnly:true}));
-
-test('status never bootstraps expired, cancelled, foreign or superseded browser recovery',()=>local(async f=>{
- const initial=await f.request('mfa/recovery/status',undefined,f.h);
- assert.equal(initial.status,200);assert.equal(initial.headers.getSetCookie().length,0);
- await f.start();
- const denied=async Cookie=>{const response=await f.request('mfa/recovery/status',undefined,{Cookie});assert.equal(response.status,401);assert.equal(response.headers.getSetCookie().length,0);};
- await denied(`lan_mfa_local_pending=${f.c.token}; lan_mfa_local_browser=${'ab'.repeat(32)}`);
- const old=await f.call('primary',{userId:f.user.id,status:'active',authVersion:f.user.auth_version,emailVerifiedAt:f.c.now},'google',f.c.now);
- await f.call('closeRecovery',f.c,false);await denied(f.h.Cookie);
- await f.call('clock',f.c.now+301);
- await denied(`lan_mfa_local_pending=${old.token}; lan_mfa_local_browser=${old.browser}`);
-},{googleOnly:true}));
-
 test('without either browser context after original cookie expiry status fails closed',()=>local(async f=>{
  const browser=recoveryBrowser();browser.receive(await f.raw('primaryCookies',f.pending),f.c.now);
  await f.call('clock',f.c.now+60);
@@ -332,7 +275,7 @@ test('without either browser context after original cookie expiry status fails c
  // Missing binding is the existing sanitized unavailable response, not a proof bypass.
  assert.equal(response.status,503);assert.equal(response.headers.getSetCookie().length,0);
  assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),1);
-},{googleOnly:true}));
+},{}));
 
 test('status cookie refresh shrinks with fixed pending/display deadlines and rejects expiry',async()=>{
  await local(async f=>{
@@ -358,25 +301,6 @@ test('status cookie refresh shrinks with fixed pending/display deadlines and rej
   assert.equal(expired.status,401);assert.equal(expired.headers.getSetCookie().length,0);
  });
 });
-test('Google restricted refresh validates signed identity and never issues an ordinary session',()=>local(async f=>{
- await f.db.prepare("INSERT INTO user_auth_providers(id,user_id,provider,identity_namespace,provider_subject,linked_at) VALUES(?,?,'google','https://accounts.google.com','fixture-google',?)").bind(randomUUID(),f.user.id,f.c.now).run();
- await f.begin();
- const start=async()=>{const r=await f.request('google/start',{purpose:'reauth',returnAction:'recovery'},f.h);assert.equal(r.status,200);return {r,url:new URL((await r.json()).url)};};
- const flow=await start();assert.equal(flow.url.searchParams.get('max_age'),'0');
- const headers={Cookie:f.h.Cookie+'; '+jar(flow.r)};
- const callback=(flow,token)=>f.instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:flow.url.searchParams.get('state'),code:token}),{headers,redirect:'manual'});
- const done=await callback(flow,jwt(flow.url.searchParams.get('nonce')));assert.equal(done.status,303);assert.equal(done.headers.get('location'),'/mfa?recovery=1');assert.equal(done.headers.get('set-cookie'),null);
- assert.equal((await f.call('recoveryOperation',f.c)).primary_method,'google');
- assert.equal((await callback(flow,jwt(flow.url.searchParams.get('nonce')))).headers.get('location'),'/login?google=unavailable');
- const wrong=await start();headers.Cookie=f.h.Cookie+'; '+jar(wrong.r);
- assert.equal((await callback(wrong,jwt(wrong.url.searchParams.get('nonce'),'different-subject'))).headers.get('location'),'/login?google=unavailable');
- for(const time of [Math.floor(Date.now()/1000)-121,null]){
-  const stale=await start();headers.Cookie=f.h.Cookie+'; '+jar(stale.r);
-  assert.equal((await callback(stale,jwt(stale.url.searchParams.get('nonce'),'fixture-google',time))).headers.get('location'),'/login?google=unavailable');
- }
- assert.equal((await f.request('session',undefined,f.h)).status,401);
-}));
-
 test('0014 upgrades populated 0013, preserves history and constrains envelopes and immutable binding',()=>local(async f=>{
  assert.equal(await f.db.prepare('SELECT count(*) n FROM users').first('n'),1);
  assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),1);
@@ -443,20 +367,6 @@ test('notification failure never reverses a committed replacement or exposes sec
  assert.equal(response.status,200);const body=await response.text();assert.ok(!body.includes(setup.secret));
  assert.equal((await f.call('recoveryOperation',f.c)).phase,'committed');assert.equal(await f.call('mail','mfa-replaced'),null);
 }));
-
-test('Google-only recovery keeps its sole provider and can refresh primary proof after switching',()=>local(async f=>{
- const setup=await f.commit();
- assert.equal(await f.db.prepare('SELECT count(*) n FROM user_password_credentials').first('n'),0);
- assert.equal(await f.db.prepare('SELECT count(*) n FROM user_auth_providers').first('n'),1);
- const stale={...f.c,now:f.c.now+121};
- assert.equal((await f.raw('revealRecovery',stale,await f.call('otp',setup.secret,stale.now))).status,409);
- const flowResponse=await f.request('google/start',{purpose:'reauth',returnAction:'recovery'},f.h);assert.equal(flowResponse.status,200);
- const url=new URL((await flowResponse.json()).url),Cookie=f.h.Cookie+'; '+jar(flowResponse);
- const callback=await f.instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{redirect:'manual',headers:{Cookie}});
- assert.equal(callback.headers.get('location'),'/mfa?recovery=1');assert.equal(callback.headers.get('set-cookie'),null);
- assert.equal((await f.request('mfa/recovery/primary',{password:profile.password},f.h)).status,401);
- assert.equal((await f.request('session',undefined,f.h)).status,401);
-},{googleOnly:true}));
 
 test('expired redemption lease rolls back the last code and creates no restricted authorization',()=>local(async f=>{
  assert.equal((await f.raw('startRecovery',f.c,f.codes[0],keys,true)).status,409);
@@ -558,14 +468,31 @@ test('Account Security handoff fences revocation, generation and set changes ins
  });
 });
 
-test('Account Security Google-only handoff requires actual signed fresh reauthentication without spending another recovery code',()=>local(async f=>{
- const h=await recoveryLogin(f);
- assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,428,'ordinary Google app-login time is not fresh provider reauthentication');
- const launch=await f.request('google/start',{purpose:'reauth',returnAction:'mfa'},h);assert.equal(launch.status,200);const url=new URL((await launch.json()).url);
- const callback=await f.instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:jwt(url.searchParams.get('nonce'))}),{headers:{Cookie:h.Cookie+'; '+jar(launch)},redirect:'manual'});
- assert.equal(callback.headers.get('location'),'/account/security?google_mfa=complete');
- assert.equal((await f.request('mfa/recovery/from-session',{confirmed:true},h)).status,200);
- assert.equal(await f.db.prepare('SELECT count(*) n FROM user_auth_providers').first('n'),1);
- assert.equal(await f.db.prepare('SELECT count(*) n FROM user_password_credentials').first('n'),0);
- assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NULL').first('n'),0);
-},{googleOnly:true}));
+
+test('lost start response resumes through status and password confirmation across original cookie expiry',()=>local(async f=>{
+ const browser=recoveryBrowser(),original=f.c.now;
+ browser.receive(await f.raw('primaryCookies',f.pending),original);
+ assert.match(browser.cookies(original),/lan_mfa_local_pending=/);
+ assert.equal(browser.cookies(original,{crossSite:true,topLevel:true}),'');
+ await f.call('clock',original+60);
+ assert.equal((await f.request('mfa/recovery/start',{code:f.codes[0],confirmed:true},f.h)).status,200);
+ const initial=await f.db.prepare('SELECT * FROM auth_mfa_recovery_operations').first();
+ assert.equal(initial.expires_at,original+360);
+ await f.call('clock',original+299);
+ const resumed=await f.request('mfa/recovery/status',undefined,{Cookie:browser.cookies(original+299)});
+ assert.equal(resumed.status,200);assert.equal(resumed.headers.get('cache-control'),'no-store');
+ assert.equal(resumed.headers.getSetCookie().length,2);browser.receive(resumed,original+299);
+ const state=await resumed.json();assert.equal(state.password,true);assert.equal('google' in state,false);
+ assert.equal(browser.cookies(original+299,{crossSite:true,topLevel:false}),'');
+ assert.equal(browser.cookies(original+299,{crossSite:true,topLevel:true,method:'POST'}),'');
+ await f.call('clock',original+301);const Cookie=browser.cookies(original+301);
+ assert.doesNotMatch(Cookie,/lan_mfa_local_pending=|lan_mfa_local_browser=/);
+ const headers={Cookie,'X-CSRF-Token':state.csrfToken};
+ assert.equal((await f.request('mfa/recovery/primary',{password:profile.password},headers)).status,200);
+ const after=await f.db.prepare('SELECT * FROM auth_mfa_recovery_operations').first();
+ assert.equal(after.operation_digest,initial.operation_digest);assert.equal(after.expires_at,initial.expires_at);
+ assert.equal(after.created_at,initial.created_at);assert.equal(after.primary_authenticated_at,original+301);
+ assert.equal(await f.db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE consumed_at IS NOT NULL').first('n'),1);
+ assert.equal((await f.request('session',undefined,{Cookie})).status,401);
+ assert.equal((await f.request('mfa/manage/start',{purpose:'disable'},headers)).status,401);
+}));

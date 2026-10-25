@@ -10,7 +10,7 @@ import '../../../src/CSS/main.css';
 import '../../../src/CSS/AccountSecurity_style.css';
 const fixtureParams=new URL(location.href).searchParams;
 let expired=false,sessionGeneration=0;
-let operation=false,seen=false,primary=true,mfa=false,active=false,reveals=0,cancels=0,googleTabs=0,loseReveal=false,loseActivation=false,contextChanged=false;
+let operation=false,seen=false,primary=true,mfa=false,active=false,reveals=0,cancels=0,loseReveal=false,loseActivation=false,contextChanged=false;
 const codes=Array.from({length:10},(_,i)=>String.fromCharCode(65+i)+'AAA-AAAA-AAAA-AAAA-AAAA-AAAA-AA');
 const token='a'.repeat(64),ack='b'.repeat(64);
 // Drive real component timers deterministically; never sleep through a timeout.
@@ -25,7 +25,6 @@ window.setTimeout=((handler:TimerHandler,delay=0,...args:unknown[])=>{
 }) as typeof window.setTimeout;
 window.clearTimeout=(id?:number)=>{if(id!==undefined)timers.delete(id);nativeClearTimeout(id);};
 function advance(){offset+=86400000;for(const [id,timer] of timers){if(timer.at<=Date.now()){timers.delete(id);nativeClearTimeout(id);timer.run();}}primary=false;mfa=false;}
-window.open=()=>{if(new URL(location.href).searchParams.has('google-popup-blocked'))return null;googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
 const perfDelay=Number(fixtureParams.get('delay')??0);
 if(fixtureParams.has('stale-primary'))primary=false;
 if(fixtureParams.has('pending-enrollment'))operation=true;
@@ -50,14 +49,11 @@ window.fetch=async(input,init)=>{
  perfCounts[path]=(perfCounts[path]??0)+1;measure();if(perfDelay)await new Promise(resolve=>nativeSetTimeout(resolve,perfDelay));
  if(path==='/api/auth/session'&&expired)return Response.json({}, {status:401});
  if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:(sessionGeneration?'e':'c').repeat(64),emailVerified:true,...(fixtureParams.has('remaining')?{recoveryCodesRemaining:Number(fixtureParams.get('remaining'))}:{})});
- if(path==='/api/auth/google/methods')return Response.json(fixtureParams.has('bad-methods')?{password:'invalid',google:true}:{password:true,google:true});
+ if(path==='/api/auth/security/methods')return Response.json(fixtureParams.has('bad-methods')?{password:'invalid'}:{password:true});
  if(path==='/api/auth/mfa/status')return Response.json({enabled:!fixtureParams.has('enrollment'),enrollmentAvailable:true,...(operation?{pendingEnrollment:{expiresAt:Math.floor(Date.now()/1000)+600}}:{})});
- if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state='+'d'.repeat(64)});
- if(path==='/api/auth/google/reauth-status'&&fixtureParams.has('google-status-lost'))throw Error('Fictional status response lost');
- if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!fixtureParams.has('google-unavailable')&&!fixtureParams.has('google-terminal'),unavailable:fixtureParams.has('google-terminal')});
- if(path==='/api/auth/mfa/recovery/status')return Response.json({phase:'pending',expiresAt:Math.floor(Date.now()/1000)+300,csrfToken:'c'.repeat(64),password:true,google:true});
+ if(path==='/api/auth/mfa/recovery/status')return Response.json({phase:'pending',expiresAt:Math.floor(Date.now()/1000)+300,csrfToken:'c'.repeat(64),password:true});
  if(path==='/api/auth/mfa/recovery/from-session')return Response.json({code:'mfa_required',error:'Fictional stale MFA proof; sign in again with a usable method.'},{status:428});
- if(path==='/api/auth/google/reauth-password'){primary=true;mfa=false;return Response.json({confirmed:true});}
+ if(path==='/api/auth/security/reauth-password'){primary=true;mfa=false;return Response.json({confirmed:true});}
  if(path==='/api/auth/mfa/enroll/start'){
   if(fixtureParams.has('enrollment-lost')&&!data.restart){operation=true;throw Error('Fictional response lost after staging');}
   if(!primary)return Response.json({code:'reauth_required',error:'Confirm sign-in first.'},{status:428});
@@ -86,12 +82,11 @@ function FixtureSessionControls(){const {refresh}=useAuth();return <><button onC
 function App(){const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[show,setShow]=useState(true),[version,setVersion]=useState(0);
  return <main className="page-section"><div className="panel account-security-card" style={{maxWidth:fixtureParams.has('mobile')?360:640,marginInline:'auto'}}><h1>Fictional recovery-code UI test</h1><p>No real accounts, credentials, messages or provider requests.</p>
  <button onClick={()=>{advance();setVersion(n=>n+1);}}>Advance beyond one day (proof stale only)</button>
- <button onClick={()=>window.dispatchEvent(new Event('focus'))}>Return from fictional Google confirmation</button>
  <button onClick={()=>setShow(false)}>Leave code view</button><button onClick={()=>{loseReveal=true;}}>Lose next reveal response</button><button onClick={()=>{loseActivation=true;}}>Lose next activation response</button><button onClick={()=>{contextChanged=true;}}>Switch fictional session</button><button onClick={()=>setShow(true)}>Return to new view</button>
  <button onClick={()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Fictional denial');}}});}}>Deny clipboard</button>
  <button onClick={()=>setVersion(n=>n+1)}>Inspect safe counters</button>
- <p aria-label="Fixture counters">{JSON.stringify({version,seen,reveals,cancels,active,googleTabs})}</p>
- {show&&(fixtureParams.has('account')?<BrowserRouter><AuthProvider>{perfDelay?<><FixtureSessionControls/><Link to="/account">Fixture overview</Link><Link to="/account/security">Fixture settings</Link><Routes><Route path="/login" element={<p>Fictional signed-out page</p>}/><Route path="/account" element={<p>Fictional overview</p>}/><Route path="*" element={<AccountSecurity/>}/></Routes></>:<AccountSecurity/>}</AuthProvider></BrowserRouter>:fixtureParams.has('integration')?<MfaManagement csrf={'c'.repeat(64)} open={open} disabled={busy} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={setBusy} onActivated={async()=>{setVersion(n=>n+1);}}/>:<MfaRegeneration csrf={'c'.repeat(64)} open={open} disabled={false} methods={{password:true,google:true}} onOpen={()=>setOpen(true)} onBusy={()=>{}} onActivated={async()=>{setVersion(n=>n+1);}}/>)}
+ <p aria-label="Fixture counters">{JSON.stringify({version,seen,reveals,cancels,active})}</p>
+ {show&&(fixtureParams.has('account')?<BrowserRouter><AuthProvider>{perfDelay?<><FixtureSessionControls/><Link to="/account">Fixture overview</Link><Link to="/account/security">Fixture settings</Link><Routes><Route path="/login" element={<p>Fictional signed-out page</p>}/><Route path="/account" element={<p>Fictional overview</p>}/><Route path="*" element={<AccountSecurity/>}/></Routes></>:<AccountSecurity/>}</AuthProvider></BrowserRouter>:fixtureParams.has('integration')?<MfaManagement csrf={'c'.repeat(64)} open={open} disabled={busy} methods={{password:true}} onOpen={()=>setOpen(true)} onBusy={setBusy} onActivated={async()=>{setVersion(n=>n+1);}}/>:<MfaRegeneration csrf={'c'.repeat(64)} open={open} disabled={false} methods={{password:true}} onOpen={()=>setOpen(true)} onBusy={()=>{}} onActivated={async()=>{setVersion(n=>n+1);}}/>)}
  </div></main>;
 }
 const fixtureRoot=createRoot(document.getElementById('root')!);fixtureRoot.render(<App/>);

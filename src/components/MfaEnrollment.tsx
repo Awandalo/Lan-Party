@@ -3,7 +3,7 @@ import type {FormEvent} from 'react';
 import QRCode from 'qrcode';
 import PasswordInput from './PasswordInput';
 import LoginChallenge from './LoginChallenge';
-import {googleRequest} from '../lib/google';
+import {securityRequest} from '../lib/account-security';
 import {MFA_ENROLLMENT_AVAILABLE} from '../lib/mfa-mode';
 import '../CSS/MfaEnrollment_style.css';
 class EnrollmentResponseError extends Error {constructor(readonly status:number,readonly code?:string){super('Enrollment unavailable');}}
@@ -11,16 +11,15 @@ class EnrollmentResponseError extends Error {constructor(readonly status:number,
 type Enrollment={token:string;secret:string;uri:string;expiresAt:number};
 type Codes={codes:string[];acknowledgment:string};
 type Request=(action:string,input:object)=>Promise<unknown>;
-export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=false,onOpen,onBusy,onActivated,methods}:{methods?:{password:boolean;google:boolean};csrf:string;request?:Request;open?:boolean;disabled?:boolean;onOpen?:()=>void;onBusy?:(busy:boolean)=>void;onActivated?:()=>Promise<unknown>}){
+export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=false,onOpen,onBusy,onActivated,methods}:{methods?:{password:boolean};csrf:string;request?:Request;open?:boolean;disabled?:boolean;onOpen?:()=>void;onBusy?:(busy:boolean)=>void;onActivated?:()=>Promise<unknown>}){
   const [enrollment,setEnrollment]=useState<Enrollment|null>(null),[codes,setCodes]=useState<Codes|null>(null);
   const [busy,setBusy]=useState(false),[feedback,setFeedback]=useState(''),[saved,setSaved]=useState(false);
   const [enabled,setEnabled]=useState(false),[noticeOpen,setNoticeOpen]=useState(false),[reauth,setReauth]=useState(false),[needsLogin,setNeedsLogin]=useState(false),[uncertainStart,setUncertainStart]=useState(false);
   const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const pending=useRef(false),canvas=useRef<HTMLCanvasElement>(null),panel=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null);
-  const resumeGoogle=useRef<()=>Promise<void>>(async()=>{});
-  const mounted=useRef(true),googleState=useRef<string|null>(null),restartIntent=useRef(false);
+  const mounted=useRef(true),restartIntent=useRef(false);
   const [statusReady,setStatusReady]=useState(!!fixture);
-  const [unfinished,setUnfinished]=useState(false),[googleWaiting,setGoogleWaiting]=useState(false);
+  const [unfinished,setUnfinished]=useState(false);
   async function status(){
     const response=await fetch('/api/auth/mfa/status',{headers:{'X-LAN-Request':'1'},credentials:'same-origin',redirect:'error'});
     if(!response.ok)throw Error();const value=await response.json();if(typeof value.enabled!=='boolean'||typeof value.enrollmentAvailable!=='boolean'||(value.pendingEnrollment&&(!Number.isSafeInteger(value.pendingEnrollment.expiresAt)||value.pendingEnrollment.expiresAt<=Date.now()/1000)))throw Error();if(!mounted.current)return;
@@ -55,7 +54,7 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
   async function run(action:'start'|'verify'|'cancel'|'activate',code?:string,restart=false){
     if(pending.current||(action==='start'&&(disabled||!statusReady||(uncertainStart&&!restart))))return;pending.current=true;setBusy(true);onBusy?.(true);setFeedback('');
     const token=enrollment?.token;
-    if(action==='start'){restartIntent.current=restart;setNoticeOpen(true);setReauth(false);setNeedsLogin(false);googleState.current=null;setGoogleWaiting(false);}
+    if(action==='start'){restartIntent.current=restart;setNoticeOpen(true);setReauth(false);setNeedsLogin(false);}
     if(action==='cancel'){setEnrollment(null);setCodes(null);setSaved(false);}
     try{
       const result=await request(action,action==='start'?(restart?{restart:true,confirmed:true}:{}):{token,...(code?{code}:{}),...(action==='activate'?{acknowledgment:codes?.acknowledgment}:{})});
@@ -97,43 +96,18 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
   }
   async function confirmPrimary(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(pending.current)return;const form=event.currentTarget,password=String(new FormData(form).get('password')??'');form.reset();pending.current=true;setBusy(true);onBusy?.(true);let confirmed=false;
-    try{const response=await googleRequest('reauth-password',{password,...(proof?{turnstileToken:proof}:{})},csrf),body=await response.json();
+    try{const response=await securityRequest('reauth-password',{password,...(proof?{turnstileToken:proof}:{})},csrf),body=await response.json();
       if(!mounted.current)return;
-      if(response.ok){confirmed=true;setReauth(false);googleState.current=null;setGoogleWaiting(false);}
+      if(response.ok){confirmed=true;setReauth(false);}
       else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then confirm your password again.');}
       else setFeedback(body.error??'Identity confirmation failed. No setup was started.');
     }catch{if(mounted.current)setFeedback('Identity confirmation could not be confirmed. No setup was retried.');}
     finally{pending.current=false;onBusy?.(false);if(mounted.current){setBusy(false);setProof(null);setAttempt(n=>n+1);}}
     if(confirmed&&mounted.current)await run('start',undefined,restartIntent.current);
   }
-  async function google(){
-    if(pending.current)return;const tab=window.open('about:blank','_blank');if(!tab){setFeedback('Allow the Google confirmation tab, then try again.');return;}
-    tab.opener=null;pending.current=true;setBusy(true);onBusy?.(true);
-    try{const r=await googleRequest('start',{purpose:'reauth',returnAction:'mfa',...(proof?{turnstileToken:proof}:{})},csrf),body=await r.json();
-      if(!r.ok){if(r.status===403&&body.siteKey)setSiteKey(body.siteKey);throw Error();}
-      const url=new URL(body.url),state=url.searchParams.get('state');
-      if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth'||!state||!/^[a-f0-9]{64}$/.test(state))throw Error();
-      if(!mounted.current){tab.close();return;}googleState.current=state;setGoogleWaiting(true);tab.location.replace(url.href);
-      setFeedback('Complete Google confirmation in the other tab, then return here.');
-    }catch{tab.close();if(mounted.current)setFeedback('Google confirmation could not start. Complete any security check, then try again.');}
-    finally{pending.current=false;onBusy?.(false);if(mounted.current){setBusy(false);setProof(null);setAttempt(n=>n+1);}}
-  }
-  async function checkGoogle(){
-    const state=googleState.current;if(!state||pending.current)return;pending.current=true;setBusy(true);onBusy?.(true);let confirmed=false;
-    try{const r=await googleRequest('reauth-status',{state},csrf),body=await r.json();if(!mounted.current)return;if(!r.ok)throw Error();
-      confirmed=body.confirmed===true;if(confirmed){googleState.current=null;setGoogleWaiting(false);setReauth(false);}
-      else if(body.unavailable===true){googleState.current=null;setGoogleWaiting(false);setFeedback('Google confirmation is unavailable or expired. Check the result tab for its reference. Use your password if available, or cancel. No setup was retried.');}
-      else setFeedback('Fresh Google proof is not available yet. Check the other tab. If Google cannot provide fresh authentication-time proof, use your password or cancel.');
-    }catch{if(mounted.current)setFeedback('Google confirmation could not be checked. No setup was retried.');}
-    finally{pending.current=false;onBusy?.(false);if(mounted.current)setBusy(false);}
-    if(confirmed&&mounted.current)await run('start',undefined,restartIntent.current);
-  }
-  resumeGoogle.current=checkGoogle;
-  useEffect(()=>{const resume=()=>{if(document.visibilityState==='visible'&&googleState.current)void resumeGoogle.current();};window.addEventListener('focus',resume);document.addEventListener('visibilitychange',resume);
-    return()=>{window.removeEventListener('focus',resume);document.removeEventListener('visibilitychange',resume);googleState.current=null;};},[csrf]);
   function restart(){onOpen?.();restartIntent.current=true;setNoticeOpen(true);setReauth(true);setNeedsLogin(false);setFeedback('Restart cancels unfinished QR codes and staged codes only. Confirm your sign-in method to create a new setup. Active MFA is never removed.');}
   async function checkStatus(){if(pending.current)return;pending.current=true;setBusy(true);try{await status();setNoticeOpen(false);setFeedback('Current MFA status checked.');}catch{setFeedback('Status unavailable. No setup was retried.');}finally{pending.current=false;if(mounted.current)setBusy(false);}}
-  function dismiss(){googleState.current=null;setGoogleWaiting(false);setNoticeOpen(false);setReauth(false);setNeedsLogin(false);setFeedback(uncertainStart?'Setup result remains unconfirmed. Closing this notice does not cancel a server setup. Check status before considering another attempt.':'Setup was not started.');requestAnimationFrame(()=>trigger.current?.focus());}
+  function dismiss(){setNoticeOpen(false);setReauth(false);setNeedsLogin(false);setFeedback(uncertainStart?'Setup result remains unconfirmed. Closing this notice does not cancel a server setup. Check status before considering another attempt.':'Setup was not started.');requestAnimationFrame(()=>trigger.current?.focus());}
   function verify(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();void run('verify',code);}
   return <section className="mfa-enrollment" aria-labelledby="mfa-enrollment-heading"><h2 id="mfa-enrollment-heading">Two-factor authentication</h2>
     <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">{enabled?'Enabled':'Not enabled'}
@@ -144,8 +118,6 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
         {methods?.password&&<form onSubmit={confirmPrimary}><fieldset disabled={busy}><label htmlFor="enrollment-password">Current password</label><PasswordInput id="enrollment-password" name="password" autoComplete="current-password" required/>
           <button className="button" disabled={!!siteKey&&!proof}>{busy?'Confirming…':'Confirm and continue'}</button></fieldset></form>}
         {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
-        {methods?.google&&<button type="button" className="button button-secondary" disabled={busy||!!siteKey&&!proof} onClick={()=>void google()}>Confirm with Google</button>}
-        {googleWaiting&&<button type="button" className="button button-secondary" disabled={busy} onClick={()=>void checkGoogle()}>Check Google confirmation</button>}
         {!methods&&<a href="/login">Sign in again</a>}
       </>}
       {needsLogin&&<a href="/login">Sign in again</a>}

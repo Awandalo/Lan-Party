@@ -9,24 +9,13 @@ import type {LoginReservation} from './login-limits';
 
 export interface MfaChallenge {
   token_digest:string;transaction_id:string;user_id:string;auth_version:number;factor_id:string;
-  primary_method:'password'|'google';primary_authenticated_at:number;expires_at:number;
+  primary_method:'password';primary_authenticated_at:number;expires_at:number;
   secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number;recovery_set_id:string;
 }
-const rotationAuthority=Symbol('server-authorized session rotation');
-export interface RotationProof {user_id:string;auth_version:number;factor_id:string;method:'totp'|'recovery';verified_at:number;session_digest:string;[rotationAuthority]:true}
-export async function rotationProof(db:D1Database,userId:string,version:number,digest:string,now:number){
-  if(!await mfaSchemaReady(db))return null;
-  const row=await db.prepare(`SELECT m.* FROM auth_session_mfa m JOIN auth_sessions s ON s.token_digest=m.session_digest
-    JOIN users u ON u.id=s.user_id JOIN auth_totp_factors f ON f.user_id=u.id WHERE u.id=? AND u.auth_version=?
-    AND m.user_id=u.id AND m.auth_version=u.auth_version AND m.factor_id=f.factor_id AND s.token_digest=?
-    AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'
-    AND m.verified_at>? AND m.verified_at<=?`).bind(userId,version,digest,now,now-120,now).first<Omit<RotationProof,typeof rotationAuthority>>();
-  return row?{...row,[rotationAuthority]:true as const}:null;
-}
-// All providers and replacement sessions enter here. The ordinary session store
+// Password authentication enters here. The ordinary session store
 // independently rejects enabled factors; forgetting this boundary cannot bypass MFA.
-export async function completePrimary(db:D1Database,account:AccountIdentity,method:'password'|'google',now:number,primaryAt=now,rotation?:RotationProof|null){
-  if(!Number.isSafeInteger(primaryAt)||primaryAt<0||primaryAt>now)throw Error('Primary authentication unavailable');
+export async function completePrimary(db:D1Database,account:AccountIdentity,method:'password',now:number,primaryAt=now){
+  if(method!=='password'||!Number.isSafeInteger(primaryAt)||primaryAt<0||primaryAt>now)throw Error('Primary authentication unavailable');
   const factor=await mfaSchemaReady(db)?await db.prepare('SELECT factor_id FROM auth_totp_factors WHERE user_id=?')
     .bind(account.userId).first<{factor_id:string}>():null;
   if(!factor){
@@ -35,21 +24,6 @@ export async function completePrimary(db:D1Database,account:AccountIdentity,meth
       SELECT ?,id,auth_version,?,?,? FROM users WHERE id=? AND auth_version=? AND status='active'`)
       .bind(await digestToken(session.token,'session'),method,primaryAt,primaryAt+300,account.userId,account.authVersion).run();
     return {kind:'session' as const,...session};
-  }
-  if(rotation?.[rotationAuthority]===true&&rotation.user_id===account.userId&&rotation.auth_version+1===account.authVersion
-    &&rotation.factor_id===factor.factor_id&&rotation.verified_at>now-120&&rotation.verified_at<=now){
-    const token=generateToken(),digest=await digestToken(token,'session');
-    const row={user_id:account.userId,auth_version:account.authVersion,factor_id:factor.factor_id,primary_method:method,primary_authenticated_at:primaryAt};
-    const result=await db.batch([
-      db.prepare(`INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at)
-        SELECT ?,id,?,auth_version,?,? FROM users WHERE id=? AND auth_version=? AND status='active' AND email_verified_at IS NOT NULL
-        AND EXISTS(SELECT 1 FROM auth_sessions old WHERE old.token_digest=? AND old.user_id=users.id AND old.auth_version=? AND old.revoked_at IS NOT NULL)
-        AND EXISTS(SELECT 1 FROM auth_totp_factors WHERE user_id=users.id AND factor_id=?) RETURNING id`)
-        .bind(crypto.randomUUID(),digest,now,now+AUTH_POLICY.sessionLifetimeSeconds,account.userId,account.authVersion,rotation.session_digest,rotation.auth_version,factor.factor_id),
-      ...sessionCompletion(db,row,digest,now,rotation.method,rotation.verified_at).slice(1),
-    ]);
-    if(result.at(-1)?.results.length!==1)throw Error('Session changed');
-    return {kind:'session' as const,token,expiresAt:now+AUTH_POLICY.sessionLifetimeSeconds};
   }
   const token=randomMfaToken(),browser=randomMfaToken(),digest=await mfaDigest('transaction',token);
   await db.prepare(`DELETE FROM auth_mfa_transactions WHERE token_digest IN
@@ -69,7 +43,7 @@ export async function pendingLogin(db:D1Database,token:string,browser:string,now
   return db.prepare(`SELECT t.*,f.secret_ciphertext,f.secret_nonce,f.key_id,f.last_step,f.recovery_set_id
     FROM auth_mfa_transactions t JOIN users u ON u.id=t.user_id JOIN auth_totp_factors f ON f.user_id=u.id
     WHERE t.token_digest=? AND t.browser_digest=? AND t.purpose='login' AND t.phase='pending'
-      AND t.created_at<=? AND t.expires_at>? AND u.auth_version=t.auth_version AND u.status='active'
+      AND t.primary_method='password' AND t.created_at<=? AND t.expires_at>? AND u.auth_version=t.auth_version AND u.status='active'
       AND u.email_verified_at IS NOT NULL AND f.factor_id=t.factor_id`)
     .bind(await mfaDigest('transaction',token),await mfaDigest('browser',browser),now,now).first<MfaChallenge>();
 }
@@ -78,6 +52,7 @@ export async function pendingLogin(db:D1Database,token:string,browser:string,now
 // may hand out the raw token before the final consumption succeeds.
 export function sessionCompletion(db:D1Database,row:{user_id:string;auth_version:number;factor_id:string;primary_method:string;primary_authenticated_at:number},
   digest:string,now:number,method:'totp'|'recovery',verifiedAt=now){
+  if(row.primary_method!=='password')throw Error('Primary authentication unavailable');
   return [
     db.prepare(`INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at)
       SELECT ?,id,?,auth_version,?,? FROM users WHERE id=? AND auth_version=? AND status='active' AND changes()=1 RETURNING id`)

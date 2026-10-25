@@ -536,3 +536,9 @@ checkpoint; verify all previous migrations remain applied once and integrity/pre
 checks pass. Schema must be installed before publishing the new Worker. Missing 0015
 fails regeneration closed while preserving existing MFA login and ordinary accounts.
 Existing MFA-aware authentication must remain enforced during any recovery/rollback.
+
+## Provider retirement — pending approval
+
+Google OAuth is discontinued. Do not reapply or edit historical migrations.
+The removal PR changes no schema; see [the cleanup plan](../docs/GOOGLE_REMOVAL.md)
+for inert legacy structures, shared assurance preservation and separate approval gates.

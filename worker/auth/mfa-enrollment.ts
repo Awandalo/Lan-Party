@@ -15,7 +15,7 @@ const live=`EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id
     AND u.auth_version=t.auth_version AND s.auth_version=u.auth_version AND s.token_digest=t.session_digest
     AND s.revoked_at IS NULL AND s.created_at<=? AND s.expires_at>?)`;
 const fresh=`EXISTS(SELECT 1 FROM auth_recent_authentication r WHERE r.user_id=t.user_id
-  AND r.session_digest=t.session_digest AND r.auth_version=t.auth_version AND r.expires_at>?
+  AND r.session_digest=t.session_digest AND r.method='password' AND r.auth_version=t.auth_version AND r.expires_at>?
   AND r.authenticated_at>? AND r.authenticated_at<=?)`;
 const bound=`t.token_digest=? AND t.user_id=? AND t.auth_version=? AND t.session_digest=? AND t.browser_digest=?
   AND t.purpose='enroll' AND t.created_at<=? AND t.expires_at>?`;
@@ -37,7 +37,7 @@ export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:M
     JOIN auth_sessions s ON s.token_digest=r.session_digest JOIN users u ON u.id=r.user_id
     WHERE u.id=? AND u.auth_version=? AND u.status='active' AND u.email_verified_at IS NOT NULL
       AND s.user_id=u.id AND s.auth_version=u.auth_version AND s.token_digest=? AND s.revoked_at IS NULL
-      AND s.created_at<=? AND s.expires_at>? AND r.auth_version=u.auth_version
+      AND s.created_at<=? AND s.expires_at>? AND r.method='password' AND r.auth_version=u.auth_version
       AND r.authenticated_at>? AND r.authenticated_at<=? AND r.expires_at>?
       AND NOT EXISTS(SELECT 1 FROM auth_totp_factors WHERE user_id=u.id)`)
     .bind(c.userId,c.authVersion,c.sessionDigest,c.now,c.now,c.now-120,c.now,c.now).first<{method:string;authenticated_at:number}>();
@@ -67,7 +67,7 @@ export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:M
       SELECT ?,?,?,?,?,?,'enroll','pending',?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id
         JOIN auth_recent_authentication r ON r.session_digest=s.token_digest WHERE u.id=? AND u.auth_version=? AND u.status='active'
           AND u.email_verified_at IS NOT NULL AND s.token_digest=? AND s.auth_version=u.auth_version AND s.revoked_at IS NULL
-          AND s.created_at<=? AND s.expires_at>? AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.expires_at>?
+          AND s.created_at<=? AND s.expires_at>? AND r.user_id=u.id AND r.method='password' AND r.auth_version=u.auth_version AND r.expires_at>?
           AND r.authenticated_at>? AND r.authenticated_at<=?)
         AND NOT EXISTS(SELECT 1 FROM auth_totp_factors WHERE user_id=?) RETURNING transaction_id`)
       .bind(digest,id,c.userId,c.authVersion,c.sessionDigest,c.browserDigest,factorId,primary.method,primary.authenticated_at,

@@ -27,9 +27,7 @@
       },
       // Public DEV configuration is versioned; encrypted secrets stay in Cloudflare.
       "vars": {
-        "AUTH_TURNSTILE_SITE_KEY": "0x4AAAAAAFaMzRB_kUUn7MuZ",
-        "GOOGLE_AUTH_MODE": "hosted-dev",
-        "GOOGLE_CLIENT_ID": "863866085162-e033nesr7ltuncpogc27brt8u0f3jl9i.apps.googleusercontent.com"
+        "AUTH_TURNSTILE_SITE_KEY": "0x4AAAAAAFaMzRB_kUUn7MuZ"
       },
       "assets": {
         "directory": "./dist",

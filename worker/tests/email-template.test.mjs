@@ -41,15 +41,6 @@ test('verification and recovery share branded HTML and explicit plain text witho
   }
 });
 
-test('first-password confirmation is separate from reset and requires same-browser recent Google authentication',()=>{
-  const url='https://dev.lan-party.club/account/security#setup='+'ab'.repeat(32);
-  const mail=authenticationEmail(url,'password-setup');
-  assert.equal(mail.subject,'Add a LAN Party password');
-  assert.match(mail.text,/10 minutes/);assert.match(mail.text,/Recent Google authentication/);
-  assert.ok(mail.text.includes(url));assert.doesNotMatch(mail.html,/<script|<img|<iframe/);
-  assert.throws(()=>authenticationEmail(url,'password-reset'));
-  assert.throws(()=>authenticationEmail('https://dev.lan-party.club/reset-password#setup=fictional','password-setup'));
-});
 
 test('template URLs reject unsafe destinations, credentials, queries and purpose crossover', () => {
   for (const url of ['http://dev.lan-party.club/verify-email#proof',
@@ -63,14 +54,14 @@ test('template URLs reject unsafe destinations, credentials, queries and purpose
   assert.throws(() => authenticationEmail('https://dev.lan-party.club/reset-password#proof', 'unknown'));
 });
 
-test('password security notifications contain no action tokens and distinguish added versus changed',()=>{
- for(const purpose of ['password-added','password-changed']){
+test('password-change notifications contain no action tokens',()=>{
+ for(const purpose of ['password-changed']){
   const mail=authenticationEmail('https://dev.lan-party.club/account/security',purpose);
-  assert.equal(mail.subject,purpose==='password-added'?'A password was added to your LAN Party account':'Your LAN Party password was changed');
+  assert.equal(mail.subject,'Your LAN Party password was changed');
   assert.match(mail.text,/no further action is needed/);assert.match(mail.text,/If you didn't make this change, secure your account/);
   for(const body of [mail.text,mail.html]){
-   assert.ok(body.includes(purpose==='password-added'?'Password added successfully':'Password changed'));
-   assert.ok(body.includes(purpose==='password-added'?'You can now sign in using your email address and password.':'Your LAN Party account password was changed.'));
+   assert.ok(body.includes('Password changed'));
+   assert.ok(body.includes('Your LAN Party account password was changed.'));
    assert.doesNotMatch(body,/sessions were signed out|password was updated/);
   }
   assert.doesNotMatch(mail.text,/#|token=|works once/);

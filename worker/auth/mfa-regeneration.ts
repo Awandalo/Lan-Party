@@ -9,11 +9,11 @@ export class RegenerationUnavailable extends Error {}
 export class RegenerationProofRequired extends Error {
   constructor(public readonly primary:boolean){super('Confirm your identity before continuing.');}
 }
-interface Primary {method:'password'|'google';authenticated_at:number}
+interface Primary {method:'password';authenticated_at:number}
 interface Operation {
  operation_digest:string;user_id:string;session_digest:string;auth_version:number;factor_id:string;
  old_set_id:string;new_set_id:string|null;phase:'prepared'|'revealed'|'activated'|'cancelled';created_at:number;
- proof_method:'totp'|'recovery'|null;proof_verified_at:number|null;proof_primary_method:'password'|'google'|null;
+ proof_method:'totp'|'recovery'|null;proof_verified_at:number|null;proof_primary_method:'password'|null;
  proof_primary_at:number|null;secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number;
 }
 const table='auth_mfa_regeneration_operations';
@@ -34,7 +34,7 @@ function binding(c:EnrollmentContext,digest:string){
 }
 function fresh(c:EnrollmentContext,digest:string){
  return {sql:`EXISTS(SELECT 1 FROM ${table} p JOIN auth_recent_authentication r ON r.session_digest=p.session_digest
- WHERE p.operation_digest=? AND r.user_id=p.user_id AND r.auth_version=p.auth_version
+ WHERE p.operation_digest=? AND r.user_id=p.user_id AND r.method='password' AND r.auth_version=p.auth_version
  AND r.method=p.proof_primary_method AND r.authenticated_at=p.proof_primary_at
  AND r.authenticated_at>? AND r.authenticated_at>unixepoch()-120 AND r.authenticated_at<=? AND r.authenticated_at<=unixepoch()
  AND r.expires_at>? AND r.expires_at>unixepoch()
@@ -43,7 +43,7 @@ function fresh(c:EnrollmentContext,digest:string){
 }
 async function primary(db:D1Database,c:EnrollmentContext){
  return db.prepare(`SELECT r.method,r.authenticated_at FROM auth_recent_authentication r JOIN auth_sessions s ON s.token_digest=r.session_digest
- JOIN users u ON u.id=s.user_id WHERE r.user_id=? AND r.auth_version=? AND r.session_digest=?
+ JOIN users u ON u.id=s.user_id WHERE r.user_id=? AND r.method='password' AND r.auth_version=? AND r.session_digest=?
  AND u.id=r.user_id AND u.auth_version=r.auth_version AND u.status='active' AND u.email_verified_at IS NOT NULL
  AND s.revoked_at IS NULL AND s.expires_at>? AND s.expires_at>unixepoch()
  AND r.authenticated_at>? AND r.authenticated_at>unixepoch()-120 AND r.authenticated_at<=? AND r.authenticated_at<=unixepoch()
@@ -84,7 +84,7 @@ export async function startRegeneration(db:D1Database,c:EnrollmentContext){
  WHERE u.id=? AND u.auth_version=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND s.token_digest=?
  AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.created_at<=? AND s.expires_at>? AND s.expires_at>unixepoch()
  AND m.user_id=u.id AND m.auth_version=u.auth_version AND m.factor_id=f.factor_id AND m.verified_at<=s.created_at AND m.verified_at<=unixepoch()
- AND r.user_id=u.id AND r.auth_version=u.auth_version AND r.method=? AND r.authenticated_at=?
+ AND r.user_id=u.id AND r.method='password' AND r.auth_version=u.auth_version AND r.method=? AND r.authenticated_at=?
  AND r.authenticated_at>unixepoch()-120 AND r.authenticated_at<=unixepoch() AND r.expires_at>unixepoch()
  AND NOT EXISTS(SELECT 1 FROM auth_mfa_transactions t WHERE t.user_id=u.id AND t.purpose IN ('enroll','disable','regenerate') AND t.phase IN ('pending','verified') AND t.expires_at>unixepoch())
  AND NOT EXISTS(SELECT 1 FROM auth_mfa_recovery_operations z WHERE z.user_id=u.id AND ((z.phase IN ('pending','switching') AND z.expires_at>unixepoch()) OR (z.phase='committed' AND z.display_expires_at>unixepoch())))`)
@@ -111,7 +111,7 @@ export async function proveRegeneration(db:D1Database,c:EnrollmentContext,token:
  if(method==='totp'?step===null:!verifier)return null;
  if(method==='recovery'&&!await db.prepare('SELECT 1 FROM auth_mfa_recovery_codes WHERE user_id=? AND set_id=? AND verifier=? AND consumed_at IS NULL').bind(c.userId,row.old_set_id,verifier).first())return null;
  const gate=binding(c,row.operation_digest),lease=held.activeCondition();
- const sql=`${gate.sql} AND ${lease.sql} AND EXISTS(SELECT 1 FROM auth_recent_authentication r WHERE r.session_digest=? AND r.user_id=? AND r.auth_version=? AND r.method=? AND r.authenticated_at=? AND r.authenticated_at>unixepoch()-120 AND r.authenticated_at<=unixepoch() AND r.expires_at>unixepoch())`;
+ const sql=`${gate.sql} AND ${lease.sql} AND EXISTS(SELECT 1 FROM auth_recent_authentication r WHERE r.session_digest=? AND r.user_id=? AND r.method='password' AND r.auth_version=? AND r.method=? AND r.authenticated_at=? AND r.authenticated_at>unixepoch()-120 AND r.authenticated_at<=unixepoch() AND r.expires_at>unixepoch())`;
  const args=[...gate.values,...lease.values,c.sessionDigest,c.userId,c.authVersion,p.method,p.authenticated_at];
  const check=method==='totp'?db.prepare(`UPDATE auth_totp_factors SET last_step=? WHERE user_id=? AND factor_id=? AND last_step=? AND last_step<? AND ${sql}`)
  .bind(step,c.userId,row.factor_id,row.last_step,step,...args):db.prepare(`UPDATE auth_mfa_recovery_codes SET consumed_at=? WHERE user_id=? AND set_id=? AND verifier=? AND consumed_at IS NULL AND ${sql}`)

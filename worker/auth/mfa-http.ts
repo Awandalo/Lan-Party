@@ -157,7 +157,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
         if(Object.keys(input).length&&!restart)return reply(400,{error:'Explicit restart confirmation required.'});
         if(await env.DB.prepare('SELECT 1 FROM auth_totp_factors WHERE user_id=?').bind(account.userId).first())return reply(409,{code:'mfa_enabled',error:'MFA is already enabled. Reload Account Security.'});
         // This refusal is before any enrollment write; keep beginEnrollment's own guards too.
-        const primary=await env.DB.prepare('SELECT 1 FROM auth_recent_authentication WHERE user_id=? AND session_digest=? AND auth_version=? AND authenticated_at>? AND authenticated_at<=? AND expires_at>?')
+        const primary=await env.DB.prepare("SELECT 1 FROM auth_recent_authentication WHERE method='password' AND user_id=? AND session_digest=? AND auth_version=? AND authenticated_at>? AND authenticated_at<=? AND expires_at>?")
           .bind(account.userId,digest,account.authVersion,now-120,now,now).first();
         if(!primary)throw new MfaPrimaryRequired();
         if(!restart&&await env.DB.prepare("SELECT 1 FROM auth_mfa_transactions WHERE user_id=? AND purpose='enroll' AND phase IN ('pending','verified') AND expires_at>? LIMIT 1").bind(account.userId,now).first())

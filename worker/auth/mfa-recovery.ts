@@ -7,13 +7,13 @@ import type {LoginReservation} from './login-limits';
 export interface RecoveryContext {token:string;browser:string;now:number}
 export interface RecoveryOperation {
  operation_digest:string;user_id:string;source_digest:string;browser_digest:string;auth_version:number;
- old_factor_id:string;old_set_id:string;new_factor_id:string;new_set_id:string;primary_method:'password'|'google';
+ old_factor_id:string;old_set_id:string;new_factor_id:string;new_set_id:string;primary_method:'password';
  primary_authenticated_at:number;phase:string;secret_ciphertext:string;secret_nonce:string;key_id:string;
  display_ciphertext:string;display_nonce:string;display_key_id:string;created_at:number;expires_at:number;
- committed_at:number|null;display_expires_at:number|null;oidc_state_digest:string|null;
+ committed_at:number|null;display_expires_at:number|null;
 }
 export class RecoveryPrimaryRequired extends Error {}
-const clear=`secret_ciphertext=NULL,secret_nonce=NULL,key_id=NULL,display_ciphertext=NULL,display_nonce=NULL,display_key_id=NULL,oidc_state_digest=NULL`;
+const clear=`secret_ciphertext=NULL,secret_nonce=NULL,key_id=NULL,display_ciphertext=NULL,display_nonce=NULL,display_key_id=NULL`;
 // SQLite JSON errors are statement failures, unlike zero-row guarded writes.
 // Each assertion executes INSIDE the same D1 batch, so failures roll back proofs.
 export const assertOne=(db:D1Database)=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('recovery guard failed') END");
@@ -29,7 +29,7 @@ function fresh(r:RecoveryOperation,now:number){if(r.primary_authenticated_at<=no
 export async function recoveryOperation(db:D1Database,c:RecoveryContext){
  const [id,browser]=await binding(c);
  return db.prepare(`SELECT o.* FROM auth_mfa_recovery_operations o JOIN users u ON u.id=o.user_id
-  WHERE o.operation_digest=? AND o.browser_digest=? AND o.created_at<=? AND u.status='active' AND u.email_verified_at IS NOT NULL
+  WHERE o.operation_digest=? AND o.primary_method='password' AND o.browser_digest=? AND o.created_at<=? AND u.status='active' AND u.email_verified_at IS NOT NULL
   AND ((o.phase='pending' AND o.expires_at>? AND u.auth_version=o.auth_version AND EXISTS
     (SELECT 1 FROM auth_totp_factors f WHERE f.user_id=o.user_id AND f.factor_id=o.old_factor_id AND f.recovery_set_id=o.old_set_id))
    OR (o.phase IN ('committed','acknowledged') AND o.display_expires_at>? AND u.auth_version=o.auth_version+1 AND EXISTS
@@ -76,7 +76,7 @@ export async function recoverySetup(db:D1Database,c:RecoveryContext,keys:MfaKeys
   {environment,userId:r.user_id,id:r.new_factor_id,purpose:'pending'});
  return {secret,uri:provisioningUri(secret,'LAN Party recovery'),expiresAt:r.expires_at};
 }
-export async function grantRecoveryPrimary(db:D1Database,c:RecoveryContext,method:'password'|'google',at:number,expectedVersion:number){
+export async function grantRecoveryPrimary(db:D1Database,c:RecoveryContext,method:'password',at:number,expectedVersion:number){
  const r=await recoveryOperation(db,c);if(!r||at>c.now||at<=c.now-120)throw Error('Recovery unavailable');
  const result=await db.prepare(`UPDATE auth_mfa_recovery_operations SET primary_method=?,primary_authenticated_at=?
   WHERE operation_digest=? AND browser_digest=? AND phase=?
@@ -108,7 +108,7 @@ export async function commitRecovery(db:D1Database,c:RecoveryContext,code:string
   ...recovery.verifiers.map(v=>db.prepare('INSERT INTO auth_mfa_recovery_codes(user_id,set_id,verifier,created_at) VALUES(?,?,?,?)').bind(r.user_id,r.new_set_id,v,c.now)),
   db.prepare('UPDATE users SET auth_version=auth_version+1,updated_at=? WHERE id=? AND auth_version=? AND status=\'active\'').bind(c.now,r.user_id,r.auth_version),assertOne(db),
   db.prepare(`UPDATE auth_mfa_recovery_operations SET phase='committed',secret_ciphertext=NULL,secret_nonce=NULL,key_id=NULL,
-   committed_at=?,display_expires_at=?,display_ciphertext=?,display_nonce=?,display_key_id=?,oidc_state_digest=NULL
+   committed_at=?,display_expires_at=?,display_ciphertext=?,display_nonce=?,display_key_id=?
    WHERE operation_digest=? AND phase='switching' AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=?)
    AND (SELECT count(*) FROM auth_mfa_recovery_codes WHERE user_id=? AND set_id=? AND consumed_at IS NULL)=10`)
    .bind(c.now,c.now+300,display.ciphertext,display.nonce,display.keyId,r.operation_digest,r.user_id,r.auth_version+1,r.user_id,r.new_set_id),assertOne(db),

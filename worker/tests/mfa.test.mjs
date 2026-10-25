@@ -304,7 +304,7 @@ test('pending cookies grant no protected access; browser, origin and CSRF are bo
  const {request,db}=fixture,{activate}=await enrollHttp(fixture);assert.equal((await activate()).status,200);
  let headers=await challengeHttp(request);
  assert.equal((await request('session',undefined,headers)).status,401);
- assert.equal((await request('google/methods',undefined,headers)).status,404); // Google disabled in this fixture.
+ assert.equal((await request('security/methods',undefined,headers)).status,401); // Pending MFA cannot authorize settings.
  assert.equal((await request('logout',{},headers)).status,401);
  assert.equal((await request('mfa/complete',{method:'totp',code:'000000'},{Cookie:headers.Cookie})).status,403);
  assert.equal((await request('mfa/complete',{method:'totp',code:'000000'},{...headers,Origin:'https://evil.example.test'})).status,403);
@@ -371,16 +371,6 @@ test('expired lease cannot consume recovery proof or create a session; a later l
  assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},headers)).status,200);
 }));
 
-test('shared primary completion cannot turn Google authentication into an MFA bypass; hosted enrollment remains unavailable',()=>local(async fixture=>{
- const {request,call,db,instance}=fixture,{activate,c}=await enrollHttp(fixture);await activate();
- const result=await call('primary',{userId:c.userId,authVersion:1,status:'active',emailVerifiedAt:c.now},'google',Math.floor(Date.now()/1000));
- assert.equal(result.kind,'pending');assert.equal(await call('resolve',result.token,Math.floor(Date.now()/1000)),null);
- assert.equal(await db.prepare("SELECT primary_method FROM auth_mfa_transactions WHERE purpose='login'").first('primary_method'),'google');
- assert.equal((await instance.dispatchFetch('https://dev.lan-party.club/api/auth/mfa/enroll/start',{method:'POST'})).status,404);
- assert.equal((await request('login',{email:profile.email,password:'fictional incorrect password'})).status,401);
- assert.equal((await request('login',{email:'unknown@example.test',password:profile.password})).status,401);
-}));
-
 test('shared abuse signals require server-verified single-use Turnstile without spending a recovery code first',()=>local(async fixture=>{
  const {request,call,db}=fixture,{activate,codes}=await enrollHttp(fixture);await activate();
  const headers={...await challengeHttp(request),'CF-Connecting-IP':'203.0.113.88'};
@@ -417,9 +407,9 @@ test('normal password recovery revokes sessions and pending challenges but never
  const Cookie=cookieJar(login),state=await(await request('mfa/challenge',undefined,{Cookie})).json();
  assert.equal((await request('mfa/complete',{method:'recovery',code:codes.codes[0]},{Cookie,'X-CSRF-Token':state.csrfToken})).status,200);
 }));
-async function local(run,{legacy=false,regeneration=true,google=false}={}){
+async function local(run,{legacy=false,regeneration=true}={}){
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script,cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},
-  bindings:{REGISTRATION_MODE:'local-only',AUTH_SESSION_MODE:'local-only',...(google?{GOOGLE_AUTH_MODE:'local-only',GOOGLE_CLIENT_ID:'fixture.apps.googleusercontent.com',GOOGLE_CLIENT_SECRET:'fictional'}:{}),AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin,
+  bindings:{REGISTRATION_MODE:'local-only',AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin,
    AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32),PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),...keyConfig,
    AUTH_TURNSTILE_SITE_KEY:'synthetic-site-key',TURNSTILE_SECRET_KEY:'synthetic-only-turnstile-secret'}}));
  try{
@@ -698,14 +688,14 @@ test('no regeneration-age deadline: an old pending set survives stale proof and 
  assert.equal((await(await request('mfa/manage/check',{token},m.headers)).json()).seen,true);
  assert.equal(await db.prepare('SELECT new_set_id FROM auth_mfa_regeneration_operations').first('new_set_id'),staged);
  assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),factor.recovery_set_id);
- assert.equal((await request('google/reauth-password',{password:profile.password},m.headers)).status,200);
+ assert.equal((await request('security/reauth-password',{password:profile.password},m.headers)).status,200);
  assert.equal((await request('mfa/manage/verify',{token,method:'recovery',code:m.codes.codes[1]},m.headers)).status,200);
  assert.equal((await request('mfa/manage/reveal',{token},m.headers)).status,503);
  const done=await request('mfa/manage/finish',{token,acknowledgment:displayed.acknowledgment,confirmed:true},m.headers);assert.equal(done.status,200);
  assert.equal(await db.prepare('SELECT recovery_set_id FROM auth_totp_factors').first('recovery_set_id'),staged);
  assert.equal(await db.prepare('SELECT created_at FROM auth_mfa_regeneration_operations').first('created_at'),created);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
-},{google:true}));
+},{}));
 
 test('regeneration session revocation cancels only the pending set and never turns it into active recovery codes',()=>local(async fixture=>{
  const {db,request}=fixture,m=await managementFixture(fixture),tx=await m.start('regenerate'),shown=await(await m.prove(tx)).json();
@@ -790,15 +780,15 @@ test('expired enrollment start requests reauthentication before staging and succ
  assert.equal((await request('mfa/enroll/start',{},headers)).status,428,'exact two-minute boundary still requires fresh proof');
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll'").first('n'),0);
  assert.equal((await request('mfa/enroll/start',{}, {...headers,'X-CSRF-Token':'invalid'})).status,403);
- assert.equal((await request('google/reauth-password',{password:'incorrect fictional password'},headers)).status,401);
+ assert.equal((await request('security/reauth-password',{password:'incorrect fictional password'},headers)).status,401);
  assert.equal((await request('mfa/enroll/start',{},headers)).status,428);
- assert.equal((await request('google/reauth-password',{password:profile.password},headers)).status,200);
+ assert.equal((await request('security/reauth-password',{password:profile.password},headers)).status,200);
  const started=await request('mfa/enroll/start',{},headers);assert.equal(started.status,200);
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll' AND phase='pending'").first('n'),1);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0,'fresh primary proof does not itself enable MFA');
  const setup=await started.json();assert.equal((await request('mfa/enroll/cancel',{token:setup.token},headers)).status,200);
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),0);
-},{google:true}));
+},{}));
 
 test('unfinished enrollment blocks a second start even after reloading client state',()=>local(async({request,seed,db})=>{
  const {cookie}=await seed();const session=await(await request('session',undefined,{Cookie:cookie})).json();const headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
@@ -816,7 +806,7 @@ test('explicit enrollment restart requires confirmation, CSRF and fresh proof an
  await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=? WHERE session_digest=?').bind(c.now-120,c.now+180,c.sessionDigest).run();
  assert.equal((await request('mfa/enroll/start',{restart:true,confirmed:true},headers)).status,428);
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),1);
- assert.equal((await request('google/reauth-password',{password:profile.password},headers)).status,200);
+ assert.equal((await request('security/reauth-password',{password:profile.password},headers)).status,200);
  const restarted=await request('mfa/enroll/start',{restart:true,confirmed:true},headers);assert.equal(restarted.status,200);const next=await restarted.json();assert.notEqual(next.token,old.token);
  assert.equal((await request('mfa/enroll/cancel',{token:old.token},headers)).status,409,'old handle cannot cancel the replacement');
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),1);
@@ -825,7 +815,7 @@ test('explicit enrollment restart requires confirmation, CSRF and fresh proof an
  assert.equal((await request('mfa/enroll/cancel',{token:next.token},headers)).status,200);
  assert.equal((await(await request('mfa/status',undefined,headers)).json()).pendingEnrollment,undefined);
  assert.equal((await request('mfa/enroll/start',{},headers)).status,200,'confirmed cancellation supports immediate fresh setup');
-},{google:true}));
+},{}));
 
 test('failed enrollment restart rolls back old staged codes and setup; successful restart removes staged codes',()=>local(async({request,seed,db,stage,call})=>{
  const {cookie,c}=await seed();await call('clock',c.now);const {setup}=await stage(c),session=await(await request('session',undefined,{Cookie:cookie})).json(),headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
@@ -863,4 +853,27 @@ test('concurrent explicitly confirmed enrollment restarts leave one usable pendi
  for(const result of results)assert.equal(result.status,200);
  assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),1);assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='cancelled'").first('n'),2);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
+}));
+
+test('retired provider proof cannot create pending authentication or authorize enrollment; actual password confirmation restores eligibility',()=>local(async({request,seed,db,raw})=>{
+ const {c,cookie}=await seed();const current=await(await request('session',undefined,{Cookie:cookie})).json();
+ const headers={Cookie:cookie,'X-CSRF-Token':current.csrfToken};
+ await db.prepare("UPDATE auth_recent_authentication SET method='google' WHERE session_digest=?").bind(c.sessionDigest).run();
+ const rejected=await raw('primary',{userId:c.userId,authVersion:c.authVersion,status:'active',emailVerifiedAt:c.now},'google',c.now);
+ assert.equal(rejected.status,409);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,428);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_transactions').first('n'),0);
+ assert.equal((await request('security/reauth-password',{password:profile.password},headers)).status,200);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,200);
+}));
+
+test('retired provider assurance cannot authorize regeneration or Account Security replacement',()=>local(async fixture=>{
+ const {headers,c}=await managementFixture(fixture),{db,request}=fixture;
+ await db.prepare("UPDATE auth_recent_authentication SET method='google' WHERE session_digest=?").bind(c.sessionDigest).run();
+ const before=(await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results;
+ assert.equal((await request('mfa/manage/start',{purpose:'regenerate'},headers)).status,428);
+ assert.equal((await request('mfa/recovery/from-session',{confirmed:true},headers)).status,428);
+ assert.deepEqual((await db.prepare('SELECT * FROM auth_mfa_recovery_codes').all()).results,before);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_regeneration_operations').first('n'),0);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_operations').first('n'),0);
 }));

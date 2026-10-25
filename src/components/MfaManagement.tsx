@@ -1,17 +1,16 @@
 import MfaReplacement from './MfaReplacement';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
-import GoogleButton from './GoogleButton';
 import MfaRegeneration from './MfaRegeneration';
 import PasswordInput from './PasswordInput';
 import LoginChallenge from './LoginChallenge';
 import SecurityActionIcon from './SecurityActionIcon';
-import {googleRequest} from '../lib/google';
+import {securityRequest} from '../lib/account-security';
 import '../CSS/MfaEnrollment_style.css';
 
 type Purpose='disable'|'regenerate';
 type Pending={token:string;expiresAt:number;acknowledgment?:string;codes?:string[]};
-export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActivated,methods}:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean;google:boolean}}){
+export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActivated,methods}:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean}}){
  const [expanded,setExpanded]=useState(open);
  const [regenerationActive,setRegenerationActive]=useState(false),[replacementActive,setReplacementActive]=useState(false);
  const [purpose,setPurpose]=useState<Purpose|null>(null),[transaction,setTransaction]=useState<Pending|null>(null);
@@ -68,7 +67,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
  function verify(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();void run('verify',purpose,code);}
  async function primary(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(pending.current)return;const form=event.currentTarget,password=String(new FormData(form).get('password')??'');form.reset();pending.current=true;setBusy(true);onBusy(true);
-  try{const response=await googleRequest('reauth-password',{password,...(proof?{turnstileToken:proof}:{})},csrf),body=await response.json();
+  try{const response=await securityRequest('reauth-password',{password,...(proof?{turnstileToken:proof}:{})},csrf),body=await response.json();
    if(response.ok){setReauth(false);setPurpose(null);setFeedback('Identity confirmed. Select Disable MFA or Regenerate recovery codes to continue.');}
    else if(response.status===403&&body.siteKey){setSiteKey(body.siteKey);setFeedback('Complete the security check, then confirm your password again.');}
    else setFeedback('Your identity could not be confirmed. Try again later.');
@@ -76,7 +75,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
  }
  return <section className="mfa-enrollment security-mfa-section" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
   <button type="button" className="mfa-summary" aria-expanded={expanded} aria-controls="mfa-options" disabled={disabled||busy||regenerationActive||replacementActive||!!transaction||reauth} onClick={()=>setExpanded(value=>!value)}><span>Authenticator app</span><span>Enabled <span aria-hidden="true">{expanded?'▴':'▾'}</span></span></button>
-  <div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects both sign-in methods.</p>
+  <div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects your sign-in.</p>
    {!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
 </div>
   <div className="mfa-action-row">
@@ -86,7 +85,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
   {open&&!regenerationActive&&!replacementActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
    {reauth?<><p>Confirm your identity. No MFA setting has been changed.</p>{methods.password&&<form onSubmit={primary}><fieldset disabled={busy}><label htmlFor="mfa-primary-password">Current password</label><PasswordInput id="mfa-primary-password" name="password" autoComplete="current-password" required autoFocus/>
     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button">Confirm password</button></fieldset></form>}
-    {methods.google&&<GoogleButton purpose="reauth" returnAction="mfa" csrf={csrf} disabled={busy} onPendingChange={value=>{pending.current=value;setBusy(value);onBusy(value);}}/>}</>:
+    </>:
     transaction&&!transaction.acknowledgment?<><p>{purpose==='disable'?'Disabling removes the extra sign-in check. Your account, sign-in methods and history stay intact.':'You will receive ten new recovery codes. Your remaining old codes work until you save and confirm the new set.'}</p>
      <form onSubmit={verify}><fieldset disabled={busy}><label htmlFor="mfa-management-code">{method==='totp'?'Six-digit authenticator code':'Unused recovery code'}</label>
       <input ref={field} id="mfa-management-code" name="code" autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} maxLength={method==='totp'?6:40} pattern={method==='totp'?'[0-9]{6}':undefined} required/>

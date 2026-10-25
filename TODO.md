@@ -57,8 +57,8 @@ Phase 2's database foundation scope.
 - [ ] Approve a controlled first-administrator provisioning process and audit design.
 - [ ] Implement default-deny Worker permission checks, active-role/disabled-user
   rules and protected role assignment only in a separately approved task.
-- [ ] Implement reviewed password hashing, trusted Google issuer/subject validation,
-  explicit login-method linking, and disabled-account enforcement in future Worker logic.
+- [ ] Implement reviewed password hashing and
+  disabled-account enforcement in future Worker logic.
 - [ ] Plan sessions, password reset and credential revocation for Phase 3.
 - [ ] Seed the approved prefix catalogue separately; migration 0002 contains no seeds.
 - [ ] Implement UUID validation, email normalization/validation, and active-prefix
@@ -278,57 +278,12 @@ real email/integrated CPU verification remain separately approved operations.
   regressions, preserving single-use links, generic feedback and session revocation.
 - [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
   configuration, migrations, deployment/activation and controlled email test separately.
-- [x] Implement Google OIDC locally with PKCE/state/nonce/signature validation,
-  explicit linking, recent-authentication assurance and protected first-password setup.
-  See PROJECT.md Phase 3.7 for policy, limitations and configuration.
-- [ ] Owner review Phase 3.7 and migration 0012; separately approve DEV recovery,
-  migration, Google setup/secrets, commit/deployment and controlled live tests.
-- [x] Owner configure Google DEV test client; verify Worker binding metadata and
-  synchronize exact public client ID plus disabled mode into DEV Wrangler vars.
-  Encrypted secret remains Cloudflare-managed; no activation or migration performed.
-- [x] Validate existing email/password flows against the pre-0012 schema with Google
-  off; owner approve Phase 3.7 commit/push and automatic DEV deployment in that mode.
-- [ ] Resolve Google-only loss-of-access recovery policy before public use;
-  ordinary email recovery must never add a first password.
-- [x] Locally polish password-first login layout and validated, editable private Google
-  name suggestions without a migration; preserve the existing explicit linking flow.
-- [x] Place Connected accounts first in Security, prompt for recent authentication
-  from Connect Google, return with a fresh session after linking, and preserve safe
-  disconnection/last-method protection. Reserve the following section for optional MFA.
-- [x] Group login assistance links below Google, connect menu Settings to Security,
-  and show inactive event/poll/site-update placeholders on the account overview;
-  keep email verification status in Security without changing authentication behavior.
-- [x] Remove the redundant overview Security link, polish Security forms, and resume
-  explicitly initiated Google linking once after server-confirmed password proof.
-  Let Google choose its normal sign-in UI without forced account selection.
-- [x] Show security explanations on demand, add cancellable one-confirmation Google
-  disconnection with server-verified password proof, and retain pending controls
-  through redirects. Keep Google-only last-method protection and separate email status.
-- [x] Phase 3.7.6: simplify Google signup and ownership-proven conflict guidance;
-  add inline password setup/change, two-minute Google assurance policy, guarded
-  security notification attempts, and correct hosted password-setup URL handling.
-- [x] Phase 3.7.7: replace first-password email confirmation with two-minute,
-  server-verified Google assurance, atomic setup and a notification after success;
-  simplify Add/Change password fields and place Add password on its method row.
-- [x] Phase 3.7.8: route-based navigation, compact accessible method actions,
-  contextual Google conflict guidance and separate password notification copy;
-  rotate the current session after first-password setup while revoking old sessions.
-- [x] Owner manually accept Phase 3.7.8 on DEV (Phase 3.7 acceptance reported 7/7): current-session continuity and other
-  session revocation after setup, fresh/stale Google proof, password-change sign-out,
-  method controls, responsive navigation/conflict guidance and real notification copy.
-- [x] Phase 3.7.9: switch unsubmitted security actions and clear sensitive inputs;
-  expose existing recovery from Change password, clarify Google-only recovery limits,
-  and send guarded password-changed notifications after committed resets.
-- [x] Owner accept Phase 3.7.9 (Phase 3.7 acceptance reported 7/7): action switching and controlled real password recovery
-  on DEV, including delivery, new-password login, session revocation and retained Google.
-  Fictional change/login tests did not reproduce the reported mismatch; its real cause
-  remains unconfirmed. No real password or hash inspection is needed.
+- [ ] Review and approve the Google-removal PR; Google OAuth is permanently out of scope.
+- [ ] Separately authorize the passwordless-account transition, affected-session
+  invalidation and historical provider/OIDC schema cleanup before rollout.
+- [ ] Separately approve DEV merge/deployment and controlled email/password + MFA acceptance.
 - [ ] Decide whether durable security-notification delivery is required; an outbox
-  and any schema changes require separate approval. Cross-redirect password
-  preservation is not implemented; passwords must be re-entered after navigation.
-- [ ] Owner approve the proposed pending-Google-identity continuation across existing
-  account login before implementing its session/assurance-bound confirmation transition.
-- [x] Phase 3.7 manual DEV acceptance: owner reports 7/7 checks passed.
+  and any schema changes require separate approval.
 
 ### Phase 3.8 — MFA Security
 
@@ -346,7 +301,7 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   AES-GCM/context/key-ring primitives, replay/recovery consumption statements,
   session-bound enrollment preparation and a hard-disabled UI with no MFA API routes.
 - [x] Owner approve local Phase 3.8.3 shared login MFA integration.
-- [x] Implement local shared password/Google MFA challenges, TOTP/recovery atomic
+- [x] Implement local shared password MFA challenges, TOTP/recovery atomic
   completion, persistent failure limits, local acknowledgment/assured replacement,
   challenge UI and Account Security action coordination. See MFA_DESIGN.md for
   verification and the session-replacement policy.
@@ -361,7 +316,7 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   a completed local report does not close the remaining security/acceptance gates.
 - [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** review
   local canonical-DEV restricted-recovery integration after R1-F1 static acceptance;
-  verify actual browser/Google interruption behavior during separately approved acceptance.
+  verify actual browser interruption behavior during separately approved acceptance.
 - [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** preserve
   recent MFA assurance before credential/provider writes and independent primary proof;
   review the integrated candidate after Q's R2-F1 corrective-evidence review.
@@ -373,9 +328,9 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   regeneration test failed (comment 6387546649); do not resume hosted attempts.
   - [ ] Review the local regeneration continuation/single-panel and related layout
     correction, fictional integrated-browser evidence and cross-action proof test.
-  - [x] Owner approved scoped warning/replacement/Google/GUI correction publication;
+  - [x] Owner approved scoped warning/replacement/GUI correction publication;
     verify CI/deployment before requesting renewed owner-assisted recovery acceptance.
-  - [ ] Verify warning/replacement/Google/GUI correction CI/DEV before renewed hosted tests.
+  - [ ] Verify warning/replacement/GUI correction CI/DEV before renewed hosted tests.
   - [ ] Complete remaining hosted acceptance and owner/Q disposition; keep #10 open.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
@@ -490,7 +445,7 @@ Final Phase 3 milestone — before enabling public registration:
   enabling public registration or replacing the operational Jotform workflow.
 
 See `PROJECT.md` for approved requirements, implementation boundaries and the
-locally prepared migration. Live auth endpoints, email delivery, Google configuration and
+locally prepared migration. Live auth endpoints, email delivery and
 remote database changes are not implemented or authorized by Phase 3.1.
 
 ## Phase 6 — News & Community

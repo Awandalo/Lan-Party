@@ -9,7 +9,7 @@ import {digestToken,generateToken} from './tokens';
 export class RecentMfaRequired extends Error {}
 
 // Use the database clock INSIDE the write, including after password hashing or
-// an OAuth exchange. An earlier application-clock check is only a UX precheck.
+// primary confirmation. An earlier application-clock check is only a UX precheck.
 export async function mfaMutationGuard(db:D1Database,account:AccountIdentity,digest:string){
   if(!await mfaSchemaReady(db))return {sql:'1',values:[] as (string|number)[]};
   return {sql:`(NOT EXISTS(SELECT 1 FROM auth_totp_factors WHERE user_id=?) OR EXISTS(

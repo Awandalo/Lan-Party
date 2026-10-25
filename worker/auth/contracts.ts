@@ -18,7 +18,7 @@ export interface SessionRecord {
   authVersion: number;
 }
 
-// Password and future OIDC login resolve to this same account/session store.
+// Password login uses this account/session store.
 // Implementations must re-read account status; session snapshots are not authority.
 export interface SessionStore {
   create(record: SessionRecord): Promise<void>;

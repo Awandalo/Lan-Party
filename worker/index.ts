@@ -3,11 +3,10 @@ import { authentication } from './auth/http';
 import type { AuthenticationEnvironment } from './auth/http';
 import { verification } from './auth/verification';
 import { passwordRecovery } from './auth/recovery';
-import { googleAuthentication } from './auth/google';
-import type { GoogleEnvironment } from './auth/google';
+import {accountSecurity} from './auth/account-security';
 import {mfaAuthentication} from './auth/mfa-http';
 
-interface Env extends AuthenticationEnvironment, GoogleEnvironment {
+interface Env extends AuthenticationEnvironment {
   ASSETS: Fetcher;
   DB: D1Database;
 }
@@ -16,7 +15,7 @@ export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
     if(pathname.startsWith('/api/auth/mfa/'))return mfaAuthentication(request,env);
-    if (pathname.startsWith('/api/auth/google/')) return googleAuthentication(request, env);
+    if (pathname.startsWith('/api/auth/security/')) return accountSecurity(request,env);
 
     if (pathname === '/api/auth/register') return registerAccount(request, env);
     if (['/api/auth/login', '/api/auth/session', '/api/auth/logout'].includes(pathname)) return authentication(request, env);

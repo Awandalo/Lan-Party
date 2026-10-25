@@ -12,7 +12,6 @@ import VerifyEmail from './pages/VerifyEmail';
 import LocalMail from './pages/LocalMail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import GoogleComplete from './pages/GoogleComplete';
 import AccountSecurity from './pages/AccountSecurity';
 import MfaChallenge from './pages/MfaChallenge';
 import { AuthProvider } from './lib/auth';
@@ -31,7 +30,6 @@ export default function App() {
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/register" element={<Registration />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account" element={<Account />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/security" element={<AccountSecurity />} />}
-          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/google-complete" element={<GoogleComplete />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/verify-email" element={<VerifyEmail />} />}
           {import.meta.env.DEV && <Route path="/local-mail" element={<LocalMail />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/forgot-password" element={<ForgotPassword />} />}
@@ -51,4 +49,3 @@ export default function App() {
     </div></AuthProvider>
   );
 }
-

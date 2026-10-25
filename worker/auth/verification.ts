@@ -4,7 +4,6 @@ import type { AccountIdentity } from './contracts';
 import { accountId } from './database';
 import { fromHex } from './encoding';
 import { localMailbox } from './email';
-import { googleProof } from './google-proof';
 import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hostedDev, recipientAllowed, validAuthMutation } from './environment';
 import { loopback, readInput } from './registration';
 import type { AuthenticationEnvironment } from './http';
@@ -55,7 +54,7 @@ export async function verification(request: Request, env: AuthenticationEnvironm
         if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['email', 'purpose'].includes(key))
           || !('email' in input)) throw new Error('Invalid mailbox request');
         const purpose = 'purpose' in input ? input.purpose : 'email-verification';
-        if (purpose !== 'email-verification' && purpose !== 'password-reset' && purpose !== 'password-setup') throw new Error('Invalid purpose');
+        if (purpose !== 'email-verification' && purpose !== 'password-reset') throw new Error('Invalid purpose');
         const email = emailAddress(input.email);
         if (!email.toLowerCase().endsWith('.test')) throw new Error('Fictional address required');
         const now = Math.floor(Date.now() / 1000);
@@ -63,16 +62,6 @@ export async function verification(request: Request, env: AuthenticationEnvironm
           const mail = localMailbox.take(email, now, purpose);
           if (!mail) break;
           const params = new URLSearchParams(new URL(mail.url).hash.slice(1));
-          if (purpose === 'password-setup') {
-            const setup = params.get('setup');
-            if (!setup || !isValidToken(setup)) continue;
-            const usable = await env.DB.prepare(`SELECT t.token_digest FROM auth_password_setup t JOIN users u ON u.id=t.user_id
-              WHERE t.token_digest=? AND u.email_normalized=? AND t.auth_version=u.auth_version AND u.status='active'
-              AND t.consumed_at IS NULL AND t.revoked_at IS NULL AND t.expires_at>?`)
-              .bind(await googleProof(setup),email.toLowerCase(),now).first();
-            if (usable) return reply(200,{mail});
-            continue;
-          }
           const token = params.get('token');
           if (!token || !isValidToken(token)) continue;
           const active = await env.DB.prepare(`SELECT t.id FROM auth_action_tokens t JOIN users u ON u.id=t.user_id

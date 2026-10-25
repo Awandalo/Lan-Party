@@ -3,7 +3,6 @@ import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../lib/auth';
 import LoginChallenge from './LoginChallenge';
-import GoogleButton from './GoogleButton';
 import PasswordInput from './PasswordInput';
 
 export default function LocalLogin() {
@@ -16,7 +15,6 @@ export default function LocalLogin() {
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [siteKey, setSiteKey] = useState(''), [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [challengeAttempt, setChallengeAttempt] = useState(0);
-  if(session&&params.get('google')==='unavailable')return <section className="page-section login-page"><div className="panel login-card"><h1>Google confirmation unavailable</h1><p role="alert">You are still signed in. Google confirmation failed; no new authentication proof was established by this error.</p><Link to="/account/security">Return to Account Security</Link></div></section>;
   if (session) return <Navigate to="/account" replace />;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,8 +77,6 @@ export default function LocalLogin() {
     </form>
     <div className="login-feedback" ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite">{feedback}</div>
     {verificationRequired && <p><Link to="/verify-email">Request a verification email</Link></p>}
-    <div className="login-divider"><span>or</span></div>
-    <GoogleButton />
     <div className="login-links">
       <p>New here? <Link to="/register">Create account</Link></p>
       <Link to="/forgot-password">Forgot password?</Link>
