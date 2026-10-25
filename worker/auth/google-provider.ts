@@ -24,6 +24,7 @@ export async function authorizationURL(env: GoogleConfiguration, callback: strin
   if (reauth) {url.searchParams.set('max_age','0');url.searchParams.set('claims',JSON.stringify({id_token:{auth_time:{essential:true}}}));}
   return url.href;
 }
+export class GoogleFreshProofUnavailable extends Error {}
 export interface GoogleIdentity extends GoogleNameSuggestions { subject: string; email: string; authoritative: boolean; authenticatedAt?: number }
 export async function exchangeGoogle(env: GoogleConfiguration, url: URL, state: string, nonce: string, verifier: string,
   callback: string, reauth = false): Promise<GoogleIdentity> {
@@ -38,14 +39,19 @@ export async function exchangeGoogle(env: GoogleConfiguration, url: URL, state: 
   const response = await oauth.authorizationCodeGrantRequest(server, client,
     oauth.ClientSecretPost(env.GOOGLE_CLIENT_SECRET!), params, callback, verifier, options);
   const result = await oauth.processAuthorizationCodeResponse(server, client, response,
-    { expectedNonce: nonce, requireIdToken: true, ...(reauth ? { maxAge: 300 } : {}) });
+    { expectedNonce: nonce, requireIdToken: true, ...(reauth ? { maxAge: 300 } : {}) }).catch(error=>{
+      // Classify only a known library validation failure; never expose its claims/cause.
+      if(reauth&&error instanceof oauth.OperationProcessingError&&(error.message.includes('"auth_time"')
+        ||(error.cause as {claim?:string}|undefined)?.claim==='auth_time'))throw new GoogleFreshProofUnavailable();
+      throw error;
+    });
   await oauth.validateApplicationLevelSignature(server, response, { ...options, [oauth.jwksCache]: keys });
   const claims = oauth.getValidatedIdTokenClaims(result)!;
   if (!claims.sub || claims.sub.length > 255 || claims.email_verified !== true
     || (claims.azp !== undefined && claims.azp !== client.client_id)) throw new Error('Google identity unavailable');
   const email = emailAddress(claims.email).toLowerCase();
   if (reauth && (!Number.isSafeInteger(claims.auth_time) || claims.auth_time! > Math.floor(Date.now()/1000)
-    || claims.auth_time! <= Math.floor(Date.now()/1000)-300)) throw new Error('Recent authentication required');
+    || claims.auth_time! <= Math.floor(Date.now()/1000)-300)) throw new GoogleFreshProofUnavailable();
   return { subject: claims.sub, email, authoritative: email.endsWith('@gmail.com')
     || (typeof claims.hd === 'string' && claims.hd.length > 0), ...(reauth?{authenticatedAt:claims.auth_time}: {}),
     ...googleNameSuggestions(claims) };

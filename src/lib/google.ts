@@ -7,6 +7,8 @@ let setupRequested=false;
 let mfaRequested=false;
 export function capturePasswordSetup() {
   if(window.location.pathname!=='/account/security')return;
+  // This result is display-only; do not strip its diagnostic or turn it into setup intent.
+  if(new URLSearchParams(window.location.search).has('google_mfa'))return;
   setupRequested=window.location.hash==='#add-password';
   mfaRequested=window.location.hash==='#mfa';
   window.history.replaceState(null,'','/account/security');

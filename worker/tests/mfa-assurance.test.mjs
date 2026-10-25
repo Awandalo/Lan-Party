@@ -321,7 +321,7 @@ test('Google-only reauthentication preserves the same revealed regeneration and 
   assert.equal((await(await request('google/reauth-status',{state:url.searchParams.get('state')},headers)).json()).confirmed,false);
   const callback=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:signed(url.searchParams.get('nonce'),subject)}),{headers:{Cookie:headers.Cookie+'; '+cookies(launch)},redirect:'manual'});
   assert.equal(callback.status,303);
-  assert.equal(callback.headers.get('location'),subject==='fixture-subject'?'/account/security#mfa':'/login?google=unavailable');
+  assert.equal(callback.headers.get('location'),subject==='fixture-subject'?'/account/security?google_mfa=complete':'/account/security?google_mfa=identity-mismatch');
   assert.equal(callback.headers.getSetCookie().some(v=>v.startsWith('__Host-lan_session=')),false);
   assert.equal((await(await request('google/reauth-status',{state:url.searchParams.get('state')},headers)).json()).confirmed,subject==='fixture-subject');
   assert.equal(await db.prepare('SELECT new_set_id FROM auth_mfa_regeneration_operations').first('new_set_id'),pendingSet);
@@ -353,7 +353,7 @@ test('Google MFA continuation rejects missing, stale and future signed auth_time
   const content=[{alg:'RS256',kid:'fixture'},claims].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url')).join('.');
   const token=content+'.'+sign('RSA-SHA256',Buffer.from(content),privateKey).toString('base64url');
   const callback=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state:url.searchParams.get('state'),code:token}),{headers:{Cookie:headers.Cookie+'; '+cookies(launch)},redirect:'manual'});
-  assert.equal(callback.headers.get('location'),'/login?google=unavailable');
+  assert.equal(callback.headers.get('location'),'/account/security?google_mfa=fresh-proof-unavailable');
   const status=await request('google/reauth-status',{state:url.searchParams.get('state')},headers);assert.equal(status.status,200);assert.equal((await status.json()).confirmed,false);
   assert.equal(await db.prepare("SELECT method FROM auth_recent_authentication").first('method'),'google');
   assert.ok(await db.prepare('SELECT authenticated_at<=unixepoch()-120 AS stale FROM auth_recent_authentication').first('stale'));

@@ -16,6 +16,7 @@ export default function LocalLogin() {
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [siteKey, setSiteKey] = useState(''), [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [challengeAttempt, setChallengeAttempt] = useState(0);
+  if(session&&params.get('google')==='unavailable')return <section className="page-section login-page"><div className="panel login-card"><h1>Google confirmation unavailable</h1><p role="alert">You are still signed in. Google confirmation failed; no new authentication proof was established by this error.</p><Link to="/account/security">Return to Account Security</Link></div></section>;
   if (session) return <Navigate to="/account" replace />;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

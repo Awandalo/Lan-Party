@@ -144,7 +144,7 @@ test('Google reauthentication uses only the fixed server-bound MFA return action
  const response=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers);assert.equal(response.status,200);
  const url=new URL((await response.json()).url),Cookie=response.headers.get('set-cookie').split(';')[0];
  const reauth={url,Cookie,nonce:url.searchParams.get('nonce'),state:url.searchParams.get('state')};
- const result=await callback(reauth,{}, {Cookie:Cookie+'; '+headers.Cookie});assert.equal(result.headers.get('location'),'/account/security#mfa');
+ const result=await callback(reauth,{}, {Cookie:Cookie+'; '+headers.Cookie});assert.equal(result.headers.get('location'),'/account/security?google_mfa=complete');
 }));
 
 test('expired MFA assurance blocks first-password setup before any credential mutation',()=>local(async fixture=>{
@@ -573,4 +573,57 @@ test('first-password failure rolls back creation; old token payloads cannot auth
  await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=0,expires_at=300').run();
  assert.equal((await request('google/add-password',{password},headers)).status,428);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
+}));
+
+
+test('expired enrollment proof resumes only after a valid session-bound Google callback and status confirmation',()=>local(async({start,callback,complete,session,request,db})=>{
+ const initial=await start();await callback(initial);const headers=await session(await complete(initial));
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=authenticated_at-121,expires_at=expires_at-121').run();
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,428);
+ const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers),url=new URL((await launch.json()).url),Cookie=launch.headers.get('set-cookie').split(';')[0];
+ const flow={url,Cookie,nonce:url.searchParams.get('nonce'),state:url.searchParams.get('state')};
+ assert.equal((await(await request('google/reauth-status',{state:flow.state},headers)).json()).confirmed,false);
+ const returned=await callback(flow,{}, {Cookie:Cookie+'; '+headers.Cookie});assert.equal(returned.headers.get('location'),'/account/security?google_mfa=complete');
+ assert.equal(returned.headers.getSetCookie().some(v=>v.startsWith('lan_session_local=')),false);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll'").first('n'),0,'callback display does not enroll');
+ assert.equal((await(await request('google/reauth-status',{state:flow.state},headers)).json()).confirmed,true);
+ const enrollment=await request('mfa/enroll/start',{},headers);assert.equal(enrollment.status,200);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,409);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll' AND phase='pending'").first('n'),1);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
+ const setup=await enrollment.json();assert.equal((await request('mfa/enroll/cancel',{token:setup.token},headers)).status,200);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,200);
+}));
+
+test('MFA Google exchange failure has a sanitized result without granting proof, replaying or enrolling',()=>local(async({start,callback,complete,session,request,db,instance})=>{
+ const initial=await start();await callback(initial);const headers=await session(await complete(initial));await db.prepare('DELETE FROM auth_recent_authentication').run();
+ const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers),url=new URL((await launch.json()).url),Cookie=launch.headers.get('set-cookie').split(';')[0],state=url.searchParams.get('state');
+ const target=origin+'/api/auth/google/callback?'+new URLSearchParams({state,code:'network-failure'});
+ const result=await instance.dispatchFetch(target,{headers:{Cookie:Cookie+'; '+headers.Cookie},redirect:'manual'});
+ assert.equal(result.headers.get('location'),'/account/security?google_mfa=provider-validation');assert.equal(result.headers.get('cache-control'),'no-store');
+ assert.equal((await(await request('google/reauth-status',{state},headers)).json()).confirmed,false);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_recent_authentication').first('n'),0);
+ assert.equal(await db.prepare("SELECT phase FROM auth_oidc_transactions WHERE purpose='reauth'").first('phase'),'exchanging','failed exchange is not marked successful');
+ assert.equal((await instance.dispatchFetch(target,{headers:{Cookie:Cookie+'; '+headers.Cookie},redirect:'manual'})).headers.get('location'),'/login?google=unavailable');
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,428);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll'").first('n'),0);
+}));
+
+test('MFA Google callback cannot adopt a different live session',()=>local(async({start,callback,complete,session,request,db})=>{
+ const initial=await start();await callback(initial);const original=await session(await complete(initial));
+ const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},original),url=new URL((await launch.json()).url),Cookie=launch.headers.get('set-cookie').split(';')[0];
+ const flow={url,Cookie,nonce:url.searchParams.get('nonce'),state:url.searchParams.get('state')};
+ const other=await session(await callback(await start()));await db.prepare('DELETE FROM auth_recent_authentication').run();
+ assert.equal((await callback(flow,{}, {Cookie:Cookie+'; '+other.Cookie})).headers.get('location'),'/account/security?google_mfa=session-changed');
+ assert.equal((await(await request('google/reauth-status',{state:flow.state},other)).json()).confirmed,false);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_recent_authentication').first('n'),0);
+}));
+
+
+test('cancelled MFA Google confirmation returns a safe result and cannot grant proof',()=>local(async({start,callback,complete,session,request,db,instance})=>{
+ const initial=await start();await callback(initial);const headers=await session(await complete(initial));await db.prepare('DELETE FROM auth_recent_authentication').run();
+ const launch=await request('google/start',{purpose:'reauth',returnAction:'mfa'},headers),url=new URL((await launch.json()).url),Cookie=launch.headers.get('set-cookie').split(';')[0],state=url.searchParams.get('state');
+ const result=await instance.dispatchFetch(origin+'/api/auth/google/callback?'+new URLSearchParams({state,error:'access_denied'}),{headers:{Cookie:Cookie+'; '+headers.Cookie},redirect:'manual'});
+ assert.equal(result.headers.get('location'),'/account/security?google_mfa=cancelled');
+ assert.equal((await(await request('google/reauth-status',{state},headers)).json()).confirmed,false);assert.equal(await db.prepare('SELECT count(*) n FROM auth_recent_authentication').first('n'),0);
 }));

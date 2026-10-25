@@ -122,6 +122,7 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
     const state=googleState.current;if(!state||pending.current)return;pending.current=true;setBusy(true);onBusy?.(true);let confirmed=false;
     try{const r=await googleRequest('reauth-status',{state},csrf),body=await r.json();if(!mounted.current)return;if(!r.ok)throw Error();
       confirmed=body.confirmed===true;if(confirmed){googleState.current=null;setGoogleWaiting(false);setReauth(false);}
+      else if(body.unavailable===true){googleState.current=null;setGoogleWaiting(false);setFeedback('Google confirmation is unavailable or expired. Check the result tab for its reference. Use your password if available, or cancel. No setup was retried.');}
       else setFeedback('Fresh Google proof is not available yet. Check the other tab. If Google cannot provide fresh authentication-time proof, use your password or cancel.');
     }catch{if(mounted.current)setFeedback('Google confirmation could not be checked. No setup was retried.');}
     finally{pending.current=false;onBusy?.(false);if(mounted.current)setBusy(false);}

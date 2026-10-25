@@ -1,4 +1,4 @@
-import { googleClient, authorizationURL, exchangeGoogle, googleIssuer } from './google-provider';
+import { googleClient, authorizationURL, exchangeGoogle, googleIssuer, GoogleFreshProofUnavailable } from './google-provider';
 import type { GoogleConfiguration } from './google-provider';
 import type { AuthenticationEnvironment } from './http';
 import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hostedDev, recipientAllowed, validAuthMutation } from './environment';
@@ -104,6 +104,8 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
   if (!authRouteEnabled(request,env,env.AUTH_SESSION_MODE) || !authRouteEnabled(request,env,env.GOOGLE_AUTH_MODE)) return reply(404,{error:'Not found'});
   if (request.method!==(['callback','methods','profile'].includes(action??'')?'GET':'POST')) return reply(405,{error:'Method not allowed'});
   let callbackLink:Flow|undefined;
+  let callbackMfa=false;
+  let callbackReason='provider-validation';
   try {
     const origin=authOrigin(request,env); googleClient(env);
     if (action==='callback') {
@@ -114,8 +116,11 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         AND phase='pending' AND expires_at>? RETURNING state_digest`).bind(flow.state_digest,now()).first();
       if (!held) throw new Error('Replayed callback');
       if(flow.purpose==='link')callbackLink=flow;
+      callbackMfa=flow.purpose==='reauth'&&flow.return_action==='mfa';
+      if(callbackMfa&&url.searchParams.get('error')==='access_denied')callbackReason='cancelled';
       // Claimed before network: uncertain exchange is never automatically retried.
       const identity=await exchangeGoogle(env,url,state,flow.nonce,flow.verifier,origin.origin+'/api/auth/google/callback',flow.purpose==='reauth');
+      if(callbackMfa)callbackReason='identity-unavailable';
       if (!recipientAllowed(request,env,identity.email)) throw new Error('Identity unavailable');
       const recoverySchema=await env.DB.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='auth_mfa_recovery_operations'").first();
       const recoveryLink=recoverySchema?await env.DB.prepare("SELECT operation_digest FROM auth_mfa_recovery_operations WHERE oidc_state_digest=?")
@@ -139,16 +144,19 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
         return redirect('/mfa?recovery=1');
       }
       if (flow.purpose!=='signin') {
+        if(callbackMfa)callbackReason='session-changed';
         const session=await current(request,env);
         if (session.account.userId!==flow.user_id || session.digest!==flow.session_digest || session.account.authVersion!==flow.auth_version) throw new Error('Session changed');
         if (flow.purpose==='reauth') {
           const linked=await env.DB.prepare(`SELECT id FROM user_auth_providers WHERE user_id=? AND provider='google'
             AND identity_namespace IN ('https://accounts.google.com','accounts.google.com') AND provider_subject=?`).bind(flow.user_id,identity.subject).first();
+          if(callbackMfa)callbackReason='identity-mismatch';
           if (!linked) throw new Error('Wrong identity');
-          if(flow.return_action==='mfa'&&(identity.authenticatedAt===undefined||identity.authenticatedAt<=now()-120||identity.authenticatedAt>now()))throw Error('Fresh Google proof unavailable');
+          if(flow.return_action==='mfa'&&(identity.authenticatedAt===undefined||identity.authenticatedAt<=now()-120||identity.authenticatedAt>now()))throw new GoogleFreshProofUnavailable();
+          if(callbackMfa)callbackReason='confirmation-unavailable';
           await grant(env.DB,session.account,session.digest,'google',identity.authenticatedAt);
           await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce='' WHERE state_digest=?`).bind(flow.state_digest).run();
-          return redirect(flow.return_action==='mfa'?'/account/security#mfa':'/account/security#add-password');
+          return redirect(flow.return_action==='mfa'?'/account/security?google_mfa=complete':'/account/security#add-password');
         }
         const primary=await recent(env.DB,session.account,session.digest);
         const mfa=await requireRecentMfa(env.DB,session.account,session.digest);
@@ -383,6 +391,9 @@ export async function googleAuthentication(request: Request, env: GoogleEnvironm
     // callback must never cancel another request's in-flight exchange.
     if(callbackLink)await env.DB.prepare(`UPDATE auth_oidc_transactions SET phase='consumed',verifier='',nonce=''
       WHERE state_digest=? AND purpose='link' AND phase='exchanging'`).bind(callbackLink.state_digest).run();
+    // Only a claimed, browser-bound MFA reauthentication gets this result route.
+    // Failure stays unconsumed: it must never become a successful proof/status.
+    if(action==='callback'&&callbackMfa)return redirect('/account/security?google_mfa='+(error instanceof GoogleFreshProofUnavailable?'fresh-proof-unavailable':callbackReason));
     const clearLink=callbackLink?flowCookie('',!hostedDev(request,env)):undefined;
     if(error instanceof RecentMfaRequired)return action==='callback'?redirect('/account/security?mfa=required',clearLink):
       reply(428,{code:'mfa_required',error:'Confirm two-factor authentication before changing your sign-in methods.'});

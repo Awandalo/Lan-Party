@@ -673,3 +673,28 @@ confirmation continues directly; Reveal, saved acknowledgment and Activate remai
 explicit. No code-view/regeneration countdown is introduced. Stale proof controls
 sit by Activate, preserving the same set. Status recovery is shown only for uncertain
 activation, with no write retry. Confirm/Google/Cancel and Activate/Cancel are responsive.
+
+
+### Google MFA confirmation result handling (2026-10-25)
+
+Browser-bound MFA reauthentication callbacks return a display-only result under
+Account Security. Failure must not disappear through Login's signed-in redirect
+to Account overview. Only fixed, sanitized diagnostic categories are displayed;
+provider payloads, tokens, account details and exception causes are never exposed.
+The startup helper preserves this result query without turning it into setup intent.
+
+The initiating tab still checks the exact OAuth transaction through the existing
+session/CSRF-bound status endpoint. A result URL or tab event never authorizes an
+MFA action. Failed exchanges remain unconsumed and cannot be replayed; no failure
+phase/schema is added. While a failed exchange remains in its existing exchanging
+phase, the original tab may report proof not yet available; the result tab supplies
+the safe failure reference and password/cancellation guidance. Single-tab users
+can explicitly continue to Account Security; no action is automatically retried.
+
+Google's [Security Bundle documentation](https://developers.google.com/identity/siwg/security-bundle)
+distinguishes Google-session authentication time from application sign-in and
+documents additional claim settings/verification requirements. Requesting a claim
+or selecting an account does not establish fresh proof. Missing, stale, future or
+incorrectly bound proof remains rejected. This correction changes error/return UX,
+not the accepted authentication policy or Google configuration. Hosted acceptance
+remains separate until an owner-controlled attempt verifies the actual provider.

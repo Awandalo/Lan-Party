@@ -25,7 +25,7 @@ window.setTimeout=((handler:TimerHandler,delay=0,...args:unknown[])=>{
 }) as typeof window.setTimeout;
 window.clearTimeout=(id?:number)=>{if(id!==undefined)timers.delete(id);nativeClearTimeout(id);};
 function advance(){offset+=86400000;for(const [id,timer] of timers){if(timer.at<=Date.now()){timers.delete(id);nativeClearTimeout(id);timer.run();}}primary=false;mfa=false;}
-window.open=()=>{googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
+window.open=()=>{if(new URL(location.href).searchParams.has('google-popup-blocked'))return null;googleTabs++;return {opener:null,closed:false,close(){this.closed=true;},location:{replace(){primary=true;mfa=false;}}} as unknown as Window;};
 const perfDelay=Number(fixtureParams.get('delay')??0);
 if(fixtureParams.has('stale-primary'))primary=false;
 if(fixtureParams.has('pending-enrollment'))operation=true;
@@ -53,7 +53,8 @@ window.fetch=async(input,init)=>{
  if(path==='/api/auth/google/methods')return Response.json(fixtureParams.has('bad-methods')?{password:'invalid',google:true}:{password:true,google:true});
  if(path==='/api/auth/mfa/status')return Response.json({enabled:!fixtureParams.has('enrollment'),enrollmentAvailable:true,...(operation?{pendingEnrollment:{expiresAt:Math.floor(Date.now()/1000)+600}}:{})});
  if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state='+'d'.repeat(64)});
- if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!fixtureParams.has('google-unavailable'),unavailable:false});
+ if(path==='/api/auth/google/reauth-status'&&fixtureParams.has('google-status-lost'))throw Error('Fictional status response lost');
+ if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!fixtureParams.has('google-unavailable')&&!fixtureParams.has('google-terminal'),unavailable:fixtureParams.has('google-terminal')});
  if(path==='/api/auth/mfa/recovery/status')return Response.json({phase:'pending',expiresAt:Math.floor(Date.now()/1000)+300,csrfToken:'c'.repeat(64),password:true,google:true});
  if(path==='/api/auth/mfa/recovery/from-session')return Response.json({code:'mfa_required',error:'Fictional stale MFA proof; sign in again with a usable method.'},{status:428});
  if(path==='/api/auth/google/reauth-password'){primary=true;mfa=false;return Response.json({confirmed:true});}

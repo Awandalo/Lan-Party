@@ -1,3 +1,4 @@
+import GoogleMfaResult from '../components/GoogleMfaResult';
 import MfaRecovery from '../components/MfaRecovery';
 import RecoveryWarning from '../components/RecoveryWarning';
 import { useEffect, useRef, useState } from 'react';
@@ -16,6 +17,8 @@ import { MFA_ENROLLMENT_AVAILABLE } from '../lib/mfa-mode';
 import '../CSS/AccountSecurity_style.css';
 export default function AccountSecurity(){
  const location=useLocation();
+ const googleResult=new URLSearchParams(location.search).get('google_mfa');
+ if(googleResult!==null)return <GoogleMfaResult result={googleResult}/>;
  if(new URLSearchParams(location.search).get('recovery')==='1')return <section className="page-section account-security-page"><div className="panel account-security-card"><MfaRecovery/></div></section>;
  return <SecuritySettings/>;
 }
