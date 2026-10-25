@@ -150,7 +150,13 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
       const input=await readInput(request) as Record<string,unknown>;
       if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['token','code','acknowledgment'].includes(k)))return reply(400,{error:'Invalid request'});
       const c={userId:account.userId,authVersion:account.authVersion,sessionDigest:digest,browserDigest:await mfaDigest('enrollment-browser',digest),now};
-      if(action==='start'&&Object.keys(input).length===0)return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,'LAN Party member'));
+      if(action==='start'&&Object.keys(input).length===0){
+        // This refusal is before any enrollment write; keep beginEnrollment's own guards too.
+        const primary=await env.DB.prepare('SELECT 1 FROM auth_recent_authentication WHERE user_id=? AND session_digest=? AND auth_version=? AND authenticated_at>? AND authenticated_at<=? AND expires_at>?')
+          .bind(account.userId,digest,account.authVersion,now-120,now,now).first();
+        if(!primary)throw new MfaPrimaryRequired();
+        return reply(200,await beginEnrollment(env.DB,c,env,managementEnvironment!,'LAN Party member'));
+      }
       if(typeof input.token!=='string'||!/^[a-f0-9]{64}$/.test(input.token))return reply(400,{error:'Invalid request'});
       if(action==='verify'&&typeof input.code==='string'&&/^[0-9]{6}$/.test(input.code))return reply(200,await verifyEnrollment(env.DB,c,input.token,input.code,env,managementEnvironment!,secret));
       if(action==='cancel'){await cancelEnrollment(env.DB,c,input.token);return reply(200,{message:'Setup cancelled.'});}

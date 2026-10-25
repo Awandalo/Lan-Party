@@ -49,12 +49,18 @@ window.fetch=async(input,init)=>{
  if(path==='/api/auth/session'&&expired)return Response.json({}, {status:401});
  if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:(sessionGeneration?'e':'c').repeat(64),emailVerified:true,...(new URL(window.location.href).searchParams.has('remaining')?{recoveryCodesRemaining:Number(new URL(window.location.href).searchParams.get('remaining'))}:{})});
  if(path==='/api/auth/google/methods')return Response.json(new URL(location.href).searchParams.has('bad-methods')?{password:'invalid',google:true}:{password:true,google:true});
- if(path==='/api/auth/mfa/status')return Response.json({enabled:true,enrollmentAvailable:true});
+ if(path==='/api/auth/mfa/status')return Response.json({enabled:!new URL(location.href).searchParams.has('enrollment'),enrollmentAvailable:true});
  if(path==='/api/auth/google/start')return Response.json({url:'https://accounts.google.com/o/oauth2/v2/auth?state='+'d'.repeat(64)});
  if(path==='/api/auth/google/reauth-status')return Response.json({confirmed:primary&&!new URL(window.location.href).searchParams.has('google-unavailable'),unavailable:false});
  if(path==='/api/auth/mfa/recovery/status')return Response.json({phase:'pending',expiresAt:Math.floor(Date.now()/1000)+300,csrfToken:'c'.repeat(64),password:true,google:true});
  if(path==='/api/auth/mfa/recovery/from-session')return Response.json({code:'mfa_required',error:'Fictional stale MFA proof; sign in again with a usable method.'},{status:428});
  if(path==='/api/auth/google/reauth-password'){primary=true;mfa=false;return Response.json({confirmed:true});}
+ if(path==='/api/auth/mfa/enroll/start'){
+  if(new URL(location.href).searchParams.has('enrollment-lost')){operation=true;throw Error('Fictional response lost after staging');}
+  if(!primary)return Response.json({code:'reauth_required',error:'Confirm sign-in first.'},{status:428});
+  operation=true;const secret='A'.repeat(32);return Response.json({token,secret,uri:'otpauth://totp/LAN%20Party:fictional?secret='+secret+'&issuer=LAN%20Party&algorithm=SHA1&digits=6&period=30',expiresAt:Math.floor(Date.now()/1000)+600});
+ }
+ if(path==='/api/auth/mfa/enroll/cancel'){operation=false;cancels++;return Response.json({message:'Setup cancelled.'});}
  if(!path.startsWith('/api/auth/mfa/manage/'))throw Error('External transport forbidden');
  const action=path.split('/').pop();
  if(contextChanged&&data.token)return Response.json({code:'regeneration_ended',error:'Fictional session changed; check current settings.'},{status:new URL(window.location.href).searchParams.has('csrf-rejection')?403:410});

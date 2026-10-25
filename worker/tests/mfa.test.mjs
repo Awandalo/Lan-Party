@@ -778,3 +778,24 @@ test('a different live session cannot adopt a revealed regeneration even for the
  assert.equal(await db.prepare('SELECT phase FROM auth_mfa_regeneration_operations').first('phase'),'revealed');
  assert.equal((await request('mfa/manage/check',{token:tx.token,regeneration:true},m.headers)).status,200);
 }));
+
+test('expired enrollment start requests reauthentication before staging and succeeds only after explicit fresh proof',()=>local(async({request,seed,db,call})=>{
+ const {cookie,c}=await seed();await call('clock',c.now);
+ const session=await(await request('session',undefined,{Cookie:cookie})).json();
+ const headers={Cookie:cookie,'X-CSRF-Token':session.csrfToken};
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=? WHERE session_digest=?').bind(c.now-121,c.now+179,c.sessionDigest).run();
+ const result=await request('mfa/enroll/start',{},headers);
+ assert.equal(result.status,428);assert.equal((await result.json()).code,'reauth_required');
+ await db.prepare('UPDATE auth_recent_authentication SET authenticated_at=?,expires_at=? WHERE session_digest=?').bind(c.now-120,c.now+180,c.sessionDigest).run();
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,428,'exact two-minute boundary still requires fresh proof');
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll'").first('n'),0);
+ assert.equal((await request('mfa/enroll/start',{}, {...headers,'X-CSRF-Token':'invalid'})).status,403);
+ assert.equal((await request('google/reauth-password',{password:'incorrect fictional password'},headers)).status,401);
+ assert.equal((await request('mfa/enroll/start',{},headers)).status,428);
+ assert.equal((await request('google/reauth-password',{password:profile.password},headers)).status,200);
+ const started=await request('mfa/enroll/start',{},headers);assert.equal(started.status,200);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE purpose='enroll' AND phase='pending'").first('n'),1);
+ assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0,'fresh primary proof does not itself enable MFA');
+ const setup=await started.json();assert.equal((await request('mfa/enroll/cancel',{token:setup.token},headers)).status,200);
+ assert.equal(await db.prepare("SELECT count(*) n FROM auth_mfa_transactions WHERE phase='pending'").first('n'),0);
+},{google:true}));
