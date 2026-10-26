@@ -1,0 +1,6 @@
+.account-lifecycle { border-top:1px solid var(--border-color,#333d49); margin-top:2rem; padding-top:1.5rem; }
+.lifecycle-confirmation { border:1px solid var(--border-color,#333d49); border-radius:12px; padding:1.25rem; margin-block:1rem; }
+.lifecycle-confirmation form, .lifecycle-confirmation fieldset { display:grid; gap:1rem; }
+.lifecycle-confirmation fieldset { border:0; padding:0; min-width:0; }
+.lifecycle-confirmation button { width:fit-content; max-width:100%; }
+.lifecycle-confirmation > button { margin-top:1rem; }

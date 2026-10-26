@@ -12,6 +12,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import LocalMail from './pages/LocalMail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import UsersAdmin from './pages/UsersAdmin';
+import ReactivateAccount from './pages/ReactivateAccount';
 import AccountSecurity from './pages/AccountSecurity';
 import MfaChallenge from './pages/MfaChallenge';
 import { AuthProvider } from './lib/auth';
@@ -25,6 +27,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/reactivate" element={<ReactivateAccount />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/users" element={<UsersAdmin />} />}
           <Route path="/login" element={<Login />} />
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/mfa" element={<MfaChallenge />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/register" element={<Registration />} />}

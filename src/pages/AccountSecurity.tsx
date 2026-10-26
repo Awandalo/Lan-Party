@@ -3,6 +3,7 @@ import type {FormEvent} from 'react';
 import {Link,Navigate,useLocation} from 'react-router';
 import {useAuth} from '../lib/auth';
 import {securityRequest,mfaSettingsRequested} from '../lib/account-security';
+import AccountLifecycle from '../components/AccountLifecycle';
 import MfaRecovery from '../components/MfaRecovery';
 import RecoveryWarning from '../components/RecoveryWarning';
 import LoginChallenge from '../components/LoginChallenge';
@@ -62,5 +63,5 @@ function SecuritySettings(){
  {!methods.password&&<dd><p>No password is configured. Contact a LAN Party administrator for account assistance. This page cannot bypass account ownership or MFA checks.</p></dd>}
  {passwordOpen&&methods.password&&<dd className="security-method-controls"><div className="account-confirmation"><form onSubmit={changePassword}><fieldset disabled={busy} aria-label="Change password"><label htmlFor="current-password">Current password</label><PasswordInput id="current-password" name="currentPassword" required autoComplete="current-password" autoFocus/><label htmlFor="new-password">New password</label><PasswordInput id="new-password" name="newPassword" minLength={12} maxLength={128} required autoComplete="new-password"/><p>Saving signs out all sessions. A security notification will be requested after the change.</p><Link to="/forgot-password" onClick={e=>{if(pending.current)e.preventDefault();}}>Forgot your current password?</Link>{siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button">{busy?'Saving…':'Save password'}</button></fieldset></form><p role="status" aria-live="polite">{feedback}</p><button type="button" className="button button-secondary" disabled={busy} onClick={()=>{clear();requestAnimationFrame(()=>passwordTrigger.current?.focus());}}>Cancel</button></div></dd>}</div></dl></section>}
  {MFA_ENROLLMENT_AVAILABLE&&<MfaSettings csrf={csrf} methods={methods} open={mfaOpen} disabled={busy} onOpen={()=>{if(pending.current)return;clear();setMfaOpen(true);}} onBusy={v=>{pending.current=v;setBusy(v);}} onActivated={refresh}/>}
- <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2><dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified?'Verified':'Not verified'}</dd></div></dl></section>{!passwordOpen&&<p role="status" aria-live="polite">{feedback}</p>}</div></section>;
+ <section aria-labelledby="security-email-status"><h2 id="security-email-status">Email verification</h2><dl className="connected-methods"><div><dt>Email address</dt><dd>{session.emailVerified?'Verified':'Not verified'}</dd></div></dl></section><AccountLifecycle key={csrf}/>{!passwordOpen&&<p role="status" aria-live="polite">{feedback}</p>}</div></section>;
 }

@@ -291,8 +291,10 @@ real email/integrated CPU verification remain separately approved operations.
 
 Forward roadmap: [PROJECT.md](PROJECT.md#current-phase-3-sequence-and-status).
 Earlier Phase 3 task/status records are historical checkpoints; keep their open
-decisions without treating them as a fresh remote preflight. Current MFA work is
-local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tasks.
+decisions without treating them as a fresh remote preflight. MFA DEV implementation
+and owner acceptance are complete at dc36b17; #9/#10/#13/#14/#15 are closed.
+Historical local-only notes below describe their original checkpoints, not current
+DEV availability. No PROD acceptance or new hosted operations are implied.
 
 - [x] Prepare the new Phase 3.8.1 optional-MFA architecture proposal in MFA_DESIGN.md.
 - [x] Owner approve MFA design and local Phase 3.8.2 foundations: one authenticator,
@@ -314,40 +316,32 @@ local/unpushed. No hosted MFA or PROD acceptance is implied by checked local tas
   preparation in issue #9. Local review covered 278 distinct auth/security tests,
   strict types, both builds and intercepted browser challenge checks; see
   `docs/MFA_SECURITY_REVIEW.md` for evidence and limitations.
-- [ ] Q/Owner disposition of [3.8.5 regression #9](https://github.com/Awandalo/Lan-Party/issues/9);
-  a completed local report does not close the remaining security/acceptance gates.
-- [ ] **3.8.5.1 / R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** review
-  local canonical-DEV restricted-recovery integration after R1-F1 static acceptance;
-  verify actual browser interruption behavior during separately approved acceptance.
-- [ ] **3.8.5.2 / R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** preserve
-  recent MFA assurance before credential/provider writes and independent primary proof;
-  review the integrated candidate after Q's R2-F1 corrective-evidence review.
-- [ ] **3.8.5.3 / R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** static
-  review accepted at d330e66; retain environment identity and hosted acceptance gates.
-- [ ] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** migrations
-  0013–0015, backed-up DEV keys and publication through 7b1c17b completed under
-  separate owner approvals. Hosted Gate T remains **BLOCKED** after the owner's
-  regeneration test failed (comment 6387546649); do not resume hosted attempts.
-  - [ ] Review the local regeneration continuation/single-panel and related layout
-    correction, fictional integrated-browser evidence and cross-action proof test.
-  - [x] Owner approved scoped warning/replacement/GUI correction publication;
-    verify CI/deployment before requesting renewed owner-assisted recovery acceptance.
-  - [ ] Verify warning/replacement/GUI correction CI/DEV before renewed hosted tests.
-  - [ ] Complete remaining hosted acceptance and owner/Q disposition; keep #10 open.
+- [x] Q/Owner disposition of [3.8.5 regression #9](https://github.com/Awandalo/Lan-Party/issues/9); accepted and closed.
+- [x] **R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** owner accepted hosted restricted replacement, single new-TOTP verification and immediate recovery-code display at dc36b17; spent codes remain unusable.
+- [x] **R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** reviewed recent MFA assurance and independent primary-proof protections; accepted and closed.
+- [x] **R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** reviewed canonical-DEV-only enrollment gate; accepted and closed.
+- [x] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** authorized DEV migrations 0013–0016, backed-up keys, CI/deployment and owner hosted MFA acceptance completed; issue closed. Final dc36b17 CI passed 381 tests. Earlier regeneration blockers were corrected.
+- [ ] Track any residual retired Google credentials/provider-console cleanup separately; #10 closure does not establish that every external resource was deleted or authorize deletion.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account
   tools. Administrator settings/resets/overrides/corrections remain Phase 5 work;
   ordinary administrative corrections must preserve participant cooldown state.
 
-### Phase 3.9 — Account Lifecycle Management (planning only)
+### Phase 3.9 — Account Lifecycle Management (local implementation)
 
-- [ ] [#16](https://github.com/Awandalo/Lan-Party/issues/16): after MFA DEV acceptance,
-  review voluntary deactivation, explicit reactivation (never automatic on login),
-  deletion/anonymization and distinct audited administrator suspension/restoration.
-- [ ] Resolve privacy/retention, account-state transitions, session/MFA ownership,
-  retained registrations/history and permanent member-number tombstones before
-  implementation. No lifecycle runtime changes or migrations are approved.
+- [x] Inspect current account/authentication schema and prepare the state/retention matrix and scoped design in [#16](https://github.com/Awandalo/Lan-Party/issues/16).
+- [x] Owner confirm last-active-administrator protection, administrator-initiated 30-minute single-use invitation, password/optional MFA, restricted completion and minimal authorized Users controls.
+- [x] Owner approve narrowly necessary member-number/News dependency changes in principle.
+- [x] Implement local approved deactivation/reactivation slice: preserve credentials/MFA and private history, erase original private names, mask public identity, revoke sessions/operations, and prevent automatic reactivation.
+- [x] Prepare local 0017 lifecycle metadata/operation schema, scoped service/API/UI files and focused deterministic tests; remote migration remains approval-gated.
+- [x] Owner confirm anonymous registration totals for completed LAN events, both per event and per day, with no identifying participant links; these are not verified attendance.
+- [ ] Establish actual backup/provider retention and safe restore handling before deletion goes live; avoid unverified erasure promises.
+- [x] Prepare local 0018 anonymous completed-event/day registration totals, anonymous member-number retirement, nullable News attribution and ordered identity/dependent deletion; preserve unrelated roles/content, registrations and numbering integrity. The deletion service has no live route and remains gated on retention/restore handling.
+- [x] Verify local deactivation privacy, last-admin races, restricted reactivation/token replay and MFA, atomic rollback, deletion dependencies and event/day counts using 63 distinct changed-area tests, fictional browser fixtures, TypeScript/build and DEV dry-run. Hosted lifecycle acceptance remains separate.
+- [x] Owner authorize scoped local implementation/tests/commits and verified DEV publication with unapplied-migration gates.
+- [ ] Obtain separate DEV migration and hosted lifecycle acceptance approval; keep live permanent deletion unavailable until retention/restore handling is established.
+- Administrator suspension, self-service reactivation, automated refunds and future achievements implementation remain out of scope.
 
 ### Phase 3.10 — Polish & Fixes (planning only)
 

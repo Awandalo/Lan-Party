@@ -1,0 +1,5 @@
+.reactivate-page .panel { max-width:42rem; margin-inline:auto; padding:2rem; }
+.reactivate-page form, .reactivate-page fieldset { display:grid; gap:1rem; }
+.reactivate-page fieldset { border:0; padding:0; min-width:0; }
+.reactivate-page input { min-width:0; }
+.reactivate-page a { display:inline-block; margin-top:1.5rem; }

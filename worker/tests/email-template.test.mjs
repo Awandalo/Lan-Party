@@ -77,3 +77,12 @@ test('interpolated URL content cannot break HTML attributes or inject markup', (
   assert.ok(html.includes('&#39;'));
   assert.ok(text.includes(new URL(url).href));
 });
+
+test('reactivation invitation requires password and optional MFA, expires once in 30 minutes and has a dedicated safe path',()=>{
+ const url='https://dev.lan-party.club/reactivate#'+'a'.repeat(64);
+ const mail=authenticationEmail(url,'account-reactivation');
+ assert.equal(mail.subject,'Reactivate your LAN Party account');
+ for(const body of[mail.text,mail.html]){assert.match(body,/30 minutes/);assert.match(body,/works once/);assert.match(body,/existing password/);assert.match(body,/two-factor authentication/);}
+ for(const unsafe of['https://lan-party.club/reactivate#fake','https://dev.lan-party.club/reactivate?token=fake','https://dev.lan-party.club/reset-password#fake'])
+ assert.throws(()=>authenticationEmail(unsafe,'account-reactivation'));
+});

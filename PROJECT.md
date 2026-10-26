@@ -427,18 +427,19 @@ separately approved physical cleanup.
 
 This is the forward numbering agreed on 2026-10-20. Older milestone headings and
 status statements below are historical checkpoints, not fresh hosted verification.
-The owner reports Phase 3.7 manual DEV acceptance passed 7/7; MFA 3.8 is newer local,
-unpushed work. Hosted MFA acceptance and PROD authentication are not established.
+Phase 3.7 and Phase 3.8 DEV acceptance are complete; the owner and Q closed
+#9/#10/#13/#14/#15. Phase 3.9 local implementation is verified, with remote migration gates. PROD
+authentication and deployment remain separately gated.
 
 | Phase | Current scope and dependency | Status / issue |
 | --- | --- | --- |
-| 3.8 | MFA Security; retain 3.8.1 design, 3.8.2 foundations, 3.8.3 shared login, 3.8.4 management and 3.8.5 security regression | Local implementation/review; [#9](https://github.com/Awandalo/Lan-Party/issues/9) remains open for disposition |
-| 3.8.5.1 | R1 restricted replacement and bounded encrypted recovery-code redisplay | [#13](https://github.com/Awandalo/Lan-Party/issues/13), R1-F1 static review accepted; hosted eligibility correction in local #10 candidate, acceptance pending |
-| 3.8.5.2 | R2 recent MFA assurance before credential/provider changes; reuse valid two-minute assurance | [#14](https://github.com/Awandalo/Lan-Party/issues/14), R2-F1 corrective evidence reviewed by Q per owner; integrated-candidate review/hosted acceptance pending |
-| 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15), static review accepted at d330e66; hosted acceptance pending |
-| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance after #9 disposition and #13–#15 resolution | [#10](https://github.com/Awandalo/Lan-Party/issues/10), migrations 0013–0015/keys and DEV publication completed; Gate T PARTIAL: owner reports regeneration/notice/new-code login passed; Google discontinued; password/MFA removal candidate pending review; remaining hosted acceptance pending |
-| 3.9 | Account Lifecycle Management after MFA security and DEV acceptance | [#16](https://github.com/Awandalo/Lan-Party/issues/16), planning only |
-| 3.10 | Polish & Fixes after MFA and account lifecycle acceptance | [#17](https://github.com/Awandalo/Lan-Party/issues/17), planning only |
+| 3.8 | MFA Security, including foundations, shared login, management and regression | DEV implementation and owner acceptance complete; [#9](https://github.com/Awandalo/Lan-Party/issues/9) closed; no PROD acceptance implied |
+| 3.8.5.1 | R1 restricted replacement and bounded encrypted recovery-code redisplay | [#13](https://github.com/Awandalo/Lan-Party/issues/13) closed after owner hosted acceptance at dc36b17 |
+| 3.8.5.2 | R2 recent MFA assurance before sensitive account changes; independent primary proof | [#14](https://github.com/Awandalo/Lan-Party/issues/14) accepted and closed |
+| 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15) accepted and closed |
+| 3.8.6 | Controlled hosted DEV MFA rollout/acceptance | [#10](https://github.com/Awandalo/Lan-Party/issues/10) closed; DEV migrations 0013–0016, key provisioning, deployment and MFA acceptance recorded; residual Google-resource cleanup is separate |
+| 3.9 | Account Lifecycle Management | [#16](https://github.com/Awandalo/Lan-Party/issues/16): locally implemented and verified; anonymous historical registration totals approved; operational retention/restore requirements gate live deletion |
+| 3.10 | Polish & Fixes after account lifecycle readiness | [#17](https://github.com/Awandalo/Lan-Party/issues/17), deferred |
 
 Historical email/GUI/login-limit milestones also used 3.8–3.8.3; retain their
 original references as history, not new MFA milestones. The former proposal for
@@ -446,6 +447,48 @@ original references as history, not new MFA milestones. The former proposal for
 Migration numbers (including 0013) are independent and unchanged. Labels, issue
 closure and roadmap placement do not authorize implementation or remote operations.
 Detailed pending tasks remain in [TODO.md](TODO.md#phase-38--mfa-security).
+
+### Phase 3.9 — approved lifecycle design and sprint boundary
+
+Owner decisions recorded in [#16](https://github.com/Awandalo/Lan-Party/issues/16):
+voluntary deactivation retains email, nickname, credentials, optional MFA and linked
+registrations privately, overwrites private names and masks public identity as
+"Deactivated user". Revoke sessions and outstanding operations; ordinary login must
+not reactivate the account. Protect the last active administrator from self-deactivation
+or deletion, checking current authorization inside the final write.
+
+Reactivation is administrator-initiated through minimal authorized Users controls:
+a 30-minute single-use invitation to the existing address, followed by existing
+password and optional MFA verification in a lifecycle-specific restricted flow.
+Recollect private names; email possession or an administrator click alone cannot
+activate access. Existing active-only session/token guards remain intact.
+
+Permanent deletion removes identity and credentials; preserve member-number non-reuse
+without a recoverable account UUID link and make only narrowly necessary News
+attribution changes. Completed LAN events retain anonymous registration totals per
+event and per day after deletion, with no identifying participant links. These are
+registrations, not verified attendance. This owner decision resolves historical-total
+retention; actual backup retention/restore handling must still be established before
+deletion goes live. Do not promise immediate backup erasure or implement admin suspension.
+
+Owner authorizes scoped local implementation/tests/commits and verified DEV
+publication/automatic deployment, provided all outgoing changes are reviewed and
+unapplied migrations cannot expose unsafe operations. Local migrations 0017
+(lifecycle/reactivation) and 0018 (deletion dependencies/anonymous totals) require
+separate remote approval. Runtime readiness checks reject absent/partial lifecycle
+schema; the Account Security controls remain hidden until 0017 is available.
+Normal password/MFA authentication is unchanged on the existing 0016 database.
+
+Permanent deletion is not routed or enabled, including after migration 0018.
+The local deletion service and fictional tests prepare it for later retention/restore
+approval. Reactivation consumes its invitation and password/optional MFA proof in
+one guarded batch and issues a new fully verified session; it never promotes the
+restricted cookie or requires reusing the final recovery code. New sessions use the
+advanced account generation; old sessions stay revoked. Reuse existing email
+allowlists/budgets and fixed 30-minute invitation/five-minute restricted deadlines.
+
+Migrations, hosted account operations, real emails, live deletion and PROD require
+separate approval. Publication alone does not establish hosted lifecycle acceptance.
 
 ### Phase 3.1 — Authentication foundation
 
@@ -475,34 +518,29 @@ Approved product requirements:
 - Passwords require at least 12 characters, support 128 characters and have no
   arbitrary character-class rules. Rate limiting and safe errors are required
   before exposing authentication endpoints.
-- Optional TOTP MFA is approved for all accounts, including administrators. The owner
-  reports Phase 3.7 manual DEV acceptance passed 7/7 and now names the MFA work
-  **Phase 3.8** (superseding earlier future Phase 3.9 references). See
-  [MFA_DESIGN.md](MFA_DESIGN.md) for the approved architecture and local Phase 3.8.2–4
-  implementation: migration 0013, encrypted TOTP secrets, recovery verifiers, shared
-  password pending challenges, atomic assurance/session issuance and local
-  enrollment acknowledgment, purpose-bound disable/regenerate, recent-primary/MFA
-  checks and guarded security notifications. Hosted MFA enrollment/management
-  remain unavailable. Phase 3.8.5 local regression/preparation is owner-authorized;
-  [security review](docs/MFA_SECURITY_REVIEW.md) records passing local checks,
-  unresolved recovery/freshness policy and hosted enrollment gates. Hosted manual
-  acceptance is pending, not established by local tests.
-  No remote migration, key configuration, activation or rollout is approved.
-- Resend is prepared for DEV: the owner confirms the auth sending domain is verified
-  and its domain-restricted sending key is installed only on the DEV Worker.
-  Application delivery is integrated locally; hosted authentication remains disabled. Use the
-  [DEV email policy](#hosted-dev-email-policy) below for sending limits and configuration.
+- Optional TOTP MFA is implemented and owner-accepted on hosted DEV, including
+  enrollment, password/TOTP login, one-use recovery codes, regeneration and restricted
+  authenticator replacement. Strict two-minute assurance, independent primary proof,
+  CSRF, generation fencing and encrypted bounded redisplay remain authoritative.
+  Google OAuth is discontinued. See [MFA_DESIGN.md](MFA_DESIGN.md) and the historical
+  [security review](docs/MFA_SECURITY_REVIEW.md); later rollout and acceptance receipts
+  in [#10](https://github.com/Awandalo/Lan-Party/issues/10) and
+  [#13](https://github.com/Awandalo/Lan-Party/issues/13) supersede their earlier
+  local-only status. Final accepted DEV revision: dc36b17; CI passed 381 tests.
+  Completed DEV migrations, key provisioning and activation do not authorize PROD.
+- Resend authentication delivery is integrated on DEV under the existing
+  [DEV email policy](#hosted-dev-email-policy), recipient restrictions and shared
+  budgets. Existing delivery evidence does not authorize new real-account emails.
 - Verification links are single-use and expire after 24 hours. Password reset links
   are single-use and expire after 30 minutes. Recovery responses must be generic;
   a successful reset must invalidate all existing sessions.
 
 Repository assessment and implemented local foundation:
 
-- Migrations 0002/0003 already provide UUID profiles, normalized email uniqueness,
-  nullable verification timestamps, one password credential per account and unique
-  external `(provider, identity_namespace, provider_subject)` mappings. Migrations
-  0004/0006 provide explicit RBAC grants; role names do not confer permissions.
-  Reuse these records rather than introducing another account system.
+- Migrations 0002/0003 established UUID profiles, normalized email uniqueness,
+  verification timestamps and password credentials. Migration 0016 removed retired
+  Google provider/OIDC integration. Migrations 0004/0006 provide explicit RBAC grants;
+  role names do not confer permissions. Reuse this account/security foundation.
 - `worker/auth/passwords.ts` uses native Web Crypto PBKDF2-HMAC-SHA256 with
   20,000 iterations, a random 16-byte salt and a 32-byte derived key, followed by
   HMAC-SHA256 with a separate 256-bit server-side pepper. This owner-approved

@@ -76,7 +76,7 @@ export class DevResendEmailTransport implements EmailTransport {
     assertDevEmailRecipient(this.env, mail.to);
     const url = new URL(mail.url);
     const path = ['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(mail.purpose ?? '') ? '/account/security'
-      : mail.purpose === 'password-reset' ? '/reset-password' : '/verify-email';
+      : mail.purpose === 'account-reactivation' ? '/reactivate' : mail.purpose === 'password-reset' ? '/reset-password' : '/verify-email';
     if (url.origin !== origin || url.username || url.password || url.pathname !== path || url.search) {
       throw new DevEmailPolicyError();
     }
