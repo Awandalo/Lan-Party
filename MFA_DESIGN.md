@@ -1,5 +1,45 @@
 # Optional account MFA — Phase 3.8.1 proposal
 
+## Owner-approved single-TOTP replacement policy — 2026-10-26
+
+This decision supersedes the second-TOTP-for-reveal requirement in earlier Option B
+receipts below. Source: issue #13 comment 6428397755 and direct owner authorization
+for focused local preparation in Codex. No publication or hosted acceptance is implied.
+
+Restricted replacement still requires fresh primary authentication and genuinely
+redeemed recovery/MFA proof bound to the account, browser, factor and generation.
+One new-authenticator TOTP verifies possession and authorizes the guarded atomic
+factor/code switch. Only after the complete batch succeeds, return the same ten
+new codes immediately with no-store headers. The commit TOTP remains consumed for
+normal login; neither the codes nor this operation create a normal session.
+
+Lost-response/reload redisplay uses the committed restricted context and existing
+purpose-bound encrypted envelope, without another TOTP. Fresh primary proof, the
+fixed five-minute display deadline, key/AAD integrity, current factor/set/generation,
+CSRF, conditional Turnstile and rate-limit reservation remain mandatory. A final
+post-decryption database guard rejects ACK/expiry/context changes before release.
+ACK/close/expiry erase display access; no new code generation, plaintext persistence,
+sliding deadline, spent-code refund or old-factor fallback is introduced.
+
+Trade-off accepted by the revised owner policy: possession of the already bound
+restricted browser context plus fresh primary proof suffices for redisplay during
+its existing window; repeated replacement-TOTP possession is no longer required.
+Expired MFA proof before handoff requires fresh normal sign-in with a valid method;
+password confirmation alone cannot refresh MFA. The explicit restart first uses
+the existing CSRF-protected sign-out endpoint, since Login redirects still-signed-in
+users to Account; an unconfirmed sign-out stops without retrying replacement.
+With no usable method remaining,
+administrator assistance may be necessary. Small unrelated GUI polish stays in #17.
+
+Local verification: 33 recovery tests and three selected canonical-DEV tests passed,
+including immediate ten-code response, bounded same-set redisplay, stale/foreign/
+expired contexts and leases, ACK-during-decryption race, commit-TOTP replay denial
+for normal login, atomic rollback and interruption. Fictional browser checks verify
+immediate codes after one verification, redisplay after primary refresh without
+extending the deadline, and explicit fresh-sign-in guidance for an expired handoff.
+Strict TypeScript and hosted-DEV build passed. No real accounts, emails, remote D1,
+configuration, secrets, migrations, commits, pushes, deployments or GitHub writes.
+
 ## Current authentication decision — 2026-10-25
 
 Google OAuth is discontinued. The removal candidate uses email/password with optional

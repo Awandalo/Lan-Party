@@ -44,14 +44,17 @@ before(async()=>{
    if(action==='otp')return Response.json(await generate({secret:base32.decode(args[0]),crypto:otpCrypto,epoch:args[1]}));
    if(action==='primary')return Response.json(await completePrimary(env.DB,...args));
    if(action==='pending')return Response.json(await pendingLogin(env.DB,...args));
-   if(['startRecovery','commitRecovery','revealRecovery'].includes(action)){
+   if(['startRecovery','commitRecovery','revealRecovery','revealAfterAck'].includes(action)){
     const [c,code,configuration=env,expiredLease=false]=args;
     const op=await recovery.recoveryOperation(env.DB,c),pending=op?null:await pendingLogin(env.DB,c.token,c.browser,c.now);
     const limiter=await LoginLimiter.create(env.DB,env.AUTH_RATE_LIMIT_SECRET,'fixture',()=>c.now);
     const held=await limiter.reserveMfa(op?.user_id??pending.user_id,op?.source_digest??pending.token_digest);
     try{
      if(expiredLease)await env.DB.prepare('UPDATE registration_rate_limits SET expires_at=0').run();
-     const result=action==='startRecovery'?await recovery.startRecovery(env.DB,c,pending,code,configuration,'local',held):await recovery[action](env.DB,c,code,configuration,'local',held);
+     const guarded=action==='revealAfterAck'?{prepare(sql){const statement=env.DB.prepare(sql);if(!sql.startsWith('SELECT 1 AS allowed'))return statement;
+      return {bind(...values){return {async first(){await recovery.closeRecovery(env.DB,c,true);return statement.bind(...values).first();}};}};}}:env.DB;
+     const result=action==='startRecovery'?await recovery.startRecovery(env.DB,c,pending,code,configuration,'local',held):
+      action==='revealRecovery'||action==='revealAfterAck'?await recovery.revealRecovery(guarded,c,configuration,'local',held):await recovery[action](env.DB,c,code,configuration,'local',held);
      await held.finish(!result);return Response.json(result);
     }finally{await held.finish(false);}
    }
@@ -143,12 +146,12 @@ test('interrupted start resumes without spending another code; no ordinary sessi
  assert.equal(await f.call('pending',f.c.token,f.c.browser,f.c.now),null);
 }));
 
-test('display requires fresh new TOTP, repeats same codes, ACK erases and replay is denied',()=>local(async f=>{
+test('display uses the committed restricted context, repeats the same codes without another TOTP, and ACK erases access',()=>local(async f=>{
  const setup=await f.commit();
- assert.equal(await f.call('revealRecovery',f.c,await f.call('otp',setup.secret,f.c.now)),null);
+ assert.equal((await f.call('revealRecovery',f.c)).codes.length,10);
  const later={...f.c,now:f.c.now+30},next=await f.call('otp',setup.secret,later.now);
  const display=await f.call('revealRecovery',later,next);assert.equal(display.codes.length,10);
- assert.equal(await f.call('revealRecovery',later,next),null);
+ assert.deepEqual((await f.call('revealRecovery',later)).codes,display.codes);
  const later2={...f.c,now:f.c.now+60};
  assert.deepEqual((await f.call('revealRecovery',later2,await f.call('otp',setup.secret,later2.now))).codes,display.codes);
  await f.call('closeRecovery',later2,true);await f.call('closeRecovery',later2,true);
@@ -225,7 +228,7 @@ test('HTTP requires CSRF/confirmation, exposes no setup on status and sends noti
  const status=await(await f.request('mfa/recovery/status',undefined,f.h)).json();assert.equal(status.secret,undefined);assert.equal(status.codes,undefined);
  const setup=await f.call('recoverySetup',f.c,keys,'local'),code=await f.call('otp',setup.secret,f.c.now);
  const response=await f.request('mfa/recovery/commit',{code},f.h);assert.equal(response.status,200);
- assert.equal(response.headers.get('cache-control'),'no-store');assert.equal((await response.json()).codes,undefined);
+ assert.equal(response.headers.get('cache-control'),'no-store');assert.equal((await response.json()).codes.length,10);
  assert.ok(await f.call('mail','mfa-replaced'));assert.equal(await f.call('mail','mfa-replaced'),null);
  assert.equal((await f.request('session',undefined,f.h)).status,401);
 }));
@@ -351,15 +354,16 @@ test('lost switch response is discoverable; post-commit cancel and expiry never 
 }));
 
 test('new normal login needs the replacement authenticator, and old codes cannot create sessions',()=>local(async f=>{
- const setup=await f.commit(),login=await f.request('login',{email:profile.email,password:profile.password});
+ const setup=await f.commit();await f.call('clock',f.c.now);const login=await f.request('login',{email:profile.email,password:profile.password});
  assert.equal(login.status,200);assert.equal((await login.json()).next,'/mfa');
  const Cookie=jar(login),csrf=(await(await f.request('mfa/challenge',undefined,{Cookie})).json()).csrfToken;
  const headers={Cookie,'X-CSRF-Token':csrf};
+ assert.equal((await f.request('mfa/complete',{method:'totp',code:await f.call('otp',setup.secret,f.c.now)},headers)).status,401,'the commit TOTP stays spent for normal login');
  assert.equal((await f.request('mfa/complete',{method:'recovery',code:f.codes[1]},headers)).status,401);
- assert.equal((await f.request('mfa/complete',{method:'totp',code:await f.call('otp',f.oldSetup.secret,Math.floor(Date.now()/1000))},headers)).status,401);
+ assert.equal((await f.request('mfa/complete',{method:'totp',code:await f.call('otp',f.oldSetup.secret,f.c.now)},headers)).status,401);
  // The existing ±1-step clock window accepts this independently generated next
  // fixture code while keeping the database replay trigger intact.
- const complete=await f.request('mfa/complete',{method:'totp',code:await f.call('otp',setup.secret,Math.floor(Date.now()/1000)+30)},headers);assert.equal(complete.status,200);
+ const complete=await f.request('mfa/complete',{method:'totp',code:await f.call('otp',setup.secret,f.c.now+30)},headers);assert.equal(complete.status,200);
  assert.equal((await f.request('session',undefined,{Cookie:jar(complete)})).status,200);
 }));
 
@@ -500,18 +504,18 @@ test('lost start response resumes through status and password confirmation acros
 }));
 
 
-test('HTTP replacement reveal rejects the spent time step, reveals ten same-set codes on fresh steps and clears on ACK',()=>local(async f=>{
+test('HTTP single-TOTP replacement returns ten codes immediately and bound redisplay needs no second TOTP',()=>local(async f=>{
  const setup=await f.begin(),now=f.c.now;await f.call('clock',now);
  const spent=await f.call('otp',setup.secret,now);
  const commit=await f.request('mfa/recovery/commit',{code:spent},f.h);assert.equal(commit.status,200);
- const committed=await commit.json();assert.equal(committed.codes,undefined);
+ const committed=await commit.json();assert.equal(committed.codes.length,10);assert.equal(new Set(committed.codes).size,10);
  const status=await(await f.request('mfa/recovery/status',undefined,f.h)).json();
  assert.equal(status.phase,'committed');assert.equal(status.primaryRequired,false);assert.equal(status.expiresAt,committed.displayExpiresAt);
- assert.equal((await f.request('mfa/recovery/reveal',{code:spent},f.h)).status,401);
+ const immediate=await f.request('mfa/recovery/reveal',{},f.h);assert.equal(immediate.status,200);assert.deepEqual((await immediate.json()).codes,committed.codes);
  await f.call('clock',now+30);const next=await f.call('otp',setup.secret,now+30);
  const reveal=await f.request('mfa/recovery/reveal',{code:next},f.h);assert.equal(reveal.status,200);assert.equal(reveal.headers.get('cache-control'),'no-store');
  const shown=await reveal.json();assert.equal(shown.codes.length,10);assert.equal(shown.expiresAt,status.expiresAt);
- assert.equal((await f.request('mfa/recovery/reveal',{code:next},f.h)).status,401);
+ assert.deepEqual(shown.codes,committed.codes);assert.equal((await f.request('mfa/recovery/reveal',{},f.h)).status,200);
  await f.call('clock',now+60);const repeated=await f.request('mfa/recovery/reveal',{code:await f.call('otp',setup.secret,now+60)},f.h);
  assert.equal(repeated.status,200);assert.deepEqual((await repeated.json()).codes,shown.codes);
  assert.equal((await f.request('session',undefined,f.h)).status,401);
@@ -529,4 +533,17 @@ test('HTTP recovery freshness hint follows server proof without authorizing or e
  const fresh=await(await f.request('mfa/recovery/status',undefined,f.h)).json();assert.equal(fresh.primaryRequired,false);assert.equal(fresh.expiresAt,initial.expiresAt);
  await f.call('clock',initial.expiresAt);const expired=await f.request('mfa/recovery/status',undefined,f.h);assert.equal(expired.status,401);assert.equal((await expired.json()).code,'recovery_unavailable');
  assert.equal((await f.request('mfa/recovery/primary',{password:profile.password},f.h)).status,401);
+}));
+
+
+test('committed redisplay rejects ACK races, stale proof, foreign binding and expired leases without consuming another TOTP',()=>local(async f=>{
+ const setup=await f.commit(),before=await f.db.prepare('SELECT last_step FROM auth_totp_factors').first('last_step');
+ const shown=await f.call('revealRecovery',f.c);assert.equal(shown.codes.length,10);
+ assert.equal(await f.db.prepare('SELECT last_step FROM auth_totp_factors').first('last_step'),before);
+ assert.equal((await f.raw('revealRecovery',{...f.c,browser:'ff'.repeat(32)})).status,409);
+ assert.equal((await f.raw('revealRecovery',{...f.c,now:f.c.now+120})).status,409);
+ assert.equal((await f.raw('revealRecovery',f.c,null,keys,true)).status,409);
+ assert.equal((await f.raw('revealAfterAck',f.c)).status,409);
+ const row=await f.db.prepare('SELECT phase,display_ciphertext FROM auth_mfa_recovery_operations').first();assert.equal(row.phase,'acknowledged');assert.equal(row.display_ciphertext,null);
+ assert.equal((await f.raw('revealRecovery',f.c)).status,409);assert.equal(setup.secret.length,32);
 }));

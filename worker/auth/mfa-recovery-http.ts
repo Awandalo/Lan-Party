@@ -96,7 +96,7 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
     const valid=record?await verifyPassword(input.password,record,env.PASSWORD_PEPPER):false;
     if(valid){await grantRecoveryPrimary(env.DB,c,'password',c.now,op.auth_version+(op.phase==='pending'?0:1));result={message:'Identity confirmed.'};}else result=null;
    }else if(action==='commit'&&typeof input.code==='string')result=await commitRecovery(env.DB,c,input.code,env,environment,held);
-   else if(action==='reveal'&&typeof input.code==='string')result=await revealRecovery(env.DB,c,input.code,env,environment,held);
+   else if(action==='reveal')result=await revealRecovery(env.DB,c,env,environment,held);
    else return reply(400,{error:'Invalid request'});
    if(!await held.finish(!result))throw Error('Check expired');done=true;
    if(!result)return reply(401,{error:'Proof not accepted.'});

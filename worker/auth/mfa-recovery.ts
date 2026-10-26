@@ -116,24 +116,32 @@ export async function commitRecovery(db:D1Database,c:RecoveryContext,code:string
    AND (SELECT count(*) FROM auth_mfa_recovery_codes WHERE user_id=? AND set_id=? AND consumed_at IS NULL)=10`)
    .bind(c.now,c.now+300,display.ciphertext,display.nonce,display.keyId,r.operation_digest,r.user_id,r.auth_version+1,r.user_id,r.new_set_id),assertOne(db),
  ]);
- // The switch response contains no codes: reveal always requires a fresh new TOTP.
- return {userId:r.user_id,authVersion:r.auth_version,displayExpiresAt:c.now+300};
+ // The guarded commit already verified replacement-TOTP possession. Return its
+ // same ten codes only after every atomic write succeeds; no second TOTP prompt.
+ return {userId:r.user_id,authVersion:r.auth_version,displayExpiresAt:c.now+300,codes:recovery.codes};
 }
-export async function revealRecovery(db:D1Database,c:RecoveryContext,code:string,keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
+export async function revealRecovery(db:D1Database,c:RecoveryContext,keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
  const r=await recoveryOperation(db,c);if(!r||r.phase!=='committed')throw Error('Recovery unavailable');fresh(r,c.now);
  const factor=await db.prepare('SELECT * FROM auth_totp_factors WHERE user_id=? AND factor_id=? AND recovery_set_id=?')
   .bind(r.user_id,r.new_factor_id,r.new_set_id).first<{secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number}>();
  if(!factor)throw Error('Recovery unavailable');
- const secret=await decryptTotpSecret({ciphertext:factor.secret_ciphertext,nonce:factor.secret_nonce,keyId:factor.key_id},keys,
+ // Keep active-factor ciphertext/AAD validation; redisplay authorization comes
+ // from the committed, bound recovery operation, not another authenticator code.
+ await decryptTotpSecret({ciphertext:factor.secret_ciphertext,nonce:factor.secret_nonce,keyId:factor.key_id},keys,
   {environment,userId:r.user_id,id:r.new_factor_id,purpose:'active'});
- const step=await verifyTotp(secret,code,c.now,factor.last_step);if(step===null)return null;
  const codes=await openRecoveryDisplay({ciphertext:r.display_ciphertext,nonce:r.display_nonce,keyId:r.display_key_id},keys,displayBinding(r,environment));
  const lease=held.activeCondition();
- await db.batch([db.prepare(`UPDATE auth_totp_factors SET last_step=? WHERE user_id=? AND factor_id=? AND last_step=? AND ${lease.sql}
-   AND EXISTS(SELECT 1 FROM auth_mfa_recovery_operations o JOIN users u ON u.id=o.user_id WHERE operation_digest=? AND browser_digest=?
-    AND o.phase='committed' AND o.display_expires_at>? AND o.display_expires_at>unixepoch() AND o.primary_authenticated_at>? AND o.primary_authenticated_at>unixepoch()-120 AND o.primary_authenticated_at<=?
-    AND u.auth_version=o.auth_version+1 AND u.status='active')`)
-  .bind(step,r.user_id,r.new_factor_id,factor.last_step,...lease.values,r.operation_digest,r.browser_digest,c.now,c.now-120,c.now),assertOne(db)]);
+ // Recheck AFTER decryption, so ACK, expiry, factor/generation changes or lease
+ // expiry during the read cannot release a previously loaded display envelope.
+ const allowed=await db.prepare(`SELECT 1 AS allowed FROM auth_totp_factors f
+  JOIN auth_mfa_recovery_operations o ON o.user_id=f.user_id JOIN users u ON u.id=o.user_id
+  WHERE f.user_id=? AND f.factor_id=? AND f.recovery_set_id=? AND o.operation_digest=? AND o.browser_digest=?
+   AND o.phase='committed' AND o.new_factor_id=f.factor_id AND o.new_set_id=f.recovery_set_id
+   AND o.display_ciphertext=? AND o.display_expires_at>? AND o.display_expires_at>unixepoch()
+   AND o.primary_authenticated_at>? AND o.primary_authenticated_at>unixepoch()-120 AND o.primary_authenticated_at<=?
+   AND u.auth_version=o.auth_version+1 AND u.status='active' AND u.email_verified_at IS NOT NULL AND ${lease.sql}`)
+  .bind(r.user_id,r.new_factor_id,r.new_set_id,r.operation_digest,r.browser_digest,r.display_ciphertext,c.now,c.now-120,c.now,...lease.values).first();
+ if(!allowed)throw Error('Recovery unavailable');
  return {codes,expiresAt:r.display_expires_at};
 }
 export async function closeRecovery(db:D1Database,c:RecoveryContext,acknowledge:boolean){

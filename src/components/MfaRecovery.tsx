@@ -27,7 +27,7 @@ export default function MfaRecovery(){
  useEffect(()=>{if(!status)return;const timer=setTimeout(()=>{setStatus(null);setUncertain(false);clearSecrets();
   setFeedback('This fixed recovery window expired. If replacement completed, log in with your new authenticator and regenerate recovery codes in Account Security. No spent code becomes reusable.');},Math.max(0,status.expiresAt*1000-Date.now()));return()=>clearTimeout(timer);},[status]);
  useEffect(()=>{if(busy)return;requestAnimationFrame(()=>{
-  const id=status?.primaryRequired?'recovery-password':codes.length?'recovery-saved':setup?'replacement-totp':status?.phase==='committed'?'reveal-totp':'';
+  const id=status?.primaryRequired?'recovery-password':codes.length?'recovery-saved':setup?'replacement-totp':'';
   if(id)document.getElementById(id)?.focus();else panel.current?.focus();
  });},[busy,status?.phase,status?.primaryRequired,setup,codes.length,uncertain]);
  async function post(action:string,input:object,current:Status){
@@ -50,6 +50,9 @@ export default function MfaRecovery(){
   catch{if(mounted.current){setStatus(null);setUncertain(false);setFeedback('Recovery is unavailable or expired. If replacement completed, log in with your new authenticator and regenerate recovery codes in Account Security.');}}
   finally{lock.current=false;if(mounted.current)setBusy(false);}
  }
+ function validCodes(value:unknown):value is string[]{return Array.isArray(value)&&value.length===10
+  &&value.every(c=>typeof c==='string'&&/^[A-Z2-7]{26}$/.test(c.replaceAll('-','')))
+  &&new Set(value.map(c=>c.replaceAll('-',''))).size===10;}
  async function run(action:string,input:object={}){
   if(lock.current||!status||uncertain)return;lock.current=true;setBusy(true);setFeedback('');
   try{
@@ -61,11 +64,10 @@ export default function MfaRecovery(){
     if(body.code==='recovery_unavailable'){setStatus(null);clearSecrets();setFeedback('Recovery is unavailable or expired. If your new authenticator is active, log in with it and regenerate codes in Account Security.');return;}
     if(r.status>=500){setUncertain(true);clearSecrets();setFeedback('The result could not be confirmed. Check server status before continuing; no automatic retry was made.');return;}
     setFeedback(r.status===429?'Wait '+(r.headers.get('Retry-After')??'a few')+' seconds before trying again.':
-     r.status===401&&action==='reveal'?'Code not accepted. Use a NEW code from the replacement authenticator. A code used to replace it or show codes cannot be used again; wait for it to change.':body.error??'Recovery unavailable.');return;
+     body.error??'Recovery unavailable.');return;
    }
    if(action==='reveal'){
-    if(!Array.isArray(body.codes)||body.codes.length!==10||body.codes.some((c:unknown)=>typeof c!=='string'||!/^[A-Z2-7]{26}$/.test(c.replaceAll('-','')))
-     ||new Set(body.codes.map((c:string)=>c.replaceAll('-',''))).size!==10||body.expiresAt!==status.expiresAt)throw Error();
+    if(!validCodes(body.codes)||body.expiresAt!==status.expiresAt)throw Error();
     setCodes(body.codes);setCopied(false);setFeedback('Save all ten codes privately, then finish.');
     // Do not discard a successful secret-bearing response because an unrelated
     // follow-up status read fails. Existing fixed-deadline cleanup still applies.
@@ -73,13 +75,14 @@ export default function MfaRecovery(){
    }
    if(action==='commit'){
     if(!Number.isSafeInteger(body.displayExpiresAt)||body.displayExpiresAt<=Date.now()/1000||body.displayExpiresAt>Date.now()/1000+301)throw Error();
-    clearSecrets();setStatus({...status,phase:'committed',expiresAt:body.displayExpiresAt,primaryRequired:false});
-    setFeedback('Your replacement authenticator is active. Wait until its code changes, then use the new code below.');return;
+    if(!validCodes(body.codes))throw Error();
+    clearSecrets();setStatus({...status,phase:'committed',expiresAt:body.displayExpiresAt,primaryRequired:false});setCodes(body.codes);
+    setFeedback('Your replacement authenticator is active. Save these ten recovery codes privately, then finish.');return;
    }
    if(action==='ack'||action==='cancel'){clearSecrets();setStatus(null);setOutcome(action==='ack'?'complete':'closed');setFeedback(body.message);return;}
    const latest=await refresh();
    if((action==='primary'||action==='start')&&latest.phase==='pending'&&!latest.primaryRequired)await showSetup(latest);
-   if(action==='primary')setFeedback(latest.phase==='pending'?'Identity confirmed. Scan your replacement authenticator below.':'Identity confirmed. Enter a fresh code from your replacement authenticator.');
+   if(action==='primary')setFeedback(latest.phase==='pending'?'Identity confirmed. Scan your replacement authenticator below.':'Identity confirmed. Continue to display the same recovery codes.');
   }catch{if(mounted.current){clearSecrets();setUncertain(true);setFeedback('The result is uncertain. Check recovery status before continuing. No automatic replacement or reveal retry was made.');}}
   finally{lock.current=false;if(mounted.current){setBusy(false);setProof(null);setAttempt(n=>n+1);}}
  }
@@ -112,9 +115,8 @@ export default function MfaRecovery(){
      <p>Replacing invalidates the old authenticator, all old recovery codes and existing sessions.</p><button className="button" disabled={!!siteKey&&!proof}>Replace authenticator</button></fieldset></form></>}
   </>}
   {!uncertain&&active&&status.phase==='committed'&&!status.primaryRequired&&!codes.length&&<>
-   <p>Your new authenticator is active. Wait for its code to change after replacement, then enter the NEW code to show your ten recovery codes.</p>
-   <form onSubmit={e=>submit(e,'reveal')}><fieldset disabled={busy}><label htmlFor="reveal-totp">Fresh new-authenticator code</label><input id="reveal-totp" name="code" required pattern="[0-9]{6}" maxLength={6} inputMode="numeric" autoComplete="one-time-code"/>
-    <button className="button" disabled={!!siteKey&&!proof}>Show recovery codes</button></fieldset></form>
+   <p>Your replacement authenticator has already been verified. Display the same ten recovery codes within this restricted window.</p>
+   <button type="button" className="button" disabled={busy||!!siteKey&&!proof} onClick={()=>void run('reveal')}>Show recovery codes</button>
    <p>If this display window expires, log in with your new authenticator and regenerate recovery codes in Account Security.</p>
   </>}
   {!uncertain&&codes.length===10&&<><p>Save all ten one-use recovery codes somewhere private.</p><ul className="mfa-recovery-codes" aria-label="Replacement recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>

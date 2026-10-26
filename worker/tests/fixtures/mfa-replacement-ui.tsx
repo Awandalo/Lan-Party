@@ -3,7 +3,7 @@ import React from 'react';import{createRoot}from'react-dom/client';import{Browse
 import MfaRecovery from '../../../src/components/MfaRecovery';
 import '../../../src/CSS/main.css';import '../../../src/CSS/AccountSecurity_style.css';
 const params=new URL(location.href).searchParams;
-let phase=params.has('committed')?'committed':'pending',primaryRequired=!params.has('committed'),revealed=false,freshCode=false,expired=false;
+let phase=params.has('committed')?'committed':'pending',primaryRequired=!params.has('committed'),revealed=false,expired=false;
 let reads=0,commits=0,reveals=0,primary=0,copies=0;
 const secret='A'.repeat(32),csrf='c'.repeat(64);
 const codes=Array.from({length:10},(_,i)=>String.fromCharCode(65+i)+'AAA-AAAA-AAAA-AAAA-AAAA-AAAA-AA');
@@ -20,10 +20,10 @@ window.fetch=async(input,init={})=>{
  if(action==='primary'){primary++;primaryRequired=false;stats();return Response.json({message:'Identity confirmed.'});}
  if(action==='setup')return Response.json({secret,uri:'otpauth://totp/LAN%20Party%3AFictional?'+new URLSearchParams({secret,issuer:'LAN Party',algorithm:'SHA1',digits:'6',period:'30'}),expiresAt:deadline});
  if(primaryRequired&&['commit','reveal'].includes(action))return Response.json({code:'reauth_required',error:'Confirm your sign-in method again. The recovery deadline is unchanged.'},{status:428});
- if(action==='commit'){commits++;phase='committed';deadline=Math.floor(Date.now()/1000)+300;stats();if(params.has('lose-commit'))throw Error('Fictional lost commit response');return Response.json({displayExpiresAt:deadline});}
- if(action==='reveal'){reveals++;stats();if(!freshCode)return Response.json({error:'Proof not accepted.'},{status:401});freshCode=false;revealed=true;return Response.json({codes,expiresAt:deadline});}
+ if(action==='commit'){commits++;phase='committed';deadline=Math.floor(Date.now()/1000)+300;stats();if(params.has('lose-commit'))throw Error('Fictional lost commit response');return Response.json({displayExpiresAt:deadline,codes});}
+ if(action==='reveal'){reveals++;stats();revealed=true;return Response.json({codes,expiresAt:deadline});}
  if(action==='ack'||action==='cancel'){phase='acknowledged';return Response.json({message:'Return to login with your new authenticator if replacement completed.'});}
  throw Error('Unexpected fictional request '+body.confirmed);
 };
-function App(){return <main className="page-section"><div className="panel account-security-card"><h1>Fictional replacement regression</h1><div className="mfa-actions"><button onClick={()=>{freshCode=true;}}>Next authenticator time step</button><button onClick={()=>{primaryRequired=true;}}>Make primary proof stale</button><button onClick={()=>{expired=true;}}>Expire restricted context</button></div><BrowserRouter><MfaRecovery/></BrowserRouter></div></main>;}
+function App(){return <main className="page-section"><div className="panel account-security-card"><h1>Fictional replacement regression</h1><div className="mfa-actions"><button onClick={()=>{primaryRequired=true;}}>Make primary proof stale</button><button onClick={()=>{expired=true;}}>Expire restricted context</button></div><BrowserRouter><MfaRecovery/></BrowserRouter></div></main>;}
 createRoot(document.getElementById('root')!).render(<App/>);

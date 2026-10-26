@@ -182,7 +182,7 @@ test('hosted last-code replacement uses DEV encryption, bounded redisplay and fr
  const sealed={ciphertext:op.secret_ciphertext,nonce:op.secret_nonce,keyId:op.key_id},context={environment:'dev',userId:id,id:op.new_factor_id,purpose:'pending'};
  assert.equal(await call('decrypt',sealed,keys,context),replacement.secret);assert.equal(await call('decrypt',sealed,keys,{...context,environment:'local'}),null);
  // One guarded commit; a duplicate cannot switch twice or emit another notice.
- const code=await call('otp',replacement.secret);assert.equal((await request('mfa/recovery/commit',{code},h)).status,200);
+ const code=await call('otp',replacement.secret),commit=await request('mfa/recovery/commit',{code},h);assert.equal(commit.status,200);const firstCodes=(await commit.json()).codes;assert.equal(firstCodes.length,10);
  assert.notEqual((await request('mfa/recovery/commit',{code},h)).status,200);assert.equal(await call('sends'),1);
  op=await db.prepare('SELECT * FROM auth_mfa_recovery_operations').first();assert.equal(op.phase,'committed');assert.equal(op.display_expires_at-op.committed_at,300);assert.ok(op.display_ciphertext);
  assert.equal(await db.prepare('SELECT count(*) n FROM auth_mfa_recovery_codes WHERE set_id=?').bind(before.recovery_set_id).first('n'),0);
@@ -191,7 +191,7 @@ test('hosted last-code replacement uses DEV encryption, bounded redisplay and fr
  await call('clock',time+30);
  const revealCode=await call('otp',replacement.secret,time+30),reveal=await request('mfa/recovery/reveal',{code:revealCode},h);assert.equal(reveal.status,200);
  const codes=(await reveal.json()).codes;assert.equal(codes.length,10);assert.equal(new Set(codes).size,10);
- assert.notEqual((await request('mfa/recovery/reveal',{code:revealCode},h)).status,200);
+ assert.deepEqual(codes,firstCodes);assert.deepEqual((await(await request('mfa/recovery/reveal',{},h)).json()).codes,codes);
  await call('clock',time+60);
  assert.deepEqual((await(await request('mfa/recovery/reveal',{code:await call('otp',replacement.secret,time+60)},h)).json()).codes,codes);
  assert.equal((await request('mfa/recovery/ack',{confirmed:true},h)).status,200);

@@ -47,6 +47,7 @@ document.addEventListener('click',e=>{if((e.target as HTMLElement).textContent==
 window.fetch=async(input,init)=>{
  const path=String(input),data=JSON.parse(String(init?.body??'{}'));
  perfCounts[path]=(perfCounts[path]??0)+1;measure();if(perfDelay)await new Promise(resolve=>nativeSetTimeout(resolve,perfDelay));
+ if(path==='/api/auth/logout'){if(fixtureParams.has('logout-fails'))return Response.json({error:'Fictional sign-out failure'},{status:503});expired=true;return Response.json({signedOut:true});}
  if(path==='/api/auth/session'&&expired)return Response.json({}, {status:401});
  if(path==='/api/auth/session')return Response.json({account:{userId:'fictional-user',nickname:'Fictional Tester',memberNumber:'11'},csrfToken:(sessionGeneration?'e':'c').repeat(64),emailVerified:true,...(fixtureParams.has('remaining')?{recoveryCodesRemaining:Number(fixtureParams.get('remaining'))}:{})});
  if(path==='/api/auth/security/methods')return Response.json(fixtureParams.has('bad-methods')?{password:'invalid'}:{password:true});
