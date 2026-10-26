@@ -498,3 +498,35 @@ test('lost start response resumes through status and password confirmation acros
  assert.equal((await f.request('session',undefined,{Cookie})).status,401);
  assert.equal((await f.request('mfa/manage/start',{purpose:'disable'},headers)).status,401);
 }));
+
+
+test('HTTP replacement reveal rejects the spent time step, reveals ten same-set codes on fresh steps and clears on ACK',()=>local(async f=>{
+ const setup=await f.begin(),now=f.c.now;await f.call('clock',now);
+ const spent=await f.call('otp',setup.secret,now);
+ const commit=await f.request('mfa/recovery/commit',{code:spent},f.h);assert.equal(commit.status,200);
+ const committed=await commit.json();assert.equal(committed.codes,undefined);
+ const status=await(await f.request('mfa/recovery/status',undefined,f.h)).json();
+ assert.equal(status.phase,'committed');assert.equal(status.primaryRequired,false);assert.equal(status.expiresAt,committed.displayExpiresAt);
+ assert.equal((await f.request('mfa/recovery/reveal',{code:spent},f.h)).status,401);
+ await f.call('clock',now+30);const next=await f.call('otp',setup.secret,now+30);
+ const reveal=await f.request('mfa/recovery/reveal',{code:next},f.h);assert.equal(reveal.status,200);assert.equal(reveal.headers.get('cache-control'),'no-store');
+ const shown=await reveal.json();assert.equal(shown.codes.length,10);assert.equal(shown.expiresAt,status.expiresAt);
+ assert.equal((await f.request('mfa/recovery/reveal',{code:next},f.h)).status,401);
+ await f.call('clock',now+60);const repeated=await f.request('mfa/recovery/reveal',{code:await f.call('otp',setup.secret,now+60)},f.h);
+ assert.equal(repeated.status,200);assert.deepEqual((await repeated.json()).codes,shown.codes);
+ assert.equal((await f.request('session',undefined,f.h)).status,401);
+ assert.equal((await f.request('mfa/recovery/ack',{confirmed:true},f.h)).status,200);
+ const row=await f.db.prepare('SELECT phase,display_ciphertext FROM auth_mfa_recovery_operations').first();assert.equal(row.phase,'acknowledged');assert.equal(row.display_ciphertext,null);
+}));
+
+test('HTTP recovery freshness hint follows server proof without authorizing or extending stale recovery',()=>local(async f=>{
+ const setup=await f.begin(),now=f.c.now;await f.call('clock',now);
+ const initial=await(await f.request('mfa/recovery/status',undefined,f.h)).json();assert.equal(initial.primaryRequired,false);
+ await f.call('clock',now+120);const stale=await(await f.request('mfa/recovery/status',undefined,f.h)).json();assert.equal(stale.primaryRequired,true);assert.equal(stale.expiresAt,initial.expiresAt);
+ const rejected=await f.request('mfa/recovery/commit',{code:await f.call('otp',setup.secret,now+120)},f.h);assert.equal(rejected.status,428);assert.equal((await rejected.json()).code,'reauth_required');
+ assert.equal((await f.request('mfa/recovery/primary',{password:'wrong fictional password'},f.h)).status,401);
+ assert.equal((await f.request('mfa/recovery/primary',{password:profile.password},f.h)).status,200);
+ const fresh=await(await f.request('mfa/recovery/status',undefined,f.h)).json();assert.equal(fresh.primaryRequired,false);assert.equal(fresh.expiresAt,initial.expiresAt);
+ await f.call('clock',initial.expiresAt);const expired=await f.request('mfa/recovery/status',undefined,f.h);assert.equal(expired.status,401);assert.equal((await expired.json()).code,'recovery_unavailable');
+ assert.equal((await f.request('mfa/recovery/primary',{password:profile.password},f.h)).status,401);
+}));

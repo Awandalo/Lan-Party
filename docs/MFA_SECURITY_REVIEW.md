@@ -674,3 +674,46 @@ Three focused rendering regressions and strict TypeScript/DEV build passed. Actu
 fictional browser checks cover stable loading geometry, expansion/collapse, operation
 locking, cancel/restart and responsive controls. No Worker, database, migration,
 secret, provider or PROD changes. Hosted acceptance remains partial.
+## R1 hosted reveal blocker — local correction, 2026-10-26
+
+Source: issue #13 comment 6427282080; owner directly authorized diagnosis,
+focused UX/flow correction and local targeted verification in Codex. Base is
+DEV b4c3bdf2140792cd4eca0ffedaa294b23c2f5e2f. No publication or hosted retest is
+claimed by these local results.
+
+Confirmed with the real component and fictional intercepted transport:
+- Successful password confirmation left setup progression manual and competing
+  completed password/status controls visible.
+- A successful reveal followed by a failed unconditional status GET cleared the
+  ten returned codes. The baseline fixture records one reveal and the extra
+  failed read, with no visible codes. This reproduces a failure mode matching the
+  report, not the precise uncaptured hosted request/status/deadline sequence.
+- Reusing the replacement TOTP is intentionally rejected; generic failure text
+  did not make the next-new-code requirement sufficiently actionable.
+
+Correction: one visible stage, server-derived primaryRequired display hint,
+confirmed-primary-to-setup continuation (read-only setup retrieval), focused new
+TOTP reveal and save/ACK stage, copy/manual fallback, bottom cancel/close, status
+check only for uncertain results, and safe expiry/login/regeneration guidance.
+A successful reveal is validated and retained without a follow-up status GET;
+fixed expiry and explicit close/ACK still erase the browser display. No automatic
+commit/reveal retry, code refund, ordinary session or authorization is added.
+The backend change is explanatory status metadata and an unavailable error code;
+all proof/deadline/CSRF/cookie/lease/generation/atomicity/crypto guards are unchanged.
+
+Verification: 32/32 recovery tests, including two new HTTP freshness/reveal cases,
+and 3/3 selected canonical-DEV recovery/gating tests passed. Strict TypeScript,
+default and hosted-DEV builds and diff checks passed. Actual fictional browser
+checks reproduced baseline failure then verified password-to-QR focus, used-code
+feedback, successful reveal with no extra read, copy without ACK, successful ACK,
+uncertain commit -> status without recommit, stale-primary continuation preserving
+the same deadline, expiry fallback and 360px layout without horizontal overflow.
+No real accounts, emails, remote database/configuration operations or secrets used.
+No unrelated full-suite or unchanged database checks were repeated.
+
+The hosted root cause remains unconfirmed until the owner privately retests the
+published correction. Keep #13/#9/#10 open. A seed previously shown in a private
+screenshot must be replaced privately before relying on that test factor; it was
+not inspected, copied or included in this evidence. Prepare only the scoped DEV
+publication and ordinary CI/health verification, then hand private acceptance back
+to the owner; no migration, key or PROD work is needed.

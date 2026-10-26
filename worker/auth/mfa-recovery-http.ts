@@ -65,13 +65,13 @@ export async function recoveryAuthentication(request:Request,env:AuthenticationE
   }
   await cleanupRecovery(env.DB,c.now);
   const op=await recoveryOperation(env.DB,c),pending=op?null:await pendingLogin(env.DB,c.token,c.browser,c.now);
-  if(!op&&!pending)return reply(401,{error:'Recovery unavailable or expired. Log in again.'});
+  if(!op&&!pending)return reply(401,{code:'recovery_unavailable',error:'Recovery unavailable or expired. Log in again.'});
   const source=op?.source_digest??pending!.token_digest,csrf=await mfaDigest('csrf',source);
   if(action==='status'){
    const user=op?.user_id??pending!.user_id;
    const password=!!await env.DB.prepare('SELECT user_id FROM user_password_credentials WHERE user_id=?').bind(user).first();
    const response=reply(200,{phase:op?.phase??'initial',expiresAt:op?.phase==='pending'?op.expires_at:op?.display_expires_at??pending!.expires_at,
-    csrfToken:await sessionCsrfToken(csrf,secret),password});
+    csrfToken:await sessionCsrfToken(csrf,secret),password,primaryRequired:!!op&&(op.primary_authenticated_at<=c.now-120||op.primary_authenticated_at>c.now)});
    if(op)recoveryCookies(response,request,c,op);return response;
   }
   if(!await validAuthMutation(request,origin.origin,csrf,secret))return reply(403,{error:'Request rejected'});
