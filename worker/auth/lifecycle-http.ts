@@ -11,7 +11,7 @@ import {LoginLimiter,LoginLimited,LoginBusy} from './login-limits';
 import {LoginChallenge,verifyLoginChallenge} from './turnstile';
 import {registrationLimiter,RegistrationRateLimit} from './registration-limits';
 import {requireRecentMfa,RecentMfaRequired} from './mfa-assurance';
-import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator} from './account-lifecycle';
+import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator,LifecycleStateConflict} from './account-lifecycle';
 import {initiateReactivation,cancelInvitation,claimReactivation,reactivationContext,verifyReactivationPassword,finishReactivation} from './account-reactivation';
 
 const reply=(status:number,data:object,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer',...headers}});
@@ -117,6 +117,7 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  }
  return reply(200,{message:'Reactivation invitation requested. It expires after 30 minutes.'});
  }catch(error){
+ if(error instanceof LifecycleStateConflict)return reply(409,{code:'lifecycle_state_conflict',error:'Your account lifecycle state needs administrator assistance. Deactivation was not started. Do not repeat this action.'});
  if(error instanceof LastAdministrator)return reply(409,{error:'Another active administrator must be available before you deactivate or delete your account.'});
  if(error instanceof RecentMfaRequired)return reply(428,{code:'mfa_required',error:'Confirm two-factor authentication before continuing.'});
  if(error instanceof LifecycleProofRequired)return reply(428,{code:'primary_required',error:'Confirm your password again before continuing.'});

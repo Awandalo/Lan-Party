@@ -27,9 +27,11 @@ window.fetch=async(url,init={})=>{
  if(path==='/api/auth/lifecycle/deactivate'){
  deactivations++;count();
  if(flow){
+ if(scenario==='deactivate-conflict')return Response.json({code:'lifecycle_state_conflict',error:'Account state needs administrator assistance.'},{status:409});
+ if(scenario==='deactivate-server-error')return Response.json({error:'The lifecycle result could not be confirmed.'},{status:503});
  if(scenario!=='deactivate-password'&&!rotated)return Response.json({code:'mfa_required',error:'Confirm two-factor authentication.'},{status:428});
  const csrf=new Headers(init.headers).get('X-CSRF-Token');if(csrf!==(rotated?'e':'c').repeat(64))return Response.json({error:'Stale CSRF rejected.'},{status:403});
- if(scenario==='deactivate-expired')return Response.json({error:'Confirm your password again.'},{status:428});
+ if(scenario==='deactivate-expired'&&confirmations<2)return Response.json({code:'primary_required',error:'Confirm your password again.'},{status:428});
  return Response.json({error:'Fictional deactivation reached once with valid proof; no real account changed.'},{status:409});
  }
  return Response.json({error:'Fictional last active administrator is protected.'},{status:409});

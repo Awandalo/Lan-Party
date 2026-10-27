@@ -17,3 +17,5 @@
 .account-lifecycle .lifecycle-confirmation > h3 { margin-bottom:.75rem; }
 .account-lifecycle .lifecycle-confirmation .mfa-step-up { margin:0; padding:0; border:0; background:transparent; }
 @media (max-width:30rem) { .lifecycle-actions > .button { width:auto; max-width:100%; } }
+.account-lifecycle .lifecycle-action:has(+ .lifecycle-confirmation) { margin-bottom:.5rem; }
+.account-lifecycle .lifecycle-action + .lifecycle-confirmation { margin-top:.5rem; }

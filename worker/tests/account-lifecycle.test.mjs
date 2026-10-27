@@ -346,3 +346,18 @@ for(const method of ['totp','recovery'])test('HTTP '+method+' step-up continues 
  else assert.ok(await sql('SELECT last_step FROM auth_totp_factors WHERE user_id=?',u.id).first('last_step')>0);
  assert.equal((await request('deactivate',next,{confirm:'DEACTIVATE'})).status,401);
 }));
+
+test('lifecycle expiry diagnosis returns explicit primary or MFA requirements without account changes',()=>local(async({user,sql,request})=>{
+ const primary=await user();await sql('UPDATE auth_recent_authentication SET authenticated_at=unixepoch()-120,expires_at=unixepoch()+180 WHERE user_id=?',primary.id).run();
+ const p=await request('deactivate',primary,{confirm:'DEACTIVATE'});assert.equal(p.status,428);assert.equal((await p.json()).code,'primary_required');
+ const mfa=await user({mfa:true});await sql('DELETE FROM auth_session_mfa WHERE user_id=?',mfa.id).run();
+ await sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',unixepoch()-120,'password',unixepoch()-120)",mfa.digest,mfa.id,mfa.factor).run();
+ const m=await request('deactivate',mfa,{confirm:'DEACTIVATE'});assert.equal(m.status,428);assert.equal((await m.json()).code,'mfa_required');
+ for(const u of [primary,mfa]){assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');assert.equal(await sql('SELECT count(*) AS n FROM account_lifecycle WHERE user_id=?',u.id).first('n'),0);}
+}));
+test('inconsistent manual restoration rejects deactivation without changing records',()=>local(async({user,sql,request})=>{
+ const u=await user();await sql("INSERT INTO account_lifecycle VALUES (?,'deactivated',unixepoch())",u.id).run();
+ const r=await request('deactivate',u,{confirm:'DEACTIVATE'});assert.equal(r.status,409);assert.equal((await r.json()).code,'lifecycle_state_conflict');
+ assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
+ assert.equal(await sql('SELECT count(*) AS n FROM account_lifecycle WHERE user_id=?',u.id).first('n'),1);
+}));

@@ -3,6 +3,7 @@ import {mfaSchemaReady} from './mfa-session';
 
 export class LifecycleDenied extends Error {}
 export class LifecycleProofRequired extends Error {}
+export class LifecycleStateConflict extends Error {}
 export class LastAdministrator extends Error {}
 export const LIVE_DELETION_ENABLED=false; // Retention/restore handling requires explicit owner approval.
 
@@ -48,6 +49,7 @@ export function eraseLifecycleOperations(db:D1Database,userId:string){
 }
 export async function deactivateAccount(db:D1Database,userId:string,version:number,digest:string){
  const guard=await requireLifecycleProof(db,userId,version,digest);
+ if(await db.prepare('SELECT 1 FROM account_lifecycle WHERE user_id=?').bind(userId).first())throw new LifecycleStateConflict();
  if(!await db.prepare(`SELECT 1 FROM users u WHERE u.id=? AND ${lastAdministratorSql}`).bind(userId).first())throw new LastAdministrator();
  await db.batch([
  db.prepare(`INSERT INTO account_lifecycle(user_id,state,deactivated_at)
