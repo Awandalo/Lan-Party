@@ -322,3 +322,27 @@ test('final recovery code reactivation issues a new assured session without reus
  assert.equal((await request('reactivation/status',null,undefined,{Cookie:contextCookie})).status,401);
  assert.equal((await request('status',u)).status,401);
 }));
+
+for(const method of ['totp','recovery'])test('HTTP '+method+' step-up continues deactivation once with the rotated session and no second proof',()=>local(async({user,sql,now,value,request,simulator})=>{
+ const u=await user({mfa:true}),time=await now();
+ await sql('DELETE FROM auth_session_mfa WHERE session_digest=?',u.digest).run();
+ await sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',?,'password',?)",u.digest,u.id,u.factor,time-121,time).run();
+ const initial=await request('deactivate',u,{confirm:'DEACTIVATE'});assert.equal(initial.status,428);
+ assert.equal((await initial.json()).code,'mfa_required');
+ if(method==='recovery')await sql('UPDATE auth_mfa_recovery_codes SET consumed_at=? WHERE user_id=? AND verifier<>?',time,u.id,u.codes.verifiers[0]).run();
+ const code=method==='totp'?await value('otp',u.secret,time):u.codes.codes[0];
+ const headers={Origin:origin,'Content-Type':'application/json','X-LAN-Request':'1','X-CSRF-Token':u.csrf,Cookie:'__Host-lan_session='+u.token};
+ const up=await simulator.dispatchFetch(origin+'/api/auth/mfa/step-up',{method:'POST',headers,body:JSON.stringify({method,code})});assert.equal(up.status,200);
+ const cookie=up.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
+ const session=await simulator.dispatchFetch(origin+'/api/auth/session',{headers:{'X-LAN-Request':'1',Cookie:cookie}});assert.equal(session.status,200);
+ const state=await session.json();assert.equal(state.account.userId,u.id);assert.notEqual(state.csrfToken,u.csrf);
+ const token=/__Host-lan_session=([a-f0-9]{64})/.exec(cookie)?.[1];assert.ok(token);
+ const next={...u,token,csrf:state.csrfToken};
+ assert.equal((await request('deactivate',next,{confirm:'DEACTIVATE'},{'X-CSRF-Token':u.csrf})).status,403);
+ assert.equal((await request('deactivate',next,{confirm:'DEACTIVATE'})).status,200);
+ assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'disabled');
+ assert.equal(await sql('SELECT count(*) AS n FROM auth_sessions WHERE user_id=? AND revoked_at IS NULL',u.id).first('n'),0);
+ if(method==='recovery')assert.equal(await sql('SELECT count(*) AS n FROM auth_mfa_recovery_codes WHERE user_id=? AND consumed_at IS NULL',u.id).first('n'),0);
+ else assert.ok(await sql('SELECT last_step FROM auth_totp_factors WHERE user_id=?',u.id).first('last_step')>0);
+ assert.equal((await request('deactivate',next,{confirm:'DEACTIVATE'})).status,401);
+}));

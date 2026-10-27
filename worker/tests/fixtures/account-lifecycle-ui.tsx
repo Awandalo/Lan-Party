@@ -6,15 +6,31 @@ import UsersAdmin from '../../../src/pages/UsersAdmin';
 import ReactivateAccount from '../../../src/pages/ReactivateAccount';
 import '../../../src/CSS/main.css';
 const scenario=new URL(location.href).searchParams.get('scenario')??'account';
-let claims=0,completions=0,deactivations=0,confirmations=0,invites=0,claimed=false;
+let claims=0,completions=0,deactivations=0,confirmations=0,invites=0,claimed=false,mfaChecks=0,rotated=false;
+const flow=scenario.startsWith('deactivate-');
 const counters=document.createElement('output');counters.setAttribute('aria-label','Fictional request counters');document.body.append(counters);
-const count=()=>{counters.textContent=JSON.stringify({claims,completions,deactivations,confirmations,invites});};count();
+const count=()=>{counters.textContent=JSON.stringify({claims,completions,deactivations,confirmations,invites,mfaChecks,rotated});};count();
 window.fetch=async(url,init={})=>{
  const path=new URL(String(url),location.href).pathname;
- if(path==='/api/auth/session')return Response.json({account:{userId:'00000000-0000-4000-8000-000000000001',nickname:'Fictional Member',memberNumber:'11'},csrfToken:'c'.repeat(64),emailVerified:true});
+ if(path==='/api/auth/session')return Response.json({account:{userId:rotated&&scenario==='deactivate-identity-change'?'00000000-0000-4000-8000-000000000009':'00000000-0000-4000-8000-000000000001',nickname:'Fictional Member',memberNumber:'11'},csrfToken:(rotated?'e':'c').repeat(64),emailVerified:true});
  if(path==='/api/auth/lifecycle/status')return Response.json({available:scenario!=='unmigrated',administrator:true,deletionAvailable:false});
  if(path==='/api/auth/security/reauth-password'){confirmations++;count();return Response.json({ok:true});}
- if(path==='/api/auth/lifecycle/deactivate'){deactivations++;count();return Response.json({error:'Fictional last active administrator is protected.'},{status:409});}
+ if(path==='/api/auth/mfa/status')return Response.json({enabled:true,enrollmentAvailable:true});
+ if(path==='/api/auth/mfa/step-up'){
+ mfaChecks++;count();if(scenario==='deactivate-uncertain')throw Error('Fictional uncertain response');
+ if(scenario==='deactivate-invalid')return Response.json({error:'Code not accepted.'},{status:401});
+ rotated=true;count();return Response.json({next:'/account/security'});
+ }
+ if(path==='/api/auth/lifecycle/deactivate'){
+ deactivations++;count();
+ if(flow){
+ if(scenario!=='deactivate-password'&&!rotated)return Response.json({code:'mfa_required',error:'Confirm two-factor authentication.'},{status:428});
+ const csrf=new Headers(init.headers).get('X-CSRF-Token');if(csrf!==(rotated?'e':'c').repeat(64))return Response.json({error:'Stale CSRF rejected.'},{status:403});
+ if(scenario==='deactivate-expired')return Response.json({error:'Confirm your password again.'},{status:428});
+ return Response.json({error:'Fictional deactivation reached once with valid proof; no real account changed.'},{status:409});
+ }
+ return Response.json({error:'Fictional last active administrator is protected.'},{status:409});
+ }
  if(path==='/api/auth/lifecycle/users')return Response.json({users:[{userId:'00000000-0000-4000-8000-000000000002',nickname:'Deactivated Fixture',email:'fixture@example.test',memberNumber:12}]});
  if(path==='/api/auth/lifecycle/invite'){invites++;count();return Response.json({message:'Fictional invitation requested.'});}
  if(path==='/api/auth/lifecycle/reactivation/claim'){claims++;count();if(scenario==='expired')return Response.json({error:'Invitation expired. Ask your administrator for a new invitation.'},{status:409});claimed=true;return Response.json({csrfToken:'d'.repeat(64)});}
