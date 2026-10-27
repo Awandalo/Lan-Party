@@ -2,7 +2,7 @@ import { emailAddress } from './accounts';
 import { D1ActionTokenStore } from './action-state';
 import { clearSessionCookie } from './cookies';
 import { accountId, findPasswordCredential } from './database';
-import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hostedDev, recipientAllowed } from './environment';
+import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hosted, recipientAllowed } from './environment';
 import { fromHex } from './encoding';
 import type { AuthenticationEnvironment } from './http';
 import { hashPassword, isValidPassword } from './passwords';
@@ -22,13 +22,13 @@ function reply(status: number, body: object, headers: Record<string, string> = {
 export async function passwordRecovery(request: Request, env: AuthenticationEnvironment): Promise<Response> {
   const url = new URL(request.url), reset = url.pathname === '/api/auth/reset-password';
   if (!authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
-    || (!hostedDev(request, env) && env.AUTH_EMAIL_TRANSPORT !== 'local')) return reply(404, { error: 'Not found' });
+    || (!hosted(request, env) && env.AUTH_EMAIL_TRANSPORT !== 'local')) return reply(404, { error: 'Not found' });
   if (request.method !== 'POST') return reply(405, { error: 'Method not allowed' }, { Allow: 'POST' });
   try {
     const origin = authOrigin(request, env), rate = env.AUTH_RATE_LIMIT_SECRET,
       pepper = env.PASSWORD_PEPPER, mail = env.AUTH_LOCAL_MAIL_SECRET;
     if (!rate || !fromHex(rate, 32) || !pepper || !fromHex(pepper, 32) || rate === pepper
-      || (!hostedDev(request, env) && (!mail || !fromHex(mail, 32) || mail === pepper || mail === rate))) throw new Error('Invalid authentication configuration');
+      || (!hosted(request, env) && (!mail || !fromHex(mail, 32) || mail === pepper || mail === rate))) throw new Error('Invalid authentication configuration');
     const transport = emailTransport(request, env);
     // No ambient authority is accepted. Possession of the purpose-bound reset
     // proof plus exact Origin/JSON/custom header authorizes only password replacement.

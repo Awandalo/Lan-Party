@@ -33,12 +33,12 @@ before(async()=>{
   if(action==='clock'){fixtureTime=args[0]*1000;return Response.json(true);}
   if(action==='otp')return Response.json(await generate({secret:base32.decode(args[0]??'${secret}'),crypto:otpCrypto,epoch:args[1]??Math.floor(Date.now()/1000)}));
   if(action==='decrypt'){try{return Response.json(await crypto.decryptTotpSecret(...args));}catch{return Response.json(null);}}
-  if(action==='seal')return Response.json(await crypto.encryptTotpSecret('${secret}',env,{environment:'dev',userId:args[0],id:args[1],purpose:'active'}));
+  if(action==='seal')return Response.json(await crypto.encryptTotpSecret('${secret}',env,{environment:env.AUTH_ENVIRONMENT==='prod'?'prod':'dev',userId:args[0],id:args[1],purpose:'active'}));
   if(action==='verifier')return Response.json(await crypto.recoveryVerifier(...args));
   if(action==='sends')return Response.json(sends);
   throw Error('Unexpected fixture action');
  }};`;
- for(const [name,identity] of [['dev',target],['default',undefined],['wrong','another-worker']]){
+ for(const [name,identity] of [['dev',target],['prod','lan-party:9fbe3402-c26b-45fd-be67-71775e5e6a3e'],['default',undefined],['wrong','another-worker']]){
   const define=identity===undefined?{}:{__LAN_MFA_TARGET__:JSON.stringify(identity)};
   scripts[name]=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:code},define,bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
   const gate=(await build({entryPoints:['worker/auth/mfa-environment.ts'],define,bundle:true,write:false,format:'esm',platform:'node'})).outputFiles[0].text;
@@ -102,10 +102,11 @@ test('frontend backend-status parsing fails closed on absent/malformed confirmat
 });
 const cookieJar=r=>r.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
 async function local(run,{bundle='dev',overrides={},enabled=false}={}){
+ const production=bundle==='prod',origin=production?'https://www.lan-party.club':'https://dev.lan-party.club';
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script:scripts[bundle],cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},bindings:{...config,
   REGISTRATION_MODE:'hosted-dev',PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),
   AUTH_TURNSTILE_SITE_KEY:'fixture-site-key',TURNSTILE_SECRET_KEY:'fictional-turnstile-secret',
-  AUTH_DEV_RECIPIENT_ALLOWLIST:'["r3@example.test"]',RESEND_API_KEY:'fictional',AUTH_EMAIL_PROVIDER_DAILY_LIMIT:'100',AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT:'3000',...overrides}}));
+  AUTH_DEV_RECIPIENT_ALLOWLIST:'["r3@example.test"]',RESEND_API_KEY:'fictional',AUTH_EMAIL_PROVIDER_DAILY_LIMIT:'100',AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT:'3000',...(production?{AUTH_ENVIRONMENT:'prod',AUTH_PUBLIC_ORIGIN:origin,AUTH_SESSION_MODE:'hosted-prod',REGISTRATION_MODE:'hosted-prod',AUTH_PROD_EMAIL_DAILY_LIMIT:'60',AUTH_PROD_EMAIL_MONTHLY_LIMIT:'1000'}:{}),...overrides}}));
  try{
   const db=await instance.getD1Database('DB');for(const part of migrations)await db.batch(part.map(s=>db.prepare(s)));
   const call=async(action,...args)=>{const r=await instance.dispatchFetch(origin+'/fixture',{method:'POST',body:JSON.stringify({action,args})});assert.equal(r.status,200);return r.json();};
@@ -122,10 +123,10 @@ async function local(run,{bundle='dev',overrides={},enabled=false}={}){
   async function session(r){assert.equal(r.status===200||r.status===303,true,JSON.stringify(await r.clone().text()));const Cookie=cookieJar(r),response=await request('session',undefined,{Cookie});assert.equal(response.status,200,JSON.stringify(await response.clone().json()));return {Cookie,'X-CSRF-Token':(await response.json()).csrfToken};}
   async function finish(r,code,method='recovery'){const Cookie=cookieJar(r),challenge=await request('mfa/challenge',undefined,{Cookie});assert.equal(challenge.status,200);
    return request('mfa/complete',{code,method},{Cookie,'X-CSRF-Token':(await challenge.json()).csrfToken});}
-  await run({db,call,request,session,finish,id});
+  await run({db,call,request,session,finish,id,environment:production?'prod':'dev'});
  }finally{await instance.dispose();}
 }
-test('canonical DEV simulation enrolls, logs in with password MFA, steps up and manages DEV-bound ciphertext',()=>local(async({request,session,call,finish,db})=>{
+const enrollmentJourney = async({request,session,call,finish,db})=>{
  let headers=await session(await request('login',{email:'r3@example.test',password}));
  assert.deepEqual(await(await request('mfa/status',undefined,headers)).json(),{enabled:false,enrollmentAvailable:true});
  const start=await request('mfa/enroll/start',{},headers);assert.equal(start.status,200);const setup=await start.json();
@@ -141,7 +142,8 @@ test('canonical DEV simulation enrolls, logs in with password MFA, steps up and 
  const disabled=await request('mfa/manage/finish',{token:tx.token,acknowledgment:ack.acknowledgment,confirmed:true},headers);assert.equal(disabled.status,200);
  headers=await session(disabled);assert.deepEqual(await(await request('mfa/status',undefined,headers)).json(),{enabled:false,enrollmentAvailable:true});
  assert.equal(await db.prepare('SELECT count(*) FROM users').first('count(*)'),1);assert.equal(await call('sends'),2);
-}));
+};
+for(const bundle of ['dev','prod'])test(`${bundle}: enrollment, MFA login and management`,()=>local(enrollmentJourney,{bundle}));
 test('default and mismatched bundles deny every management route but preserve password MFA login',async()=>{
  for(const bundle of ['default','wrong'])await local(async({request,session,finish,call})=>{
   const passwordLogin=await request('login',{email:'r3@example.test',password});assert.equal((await passwordLogin.clone().json()).next,'/mfa');
@@ -167,8 +169,8 @@ async function restricted(f,login){
  const status=await f.request('mfa/recovery/status',undefined,{Cookie});assert.equal(status.status,200);
  return {Cookie,'X-CSRF-Token':(await status.json()).csrfToken};
 }
-test('hosted last-code replacement uses DEV encryption, bounded redisplay and fresh normal MFA login',()=>local(async f=>{
- const {db,request,call,id}=f,time=Math.floor(Date.now()/1000),before=await db.prepare('SELECT * FROM auth_totp_factors').first();
+const recoveryJourney = async f=>{
+ const {db,request,call,id,environment}=f,time=Math.floor(Date.now()/1000),before=await db.prepare('SELECT * FROM auth_totp_factors').first();
  const ledger=await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all(),credentials=await db.prepare('SELECT * FROM user_password_credentials').first();
  let h=await restricted(f,await request('login',{email:'r3@example.test',password}));
  assert.equal((await request('mfa/recovery/start',{code:recovery,confirmed:true},{...h,'X-CSRF-Token':'a'.repeat(64)})).status,403);
@@ -179,8 +181,8 @@ test('hosted last-code replacement uses DEV encryption, bounded redisplay and fr
  assert.notEqual((await request('session',undefined,h)).status,200);
  const setup=await request('mfa/recovery/setup',{},h);assert.equal(setup.status,200);const replacement=await setup.json();
  let op=await db.prepare('SELECT * FROM auth_mfa_recovery_operations').first();assert.equal(op.expires_at-op.created_at,300);
- const sealed={ciphertext:op.secret_ciphertext,nonce:op.secret_nonce,keyId:op.key_id},context={environment:'dev',userId:id,id:op.new_factor_id,purpose:'pending'};
- assert.equal(await call('decrypt',sealed,keys,context),replacement.secret);assert.equal(await call('decrypt',sealed,keys,{...context,environment:'local'}),null);
+ const sealed={ciphertext:op.secret_ciphertext,nonce:op.secret_nonce,keyId:op.key_id},context={environment,userId:id,id:op.new_factor_id,purpose:'pending'};
+ assert.equal(await call('decrypt',sealed,keys,context),replacement.secret);for(const other of ['local','dev','prod'].filter(value=>value!==environment))assert.equal(await call('decrypt',sealed,keys,{...context,environment:other}),null);
  // One guarded commit; a duplicate cannot switch twice or emit another notice.
  const code=await call('otp',replacement.secret),commit=await request('mfa/recovery/commit',{code},h);assert.equal(commit.status,200);const firstCodes=(await commit.json()).codes;assert.equal(firstCodes.length,10);
  assert.notEqual((await request('mfa/recovery/commit',{code},h)).status,200);assert.equal(await call('sends'),1);
@@ -206,7 +208,8 @@ test('hosted last-code replacement uses DEV encryption, bounded redisplay and fr
  const fresh=await request('login',{email:'r3@example.test',password});await f.session(await f.finish(fresh,codes[0]));
  assert.deepEqual((await db.prepare('SELECT * FROM member_numbers ORDER BY member_number').all()).results,ledger.results);assert.deepEqual(await db.prepare('SELECT * FROM user_password_credentials').first(),credentials);
  assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'),'ok');
-},{enabled:true}));
+};
+for(const bundle of ['dev','prod'])test(`${bundle}: last-code replacement, bounded redisplay and fresh MFA login`,()=>local(recoveryJourney,{bundle,enabled:true}));
 
 test('hosted recovery rejects stale primary proof until refreshed without extending its deadline',()=>local(async f=>{
  const {db,request}=f,h=await restricted(f,await request('login',{email:'r3@example.test',password}));
@@ -235,4 +238,14 @@ test('restricted recovery shares fail-closed DEV matrix and never makes aliases 
  for(const overrides of [{AUTH_ENVIRONMENT:'prod'},{AUTH_SESSION_MODE:'off'},{AUTH_EMAIL_TRANSPORT:'local'},{MFA_ENCRYPTION_KEYS:''},{MFA_ACTIVE_KEY_ID:'missing'}])await local(async({request})=>{
   for(const action of actions)assert.equal((await request('mfa/recovery/'+action,action==='status'?undefined:{})).status,404);
  },{overrides});
+});
+
+test('explicit PROD identity cannot authorize DEV and DEV/default identities cannot authorize PROD',()=>{
+ const prodOrigin='https://www.lan-party.club',prod={...config,AUTH_ENVIRONMENT:'prod',AUTH_PUBLIC_ORIGIN:prodOrigin,AUTH_SESSION_MODE:'hosted-prod'};
+ const request=(origin,headers={})=>new Request(origin+'/api/auth/mfa/status',{headers});
+ assert.equal(gates.prod.mfaManagementEnvironment(request(prodOrigin),prod),'prod');
+ for(const bundle of ['dev','default','wrong'])assert.equal(gates[bundle].mfaManagementEnvironment(request(prodOrigin),prod),null);
+ assert.equal(gates.prod.mfaManagementEnvironment(request(origin),config),null);
+ for(const h of [{Host:'lan-party.club'},{Origin:origin},{Forwarded:'host=www.lan-party.club'},{'X-Forwarded-Host':'www.lan-party.club'},{'X-Forwarded-Proto':'http'},{'Sec-Fetch-Site':'cross-site'}])assert.equal(gates.prod.mfaManagementEnvironment(request(prodOrigin,h),prod),null);
+ for(const overrides of [{AUTH_SESSION_MODE:'disabled'},{MFA_ACTIVE_KEY_ID:'missing'},{AUTH_ENVIRONMENT:'dev'}])assert.equal(gates.prod.mfaManagementEnvironment(request(prodOrigin),{...prod,...overrides}),null);
 });

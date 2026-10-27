@@ -5,7 +5,7 @@ import { accountId, serverTime } from './database';
 import { fromHex, toHex } from './encoding';
 
 export interface MfaKeys { MFA_ENCRYPTION_KEYS?: string; MFA_ACTIVE_KEY_ID?: string }
-export interface MfaContext { environment:'local'|'dev'; userId:string; id:string; purpose:'pending'|'active' }
+export interface MfaContext { environment:'local'|'dev'|'prod'; userId:string; id:string; purpose:'pending'|'active' }
 export interface EncryptedMfaSecret { ciphertext:string; nonce:string; keyId:string }
 const encoder=new TextEncoder();
 export function randomMfaToken(){return toHex(crypto.getRandomValues(new Uint8Array(32)));}
@@ -14,7 +14,7 @@ export async function mfaDigest(purpose:string,value:string){
 }
 function aad(context:MfaContext){
   accountId(context.userId);accountId(context.id);
-  if(!['local','dev'].includes(context.environment)||!['pending','active'].includes(context.purpose))throw Error('MFA context unavailable');
+  if(!['local','dev','prod'].includes(context.environment)||!['pending','active'].includes(context.purpose))throw Error('MFA context unavailable');
   return encoder.encode(JSON.stringify(['lan-party:totp:v1',context.environment,context.userId,context.id,context.purpose]));
 }
 function keys(config:MfaKeys){

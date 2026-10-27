@@ -57,7 +57,7 @@ export async function verifyReactivationPassword(row:NonNullable<Awaited<ReturnT
  return typeof password==='string'&&password.length<=128&&await verifyPassword(password,row.password_hash,pepper);
 }
 export async function finishReactivation(db:D1Database,row:NonNullable<Awaited<ReturnType<typeof reactivationContext>>>,
- input:{firstName:unknown;lastName:unknown;code:string;method:'totp'|'recovery'},keys:MfaKeys,environment:'local'|'dev',
+ input:{firstName:unknown;lastName:unknown;code:string;method:'totp'|'recovery'},keys:MfaKeys,environment:'local'|'dev'|'prod',
  held:LoginReservation,verifiedAt:number){
  const first=privateName(input.firstName),last=privateName(input.lastName);
  const lease=held.activeCondition(),factor=row.factor_id;

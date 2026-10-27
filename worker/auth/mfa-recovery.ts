@@ -23,7 +23,7 @@ async function binding(c:RecoveryContext){
  if(!/^[a-f0-9]{64}$/.test(c.token)||!/^[a-f0-9]{64}$/.test(c.browser)||!Number.isSafeInteger(c.now)||c.now<0)throw Error('Recovery unavailable');
  const digest=await source(c);return [await mfaDigest('recovery-operation',digest),await mfaDigest('browser',c.browser)] as const;
 }
-function displayBinding(r:RecoveryOperation,environment:'local'|'dev'){
+function displayBinding(r:RecoveryOperation,environment:'local'|'dev'|'prod'){
  return JSON.stringify([environment,r.user_id,r.operation_digest,r.new_factor_id,r.new_set_id,r.auth_version+1,r.browser_digest,r.source_digest,r.display_expires_at]);
 }
 function fresh(r:RecoveryOperation,now:number){if(r.primary_authenticated_at<=now-120||r.primary_authenticated_at>now)throw new RecoveryPrimaryRequired();}
@@ -42,7 +42,7 @@ export async function cleanupRecovery(db:D1Database,now:number){
   (SELECT operation_digest FROM auth_mfa_recovery_operations WHERE (phase='pending' AND expires_at<=?)
     OR (phase='committed' AND display_expires_at<=?) LIMIT 25)`).bind(now,now).run();
 }
-export async function startRecovery(db:D1Database,c:RecoveryContext,pending:MfaChallenge,code:string,keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
+export async function startRecovery(db:D1Database,c:RecoveryContext,pending:MfaChallenge,code:string,keys:MfaKeys,environment:'local'|'dev'|'prod',held:LoginReservation){
  const existing=await recoveryOperation(db,c);if(existing)return {resumed:true};
  if(pending.primary_authenticated_at<=c.now-120||pending.primary_authenticated_at>c.now)throw new RecoveryPrimaryRequired();
  const [id,browser]=await binding(c);
@@ -71,7 +71,7 @@ export async function startRecovery(db:D1Database,c:RecoveryContext,pending:MfaC
  ]);
  return {resumed:false};
 }
-export async function recoverySetup(db:D1Database,c:RecoveryContext,keys:MfaKeys,environment:'local'|'dev'){
+export async function recoverySetup(db:D1Database,c:RecoveryContext,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  const r=await recoveryOperation(db,c);if(!r||r.phase!=='pending')throw Error('Recovery unavailable');
  const secret=await decryptTotpSecret({ciphertext:r.secret_ciphertext,nonce:r.secret_nonce,keyId:r.key_id},keys,
   {environment,userId:r.user_id,id:r.new_factor_id,purpose:'pending'});
@@ -88,7 +88,7 @@ export async function grantRecoveryPrimary(db:D1Database,c:RecoveryContext,metho
   .bind(method,at,r.operation_digest,r.browser_digest,r.phase,r.user_id,expectedVersion).run();
  if(result.meta.changes!==1)throw Error('Recovery unavailable');
 }
-export async function commitRecovery(db:D1Database,c:RecoveryContext,code:string,keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
+export async function commitRecovery(db:D1Database,c:RecoveryContext,code:string,keys:MfaKeys,environment:'local'|'dev'|'prod',held:LoginReservation){
  const r=await recoveryOperation(db,c);if(!r||r.phase!=='pending')throw Error('Recovery unavailable');fresh(r,c.now);
  const secret=await decryptTotpSecret({ciphertext:r.secret_ciphertext,nonce:r.secret_nonce,keyId:r.key_id},keys,
   {environment,userId:r.user_id,id:r.new_factor_id,purpose:'pending'});
@@ -120,7 +120,7 @@ export async function commitRecovery(db:D1Database,c:RecoveryContext,code:string
  // same ten codes only after every atomic write succeeds; no second TOTP prompt.
  return {userId:r.user_id,authVersion:r.auth_version,displayExpiresAt:c.now+300,codes:recovery.codes};
 }
-export async function revealRecovery(db:D1Database,c:RecoveryContext,keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
+export async function revealRecovery(db:D1Database,c:RecoveryContext,keys:MfaKeys,environment:'local'|'dev'|'prod',held:LoginReservation){
  const r=await recoveryOperation(db,c);if(!r||r.phase!=='committed')throw Error('Recovery unavailable');fresh(r,c.now);
  const factor=await db.prepare('SELECT * FROM auth_totp_factors WHERE user_id=? AND factor_id=? AND recovery_set_id=?')
   .bind(r.user_id,r.new_factor_id,r.new_set_id).first<{secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number}>();

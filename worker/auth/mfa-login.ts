@@ -65,7 +65,7 @@ export function sessionCompletion(db:D1Database,row:{user_id:string;auth_version
       .bind(digest,row.user_id,row.auth_version,row.primary_method,row.primary_authenticated_at,row.primary_authenticated_at+300),
   ];
 }
-export async function completeMfa(db:D1Database,row:MfaChallenge,code:string,method:'totp'|'recovery',keys:MfaKeys,environment:'local'|'dev',now:number,reservation:LoginReservation){
+export async function completeMfa(db:D1Database,row:MfaChallenge,code:string,method:'totp'|'recovery',keys:MfaKeys,environment:'local'|'dev'|'prod',now:number,reservation:LoginReservation){
   let step:number|null=null,verifier:string|null=null;
   const secret=await decryptTotpSecret({ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id},keys,
     {environment,userId:row.user_id,id:row.factor_id,purpose:'active'});

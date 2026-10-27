@@ -9,7 +9,7 @@ const { Miniflare, convertV4MiniflareOptions } = wr('miniflare'), { build } = wr
 const origin = 'https://dev.lan-party.club';
 const profile = { nickname: 'Hosted Fictional', firstName: 'Fictional', lastName: 'Tester',
   email: 'hosted@example.test', password: 'fictional original password' };
-let script, migrations, helpers;
+let script, prodScript, migrations, helpers;
 before(async () => {
   // Test-only entrypoint intercepts ALL outgoing fetches. No external email or
   // Cloudflare connection exists; fixture-mail access is never in application code.
@@ -25,6 +25,7 @@ before(async () => {
       if(new URL(request.url).pathname==='/_fixture/mails')return Response.json(mails);
       return app.fetch(request,env);
     }};` }, bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
+  prodScript = (await build({ stdin: { contents: script }, define: { __LAN_MFA_TARGET__: JSON.stringify('lan-party:9fbe3402-c26b-45fd-be67-71775e5e6a3e') }, bundle: true, write: false, format: 'esm', platform: 'browser' })).outputFiles[0].text;
   const helperBundle = await build({ entryPoints: [fileURLToPath(new URL('../auth/environment.ts', import.meta.url))], bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' });
   helpers = await import('data:text/javascript;base64,' + Buffer.from(helperBundle.outputFiles[0].text).toString('base64'));
   migrations = [];
@@ -39,15 +40,17 @@ before(async () => {
     migrations.push(statements);
   }
 });
-async function local(run, overrides = {}) {
-  const instance = new Miniflare(convertV4MiniflareOptions({ modules: true, script, cf: false,
+async function local(run, overrides = {}, production = false) {
+  const origin = production ? 'https://www.lan-party.club' : 'https://dev.lan-party.club';
+  const instance = new Miniflare(convertV4MiniflareOptions({ modules: true, script: production ? prodScript : script, cf: false,
     compatibilityDate: '2026-10-11', d1Databases: { DB: randomUUID() },
     bindings: { AUTH_ENVIRONMENT: 'dev', REGISTRATION_MODE: 'hosted-dev', AUTH_SESSION_MODE: 'hosted-dev',
       AUTH_PUBLIC_ORIGIN: origin, AUTH_EMAIL_TRANSPORT: 'resend', RESEND_API_KEY: 'fictional-test-key',
       PASSWORD_PEPPER: '11'.repeat(32), AUTH_RATE_LIMIT_SECRET: '22'.repeat(32),
       AUTH_TURNSTILE_SITE_KEY: 'synthetic-site-key', TURNSTILE_SECRET_KEY: 'synthetic-only-turnstile-secret',
       AUTH_DEV_RECIPIENT_ALLOWLIST: '["hosted@example.test"]',
-      AUTH_EMAIL_PROVIDER_DAILY_LIMIT: '100', AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT: '3000', ...overrides } }));
+      AUTH_EMAIL_PROVIDER_DAILY_LIMIT: '100', AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT: '3000',
+      ...(production ? { AUTH_ENVIRONMENT: 'prod', REGISTRATION_MODE: 'hosted-prod', AUTH_SESSION_MODE: 'hosted-prod', AUTH_PROD_EMAIL_DAILY_LIMIT: '60', AUTH_PROD_EMAIL_MONTHLY_LIMIT: '1000' } : {}), ...overrides } }));
   try {
     const db = await instance.getD1Database('DB');
     for (const statements of migrations) await db.batch(statements.map(s => db.prepare(s)));
@@ -65,7 +68,7 @@ async function local(run, overrides = {}) {
   } finally { await instance.dispose(); }
 }
 
-test('offline hosted DEV register → verify → login/logout → reset uses guarded Resend and revokes old sessions', () => local(async ({ db, request, mails, proof }) => {
+const authenticationJourney = async ({ db, request, mails, proof }) => {
   const registration = await request('register', profile); assert.equal(registration.status, 202);
   const body = await registration.text(); for (const value of Object.values(profile)) assert.equal(body.includes(value), false);
   assert.equal(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
@@ -91,7 +94,8 @@ test('offline hosted DEV register → verify → login/logout → reset uses gua
   assert.deepEqual((await mails()).map(mail=>mail.subject),['Verify your LAN Party account','Reset your LAN Party password','Your LAN Party password was changed']);
   assert.equal(await db.prepare('SELECT SUM(attempts) AS n FROM auth_email_daily_budget').first('n'), 3);
   assert.equal((await request('local-mail', { email: profile.email })).status, 404);
-}));
+};
+for (const production of [false, true]) test(`offline hosted ${production ? 'PROD' : 'DEV'} register → verify → login/logout → reset preserves protections`, () => local(authenticationJourney, {}, production));
 
 test('empty or missing allowlist denies hosted registration before account/credential creation or sending', async () => {
   for (const allowlist of ['', '[]', '["another@example.test"]']) await local(async ({ db, request, mails }) => {
@@ -164,4 +168,34 @@ test('hosted login fails closed until both Turnstile bindings are configured',as
  for(const overrides of [{AUTH_TURNSTILE_SITE_KEY:''},{TURNSTILE_SECRET_KEY:''}])await local(async({request})=>{
   assert.equal((await request('login',{email:profile.email,password:profile.password})).status,503);
  },overrides);
+});
+
+// Only fictional local D1 and intercepted provider calls; no hosted account/mail.
+test('PROD registration rejects missing email budget before creating accounts or sending', async () => {
+  for (const overrides of [{AUTH_PROD_EMAIL_DAILY_LIMIT:''},{AUTH_PROD_EMAIL_MONTHLY_LIMIT:''},{AUTH_PROD_EMAIL_DAILY_LIMIT:'61'}]) await local(async ({db,request,mails})=>{
+    assert.equal((await request('register',profile)).status,202);
+    assert.equal(await db.prepare('SELECT count(*) n FROM users').first('n'),0);
+    assert.deepEqual(await mails(),[]);
+  },overrides,true);
+});
+test('PROD hosted routes deny aliases, cross-origin registration and disabled activation', async () => {
+  await local(async ({request})=>{
+    for(const host of ['https://dev.lan-party.club','https://lan-party.club','https://lan-party.servok.workers.dev','http://www.lan-party.club','https://www.lan-party.club:8443'])
+      for(const [action,input] of [['register',profile],['login',{}],['verify-email',{}],['forgot-password',{}]])assert.equal((await request(action,input,{},host)).status,404);
+    assert.equal((await request('register',profile,{Origin:'https://dev.lan-party.club'})).status,403);
+  },{},true);
+  for(const overrides of [{REGISTRATION_MODE:'disabled'},{AUTH_ENVIRONMENT:'dev'},{AUTH_PUBLIC_ORIGIN:'https://lan-party.club'}])await local(async({request,db})=>{
+    assert.equal((await request('register',profile)).status,404);assert.equal(await db.prepare('SELECT count(*) n FROM users').first('n'),0);
+  },overrides,true);
+});
+
+test('PROD email allocation bounds resend/recovery and Turnstile/local-mail checks remain enforced',async()=>{
+ await local(async({db,request,mails})=>{
+  await request('register',profile);assert.equal((await mails()).length,1);
+  await request('resend-verification',{email:profile.email});await request('forgot-password',{email:profile.email});
+  assert.equal((await mails()).length,1);assert.equal(await db.prepare('SELECT sum(attempts) n FROM auth_email_daily_budget').first('n'),1);
+  assert.equal((await request('local-mail',{email:profile.email})).status,404);
+  // Miniflare injects CF-Connecting-IP; the missing-IP guard is tested directly in prod-auth.test.mjs.
+ },{AUTH_PROD_EMAIL_DAILY_LIMIT:'1'},true);
+ await local(async({request})=>{assert.equal((await request('login',{email:profile.email,password:profile.password})).status,503);},{TURNSTILE_SECRET_KEY:''},true);
 });

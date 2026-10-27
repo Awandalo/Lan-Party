@@ -31,7 +31,7 @@ export async function requireRecentMfa(db:D1Database,account:AccountIdentity,dig
 // place (verified_at must never be later than that session's creation time).
 // Primary authentication keeps its original timestamp; MFA is not primary proof.
 export async function stepUp(db:D1Database,account:AccountIdentity,source:string,code:string,method:'totp'|'recovery',
-  keys:MfaKeys,now:number,reservation:LoginReservation,environment:'local'|'dev'='local'){
+  keys:MfaKeys,now:number,reservation:LoginReservation,environment:'local'|'dev'|'prod'='local'){
   const row=await db.prepare(`SELECT f.*,m.primary_method,m.primary_authenticated_at,
     r.method AS recent_method,r.authenticated_at AS recent_at
     FROM auth_totp_factors f JOIN auth_session_mfa m ON m.factor_id=f.factor_id AND m.user_id=f.user_id

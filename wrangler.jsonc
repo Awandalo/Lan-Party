@@ -19,6 +19,20 @@
     }
   ],
   "env": {
+    // Explicit future PROD deployment profile; both activation modes remain OFF.
+    "prod": {
+      "name": "lan-party",
+      "define": { "__LAN_MFA_TARGET__": "\"lan-party:9fbe3402-c26b-45fd-be67-71775e5e6a3e\"" },
+      "vars": {
+        "AUTH_ENVIRONMENT": "prod",
+        "AUTH_PUBLIC_ORIGIN": "https://www.lan-party.club",
+        "AUTH_EMAIL_TRANSPORT": "resend",
+        "REGISTRATION_MODE": "disabled",
+        "AUTH_SESSION_MODE": "disabled"
+      },
+      "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api", "/api/*"] },
+      "d1_databases": [{ "binding": "DB", "database_name": "lan-party-prod", "database_id": "9fbe3402-c26b-45fd-be67-71775e5e6a3e", "migrations_dir": "./migrations" }]
+    },
     "dev": {
       "name": "lan-party-dev",
       // Build identity only: never a runtime activation flag. Default PROD has none.

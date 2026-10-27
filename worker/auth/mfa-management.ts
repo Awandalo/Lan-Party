@@ -34,7 +34,7 @@ async function transaction(db:D1Database,c:EnrollmentContext,token:string,phase:
  WHERE ${bound} AND t.phase=? AND ${live}`).bind(...values(await mfaDigest('transaction',token),c),phase,...fresh(c)).first<Management>();
  if(!row)throw Error('Management unavailable');return row;
 }
-async function checkKey(row:Management,keys:MfaKeys,environment:'local'|'dev'){
+async function checkKey(row:Management,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  return decryptTotpSecret({ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id},keys,
   {environment,userId:row.user_id,id:row.factor_id,purpose:'active'});
 }
@@ -51,7 +51,7 @@ export async function cancelManagement(db:D1Database,c:EnrollmentContext,token:s
    .bind(digest,c.userId,c.sessionDigest,c.browserDigest),
  ]);
 }
-export async function beginManagement(db:D1Database,c:EnrollmentContext,purpose:ManagementPurpose,keys:MfaKeys,environment:'local'|'dev'){
+export async function beginManagement(db:D1Database,c:EnrollmentContext,purpose:ManagementPurpose,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  const primary=await db.prepare(`SELECT r.method,r.authenticated_at FROM auth_recent_authentication r
   JOIN auth_sessions s ON s.token_digest=r.session_digest JOIN users u ON u.id=r.user_id
   WHERE u.id=? AND u.auth_version=? AND u.status='active' AND u.email_verified_at IS NOT NULL
@@ -84,7 +84,7 @@ export async function beginManagement(db:D1Database,c:EnrollmentContext,purpose:
  // Recheck the account/session/factor after insertion; mutation guards repeat it.
  await transaction(db,c,token,'pending');return {token,expiresAt};
 }
-export async function proveManagement(db:D1Database,c:EnrollmentContext,token:string,code:string,method:'totp'|'recovery',keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
+export async function proveManagement(db:D1Database,c:EnrollmentContext,token:string,code:string,method:'totp'|'recovery',keys:MfaKeys,environment:'local'|'dev'|'prod',held:LoginReservation){
  const row=await transaction(db,c,token,'pending'),secret=await checkKey(row,keys,environment);
  const step=method==='totp'?await verifyTotp(secret,code,c.now,row.last_step):null;
  const verifier=method==='recovery'?await recoveryVerifier(c.userId,row.active_set,code):null;
@@ -108,7 +108,7 @@ export async function proveManagement(db:D1Database,c:EnrollmentContext,token:st
  if(result[1].results.length!==1)return null;
  return {acknowledgment:ack,...(recovery?{codes:recovery.codes}:{})};
 }
-export async function finishManagement(db:D1Database,c:EnrollmentContext,token:string,ack:string,keys:MfaKeys,environment:'local'|'dev'){
+export async function finishManagement(db:D1Database,c:EnrollmentContext,token:string,ack:string,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  const row=await transaction(db,c,token,'verified');await checkKey(row,keys,environment);
  const replacement=generateToken(),sessionDigest=await digestToken(replacement,'session');
  const claim=db.prepare(`UPDATE auth_mfa_transactions AS t SET phase='consumed',consumed_at=?,ack_digest=NULL

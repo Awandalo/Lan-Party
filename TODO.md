@@ -835,3 +835,15 @@ Saved to `public/lan-hall.png` using the built-in image generator. Final prompt:
 ```text
 Use case: photorealistic-natural. Asset type: decorative side background for a personal LAN party website. Wide overhead overview of a large LAN gaming hall reminiscent of a DreamHack LAN gathering, dense rows of desktop gaming monitors, keyboards, computer towers and seated player silhouettes. Almost pitch-black room with only monitors casting cool cyan, blue and occasional muted green light, no overhead lights, realistic candid photographic atmosphere. Rows recede into darkness, foreground computers clear. Wide landscape composition with interesting monitor detail on both outer sides. No text, branding, watermark, readable screen content or recognizable faces. Generate only the photograph, not a webpage.
 ```
+
+
+## PROD account activation — local preparation, 2026-10-27
+
+- [x] Prepare canonical-www PROD build/origin gates, isolated email policy and MFA encryption context; keep activation default-off.
+- [ ] Review exact local commit and production-focused validation; publication remains unapproved.
+- [ ] Separately approve PROD 0008–0018 migration/checkpoint, private keys/secrets, verified email allocation/Turnstile and reviewed deployment.
+- [ ] Separately approve controlled real registration, verification/login and optional MFA/recovery acceptance before public launch.
+- [ ] Resolve launch privacy/controller review and any reserved Member #0001 provisioning separately; normal allocation remains #0011.
+- [ ] Defer Cloudflare traffic/bot-policy investigation until production registration/Member #1 acceptance.
+
+See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote changes are authorized by this checklist.

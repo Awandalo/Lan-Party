@@ -4,7 +4,8 @@ export function mfaUiEligible(development:boolean,authMode:string|undefined,orig
   try{
     const url=new URL(origin);
     return development&&url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)
-      ||authMode==='hosted-dev'&&origin==='https://dev.lan-party.club';
+      ||authMode==='hosted-dev'&&origin==='https://dev.lan-party.club'
+      ||authMode==='hosted-prod'&&origin==='https://www.lan-party.club';
   }catch{return false;}
 }
 export const MFA_ENROLLMENT_AVAILABLE=typeof window!=='undefined'

@@ -22,7 +22,7 @@ const bound=`t.token_digest=? AND t.user_id=? AND t.auth_version=? AND t.session
 const values=(digest:string,c:EnrollmentContext)=>[digest,c.userId,c.authVersion,c.sessionDigest,c.browserDigest,c.now,c.now];
 const guards=(c:EnrollmentContext)=>[c.now,c.now,c.now,c.now-120,c.now];
 function sealed(row:Pending):EncryptedMfaSecret{return {ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id};}
-function cryptoContext(c:EnrollmentContext,id:string,purpose:'active'|'pending',environment:'local'|'dev'){
+function cryptoContext(c:EnrollmentContext,id:string,purpose:'active'|'pending',environment:'local'|'dev'|'prod'){
   return {userId:c.userId,id,purpose,environment};
 }
 async function pending(db:D1Database,c:EnrollmentContext,token:string,phase:'pending'|'verified'){
@@ -31,7 +31,7 @@ async function pending(db:D1Database,c:EnrollmentContext,token:string,phase:'pen
     .bind(...values(await mfaDigest('transaction',token),c),phase,...guards(c)).first<Pending>();
   if(!row)throw Error('Enrollment unavailable');return row;
 }
-export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:MfaKeys,environment:'local'|'dev',label:string,restart=false){
+export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:MfaKeys,environment:'local'|'dev'|'prod',label:string,restart=false){
   context(c);
   const primary=await db.prepare(`SELECT r.method,r.authenticated_at FROM auth_recent_authentication r
     JOIN auth_sessions s ON s.token_digest=r.session_digest JOIN users u ON u.id=r.user_id
@@ -77,7 +77,7 @@ export async function beginEnrollment(db:D1Database,c:EnrollmentContext,config:M
   ]).then(results=>{if(results.at(-2)?.results.length!==1)throw Error('Enrollment unavailable');});
   return {token,secret,uri,expiresAt:c.now+600}; // Only the initiating no-store response; never log.
 }
-export async function verifyEnrollment(db:D1Database,c:EnrollmentContext,token:string,code:string,config:MfaKeys,environment:'local'|'dev',rateSecret:string){
+export async function verifyEnrollment(db:D1Database,c:EnrollmentContext,token:string,code:string,config:MfaKeys,environment:'local'|'dev'|'prod',rateSecret:string){
   const row=await pending(db,c,token,'pending');
   // The existing expiring atomic lease serializes this account's enrollment checks.
   // Separate synthetic identities isolate its five confirmed failures from login.
@@ -116,7 +116,7 @@ export async function cancelEnrollment(db:D1Database,c:EnrollmentContext,token:s
 }
 // The local-only enrollment handler appends session + assurance creation to this
 // same batch. Never execute activation and session replacement independently.
-export async function prepareEnrollmentActivation(db:D1Database,c:EnrollmentContext,token:string,ack:string,config:MfaKeys,environment:'local'|'dev'){
+export async function prepareEnrollmentActivation(db:D1Database,c:EnrollmentContext,token:string,ack:string,config:MfaKeys,environment:'local'|'dev'|'prod'){
   const row=await pending(db,c,token,'verified'),digest=await mfaDigest('transaction',token),ackDigest=await mfaDigest('acknowledgment',ack);
   const secret=await decryptTotpSecret(sealed(row),config,cryptoContext(c,row.transaction_id,'pending',environment));
   const active=await encryptTotpSecret(secret,config,cryptoContext(c,row.factor_id,'active',environment));

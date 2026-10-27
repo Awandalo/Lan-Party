@@ -86,3 +86,10 @@ test('reactivation invitation requires password and optional MFA, expires once i
  for(const unsafe of['https://lan-party.club/reactivate#fake','https://dev.lan-party.club/reactivate?token=fake','https://dev.lan-party.club/reset-password#fake'])
  assert.throws(()=>authenticationEmail(unsafe,'account-reactivation'));
 });
+
+test('PROD templates accept only the canonical HTTPS origin and preserve safe purpose-specific links',()=>{
+ for(const [purpose,path,hash]of [['email-verification','verify-email','#fictional'],['password-reset','reset-password','#fictional'],['account-reactivation','reactivate','#fictional'],['mfa-enabled','account/security','']]){
+ const url='https://www.lan-party.club/'+path+hash;const mail=authenticationEmail(url,purpose);assert.ok(mail.text.includes(url));
+ for(const origin of ['https://lan-party.club','http://www.lan-party.club','https://www.lan-party.club.evil.test','https://lan-party.servok.workers.dev'])assert.throws(()=>authenticationEmail(origin+'/'+path+hash,purpose));
+ }
+});

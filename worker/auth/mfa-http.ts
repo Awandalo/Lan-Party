@@ -1,7 +1,7 @@
 import type {AuthenticationEnvironment} from './http';
 import type {MfaKeys} from './mfa-crypto';
 import {mfaDigest} from './mfa-crypto';
-import {authClientIP,authOrigin,authRouteEnabled,loopback,validAuthMutation} from './environment';
+import {authClientIP,authOrigin,authRouteEnabled,hostedDev,loopback,validAuthMutation} from './environment';
 import {clearSessionCookie,readSessionCookie,sessionCookie} from './cookies';
 import {sessionCsrfToken} from './csrf';
 import {readInput} from './registration';
@@ -200,7 +200,7 @@ export async function mfaAuthentication(request:Request,env:AuthenticationEnviro
     if(await limiter.observe()||input.turnstileToken!==undefined)await verifyLoginChallenge(env.DB,env,input.turnstileToken,origin.hostname);
     const held=await limiter.reserveMfa(row.user_id,row.token_digest);let finalized=false;
     try{
-      const result=await completeMfa(env.DB,row,input.code,input.method as 'totp'|'recovery',env,loopback(url)?'local':'dev',Math.floor(Date.now()/1000),held);
+      const result=await completeMfa(env.DB,row,input.code,input.method as 'totp'|'recovery',env,loopback(url)?'local':hostedDev(request,env)?'dev':'prod',Math.floor(Date.now()/1000),held);
       if(!await held.finish(!result))throw Error('Check expired');finalized=true;
       if(!result)return reply(401,{error:'Code not accepted. Check the code or use a recovery code.'});
       return primaryResponse(request,{kind:'session',token:result.token});

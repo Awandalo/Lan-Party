@@ -4,7 +4,7 @@ import type { AccountIdentity } from './contracts';
 import { accountId } from './database';
 import { fromHex } from './encoding';
 import { localMailbox } from './email';
-import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hostedDev, recipientAllowed, validAuthMutation } from './environment';
+import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hosted, recipientAllowed, validAuthMutation } from './environment';
 import { loopback, readInput } from './registration';
 import type { AuthenticationEnvironment } from './http';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
@@ -22,7 +22,7 @@ function reply(status: number, body: object) {
 export async function verification(request: Request, env: AuthenticationEnvironment): Promise<Response> {
   const url = new URL(request.url), action = url.pathname.split('/').pop();
   if (!authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
-    || (!hostedDev(request, env) && env.AUTH_EMAIL_TRANSPORT !== 'local')
+    || (!hosted(request, env) && env.AUTH_EMAIL_TRANSPORT !== 'local')
     || (action === 'local-mail' && !loopback(url))) {
     return reply(404, { error: 'Not found' });
   }
@@ -31,7 +31,7 @@ export async function verification(request: Request, env: AuthenticationEnvironm
     const origin = authOrigin(request, env);
     const rateSecret = env.AUTH_RATE_LIMIT_SECRET, mailSecret = env.AUTH_LOCAL_MAIL_SECRET;
     if (!rateSecret || !fromHex(rateSecret, 32) || rateSecret === env.PASSWORD_PEPPER
-      || (!hostedDev(request, env) && (!mailSecret || !fromHex(mailSecret, 32)
+      || (!hosted(request, env) && (!mailSecret || !fromHex(mailSecret, 32)
         || mailSecret === rateSecret || mailSecret === env.PASSWORD_PEPPER))) {
       throw new Error('Unavailable local email configuration');
     }
