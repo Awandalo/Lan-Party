@@ -19,7 +19,8 @@ public website verification. Phase 3 Authentication & Accounts is the active
 development phase. Hosted DEV email/password registration, verification, login/recovery, optional TOTP MFA
 and account lifecycle are implemented. Phase 3.9 DEV acceptance is recorded in #16,
 with administrator-assisted reactivation deliberately deferred to the end of Phase 4
-using two disposable accounts. Phase 3.10 is the current approved account-polish work.
+using two disposable accounts. Phase 3.10 DEV polish was accepted by the owner at `82f7b34`; Phase 3 closeout
+and release preparation are tracked in #19.
 Phase 4 Administration precedes Phase 5 Events; actual event registration and replacing
 Jotform remain future milestones. PROD authentication is separately gated.
 Google OAuth is permanently discontinued.
@@ -439,7 +440,7 @@ authentication and deployment remain separately gated.
 | 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15) accepted and closed |
 | 3.8.6 | Controlled hosted DEV MFA rollout/acceptance | [#10](https://github.com/Awandalo/Lan-Party/issues/10) closed; DEV migrations 0013–0016, key provisioning, deployment and MFA acceptance recorded; residual Google-resource cleanup is separate |
 | 3.9 | Account Lifecycle Management | [#16](https://github.com/Awandalo/Lan-Party/issues/16): DEV implementation accepted by owner; anonymous totals and backup-risk decision accepted; reactivation hosted acceptance deferred until the end of Phase 4 |
-| 3.10 | Polish & Fixes after account lifecycle readiness | [#17](https://github.com/Awandalo/Lan-Party/issues/17), owner-approved focused implementation in progress |
+| 3.10 | Polish & Fixes after account lifecycle readiness | [#17](https://github.com/Awandalo/Lan-Party/issues/17), owner accepted scoped DEV polish at 82f7b34; external cleanup/removal dependencies remain explicit |
 
 Historical email/GUI/login-limit milestones also used 3.8–3.8.3; retain their
 original references as history, not new MFA milestones. The former proposal for
@@ -448,7 +449,7 @@ Migration numbers (including 0013) are independent and unchanged. Labels, issue
 closure and roadmap placement do not authorize implementation or remote operations.
 Detailed pending tasks remain in [TODO.md](TODO.md#phase-38--mfa-security).
 
-### Phase 3.10 — approved polish scope (2026-10-27)
+### Phase 3.10 — owner-accepted DEV polish (2026-10-27)
 
 Under #17, reuse existing MFA step-up for expired replacement proof, preserving
 current account/session checks and separate primary proof. Keep the login recovery
@@ -458,6 +459,13 @@ valid-method dropdowns, inactive-action visibility, clipboard guidance and stabl
 per-operation layout. Show the short source Git SHA in the footer, supplied by
 CI or the local checkout at build time; it is identification, not a health guarantee.
 No backend security changes, migrations or credential changes are included.
+
+Phase 3.7 historical 7/7 owner DEV acceptance recorded in [#19](https://github.com/Awandalo/Lan-Party/issues/19)
+is historical evidence, not a requirement to restore discontinued Google support.
+Phase 3.9 DEV acceptance excludes the deliberately deferred Phase 4 reactivation
+check; Phase 3.10 scoped owner UX acceptance is recorded in the trusted Codex
+conversation after #17 report 6444927846. See [closeout inventory](docs/PHASE3_CLOSEOUT.md)
+for unpublished work, retained review branches and release blockers.
 
 ### Phase 3.9 — approved lifecycle design and sprint boundary
 
@@ -1208,15 +1216,17 @@ by this local implementation.
 
 Google OAuth is permanently discontinued after the final hosted freshness test
 returned `fresh-proof-unavailable`. Reintroduction requires an explicit owner reversal.
-The removal candidate supports email/password and optional TOTP MFA with one-use
+The deployed DEV application supports email/password and optional TOTP MFA with one-use
 recovery codes. Password changes require the current password and, when enabled,
 fresh LAN Party MFA. Recovery never creates a first password or bypasses MFA.
 See [the removal and data-cleanup plan](docs/GOOGLE_REMOVAL.md).
 
 The owner confirms all DEV data is disposable; no Google-only account transition
-is required. Forward migration 0016 and a separate DEV-only reset are prepared
-locally; execution, credential deletion, merge/deployment and hosted fresh-account
-testing remain separate gates. Migration history and immutable member allocation
+is required. Forward migration 0016 was applied and verified on DEV under #10. A disposable
+DEV reset was a separate proposal, not an instruction to run it now. DEV source
+and secret-name audit at #17 found no Google runtime/configuration references or
+Google-named secret bindings; provider-console retirement remains unverified and
+separately approval-gated. Migration history and immutable member allocation
 are retained. See the cleanup plan for exact operations and stop conditions.
 
 ### Final Phase 3 milestone — required before public registration

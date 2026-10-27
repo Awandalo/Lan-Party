@@ -1,5 +1,23 @@
 # D1 migrations
 
+## Current release boundary — Phase 3 closeout (2026-10-27)
+
+DEV migration history 0001–0018 was verified during the separately approved #10/#16
+operations. This housekeeping pass reuses that evidence and does not query D1.
+PROD has only owner-confirmed foundation migrations 0001–0007; do not assume
+DEV history or test data exists there. Historical local-only/pending descriptions
+below describe their original implementation checkpoints, not current DEV state.
+Migration 0016 retired Google schema on DEV; never skip, edit or reapply an
+applied migration merely because its provider was later removed.
+
+A future production launch needs separately approved exact-target preparation,
+recovery and migration/reset execution. The owner wants a fresh production
+database at initial launch; that is intent, not authorization to erase any data
+now. Later releases must preserve live data through versioned migrations.
+The DEV-to-main source PR does not activate PROD authentication or authorize
+keys, account operations, a database reset or migrations. No SQL files changed.
+
+
 Phase 3.8.6 local integration addendum: 0013/0014 are unchanged from the reviewed
 R1–R3 tree. The local candidate now permits canonical DEV management and restricted
 recovery under the shared eligibility gate. Historical local-only descriptions below

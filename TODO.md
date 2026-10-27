@@ -6,7 +6,8 @@ authentication, storage, or production changes now. See AGENTS.md and PROJECT.md
 Phase 4 administration, Phase 5 events, and Phase 6 News/community.
 Phase 3.9 DEV account lifecycle is owner-accepted; reactivation acceptance remains
 deferred until the end of Phase 4 Administration with two disposable accounts.
-Phase 3.10 is the approved account-polish work; Phase 5 Events follows Administration.
+Phase 3.10 DEV polish is owner-accepted at 82f7b34; #19 tracks final housekeeping
+and release preparation. Phase 5 Events follows Administration.
 Hosted DEV password authentication, email verification/recovery and optional MFA
 are available; PROD activation remains separately gated.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
@@ -271,19 +272,19 @@ real email/integrated CPU verification remain separately approved operations.
 - [x] Implement permanent cosmetic member numbers locally: reserved slots 1–10,
   regular allocation from 11, atomic 64-bit issuance, immutable deletion tombstones,
   public nickname display and internal administrator-only new-account provisioning.
-- [ ] Review local migration 0011 and compatible code, then separately approve DEV
-  application/deployment before auth activation. Approve actual organization account
-  identities and reserved slots separately; no accounts or assignments were created.
+- [x] Apply approved migration 0011 and compatible code to DEV under the #10 rollout.
+- [ ] Actual organization identities/reserved-slot assignments remain separately approved; housekeeping creates no accounts or grants.
 - [x] Verify the uncommitted local password-recovery flow with focused combined
   regressions, preserving single-use links, generic feedback and session revocation.
-- [ ] Review and approve the [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
-  configuration, migrations, deployment/activation and controlled email test separately.
-- [ ] Review and approve the Google-removal PR; Google OAuth is permanently out of scope.
+- [x] Complete separately approved [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
+  configuration, migrations, deployment and owner email/password/MFA acceptance under #10. The linked section retains its historical implementation heading.
+- [x] Merge approved Google-removal PR #24 to DEV and verify deployment; Google OAuth is permanently out of scope.
 - [x] Owner confirms all DEV data is disposable; no account transition is required.
-- [ ] Review/approve 0016 schema cleanup and the exact DEV-only reset SQL, with
-  fresh private checkpoints and preservation of metadata, ledger and sending limits.
-- [ ] Separately approve DEV Google secret/variable cleanup and Google Cloud client retirement.
-- [ ] Separately approve DEV merge/deployment and controlled email/password + MFA acceptance.
+- [x] Apply approved migration 0016 to DEV with recovery/integrity checks under #10.
+- [ ] A disposable DEV reset remains a separate unused proposal; do not run it as housekeeping.
+- [x] Verify #17 DEV source has no Google runtime/vars and DEV secret-name inventory has no Google-named binding.
+- [ ] Independently verify Google Cloud client retirement; any remaining deletion needs separate approval.
+- [x] Complete approved DEV deployment and owner password/optional MFA acceptance under #10/#13.
 - [ ] Decide whether durable security-notification delivery is required; an outbox
   and any schema changes require separate approval.
 
@@ -347,12 +348,21 @@ DEV availability. No PROD acceptance or new hosted operations are implied.
 
 ### Phase 3.10 — Polish & Fixes (owner-approved focused implementation)
 
-- [ ] [#17](https://github.com/Awandalo/Lan-Party/issues/17): after 3.8/3.9 acceptance,
+- [x] [#17](https://github.com/Awandalo/Lan-Party/issues/17): owner accepts scoped DEV polish at 82f7b34 after 3.8/3.9 acceptance;
   triage reproducible UX, accessibility/mobile, error/notification and functional
   defects. Do not duplicate security remediations or lifecycle implementation.
 - [x] Owner approve the three scoped #17 implementation batches and DEV publication after affected tests.
-- [ ] Complete owner hosted UX acceptance; PROD release remains separately gated.
-- [ ] Record the short source Git SHA in each build footer; do not invent release numbers.
+- [x] Owner accept scoped hosted DEV UX; PROD release remains separately gated.
+- [x] Display verified short Git SHA in the served DEV footer; do not invent release numbers.
+- [ ] Retain login replacement fallback until its precise last-code removal dependency is established; no claim of removal.
+
+### Phase 3 closeout — #19
+
+- [x] Inventory current branch/worktree ancestry, existing reconciliation backup, unpublished changes and closed PRs; see [closeout inventory](docs/PHASE3_CLOSEOUT.md).
+- [x] Reconcile historical Google acceptance with permanent retirement; do not reopen obsolete Google-only account work.
+- [ ] Resolve separately scoped unpublished monitor/directive and DNS disposition without discarding work.
+- [ ] Obtain exact branch/worktree cleanup approval after retaining unique/recovery history.
+- [ ] Complete RELEASE.md clean-tree, protection-policy, sensitive-history, mergeability and production-compatibility gates before creating the dev-to-main PR.
 
 ### Historical milestone — Authentication email and verification polish (original Phase 3.8)
 
