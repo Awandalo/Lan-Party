@@ -1,3 +1,5 @@
+import { createFirstOwner } from './owner-bootstrap';
+import { hostedProd } from './production';
 import { validateRegistration, newAccountId } from './accounts';
 import { hashPassword } from './passwords';
 import { fromHex } from './encoding';
@@ -83,6 +85,14 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
       try { if (!recipientAllowed(request, env, input.emailNormalized)) throw new Error('Recipient denied');
         emailTransport(request, env); }
       catch { return reply(202, accepted); }
+    }
+    if (hostedProd(request, env) && env.PROD_OWNER_BOOTSTRAP_MODE !== undefined
+      && env.PROD_OWNER_BOOTSTRAP_MODE !== 'disabled') {
+      if (env.PROD_OWNER_BOOTSTRAP_MODE !== 'enabled') throw Error('Owner setup unavailable');
+      const ownerId = await createFirstOwner(request, env, input, now);
+      if (ownerId) await deliverVerification(env.DB, { userId: ownerId, status: 'active', authVersion: 0, emailVerifiedAt: null },
+        input.email, origin.origin, emailTransport(request, env), now);
+      return reply(202, accepted);
     }
     const passwordHash = await hashPassword(input.password, env.PASSWORD_PEPPER);
     const id = newAccountId();

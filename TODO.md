@@ -847,3 +847,9 @@ Use case: photorealistic-natural. Asset type: decorative side background for a p
 - [ ] Defer Cloudflare traffic/bot-policy investigation until production registration/Member #1 acceptance.
 
 See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote changes are authorized by this checklist.
+
+### PROD first-owner preparation
+
+- Local one-time #0001 bootstrap candidate prepared; owner email/setup code stay private.
+- Separate approval required for migration 0019, publication/protected MAIN merge and activation.
+- Verify email ownership before initial admin grant; no live account created by preparation.

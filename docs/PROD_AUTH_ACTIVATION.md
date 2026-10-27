@@ -124,3 +124,84 @@ suite, remote checks, real emails or hosted accounts were exercised in this step
 Existing unrelated database/schema, lifecycle and UI acceptance remains previous
 evidence, not newly verified PROD acceptance. Actual sender, widget, keys, migration
 runner and controlled browser acceptance remain execution-stage gates.
+
+
+## First-owner bootstrap — local candidate, not activated
+
+Owner authorized implementation/tests and release preparation on 2026-10-27.
+PROD remains disabled. The owner also authorized the scoped commit and release PR
+preparation. Migration 0019 and the protected PROD merge each require
+separate approval. No private owner email, setup code or credentials belong in Git.
+
+The ordinary route still starts at #0011. A dedicated opt-in uses the existing
+registration form at /register#owner-setup (the fragment contains no secret).
+PROD_OWNER_BOOTSTRAP_MODE=enabled restricts PROD signup to the exact normalized
+PROD_OWNER_BOOTSTRAP_EMAIL plus a separate 32-byte lowercase-hex
+PROD_OWNER_BOOTSTRAP_TOKEN entered privately in the masked form field. Store both
+private values as Worker secrets; never put the token in a URL, screenshot or log.
+The token prevents an outsider who knows the email from choosing the first owner's
+password. It does not replace password hashing or normal email verification.
+DEV/local cannot enter this path. Missing/invalid private configuration denies
+signup; an unrecognized mode never falls back to ordinary registration.
+
+0019 adds one immutable singleton receipt and extends only the existing reserved
+ledger admission guard for a zero-account first-owner claim of #0001. No roles or
+accounts are seeded. One D1 batch claims the receipt/slot and creates the normal
+profile and password record; failures roll back all of them. Zero accounts also
+means no eligible administrator. Concurrent requests have one winner. All other
+reserved numbers retain the administrator/users.manage guard. Pending signup has
+no privileges, verified email or authenticated session.
+
+The existing single-use, purpose-bound email verification transaction performs
+verification, the seeded administrator role assignment and receipt completion
+atomically. A missing/disabled admin role or missing users.manage mapping aborts
+verification rather than consuming proof without granting the reviewed role.
+The owner gets the existing explicit seeded administrator permissions, not a new
+role or implicit power derived from the member number. Existing password, CSRF,
+rate limits, sessions, Turnstile and optional MFA are unchanged.
+
+The receipt clears its email on completion. Normal approved permanent deletion
+clears the UUID during the existing deleting transition and leaves only consumed
+state/timestamps. It can never be deleted, replaced or reopened. It is not a
+restore replay/deletion registry. Restoring an earlier database can roll back this
+receipt and all authentication state; the existing owner-approved restore risks
+remain, and restoration/repair is never automatic. Existing Time Travel retention
+is finite; retain the current private key recovery material independently.
+
+Release order: review local diff/tests and publish the disabled candidate for PR
+review. Before activating setup, separately approve/apply exact migration 0019
+through the existing target/history/integrity/private-checkpoint procedure in each
+approved environment. Missing 0019 does not affect ordinary DEV or disabled PROD.
+The protected MAIN merge and PROD deployment remain separately gated. Deploy with
+--env prod --keep-vars and modes disabled. Verify all prior six secrets/ten public
+settings/DB binding survive. Only after another activation approval, provision the
+private bootstrap email/code, set bootstrap mode enabled and the two auth modes to
+hosted-prod, and build the frontend with VITE_AUTH_MODE=hosted-prod. Verify owner
+signup, normal email verification, #0001, administrator permission and optional MFA
+privately. Do not open ordinary public signup until completion is verified; then
+an explicit configuration decision can disable bootstrap mode for regular #0011+
+registration and retire the setup secret. Leaving bootstrap enabled after completion
+fails closed for all further signup. Existing signup never silently upgrades a
+pending or ordinary account to #0001.
+
+Rollback: disable registration first and sessions as required; remove frontend
+activation if needed. Preserve schema, issued number/receipt and keys. Never
+renumber/recycle #0001, fabricate an admin session or restore the database as an
+activation rollback. Pending email delivery is recovered only with explicit resend;
+uncertain signup/email writes are not automatically retried.
+
+
+### Local bootstrap verification
+
+The final bootstrap fixture uses a test-only adapter: it first requires the real
+transport Host to be a loopback listener, then restores the fixture-supplied Host.
+It never rewrites the request URL, Origin or forwarded claims. Application code
+is unchanged. Explicit negative cases retain hostile Host/origin/forwarded denial.
+The final lifecycle test covers the verified first owner's last-administrator
+protection, normal authenticated deletion with a second synthetic administrator,
+identity scrubbing, and refusal to reopen bootstrap even with zero accounts.
+Earlier direct-service fetch exploration hit Miniflare's bridge-origin checks;
+that approach was discarded rather than weakening the application guard.
+Other same-candidate focused evidence (email verification/expiry, lifecycle,
+member ledger, email budgets, DEV/PROD isolation and compatibility) is reused;
+no unrelated full suite or remote accounts were exercised.

@@ -9,6 +9,9 @@ export interface EmailEnvironment {
   AUTH_LOCAL_MAIL_SECRET?: string;
   // Hosted environment contract. These fields alone do not enable application routes.
   AUTH_ENVIRONMENT?: string;
+  PROD_OWNER_BOOTSTRAP_MODE?: string;
+  PROD_OWNER_BOOTSTRAP_EMAIL?: string;
+  PROD_OWNER_BOOTSTRAP_TOKEN?: string;
   AUTH_PROD_EMAIL_DAILY_LIMIT?: string;
   AUTH_PROD_EMAIL_MONTHLY_LIMIT?: string;
   AUTH_PUBLIC_ORIGIN?: string;
