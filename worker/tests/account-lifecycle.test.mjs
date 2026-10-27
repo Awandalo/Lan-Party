@@ -326,7 +326,7 @@ test('final recovery code reactivation issues a new assured session without reus
 for(const method of ['totp','recovery'])test('HTTP '+method+' step-up continues deactivation once with the rotated session and no second proof',()=>local(async({user,sql,now,value,request,simulator})=>{
  const u=await user({mfa:true}),time=await now();
  await sql('DELETE FROM auth_session_mfa WHERE session_digest=?',u.digest).run();
- await sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',?,'password',?)",u.digest,u.id,u.factor,time-121,time).run();
+ await sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',?,'password',?)",u.digest,u.id,u.factor,time-121,u.time).run();
  const initial=await request('deactivate',u,{confirm:'DEACTIVATE'});assert.equal(initial.status,428);
  assert.equal((await initial.json()).code,'mfa_required');
  if(method==='recovery')await sql('UPDATE auth_mfa_recovery_codes SET consumed_at=? WHERE user_id=? AND verifier<>?',time,u.id,u.codes.verifiers[0]).run();
