@@ -26,7 +26,7 @@ export default function Registration() {
       });
       if (response.status === 202) {
         setSuccessful(true);
-        setFeedback('Check your inbox (and spam folder) for your verification email. If your details were available, we attempted to send it. Follow the link to finish setting up your account and join the party!');
+        setFeedback('Request processed. If your details were available, we attempted to send a verification email. Check your inbox and spam. If no email arrives, try signing in or resetting your password; you can also choose another nickname. Repeating signup does not resend verification.');
         form.reset();
       } else if (response.status === 400) {
         setFeedback('Please check all five fields. Follow the nickname rules shown with the form, avoid spaces around names or email, and use a password of 12–128 characters.');
@@ -52,7 +52,7 @@ export default function Registration() {
     <section className="page-section registration-page">
       <div className="panel registration-card">
         <p className="eyebrow">Join the party</p>
-        <h1>{successful ? "You're almost connected!" : 'Create your account'}</h1>
+        <h1>{successful ? "Registration request processed" : 'Create your account'}</h1>
         {!successful && <>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
         <p className="registration-local-notice">{import.meta.env.DEV ? 'Use fictional .test details and a disposable password. ' : 'DEV testing is limited to approved test addresses. '}Verify your email before logging in.</p>
@@ -78,7 +78,7 @@ export default function Registration() {
         <div ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite"
           className={`registration-feedback${successful ? ' registration-success' : ''}`}>{feedback}</div>
         <p><Link to="/login">Back to login</Link></p>
-        {successful && <p>No message yet? Delivery may be unavailable, or your details may already be in use. <Link to="/verify-email">Get verification help</Link> or try your existing login.</p>}
+        {successful && <><p><Link to="/forgot-password">Reset password</Link> · <Link to="/verify-email">Verification help</Link></p><button type="button" className="button button-secondary" onClick={()=>{setSuccessful(false);setFeedback('');requestAnimationFrame(()=>document.getElementById('registration-nickname')?.focus());}}>Try another nickname</button></>}
         {import.meta.env.DEV && <p><Link to="/local-mail">Restricted local mailbox</Link></p>}
       </div>
     </section>

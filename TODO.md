@@ -3,12 +3,12 @@
 These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
-Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
-Phase 3 Authentication & Accounts is the active development phase; Phase 3.1
-provides local foundation primitives and migration 0008. Phase 3.2 Authentication
-Database adapters and Phase 3.3 registration are implemented locally. Hosted
-registration/login remain disabled; the next local login/logout step is implemented
-and finalized on `dev`. Phase 3.4 email verification is implemented locally and pending review.
+Phase 4 administration, Phase 5 events, and Phase 6 News/community.
+Phase 3.9 DEV account lifecycle is owner-accepted; reactivation acceptance remains
+deferred until the end of Phase 4 Administration with two disposable accounts.
+Phase 3.10 is the approved account-polish work; Phase 5 Events follows Administration.
+Hosted DEV password authentication, email verification/recovery and optional MFA
+are available; PROD activation remains separately gated.
 Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
 for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
 deployment from `main`; no local GitHub Actions production deployment workflow is
@@ -325,10 +325,10 @@ DEV availability. No PROD acceptance or new hosted operations are implied.
 - [ ] Approve pepper rotation/key-version and recovery procedures before public use;
   configure Worker secrets only through a separately approved operation.
 - [ ] Integrate the tested participant nickname adapter into authenticated account
-  tools. Administrator settings/resets/overrides/corrections remain Phase 5 work;
+  tools. Administrator settings/resets/overrides/corrections remain Phase 4 work;
   ordinary administrative corrections must preserve participant cooldown state.
 
-### Phase 3.9 — Account Lifecycle Management (local implementation)
+### Phase 3.9 — Account Lifecycle Management (DEV accepted; reactivation deferred)
 
 - [x] Inspect current account/authentication schema and prepare the state/retention matrix and scoped design in [#16](https://github.com/Awandalo/Lan-Party/issues/16).
 - [x] Owner confirm last-active-administrator protection, administrator-initiated 30-minute single-use invitation, password/optional MFA, restricted completion and minimal authorized Users controls.
@@ -337,26 +337,28 @@ DEV availability. No PROD acceptance or new hosted operations are implied.
 - [x] Prepare local 0017 lifecycle metadata/operation schema, scoped service/API/UI files and focused deterministic tests; remote migration remains approval-gated.
 - [x] Owner confirm anonymous registration totals for completed LAN events, both per event and per day, with no identifying participant links; these are not verified attendance.
 - [x] Owner accepts older-backup account resurrection without an identifying deletion registry or automatic deletion replay (2026-10-27); disclose provider-copy and restore limitations accurately.
-- [x] Prepare local 0018 anonymous completed-event/day registration totals, anonymous member-number retirement, nullable News attribution and ordered identity/dependent deletion; preserve unrelated roles/content, registrations and numbering integrity. Integrate the reviewed deletion service locally with current proof checks and a separate final confirmation; hosted publication/testing remain gated.
+- [x] Prepare local 0018 anonymous completed-event/day registration totals, anonymous member-number retirement, nullable News attribution and ordered identity/dependent deletion; preserve unrelated roles/content, registrations and numbering integrity. Integrate the reviewed deletion service locally with current proof checks and a separate final confirmation; DEV publication and owner acceptance are recorded in #16; reactivation testing remains deferred.
 - [x] Verify local deactivation privacy, last-admin races, restricted reactivation/token replay and MFA, atomic rollback, deletion dependencies and event/day counts using 63 distinct changed-area tests, fictional browser fixtures, TypeScript/build and DEV dry-run. Hosted lifecycle acceptance remains separate.
 - [x] Owner authorize scoped local implementation/tests/commits and verified DEV publication with unapplied-migration gates.
 - [x] Apply approved DEV migrations 0017/0018 and verify history, integrity and preservation (see #16 migration report).
-- [ ] Review and publish the locally prepared password/MFA → final-warning account deletion flow, then separately authorize hosted disposable-account acceptance; no identifying deletion registry.
+- [x] Publish and owner-accept the password/MFA → final-warning DEV deletion flow; no identifying deletion registry.
+- [ ] At the end of Phase 4, verify administrator-assisted reactivation with two disposable accounts and implemented Users/Roles controls. Do not treat deferred acceptance as tested.
 - Administrator suspension, self-service reactivation, automated refunds and future achievements implementation remain out of scope.
 
-### Phase 3.10 — Polish & Fixes (planning only)
+### Phase 3.10 — Polish & Fixes (owner-approved focused implementation)
 
 - [ ] [#17](https://github.com/Awandalo/Lan-Party/issues/17): after 3.8/3.9 acceptance,
   triage reproducible UX, accessibility/mobile, error/notification and functional
   defects. Do not duplicate security remediations or lifecycle implementation.
-- [ ] Obtain scoped implementation and final owner acceptance; PROD release remains
-  separately gated. No new features or broad refactoring are authorized.
+- [x] Owner approve the three scoped #17 implementation batches and DEV publication after affected tests.
+- [ ] Complete owner hosted UX acceptance; PROD release remains separately gated.
+- [ ] Record the short source Git SHA in each build footer; do not invent release numbers.
 
 ### Historical milestone — Authentication email and verification polish (original Phase 3.8)
 
 The following original 3.8–3.8.3 milestone numbers predate MFA numbering. Preserve
 their completed evidence and pending review items as history; they do not assign
-the new MFA stages or the planned 3.10 scope.
+the new MFA stages or the approved 3.10 scope.
 
 - [x] Add shared branded HTML/plain-text verification and recovery templates, with
   canonical DEV links, escaping, expiry information and no external assets.
@@ -445,6 +447,15 @@ See `PROJECT.md` for approved requirements, implementation boundaries and the
 locally prepared migration. Live auth endpoints, email delivery and
 remote database changes are not implemented or authorized by Phase 3.1.
 
+## Phase 4 — Administration
+
+- [ ] Implement separately approved Users/Roles administration with backend permission checks.
+- [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.
+
+## Phase 5 — Events
+
+- [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.
+
 ## Phase 6 — News & Community
 
 - [ ] Add a public news listing and individual article pages after the Phase 2.9
@@ -474,7 +485,7 @@ separately approved functionality, checking existing numbers and never reusing t
 
 ### Event Pricing, Cost Sharing & Optional Extras
 
-Future feature dependent on Phase 4 registration/attendance durations and Phase 5
+Future feature dependent on Phase 5 registration/attendance durations and Phase 5
 event creation and participant management being implemented and tested. Plan it
 before participant payments or payment collection. These work packages are backlog
 only, not implementation authorization.
@@ -777,7 +788,7 @@ Technical and verification planning:
 
 ## Future administration work
 
-- [ ] Phase 5 idea: manually assisted account verification with appropriate identity
+- [ ] Phase 4 idea: manually assisted account verification with appropriate identity
   checks, backend authorization and audit logging. No bootstrap or verification bypass
   is authorized by this backlog item.
 

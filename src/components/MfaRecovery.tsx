@@ -120,7 +120,7 @@ export default function MfaRecovery(){
    <p>If this display window expires, log in with your new authenticator and regenerate recovery codes in Account Security.</p>
   </>}
   {!uncertain&&codes.length===10&&<><p>Save all ten one-use recovery codes somewhere private.</p><ul className="mfa-recovery-codes" aria-label="Replacement recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
-   <button className="button button-secondary" disabled={busy} onClick={()=>void copy()}>{copied?'Copied':'Copy all codes'}</button>
+   <p className="mfa-clipboard-guidance">Clipboard contents are sensitive. Paste into a secure password manager and clear the clipboard when finished.</p><button className="button button-secondary" disabled={busy} onClick={()=>void copy()}>{copied?'Copied':'Copy all codes'}</button>
    <form onSubmit={e=>{e.preventDefault();void run('ack',{confirmed:true});}}><fieldset disabled={busy}><label><input id="recovery-saved" type="checkbox" required/> I saved these recovery codes somewhere private</label><button className="button">Finish recovery</button></fieldset></form></>}
   {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
   <p role="status" aria-live="polite">{busy?'Checking securely…':feedback}</p>

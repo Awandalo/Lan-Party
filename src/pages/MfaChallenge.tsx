@@ -43,14 +43,14 @@ export default function MfaChallenge(){
   if(recovering)return <section className="page-section mfa-challenge-page"><div className="panel mfa-challenge-card"><MfaRecovery/></div></section>;
   return <section className="page-section mfa-challenge-page"><div className="panel mfa-challenge-card"><p className="eyebrow">One more step</p><h1>Verify your sign-in</h1>
     <p>Enter a code from your authenticator, or use one of your saved recovery codes.</p>
-    {method==='recovery'&&challenge?.recoveryAvailable&&<p>If your authenticator is lost, choose replacement below before spending your last recovery code on a normal login. Login does not reserve a code for later management.</p>}
-    {challenge&&<><form onSubmit={submit} aria-busy={busy}><fieldset disabled={busy}><label htmlFor="mfa-code">{method==='totp'?'Six-digit authenticator code':'Recovery code'}</label>
+    {method==='recovery'&&challenge?.recoveryAvailable&&<p>Each recovery code works once. After signing in, restore your protection in Account Security promptly. Losing all working methods may require administrator assistance.</p>}
+    {challenge&&<><form onSubmit={submit} aria-busy={busy}><fieldset disabled={busy}><label htmlFor="login-mfa-method">Confirmation method</label><select id="login-mfa-method" value={method} onChange={event=>{if(input.current)input.current.value='';setMethod(event.target.value as 'totp'|'recovery');}}><option value="totp">Authenticator code</option><option value="recovery">Unused recovery code</option></select><label htmlFor="mfa-code">{method==='totp'?'Six-digit authenticator code':'Recovery code'}</label>
       <input ref={input} key={method} id="mfa-code" name="code" required autoFocus autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} pattern={method==='totp'?'[0-9]{6}':undefined} maxLength={method==='totp'?6:40}/>
       {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
       <button className="button" disabled={!!siteKey&&!proof}>{busy?'Checking…':'Verify and log in'}</button></fieldset></form>
-      <button className="button button-secondary" disabled={busy} onClick={()=>{if(pending.current)return;if(input.current)input.current.value='';setMethod(method==='totp'?'recovery':'totp');requestAnimationFrame(()=>input.current?.focus());}}>{method==='totp'?'Use a recovery code':'Use authenticator'}</button>
-      <button className="button button-secondary" disabled={busy} onClick={()=>void run('cancel')}>Cancel and return to login</button></>}
-    {challenge?.recoveryAvailable&&<button className="button button-secondary" disabled={busy} onClick={()=>{if(pending.current)return;window.history.replaceState(null,'','/mfa?recovery=1');setRecovering(true);}}>Lost authenticator? Replace it with a recovery code</button>}
+
+      <button type="button" className="mfa-text-action" disabled={busy} onClick={()=>void run('cancel')}>Cancel and return to login</button></>}
+    {challenge?.recoveryAvailable&&<details className="mfa-replacement-help"><summary>Lost your authenticator?</summary><p>Restricted replacement is a separate recovery operation. It spends an unused code and has a fixed completion window.</p><button className="button button-secondary" disabled={busy} onClick={()=>{if(pending.current)return;window.history.replaceState(null,'','/mfa?recovery=1');setRecovering(true);}}>Replace using a recovery code</button></details>}
     <p role="status" aria-live="polite">{feedback}</p>{!challenge&&<Link to="/login">Back to login</Link>}
   </div></section>;
 }

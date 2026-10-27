@@ -1,5 +1,24 @@
 # Google OAuth retirement — DEV execution proposal
 
+## Phase 3.10 reconciliation — 2026-10-27
+
+Current DEV source at the #17 baseline `8f7f325` has no reachable Google/OAuth
+references in `src/`, `worker/auth/`, package dependencies, Wrangler configuration
+or deployment workflows. Applied migrations and dated review receipts remain
+intentional history; do not rewrite them. Migration 0016 was applied under #10;
+this audit does not repeat remote schema tests or authorize a database reset.
+
+Read-only `wrangler secret list --env dev` returned no Google-named secret
+bindings. Only names/types were inspected; no values were read or changed.
+Source configuration contains no Google vars. Dashboard-only configuration and
+the Google Cloud OAuth client were not independently inspected in this round.
+Any residual provider-client retirement requires separate owner authorization;
+do not delete domain verification, privacy configuration or unrelated resources.
+
+The dated execution proposals below are historical plans, not outstanding approval
+or authorization to repeat previously completed migrations/reset operations.
+
+
 ## Decision and current state
 
 On 2026-10-25 the owner permanently discontinued Google OAuth. Reintroduction

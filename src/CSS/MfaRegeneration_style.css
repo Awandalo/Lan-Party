@@ -24,3 +24,9 @@
 .mfa-regeneration-loading-shape span { display: block; height: 3rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
 .mfa-regeneration-loading-shape span:first-child { width: 45%; height: 1.25rem; }
 @container (max-width: 26rem) { .mfa-regeneration-stage { min-block-size: 29rem; } .mfa-regeneration-panel .eyebrow { min-block-size: 2lh; } }
+
+/* Measured replacement proof is the largest pre-handoff step (~49rem). */
+.mfa-replacement-stage { min-block-size: 52rem; display: flex; flex-direction: column; }
+.mfa-replacement-stage > .mfa-latest-action { margin-top: auto; }
+.mfa-latest-action { min-block-size: 2lh; overflow-wrap: anywhere; }
+@container (max-width: 26rem) { .mfa-replacement-stage { min-block-size: 64rem; } }

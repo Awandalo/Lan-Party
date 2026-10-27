@@ -76,27 +76,27 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
  return <section className="mfa-enrollment security-mfa-section" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
   <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">Enabled <button type="button" className="security-icon-action" aria-label="Manage MFA" title="Manage MFA" aria-expanded={expanded} aria-controls="mfa-options" disabled={disabled||busy} onClick={()=>onToggle?onToggle():setExpanded(value=>!value)}><SecurityActionIcon action="shield"/></button></dd></div></dl>
   <div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects your sign-in.</p>
-   {!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
+   {!regenerationActive&&!replacementActive&&!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
 </div>
   <div className="mfa-action-row">
-  <MfaRegeneration csrf={csrf} open={open} disabled={disabled||busy||!!transaction||replacementActive} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActivated={onActivated} onActive={setRegenerationActive}/>
-  <MfaReplacement csrf={csrf} open={open} disabled={disabled||busy||regenerationActive||!!transaction} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActive={setReplacementActive}/>
+  <div hidden={replacementActive||!!transaction}><MfaRegeneration csrf={csrf} open={open} disabled={disabled||busy||!!transaction||replacementActive} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActivated={onActivated} onActive={setRegenerationActive}/></div>
+  <div hidden={regenerationActive||!!transaction}><MfaReplacement csrf={csrf} open={open} disabled={disabled||busy||regenerationActive||!!transaction} methods={methods} onOpen={()=>{clear();setFeedback('');onOpen();}} onBusy={onBusy} onActive={setReplacementActive}/></div>
   </div>
-  {open&&!regenerationActive&&!replacementActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation">
+  {open&&!regenerationActive&&!replacementActive&&(transaction||reauth)&&<div ref={panel} tabIndex={-1} className="account-confirmation mfa-disable-stage">
    {reauth?<><p>Confirm your identity. No MFA setting has been changed.</p>{methods.password&&<form onSubmit={primary}><fieldset disabled={busy}><label htmlFor="mfa-primary-password">Current password</label><PasswordInput id="mfa-primary-password" name="password" autoComplete="current-password" required autoFocus/>
     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button">Confirm password</button></fieldset></form>}
     </>:
     transaction&&!transaction.acknowledgment?<><p>{purpose==='disable'?'Disabling removes the extra sign-in check. Your account, sign-in methods and history stay intact.':'You will receive ten new recovery codes. Your remaining old codes work until you save and confirm the new set.'}</p>
-     <form onSubmit={verify}><fieldset disabled={busy}><label htmlFor="mfa-management-code">{method==='totp'?'Six-digit authenticator code':'Unused recovery code'}</label>
+     <form onSubmit={verify}><fieldset disabled={busy}><label htmlFor="mfa-management-method">Confirmation method</label><select id="mfa-management-method" value={method} onChange={e=>{if(field.current)field.current.value='';setMethod(e.target.value as 'totp'|'recovery');}}><option value="totp">Authenticator code</option><option value="recovery">Unused recovery code</option></select><label htmlFor="mfa-management-code">{method==='totp'?'Six-digit authenticator code':'Unused recovery code'}</label>
       <input ref={field} id="mfa-management-code" name="code" autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} maxLength={method==='totp'?6:40} pattern={method==='totp'?'[0-9]{6}':undefined} required/>
-      {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button" disabled={!!siteKey&&!proof}>{busy?'Checking…':'Confirm authenticator'}</button></fieldset></form>
-     <button className="button button-secondary" disabled={busy} onClick={()=>{if(field.current)field.current.value='';setMethod(method==='totp'?'recovery':'totp');requestAnimationFrame(()=>field.current?.focus());}}>{method==='totp'?'Use a recovery code':'Use authenticator'}</button></>:
+      {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button" disabled={!!siteKey&&!proof}>{busy?'Checking…':'Confirm code'}</button></fieldset></form>
+</>:
     <>{purpose==='regenerate'?<><p>Save these new codes privately. Each works once; they cannot be displayed again.</p><ul aria-label="New recovery codes">{transaction?.codes?.map(code=><li key={code}><code>{code}</code></li>)}</ul>
      <p>Select and copy the codes, or save them in your password manager.</p><label className="mfa-saved"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved the new recovery codes</label></>:
      <><p>Disable two-factor authentication? Your old authenticator and recovery codes will stop working. Your account and connected sign-in methods will be preserved.</p><label className="mfa-saved"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>Yes, disable two-factor authentication</label></>}
      <button className="button" disabled={!saved||busy} onClick={()=>void run('finish')}>{busy?'Saving…':purpose==='disable'?'Confirm disable MFA':'Activate new recovery codes'}</button></>}
    <button className="button button-secondary" disabled={busy} onClick={()=>void run('cancel')}>Cancel</button>
   </div>}
-  <p role="status" aria-live="polite">{feedback}</p></div>
+  <p className="mfa-latest-action" role="status" aria-live="polite">{feedback}</p></div>
  </section>;
 }

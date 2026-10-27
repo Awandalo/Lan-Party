@@ -16,13 +16,13 @@ including RBAC reference data and News storage, have been successfully applied
 and verified in both environments. This documentation update does not independently
 verify PROD migration state or complete the current post-release
 public website verification. Phase 3 Authentication & Accounts is the active
-development phase. Phase 3.2 Authentication Database now has locally tested D1
-adapters. Phase 3.3 registration, login/logout and Phase 3.4 email verification are
-implemented locally. Phase 3.6 password recovery and guarded DEV email integration
-are locally complete; hosted activation, live delivery verification and News APIs remain unfinished.
-Phase 3.1 now contains local, tested authentication primitives and contracts;
-public registration/login and real email delivery remain unfinished at that historical checkpoint. Google OAuth is now discontinued. Persistence
-is implemented locally in the Phase 3.2 adapters described below.
+development phase. Hosted DEV email/password registration, verification, login/recovery, optional TOTP MFA
+and account lifecycle are implemented. Phase 3.9 DEV acceptance is recorded in #16,
+with administrator-assisted reactivation deliberately deferred to the end of Phase 4
+using two disposable accounts. Phase 3.10 is the current approved account-polish work.
+Phase 4 Administration precedes Phase 5 Events; actual event registration and replacing
+Jotform remain future milestones. PROD authentication is separately gated.
+Google OAuth is permanently discontinued.
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
@@ -428,7 +428,7 @@ separately approved physical cleanup.
 This is the forward numbering agreed on 2026-10-20. Older milestone headings and
 status statements below are historical checkpoints, not fresh hosted verification.
 Phase 3.7 and Phase 3.8 DEV acceptance are complete; the owner and Q closed
-#9/#10/#13/#14/#15. Phase 3.9 local implementation is verified, with remote migration gates. PROD
+#9/#10/#13/#14/#15. Phase 3.9 DEV implementation is accepted; reactivation testing is deferred until the end of Phase 4. PROD
 authentication and deployment remain separately gated.
 
 | Phase | Current scope and dependency | Status / issue |
@@ -438,8 +438,8 @@ authentication and deployment remain separately gated.
 | 3.8.5.2 | R2 recent MFA assurance before sensitive account changes; independent primary proof | [#14](https://github.com/Awandalo/Lan-Party/issues/14) accepted and closed |
 | 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15) accepted and closed |
 | 3.8.6 | Controlled hosted DEV MFA rollout/acceptance | [#10](https://github.com/Awandalo/Lan-Party/issues/10) closed; DEV migrations 0013–0016, key provisioning, deployment and MFA acceptance recorded; residual Google-resource cleanup is separate |
-| 3.9 | Account Lifecycle Management | [#16](https://github.com/Awandalo/Lan-Party/issues/16): locally implemented and verified; anonymous historical registration totals approved; owner backup-risk decision accepted; final-confirmation deletion is prepared locally |
-| 3.10 | Polish & Fixes after account lifecycle readiness | [#17](https://github.com/Awandalo/Lan-Party/issues/17), deferred |
+| 3.9 | Account Lifecycle Management | [#16](https://github.com/Awandalo/Lan-Party/issues/16): DEV implementation accepted by owner; anonymous totals and backup-risk decision accepted; reactivation hosted acceptance deferred until the end of Phase 4 |
+| 3.10 | Polish & Fixes after account lifecycle readiness | [#17](https://github.com/Awandalo/Lan-Party/issues/17), owner-approved focused implementation in progress |
 
 Historical email/GUI/login-limit milestones also used 3.8–3.8.3; retain their
 original references as history, not new MFA milestones. The former proposal for
@@ -447,6 +447,17 @@ original references as history, not new MFA milestones. The former proposal for
 Migration numbers (including 0013) are independent and unchanged. Labels, issue
 closure and roadmap placement do not authorize implementation or remote operations.
 Detailed pending tasks remain in [TODO.md](TODO.md#phase-38--mfa-security).
+
+### Phase 3.10 — approved polish scope (2026-10-27)
+
+Under #17, reuse existing MFA step-up for expired replacement proof, preserving
+current account/session checks and separate primary proof. Keep the login recovery
+entry point until its specific removal dependency is reconciled; presentation
+changes do not remove a security recovery path. Improve generic signup guidance,
+valid-method dropdowns, inactive-action visibility, clipboard guidance and stable
+per-operation layout. Show the short source Git SHA in the footer, supplied by
+CI or the local checkout at build time; it is identification, not a health guarantee.
+No backend security changes, migrations or credential changes are included.
 
 ### Phase 3.9 — approved lifecycle design and sprint boundary
 
@@ -473,17 +484,17 @@ deletion goes live. Do not promise immediate backup erasure or implement admin s
 
 Owner authorizes scoped local implementation/tests/commits and verified DEV
 publication/automatic deployment, provided all outgoing changes are reviewed and
-unapplied migrations cannot expose unsafe operations. Local migrations 0017
-(lifecycle/reactivation) and 0018 (deletion dependencies/anonymous totals) require
-separate remote approval. Runtime readiness checks reject absent/partial lifecycle
+unapplied migrations cannot expose unsafe operations. Approved DEV migrations 0017
+(lifecycle/reactivation) and 0018 (deletion dependencies/anonymous totals) were
+applied and verified under #16; PROD migrations remain separately gated. Runtime readiness checks reject absent/partial lifecycle
 schema; the Account Security controls remain hidden until 0017 is available.
 Normal password/MFA authentication is unchanged on the existing 0016 database.
 
 Owner decision (2026-10-27): accept that an older backup restore can restore a
 deleted account. Keep no identifying deletion registry or automatic re-deletion
-system. The deletion service is being integrated locally behind existing local/DEV
+system. The deletion service is deployed behind existing local/DEV
 environment and schema gates, with password/optional MFA and a separate final warning.
-Publication and real hosted deletion testing remain separate approvals. Reactivation consumes its invitation and password/optional MFA proof in
+DEV publication and owner lifecycle acceptance are recorded in #16; reactivation acceptance is deferred until the end of Phase 4 using two disposable accounts. Reactivation consumes its invitation and password/optional MFA proof in
 one guarded batch and issues a new fully verified session; it never promotes the
 restricted cookie or requires reusing the final recovery code. New sessions use the
 advanced account generation; old sessions stay revoked. Reuse existing email
@@ -516,7 +527,7 @@ Approved product requirements:
   Registration's initial selection does not start the cooldown; the first change
   is immediately permitted. Every successful participant change, including case-only
   edits, starts/restarts 14 days. Exact no-ops and administrative corrections preserve
-  the existing cooldown. Phase 5 may later add explicit resets/configuration.
+  the existing cooldown. Phase 4 may later add explicit resets/configuration.
 - Passwords require at least 12 characters, support 128 characters and have no
   arbitrary character-class rules. Rate limiting and safe errors are required
   before exposing authentication endpoints.
@@ -664,7 +675,7 @@ Migration 0008 — implemented and validated locally, not remotely approved:
 - Nullable `nickname_changed_at` records the last participant change. NULL means no
   participant change yet, so the first change is immediate. The tested local adapter
   enforces the approved cooldown/no-op/case-only rules atomically. Administrative
-  corrections preserve it. Phase 5 settings, cooldown
+  corrections preserve it. Phase 4 settings, cooldown
   reset and moderation overrides are not implemented.
 - Migration 0008 creates `auth_sessions` referencing `users`, with unique token digests, creation,
   expiry and revocation timestamps and indexes for user-wide revocation/expiry.
@@ -1230,13 +1241,13 @@ owner approval before enabling public registration or replacing Jotform.
 | 2.8 | Initial RBAC reference data | Complete on DEV and PROD (owner-reported); migration 0006 supplies reference data. No accounts or role assignments created. |
 | 2.9 | News database foundation | Complete on DEV and PROD (owner-reported); migration 0007 supplies News storage. Current post-release website verification remains separate; see the environment reference above and RELEASE.md. |
 | 3 | Authentication and account functionality | Implement reviewed authentication, sessions and account tools with secure ownership and permission checks; verify login and recovery behavior. |
-| 4 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
-| 5 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |
+| 4 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |
+| 5 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
 | 6 | News and community features | Implement News after its database foundation, with authorized editing/publication and private drafts; keep additional future features in the backlog until separately approved. |
 
 Security, behavior testing, accessibility, privacy decisions, and backup/recovery
 readiness apply throughout development. Phase 3 authentication and server-side
-authorization must protect registration and Phase 5 administration when introduced.
+authorization must protect registration and Phase 4 administration when introduced.
 Production deployment and custom-domain setup remain separately approved operational
 work, not an automatic consequence of completing a phase. Verify deployed behavior
 and obtain owner approval before replacing Jotform.

@@ -15,3 +15,14 @@
 
 .mfa-enrollment-footer { margin-block-start: auto; padding-block-start: 1rem; }
 .mfa-enrollment-footer .button { margin-block-end: 0; }
+
+/* Reserve each active operation separately; the collapsed settings stay compact. */
+.mfa-disable-stage { min-block-size: 28rem; display: flex; flex-direction: column; }
+.mfa-disable-stage > [role="status"] { margin-top: auto; }
+.mfa-clipboard-guidance { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere; }
+
+@media (max-width: 480px) { .mfa-disable-stage { min-block-size: 36rem; } }
+
+.security-mfa-section { container-type: inline-size; }
+@container (max-width: 26rem) { .mfa-disable-stage { min-block-size: 36rem; } }
+.mfa-action-row > div > div > .button { width: 100%; }
