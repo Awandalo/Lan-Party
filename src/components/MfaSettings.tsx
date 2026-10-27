@@ -3,7 +3,7 @@ import MfaEnrollment from './MfaEnrollment';
 import MfaManagement from './MfaManagement';
 import {readMfaStatus} from '../lib/mfa-status';
 import type {MfaStatus} from '../lib/mfa-status';
-export default function MfaSettings(props:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onBusy:(value:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean}|null}){
+export default function MfaSettings(props:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onToggle?:()=>void;onBusy:(value:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean}|null}){
  const [revision,setRevision]=useState(0);
  const [snapshot,setStatus]=useState<(MfaStatus&{csrf:string})|null>(null),[failed,setFailed]=useState(false),[refreshing,setRefreshing]=useState(false);
  const status=snapshot?.csrf===props.csrf?snapshot:null;

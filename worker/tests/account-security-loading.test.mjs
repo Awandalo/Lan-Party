@@ -4,7 +4,10 @@ import {createRequire,Module} from 'node:module';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
 const output=(await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`
  import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';
- import {AuthProvider} from './src/lib/auth';import AccountSecurity from './src/pages/AccountSecurity';import MfaSettings from './src/components/MfaSettings';import MfaManagement from './src/components/MfaManagement';
+ import {AuthProvider} from './src/lib/auth';import AccountSecurity from './src/pages/AccountSecurity';import MfaSettings from './src/components/MfaSettings';import MfaManagement from './src/components/MfaManagement';import MfaEnrollment from './src/components/MfaEnrollment';import SecurityActionIcon from './src/components/SecurityActionIcon';import {LifecycleProof} from './src/components/AccountLifecycle';
+ export const proof=()=>renderToStaticMarkup(<LifecycleProof csrf={'a'.repeat(64)} onConfirmed={async()=>{}} onCancel={()=>{}}/>);
+ export const enrollment=()=>renderToStaticMarkup(<MfaEnrollment csrf={'a'.repeat(64)} open={false} disabled={false}/>);
+ export const trash=()=>renderToStaticMarkup(<SecurityActionIcon action="trash"/>);
  export const management=()=>renderToStaticMarkup(<MfaManagement csrf={'a'.repeat(64)} methods={{password:true}} open={false} disabled={false} onOpen={()=>{}} onBusy={()=>{}} onActivated={async()=>{}}/>);
  export const page=()=>renderToStaticMarkup(<MemoryRouter initialEntries={['/account/security']}><AuthProvider><AccountSecurity/></AuthProvider></MemoryRouter>);
  export const mfa=()=>renderToStaticMarkup(<MfaSettings csrf={'a'.repeat(64)} methods={null} open={false} disabled={false} onOpen={()=>{}} onBusy={()=>{}} onActivated={async()=>{}}/>);
@@ -19,6 +22,11 @@ try{
  });
  test('independent MFA loading cannot enable actions before methods and server status are available',()=>{
   const html=ui.mfa();assert.match(html,/Checking MFA status/);assert.doesNotMatch(html,/<button|Regenerate recovery codes|Replace authenticator/);
+ });
+ test('lifecycle password confirmation keeps Confirm and Cancel in one action row',()=>{const html=ui.proof();assert.match(html,/class="lifecycle-actions"/);assert.match(html,/Confirm and continue<\/button><button[^>]+>Cancel/);assert.equal((html.match(/>Cancel</g)??[]).length,1);});
+ test('MFA enrollment and enabled management retain accessible shield toggles while closed',()=>{
+  assert.match(ui.enrollment(),/aria-label="Set up MFA"/);assert.match(ui.enrollment(),/aria-expanded="false"/);
+  assert.match(ui.management(),/aria-label="Manage MFA"/);assert.match(ui.trash(),/aria-hidden="true"/);
  });
  test('authenticator management starts collapsed with accessible controls and does not unmount its operation views',()=>{
   const html=ui.management();assert.match(html,/aria-expanded="false"/);assert.match(html,/aria-controls="mfa-options"/);assert.match(html,/<div id="mfa-options" hidden="">/);assert.match(html,/Regenerate recovery codes/);assert.match(html,/Replace authenticator/);

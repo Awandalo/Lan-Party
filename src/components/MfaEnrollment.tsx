@@ -12,7 +12,7 @@ class EnrollmentResponseError extends Error {constructor(readonly status:number,
 type Enrollment={token:string;secret:string;uri:string;expiresAt:number};
 type Codes={codes:string[];acknowledgment:string};
 type Request=(action:string,input:object)=>Promise<unknown>;
-export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=false,onOpen,onBusy,onActivated,methods}:{methods?:{password:boolean};csrf:string;request?:Request;open?:boolean;disabled?:boolean;onOpen?:()=>void;onBusy?:(busy:boolean)=>void;onActivated?:()=>Promise<unknown>}){
+export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=false,onOpen,onBusy,onActivated,methods,onToggle}:{methods?:{password:boolean};csrf:string;request?:Request;open?:boolean;disabled?:boolean;onOpen?:()=>void;onToggle?:()=>void;onBusy?:(busy:boolean)=>void;onActivated?:()=>Promise<unknown>}){
   const [enrollment,setEnrollment]=useState<Enrollment|null>(null),[codes,setCodes]=useState<Codes|null>(null);
   const [busy,setBusy]=useState(false),[feedback,setFeedback]=useState(''),[saved,setSaved]=useState(false);
   const [enabled,setEnabled]=useState(false),[noticeOpen,setNoticeOpen]=useState(false),[reauth,setReauth]=useState(false),[needsLogin,setNeedsLogin]=useState(false),[uncertainStart,setUncertainStart]=useState(false);
@@ -114,7 +114,7 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
   function verify(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();void run('verify',code);}
   return <section className="mfa-enrollment" aria-labelledby="mfa-enrollment-heading"><h2 id="mfa-enrollment-heading">Two-factor authentication</h2>
     <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">{enabled?'Enabled':'Not enabled'}
-      {!enabled&&!(open&&(enrollment||noticeOpen))&&<button type="button" className="security-icon-action" ref={trigger} aria-label="Set up MFA" title="Set up MFA" disabled={busy||disabled} onClick={begin}><SecurityActionIcon action="shield"/></button>}</dd></div></dl>
+      {!enabled&&<button type="button" className="security-icon-action" ref={trigger} aria-label="Set up MFA" title="Set up MFA" aria-expanded={open&&!!(enrollment||noticeOpen)} disabled={busy||disabled} onClick={()=>{if(onToggle&&open&&(enrollment||noticeOpen))onToggle();else begin();}}><SecurityActionIcon action="shield"/></button>}</dd></div></dl>
     {open&&(enrollment||noticeOpen)&&<div ref={panel} className="account-confirmation mfa-enrollment-flow" tabIndex={-1} aria-busy={busy}>
     {!enabled&&<p>An authenticator adds a second sign-in check to protect your LAN Party account.</p>}
     {open&&noticeOpen&&!enrollment&&<div>

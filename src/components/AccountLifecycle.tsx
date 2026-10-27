@@ -14,7 +14,7 @@ export async function lifecycleRequest(action:string,input:object,csrf:string){
  headers:{'Content-Type':'application/json','X-LAN-Request':'1','X-CSRF-Token':csrf},
  body:JSON.stringify(input),signal:AbortSignal.timeout(15000)});
 }
-export function LifecycleProof({csrf,onConfirmed,onBusy}:{csrf:string;onConfirmed:()=>Promise<void>;onBusy?:(busy:boolean)=>void}){
+export function LifecycleProof({csrf,onConfirmed,onBusy,onCancel}:{csrf:string;onConfirmed:()=>Promise<void>;onBusy?:(busy:boolean)=>void;onCancel?:()=>void}){
  const [busy,setBusy]=useState(false),[feedback,setFeedback]=useState(''),[siteKey,setSiteKey]=useState(''),[token,setToken]=useState<string|null>(null);
  const pending=useRef(false);
  async function confirm(event:FormEvent<HTMLFormElement>){
@@ -27,11 +27,12 @@ export function LifecycleProof({csrf,onConfirmed,onBusy}:{csrf:string;onConfirme
  }catch{setFeedback('Result not confirmed. No automatic retry was made.');}
  finally{pending.current=false;setBusy(false);onBusy?.(false);setToken(null);}
  }
- return <form onSubmit={confirm}><fieldset disabled={busy}><label htmlFor="lifecycle-password">Confirm your current password</label><PasswordInput id="lifecycle-password" name="password" autoComplete="current-password" autoFocus required maxLength={128}/>{siteKey&&<LoginChallenge siteKey={siteKey} onToken={setToken}/>}<button className="button">{busy?'Checking…':'Confirm and continue'}</button></fieldset><p role="status">{feedback}</p></form>;
+ return <form onSubmit={confirm}><fieldset disabled={busy}><label htmlFor="lifecycle-password">Confirm your current password</label><PasswordInput id="lifecycle-password" name="password" autoComplete="current-password" autoFocus required maxLength={128}/>{siteKey&&<LoginChallenge siteKey={siteKey} onToken={setToken}/>}<div className="lifecycle-actions"><button className="button">{busy?'Checking…':'Confirm and continue'}</button>{onCancel&&<button type="button" className="button button-secondary" disabled={busy} onClick={onCancel}>Cancel</button>}</div></fieldset><p role="status">{feedback}</p></form>;
 }
-export default function AccountLifecycle(){
+export default function AccountLifecycle({expanded,disabled=false,onToggle,onBusy}:{expanded?:boolean;disabled?:boolean;onToggle?:()=>void;onBusy?:(busy:boolean)=>void}={}){
  const {session,refresh}=useAuth(),csrf=session?.csrfToken;
  const [available,setAvailable]=useState(false),[admin,setAdmin]=useState(false),[open,setOpen]=useState(false),[message,setMessage]=useState(''),[needsMfa,setNeedsMfa]=useState(false),[busy,setBusy]=useState(false);
+ const [localExpanded,setLocalExpanded]=useState(false);const sectionOpen=expanded??localExpanded;
  const pending=useRef(false),continuation=useRef(false),currentCsrf=useRef<string|null>(null);
  useEffect(()=>{currentCsrf.current=null;},[csrf]);
  useEffect(()=>{setOpen(false);setNeedsMfa(false);setMessage('');currentCsrf.current=null;},[session?.account.userId]);
@@ -39,9 +40,11 @@ export default function AccountLifecycle(){
  void fetch('/api/auth/lifecycle/status',{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1'},signal:abort.signal})
  .then(async r=>{if(!r.ok)return;const b=await r.json();if(!abort.signal.aborted){setAvailable(b.available===true);setAdmin(b.administrator===true);}}).catch(()=>{});
  return()=>abort.abort();},[csrf]);
+ function reportBusy(value:boolean){setBusy(value);onBusy?.(value);}
+ useEffect(()=>{if(!sectionOpen&&!pending.current&&!continuation.current){setOpen(false);setNeedsMfa(false);setMessage('');if(currentCsrf.current){currentCsrf.current=null;void refresh();}}},[sectionOpen,refresh]);
  if(!available||!csrf)return null;
  async function deactivate(proof=currentCsrf.current??csrf,allowMfa=true){
- if(pending.current||!proof)return false;pending.current=true;setBusy(true);setMessage('');
+ if(pending.current||!proof)return false;pending.current=true;reportBusy(true);setMessage('');
  try{const r=await lifecycleRequest('deactivate',{confirm:'DEACTIVATE'},proof),b=await r.json();
  if(r.ok){window.location.assign('/login?account=deactivated');return true;}
  if(allowMfa&&r.status===428&&b.code==='mfa_required')setNeedsMfa(true);
@@ -69,15 +72,15 @@ export default function AccountLifecycle(){
  if(currentCsrf.current){currentCsrf.current=null;void refresh();}
  }
  return <section className="account-lifecycle" aria-labelledby="lifecycle-title"><h2 id="lifecycle-title">Account lifecycle</h2>
- <div className="lifecycle-action"><div><h3><SecurityActionIcon action="shield"/>Deactivate account</h3>
+ <dl className="connected-methods"><div><dt>Account access</dt><dd className="security-method-status"><button type="button" className="security-icon-action" aria-label="Account lifecycle options" title="Account lifecycle options" aria-expanded={sectionOpen} aria-controls="lifecycle-options" disabled={busy||disabled} onClick={()=>onToggle?onToggle():setLocalExpanded(v=>!v)}><SecurityActionIcon action="trash"/></button></dd></div></dl>
+ {sectionOpen&&<div id="lifecycle-options"><div className="lifecycle-action"><div><h3>Deactivate account</h3>
  <p>Pause access and hide your name from other participants. Your email, nickname, password, two-factor protection and registrations stay private. Your first and last names are cleared. An administrator must help you reactivate.</p></div>
  {!open&&<button type="button" className="button lifecycle-danger" onClick={()=>{setOpen(true);setMessage('');}}>Deactivate account</button>}</div>
  {open&&<div className="lifecycle-confirmation"><h3>Deactivate your account?</h3><p>This signs out all sessions. It does not delete your account. To return, contact an administrator and use your existing password and two-factor protection if enabled.</p>
- {needsMfa?<MfaStepUp csrf={currentCsrf.current??csrf} onBusy={setBusy} onCancel={cancel} onVerified={finishMfa}
- hideCancel confirmationLabel="Confirm and deactivate" description="Confirm your code to deactivate this account and sign out. You will not need to select the action or enter the code again."/>:<><LifecycleProof csrf={currentCsrf.current??csrf} onBusy={setBusy} onConfirmed={async()=>{await deactivate();}}/></>}
- <button type="button" className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>
+ {needsMfa?<MfaStepUp csrf={currentCsrf.current??csrf} onBusy={reportBusy} onCancel={cancel} onVerified={finishMfa}
+ actionRow confirmationLabel="Confirm and deactivate" description="Confirm your code to deactivate this account and sign out. You will not need to select the action or enter the code again."/>:<><LifecycleProof csrf={currentCsrf.current??csrf} onCancel={cancel} onBusy={reportBusy} onConfirmed={async()=>{await deactivate();}}/></>}
  </div>}
  <p role="status" aria-live="polite">{message}</p>
  <div className="lifecycle-unavailable"><h3>Permanent deletion</h3><p>Permanent account deletion is not available yet.</p></div>
- {admin&&<Link to="/account/users">Users administration — reactivation</Link>}</section>;
+ {admin&&<Link to="/account/users">Users administration — reactivation</Link>}</div>}</section>;
 }

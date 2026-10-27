@@ -10,14 +10,14 @@ import '../CSS/MfaEnrollment_style.css';
 
 type Purpose='disable'|'regenerate';
 type Pending={token:string;expiresAt:number;acknowledgment?:string;codes?:string[]};
-export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActivated,methods}:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean}}){
+export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActivated,methods,onToggle}:{csrf:string;open:boolean;disabled:boolean;onOpen:()=>void;onToggle?:()=>void;onBusy:(busy:boolean)=>void;onActivated:()=>Promise<unknown>;methods:{password:boolean}}){
  const [expanded,setExpanded]=useState(open);
  const [regenerationActive,setRegenerationActive]=useState(false),[replacementActive,setReplacementActive]=useState(false);
  const [purpose,setPurpose]=useState<Purpose|null>(null),[transaction,setTransaction]=useState<Pending|null>(null);
  const [feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false),[method,setMethod]=useState<'totp'|'recovery'>('totp'),[saved,setSaved]=useState(false),[reauth,setReauth]=useState(false);
  const [siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
  const pending=useRef(false),panel=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),trigger=useRef<HTMLButtonElement>(null),mounted=useRef(true);
- useEffect(()=>{if(open)setExpanded(true);},[open]);
+ useEffect(()=>{setExpanded(open);},[open]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  useEffect(()=>{if(open&&!transaction&&!regenerationActive)requestAnimationFrame(()=>trigger.current?.focus());},[open]);
  function clear(){setTransaction(null);setPurpose(null);setSaved(false);setReauth(false);setProof(null);setSiteKey('');if(field.current)field.current.value='';}
@@ -74,7 +74,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
   }catch{setFeedback('Confirmation unavailable. No automatic retry was made.');}finally{pending.current=false;setBusy(false);onBusy(false);setProof(null);setAttempt(n=>n+1);}
  }
  return <section className="mfa-enrollment security-mfa-section" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
-  <button type="button" className="mfa-summary" aria-expanded={expanded} aria-controls="mfa-options" disabled={disabled||busy||regenerationActive||replacementActive||!!transaction||reauth} onClick={()=>setExpanded(value=>!value)}><span>Authenticator app</span><span>Enabled <span aria-hidden="true">{expanded?'▴':'▾'}</span></span></button>
+  <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">Enabled <button type="button" className="security-icon-action" aria-label="Manage MFA" title="Manage MFA" aria-expanded={expanded} aria-controls="mfa-options" disabled={disabled||busy} onClick={()=>onToggle?onToggle():setExpanded(value=>!value)}><SecurityActionIcon action="shield"/></button></dd></div></dl>
   <div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects your sign-in.</p>
    {!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
 </div>

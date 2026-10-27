@@ -11,3 +11,9 @@
 .lifecycle-confirmation > button { margin-top:1rem; }
 .lifecycle-unavailable { border-top:1px solid var(--border); padding-top:1.25rem; margin-top:1.5rem; }
 @media (max-width:30rem) { .lifecycle-confirmation button, .lifecycle-action > button { width:100%; } }
+.lifecycle-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; width:100%; }
+.lifecycle-actions > .button { margin:0; flex:0 1 auto; }
+.lifecycle-actions > .button:last-child:not(:first-child) { margin-left:auto; }
+.account-lifecycle .lifecycle-confirmation > h3 { margin-bottom:.75rem; }
+.account-lifecycle .lifecycle-confirmation .mfa-step-up { margin:0; padding:0; border:0; background:transparent; }
+@media (max-width:30rem) { .lifecycle-actions > .button { width:auto; max-width:100%; } }

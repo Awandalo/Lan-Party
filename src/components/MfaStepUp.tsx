@@ -6,7 +6,7 @@ import {MFA_ENROLLMENT_AVAILABLE} from '../lib/mfa-mode';
 import {readMfaStatus} from '../lib/mfa-status';
 import '../CSS/MfaStepUp_style.css';
 
-export default function MfaStepUp({csrf,onVerified,onCancel,onBusy,confirmationLabel='Confirm code',hideCancel=false,description='Confirm a code before changing your sign-in methods. Afterwards, select your account action again. No account change has been submitted.'}:{csrf:string;onVerified:()=>Promise<unknown>;onCancel:()=>void;onBusy:(busy:boolean)=>void;confirmationLabel?:string;description?:string;hideCancel?:boolean}){
+export default function MfaStepUp({csrf,onVerified,onCancel,onBusy,confirmationLabel='Confirm code',hideCancel=false,actionRow=false,description='Confirm a code before changing your sign-in methods. Afterwards, select your account action again. No account change has been submitted.'}:{csrf:string;onVerified:()=>Promise<unknown>;onCancel:()=>void;onBusy:(busy:boolean)=>void;confirmationLabel?:string;description?:string;hideCancel?:boolean;actionRow?:boolean}){
   const pending=useRef(false),field=useRef<HTMLInputElement>(null),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
   const [method,setMethod]=useState<'totp'|'recovery'>('totp'),[siteKey,setSiteKey]=useState(''),[proof,setProof]=useState<string|null>(null),[attempt,setAttempt]=useState(0);
   const [uncertain,setUncertain]=useState(false);
@@ -33,7 +33,9 @@ export default function MfaStepUp({csrf,onVerified,onCancel,onBusy,confirmationL
   }
   if(available!==true)return <section className="account-confirmation"><h2>Confirm two-factor authentication</h2>
     <p role="status">{available===null?'Checking MFA availability…':'MFA confirmation is unavailable in this environment. Sign in again to continue.'}</p>
-    {available===false&&<Link to="/login">Sign in again</Link>}</section>;
+    {available===false&&<Link to="/login">Sign in again</Link>}{actionRow&&<div className="lifecycle-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button></div>}</section>;
+  const actions=<><button type="submit" className="button" aria-busy={busy}>{busy?'Confirming…':confirmationLabel}</button>
+    {!hideCancel&&<button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button>}</>;
   return <section className="account-confirmation mfa-step-up" aria-labelledby="step-up-heading"><h2 id="step-up-heading">Confirm two-factor authentication</h2>
     <p>{description}</p>
     <form onSubmit={submit}><fieldset disabled={busy||uncertain}><label htmlFor="step-up-method">Confirmation method</label>
@@ -41,7 +43,6 @@ export default function MfaStepUp({csrf,onVerified,onCancel,onBusy,confirmationL
       <label htmlFor="step-up-code">{method==='totp'?'Authenticator code':'Recovery code'}</label>
       <input ref={field} id="step-up-code" name="code" autoComplete="one-time-code" inputMode={method==='totp'?'numeric':'text'} maxLength={40} required autoFocus/>
       {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
-      <button type="submit" className="button" aria-busy={busy}>{busy?'Confirming…':confirmationLabel}</button>
-      {!hideCancel&&<button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button>}
+      {actionRow?<div className="lifecycle-actions">{actions}</div>:actions}
     </fieldset></form><p role="status" aria-live="polite">{feedback}</p>{uncertain&&<Link className="button" to="/login">Sign in again</Link>}</section>;
 }

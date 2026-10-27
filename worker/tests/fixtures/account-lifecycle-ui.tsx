@@ -2,6 +2,7 @@
 import React from 'react';import{createRoot}from'react-dom/client';import{BrowserRouter}from'react-router';
 import {AuthProvider} from '../../../src/lib/auth';
 import AccountLifecycle from '../../../src/components/AccountLifecycle';
+import AccountSecurity from '../../../src/pages/AccountSecurity';
 import UsersAdmin from '../../../src/pages/UsersAdmin';
 import ReactivateAccount from '../../../src/pages/ReactivateAccount';
 import '../../../src/CSS/main.css';
@@ -15,7 +16,9 @@ window.fetch=async(url,init={})=>{
  if(path==='/api/auth/session')return Response.json({account:{userId:rotated&&scenario==='deactivate-identity-change'?'00000000-0000-4000-8000-000000000009':'00000000-0000-4000-8000-000000000001',nickname:'Fictional Member',memberNumber:'11'},csrfToken:(rotated?'e':'c').repeat(64),emailVerified:true});
  if(path==='/api/auth/lifecycle/status')return Response.json({available:scenario!=='unmigrated',administrator:true,deletionAvailable:false});
  if(path==='/api/auth/security/reauth-password'){confirmations++;count();return Response.json({ok:true});}
- if(path==='/api/auth/mfa/status')return Response.json({enabled:true,enrollmentAvailable:true});
+ if(path==='/api/auth/security/methods')return Response.json({password:true});
+ if(path==='/api/auth/mfa/status')return Response.json({enabled:scenario!=='settings-disabled',enrollmentAvailable:true});
+ if(path==='/api/auth/mfa/enroll/start')return Response.json({code:'reauth_required',error:'Fictional recent password confirmation required.'},{status:428});
  if(path==='/api/auth/mfa/step-up'){
  mfaChecks++;count();if(scenario==='deactivate-uncertain')throw Error('Fictional uncertain response');
  if(scenario==='deactivate-invalid')return Response.json({error:'Code not accepted.'},{status:401});
@@ -38,4 +41,4 @@ window.fetch=async(url,init={})=>{
  if(path==='/api/auth/lifecycle/reactivation/complete'){completions++;count();return Response.json({next:'/account/security',message:'Account reactivated. Your password and two-factor protection have been verified.'});}
  throw Error('Unexpected/external request blocked in fictional lifecycle fixture');
 };
-createRoot(document.getElementById('root')!).render(<BrowserRouter><AuthProvider>{scenario==='admin'?<UsersAdmin/>:scenario==='reactivate'||scenario==='expired'?<ReactivateAccount/>:<main className="page-section"><div className="panel" style={{maxWidth:'48rem',padding:'2rem',margin:'auto'}}><h1>Fictional Account Security</h1><AccountLifecycle/></div></main>}</AuthProvider></BrowserRouter>);
+createRoot(document.getElementById('root')!).render(<BrowserRouter><AuthProvider>{scenario.startsWith('settings-')?<AccountSecurity/>:scenario==='admin'?<UsersAdmin/>:scenario==='reactivate'||scenario==='expired'?<ReactivateAccount/>:<main className="page-section"><div className="panel" style={{maxWidth:'48rem',padding:'2rem',margin:'auto'}}><h1>Fictional Account Security</h1><AccountLifecycle/></div></main>}</AuthProvider></BrowserRouter>);
