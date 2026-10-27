@@ -1301,3 +1301,20 @@ These are not immediate requirements and must not be implemented without approva
 `TODO.md` retains the detailed feature requirements and dependencies. These ideas
 do not add numbered phases or authorize premature migrations. The initial Idea Box
 is private; public suggestions, voting, and News integration are later enhancements.
+
+
+### First-owner PROD bootstrap — approved local candidate
+
+The owner approved a one-time #0001 bootstrap on 2026-10-27; this narrowly extends
+the existing administrator-only organization-member provisioning rule for a zero-
+account PROD database. It requires the exact trusted PROD build, explicit bootstrap
+mode, privately configured owner email and a separate private setup capability.
+The existing password and email-verification flow remains authoritative; no role
+is assigned until successful one-time email verification. Concurrent claims are
+serialized and failed account creation rolls back the receipt/ledger claim.
+Migration 0019 adds a permanent consumed receipt, clears email at completion and
+removes its account link on normal approved deletion. Other reserved numbers,
+normal allocation at #0011 and all existing MFA safeguards remain unchanged.
+PROD modes remain disabled. Remote migration, code publication/protected merge and
+activation remain separate execution gates. Details and rollback are in
+[PROD activation](docs/PROD_AUTH_ACTIVATION.md#first-owner-bootstrap--local-candidate-not-activated).

@@ -5,6 +5,7 @@ import PasswordInput from '../components/PasswordInput';
 import '../CSS/Registration_style.css';
 
 export default function Registration() {
+  const ownerSetup = typeof window !== 'undefined' && window.location.hash === '#owner-setup';
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [successful, setSuccessful] = useState(false);
@@ -21,7 +22,8 @@ export default function Registration() {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST', credentials: 'same-origin', redirect: 'error',
-        headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1' },
+        headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1',
+          ...(ownerSetup ? { 'X-LAN-Owner-Bootstrap': String(data.get('ownerSetupCode') ?? '') } : {}) },
         body: JSON.stringify(input), signal: AbortSignal.timeout(15000),
       });
       if (response.status === 202) {
@@ -43,6 +45,9 @@ export default function Registration() {
       input.password = '';
       const passwordInput = form.elements.namedItem('password');
       if (passwordInput instanceof HTMLInputElement) passwordInput.value = '';
+      const setupInput = form.elements.namedItem('ownerSetupCode');
+      if (setupInput instanceof HTMLInputElement) setupInput.value = '';
+      data.delete('ownerSetupCode');
       setBusy(false);
       requestAnimationFrame(() => feedbackRef.current?.focus());
     }
@@ -55,7 +60,7 @@ export default function Registration() {
         <h1>{successful ? "Registration request processed" : 'Create your account'}</h1>
         {!successful && <>
         <p>Choose a public nickname. Your first name, last name and email stay private.</p>
-        <p className="registration-local-notice">{import.meta.env.DEV ? 'Use fictional .test details and a disposable password. ' : 'DEV testing is limited to approved test addresses. '}Verify your email before logging in.</p>
+        <p className="registration-local-notice">{import.meta.env.DEV ? 'Use fictional .test details and a disposable password. ' : import.meta.env.VITE_AUTH_MODE === 'hosted-dev' ? 'DEV testing is limited to approved test addresses. ' : ''}Verify your email before logging in.</p>
         <form onSubmit={submit} aria-busy={busy}>
           <fieldset disabled={busy}>
             <legend className="registration-legend">All five fields are required</legend>
@@ -72,6 +77,9 @@ export default function Registration() {
             <label htmlFor="registration-password">Password</label>
             <PasswordInput id="registration-password" name="password" required autoComplete="new-password" aria-describedby="password-rules" />
             <p id="password-rules" className="registration-hint">12–128 characters. Passphrases and Unicode are supported. Your password is never trimmed.</p>
+            {ownerSetup && <><label htmlFor="owner-setup-code">Private owner setup code</label>
+              <PasswordInput id="owner-setup-code" name="ownerSetupCode" required autoComplete="off" />
+              <p>This one-time setup also requires verification of the configured owner's email.</p></>}
             <button className="button" type="submit">{busy ? 'Creating account…' : 'Create account'}</button>
           </fieldset>
         </form></>}

@@ -575,3 +575,19 @@ never part of automatically applied migrations. The exact 20-table deletion scop
 excludes metadata/history, immutable member ledger/sequence, static RBAC and
 sending/rate budgets. A whole D1-resource rebuild is unnecessary. See
 [the execution proposal](../docs/GOOGLE_REMOVAL.md) for separate gates and commands.
+
+
+## 0019 — one-time first-owner bootstrap (local; remote approval required)
+
+Creates an immutable singleton receipt and a narrowly constrained extension of the
+reserved-number guard for #0001 while there are zero accounts. No account or role
+is seeded. Application PROD identity, explicit setup mode, private email and
+private setup code are additionally mandatory. Verification atomically grants the
+existing seeded admin role and consumes the receipt, using the existing genuine
+email proof; signup itself grants no privileges. Previous migrations are unchanged.
+The receipt cannot reopen; normal permanent deletion removes its email/UUID links
+while retaining only the consumed marker/timestamps. See
+[activation gates and recovery](../docs/PROD_AUTH_ACTIVATION.md#first-owner-bootstrap--local-candidate-not-activated).
+Apply only after separate exact-target/history/integrity/recovery approval. Default
+disabled application routes remain compatible without 0019; setup enabled without
+0019 fails closed. Do not use direct ledger updates or fabricated sessions.
