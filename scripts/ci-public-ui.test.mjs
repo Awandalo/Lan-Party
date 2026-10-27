@@ -16,7 +16,7 @@ const result = await build({
       import Footer from './src/components/Footer';
       export const home = () => renderToStaticMarkup(<MemoryRouter><Home/></MemoryRouter>);
       export const events = () => renderToStaticMarkup(<Events/>);
-      export const footer = () => renderToStaticMarkup(<Footer/>);
+      export const footer = () => renderToStaticMarkup(<MemoryRouter><Footer/></MemoryRouter>);
     `,
   },
   bundle: true, packages: 'external', write: false, platform: 'node',
