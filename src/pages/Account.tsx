@@ -1,0 +1,37 @@
+import RecoveryWarning from '../components/RecoveryWarning';
+import { useState } from 'react';
+import { Navigate } from 'react-router';
+import { useAuth } from '../lib/auth';
+import '../CSS/Account_style.css';
+import { formatMemberNumber } from '../lib/member-number';
+
+export default function Account() {
+  const { session, status } = useAuth();
+  const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
+  if (status === 'loading') return <p role="status">Checking your session…</p>;
+  if (status === 'error') return <section className="page-section"><h1>Account unavailable</h1><p>We could not check your session. Reload after trying again later.</p></section>;
+  if (!session) return <Navigate to="/login" replace />;
+  async function resendVerification() {
+    if (busy || !session) return;
+    setBusy(true); setFeedback('');
+    try {
+      const response = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'same-origin', redirect: 'error',
+        headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1', 'X-CSRF-Token': session.csrfToken },
+        body: '{}', signal: AbortSignal.timeout(15000) });
+      setFeedback(response.status === 202 ? 'If your account is eligible, a verification email was requested. Check your email messages; delivery may be unavailable.'
+        : response.status === 429 ? 'Too many requests. Please wait up to one hour.' : 'Request unavailable. Reload and try again later.');
+    } catch { setFeedback('Delivery could not be confirmed. No automatic retry was made.'); }
+    finally { setBusy(false); }
+  }
+  return <section className="page-section account-page"><div className="panel account-card">
+    <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
+    <RecoveryWarning remaining={session.recoveryCodesRemaining}/>
+    <div className="account-updates">
+      <section aria-labelledby="account-events"><h2 id="account-events">Upcoming events</h2><span className="status-label">Coming soon</span><p>Your next LAN adventures will appear here. Event registration is not available yet.</p></section>
+      <section aria-labelledby="account-polls"><h2 id="account-polls">Upcoming polls</h2><span className="status-label">Coming soon</span><p>Help shape the party when polls become available.</p></section>
+      <section aria-labelledby="account-news"><h2 id="account-news">Page updates</h2><span className="status-label">Coming soon</span><p>Website news and announcements will appear here.</p></section>
+    </div>
+    {!session.emailVerified && <button className="button" onClick={resendVerification} disabled={busy}>Request verification email</button>}
+    <p role="status" aria-live="polite">{feedback}</p>
+  </div></section>;
+}

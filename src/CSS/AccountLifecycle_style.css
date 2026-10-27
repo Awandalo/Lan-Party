@@ -1,0 +1,21 @@
+.account-lifecycle { border-top:1px solid var(--border); margin-top:2rem; padding-top:1.5rem; }
+.lifecycle-action { display:grid; gap:1rem; margin-block:1.5rem; }
+.lifecycle-action h3 { display:flex; align-items:center; gap:.65rem; }
+.lifecycle-action p { max-width:65ch; }
+.account-lifecycle .lifecycle-danger, .lifecycle-confirmation .mfa-step-up button[type="submit"] { background:#4a242a; border-color:#ed9ba4; color:#ffe5e8; }
+.account-lifecycle .lifecycle-danger:hover, .lifecycle-confirmation .mfa-step-up button[type="submit"]:hover { background:#653039; }
+.lifecycle-confirmation { border:1px solid var(--border); border-radius:12px; padding:clamp(1rem,3vw,1.5rem); margin-block:1rem; }
+.lifecycle-confirmation form, .lifecycle-confirmation fieldset { display:grid; gap:1rem; }
+.lifecycle-confirmation fieldset { border:0; padding:0; min-width:0; }
+.lifecycle-confirmation button, .lifecycle-action > button { width:fit-content; max-width:100%; }
+.lifecycle-confirmation > button { margin-top:1rem; }
+.lifecycle-unavailable { border-top:1px solid var(--border); padding-top:1.25rem; margin-top:1.5rem; }
+@media (max-width:30rem) { .lifecycle-confirmation button, .lifecycle-action > button { width:100%; } }
+.lifecycle-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; width:100%; }
+.lifecycle-actions > .button { margin:0; flex:0 1 auto; }
+.lifecycle-actions > .button:last-child:not(:first-child) { margin-left:auto; }
+.account-lifecycle .lifecycle-confirmation > h3 { margin-bottom:.75rem; }
+.account-lifecycle .lifecycle-confirmation .mfa-step-up { margin:0; padding:0; border:0; background:transparent; }
+@media (max-width:30rem) { .lifecycle-actions > .button { width:auto; max-width:100%; } }
+.account-lifecycle .lifecycle-action:has(+ .lifecycle-confirmation) { margin-bottom:.5rem; }
+.account-lifecycle .lifecycle-action + .lifecycle-confirmation { margin-top:.5rem; }

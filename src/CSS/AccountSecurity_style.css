@@ -1,0 +1,44 @@
+.account-security-card { max-width: 48rem; margin-inline: auto; }
+.account-security-card fieldset { display: grid; gap: .7rem; border: 0; padding: 0; margin-block: 1rem; min-width: 0; }
+.account-security-card > .button { margin-block: .5rem; }
+.account-security-card button { font: inherit; cursor: pointer; }
+.account-security-card button:disabled { cursor: wait; opacity: .7; }
+.connected-methods { margin-block: 1rem; }
+.connected-methods > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 1rem; padding-block: .75rem; border-bottom: 1px solid var(--border); }
+.connected-methods dt { font-weight: 600; }
+.connected-methods dd { margin: 0; color: var(--muted); }
+.account-confirmation:focus { outline: 2px solid var(--accent, #8de2bd); outline-offset: .5rem; }
+.account-security-card h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); }
+.account-security-card h2 { font-size: 1.3rem; margin-bottom: 1rem; }
+.account-security-card > section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.account-security-card section p { color: var(--muted); line-height: 1.7; }
+.connected-methods > div { align-items: baseline; padding-block: 1rem; }
+.connected-methods dd { color: var(--accent); }
+.account-confirmation { margin-top: 1.5rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--border); border-radius: .65rem; background: var(--background); }
+.account-security-card fieldset label { font-weight: 600; }
+.account-security-card fieldset input { width: 100%; min-width: 0; min-height: 48px; padding: .8rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); color: var(--text); font: inherit; }
+.account-security-card fieldset .password-input input { padding-right: 3.5rem; }
+.account-security-card fieldset > .button { margin-top: .5rem; }
+.account-security-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.connected-methods .security-method-controls { flex-basis: 100%; min-width: 0; color: var(--text); }
+.connected-methods .security-method-status { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.security-icon-action { display: inline-grid; place-items: center; width: 44px; height: 44px; padding: .5rem; border: 1px solid var(--border); border-radius: .5rem; background: transparent; color: var(--accent); flex-shrink: 0; }
+.security-icon-action:hover:not(:disabled) { background: var(--accent-dim); }
+.security-icon-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.security-method-controls .account-confirmation { margin-top: 1rem; }
+
+/* Keep loading rows and validated display rows geometrically equivalent. */
+.security-action-placeholder { width: 44px; height: 44px; flex-shrink: 0; }
+.connected-methods > div:last-child { border-bottom: 0; }
+.account-security-card p:empty { display: none; }
+.security-mfa-section { min-block-size: 9rem; }
+.account-security-card .mfa-summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; min-height: 3.5rem; margin: 0; padding: .75rem 0; border: 0; border-radius: .35rem; background: transparent; color: var(--text); font: inherit; text-align: left; }
+.mfa-summary > span:last-child { color: var(--accent); text-align: right; }
+button.mfa-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.mfa-enabled-description { display: flex; align-items: center; gap: 1rem; justify-content: space-between; }
+.mfa-enabled-description p { margin: .75rem 0; }
+.mfa-action-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,14rem),1fr)); gap: .75rem; }
+.mfa-action-row > div { min-width: 0; }
+.mfa-action-row > div > .button { width: 100%; margin: 0; }
+.mfa-action-row > div:has(.mfa-regeneration-panel) { grid-column: 1 / -1; }
+@media (max-width: 480px) { .mfa-action-row { grid-template-columns: 1fr; } }

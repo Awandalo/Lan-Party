@@ -1,0 +1,9 @@
+.account-page { display: grid; place-items: center; }
+.account-card { width: min(100%, 64rem); overflow-wrap: anywhere; }
+.account-card h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); }
+.account-card button { font: inherit; cursor: pointer; margin-top: 1rem; }
+.account-card button:disabled { cursor: wait; opacity: .7; }
+.account-updates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 1rem; margin-block: 2rem; }
+.account-updates > section { min-width: 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--background); }
+.account-updates h2 { font-size: 1.2rem; margin-bottom: .75rem; }
+.account-updates p { margin-bottom: 0; color: var(--muted); }

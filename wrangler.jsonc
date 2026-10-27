@@ -21,6 +21,14 @@
   "env": {
     "dev": {
       "name": "lan-party-dev",
+      // Build identity only: never a runtime activation flag. Default PROD has none.
+      "define": {
+        "__LAN_MFA_TARGET__": "\"lan-party-dev:a3c4cea6-ceb7-43b8-b9b7-b374726b35b4\""
+      },
+      // Public DEV configuration is versioned; encrypted secrets stay in Cloudflare.
+      "vars": {
+        "AUTH_TURNSTILE_SITE_KEY": "0x4AAAAAAFaMzRB_kUUn7MuZ"
+      },
       "assets": {
         "directory": "./dist",
         "binding": "ASSETS",

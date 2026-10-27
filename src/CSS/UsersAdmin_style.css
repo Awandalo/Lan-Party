@@ -1,0 +1,5 @@
+.users-admin-page .panel { max-width:52rem; margin-inline:auto; padding:2rem; }
+.users-admin-page form { display:grid; gap:1rem; }
+.users-admin-page input { min-width:0; }
+.users-admin-page li { margin-block:1.25rem; overflow-wrap:anywhere; }
+.users-admin-page li button { display:block; margin-top:.75rem; }

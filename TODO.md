@@ -3,11 +3,26 @@
 These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
-Phase 4 event registration, Phase 5 administration, and Phase 6 News/community.
+Phase 4 administration, Phase 5 events, and Phase 6 News/community.
+Phase 3.9 DEV account lifecycle is owner-accepted; reactivation acceptance remains
+deferred until the end of Phase 4 Administration with two disposable accounts.
+Phase 3.10 DEV polish is owner-accepted at 82f7b34; #19 tracks final housekeeping
+and release preparation. Phase 5 Events follows Administration.
+Hosted DEV password authentication, email verification/recovery and optional MFA
+are available; PROD activation remains separately gated.
+Use the [environment reference in PROJECT.md](PROJECT.md#environment-reference)
+for DEV/PROD mappings and website URLs. Cloudflare Git integration handles PROD
+deployment from `main`; no local GitHub Actions production deployment workflow is
+assumed. Worker deployment and D1 migrations remain separate operations, and
+production migrations still require separate explicit owner approval.
 Keep additional feature ideas in the unnumbered backlog below until separately
 approved. Plan their database needs now; implement migrations with their functionality.
 
-## Phase 2 database progress
+## Phase 2 Database Foundation — complete on DEV and PROD
+
+The owner confirms that migrations `0001` through `0007` have been successfully
+applied and verified in both DEV and PROD. Historical DEV milestones below remain
+recorded; Phase 2 completion does not imply implemented authentication or APIs.
 
 Unchecked functionality follow-ups below belong to Phases 3–5; they do not expand
 Phase 2's database foundation scope.
@@ -43,8 +58,8 @@ Phase 2's database foundation scope.
 - [ ] Approve a controlled first-administrator provisioning process and audit design.
 - [ ] Implement default-deny Worker permission checks, active-role/disabled-user
   rules and protected role assignment only in a separately approved task.
-- [ ] Implement reviewed password hashing, trusted Google issuer/subject validation,
-  explicit login-method linking, and disabled-account enforcement in future Worker logic.
+- [ ] Implement reviewed password hashing and
+  disabled-account enforcement in future Worker logic.
 - [ ] Plan sessions, password reset and credential revocation for Phase 3.
 - [ ] Seed the approved prefix catalogue separately; migration 0002 contains no seeds.
 - [ ] Implement UUID validation, email normalization/validation, and active-prefix
@@ -55,20 +70,24 @@ Phase 2's database foundation scope.
   must not appear in public responses even when the event is public.
 - [ ] Resolve participant registration ownership, privacy, retention, and
   authentication storage before subsequent account/registration implementation.
-- [x] Complete Phase 2 database development and verify all seven migrations on DEV.
-- [ ] Review and promote Phase 2 through the existing DEV-to-MAIN release workflow;
-  production migration state/approval remains separate and unverified by this audit.
+- [x] Complete Phase 2 database development and apply/verify all seven migrations
+  (`0001` through `0007`) on both DEV and PROD, as confirmed by the owner.
+- [x] Review and promote Phase 2 through the existing DEV-to-MAIN release workflow;
+  PROD database foundation completion is confirmed by the owner.
 
-Phase 1 configuration/infrastructure and Phase 2 database foundation are complete.
-Migrations 0001 through 0007 are applied and verified on remote DEV. Production
-promotion is pending; PROD migrations are neither verified nor approved by this
-audit. Phase 3 authentication/accounts is next; later phases and backlog remain
-unchanged. Automatic migration execution remains unauthorized.
+Phase 1 configuration/infrastructure and Phase 2 database foundation are complete
+on DEV and PROD. The owner confirms successful application and verification of
+migrations `0001` through `0007` in both environments. Phase 3 Authentication &
+Accounts is next; later phases and backlog remain unchanged. Public website
+verification remains separate under `RELEASE.md`. Automatic migration execution
+remains unauthorized, and existing release approvals and production protections
+remain unchanged.
 
 ### Phase 2.9 — News Database Foundation
 
-Reviewed, implemented, locally validated and verified on remote DEV. Phase 2.9
-and the Phase 2 database foundation are complete on DEV, not released to PROD.
+Reviewed, implemented and locally validated. The owner confirms migration 0007
+is applied and verified on remote DEV and PROD. Phase 2.9 and the Phase 2 database
+foundation are complete in both environments.
 
 - [x] Implement `0007_create_news_articles.sql` for one STRICT `news_articles`
   table, preserving migrations 0001–0006 and introducing no seed content.
@@ -105,6 +124,348 @@ Implementation requirements:
 - [ ] Keep image files outside D1 and store references only. Evaluate Cloudflare R2
   when implementing image uploads; do not introduce upload infrastructure yet.
 
+## Phase 3 — Authentication & Accounts
+
+### Phase 3.1 — Authentication Foundation
+
+- [x] Review migrations 0001–0007, existing Worker routes and local tests; reuse
+  shared UUID profiles, password/provider credentials and RBAC records.
+- [x] Implement local Web Crypto password hashing/verification, opaque token
+  generation/digests, expiry validation, configuration validation and safe errors.
+- [x] Define shared session/action-token/rate-limiter contracts and pure session
+  and verified-email eligibility checks. Phase 3.2 now implements storage adapters;
+  distributed rate limiting remains a contract/design awaiting implementation.
+- [x] Test foundation primitives in local workerd, including independent crypto
+  vectors, password boundaries, malformed records, token purpose/expiry, session
+  eligibility and unchanged public API boundaries.
+- [x] Complete the existing full migration test suite, TypeScript validation and
+  production build for Phase 3.1 finalization: 150 tests passed, including foundation,
+  account-rule and migration tests; `npm run typecheck` and `npm run build` passed. Workers Free deployed
+  integrated authentication performance and complete auth flows remain unverified;
+  see PROJECT.md for the completed standalone experiment and development decision.
+
+### Phase 3.2 — Authentication Database (implemented locally)
+
+- [x] Prepare and locally validate `0008_create_authentication_state.sql`, preserving
+  migrations 0001–0007 and all prior records. No remote migration is authorized.
+- [x] Confirm required private first/last names and email remain compatible with
+  the existing profile schema. Add registration validation and public nickname/UUID projection.
+- [x] Implement approved 3–24-character ASCII nicknames, deterministic lowercase
+  keys, reserved-name/spacing rules and database-generated uniqueness. Preserve
+  capitalization and separate participant cooldown tracking from admin corrections.
+- [x] Add and locally validate shared session and single-use verification/reset
+  storage, guarded consumption batches, reset/session invalidation, stale-generation
+  fencing, concurrency and rollback on incompatible legacy nicknames.
+- [x] Close the standalone password investigation and remove temporary benchmark
+  infrastructure/artifacts. See PROJECT.md for the single retained final result summary.
+- [x] Implement the owner-selected development-only PBKDF2 20k + HMAC pepper
+  configuration, versioned records, fail-closed secret handling and explicit legacy compatibility.
+- [x] Implement local persistent session and verification/reset services with generation
+  fencing, atomic single-use completion, rollback, logout revocation and credential/provider lookups.
+- [x] Validate the complete local suite (156 tests), strict TypeScript and production
+  build, including fresh databases with migrations 0001–0008 and adapter concurrency/rollback.
+- [ ] Verify full integrated DEV authentication/session CPU overhead before public
+  authentication approval. No more standalone password benchmarks are planned.
+- [x] Reject password credential reassignment in migration 0008 and regression-test
+  unchanged ownership/session generation after rejection and legitimate change revocation.
+- [x] Implement approved seven-day cookie helpers and session-bound CSRF helpers
+  with negative runtime tests. Public-route integration/logout adapters remain unfinished.
+- [x] Implement the participant nickname adapter: immediate first change, then
+  14-day cooldown; capitalization changes count, exact no-ops preserve state,
+  concurrent changes cannot bypass it and administrative corrections preserve state.
+- [x] Implement sanitized legacy nickname preflight reporting and require approved
+  nickname onboarding in the local event-registration account gate.
+- [ ] Obtain owner-approved handling of legacy null/invalid/duplicate nicknames
+  and sanitized preflight evidence before any separately approved remote migration.
+- [x] Record approved seven-day session/cookie, layered CSRF and D1-based persistent
+  rate-limiting designs. Registration, login, verification/resend have local D1
+  limits; recovery limits and remote secret/cleanup configuration remain unfinished.
+- [x] Integrate local cookie/session login/logout and session-bound CSRF protection.
+- [x] Integrate explicit local email-verification confirmation before token consumption.
+- [ ] Integrate explicit reset confirmation before token consumption.
+  Never mutate through GET requests.
+- [ ] Extend distributed rate limiting to recovery when implemented and review hosted delivery quotas.
+  Agree hosted thresholds, idle cleanup and superseded-token/reissue behavior before live endpoints.
+- [ ] Approve privacy notice, real-name purposes/access, retention/deletion,
+  participant requests, backup retention and email-provider processing arrangements.
+
+### Phase 3.3 — Registration (local implementation complete; hosted access disabled)
+
+- [x] Implement the local registration form with required public nickname/private
+  names/email, password guidance, pending state and accessible generic feedback.
+- [x] Add the default-disabled, loopback-only API with strict Origin/custom-header/
+  JSON/body validation and server-side account rules.
+- [x] Atomically insert UUID profile, unique canonical nickname and peppered password;
+  keep email unverified, do not log in automatically or grant client-supplied privileges.
+- [x] Prepare local-only migration 0009 and persistent HMAC-keyed global/IP/email
+  registration limits before hashing, atomic concurrency protection and bounded cleanup.
+- [x] Verify successful/invalid/duplicate/concurrent registration, storage rollback,
+  independent password verification, privacy, configuration gates and limiter behavior.
+- [x] Pass all 171 tests, strict TypeScript, production build and diff checks. Check
+  the local form in-browser, validation feedback/password clearing, desktop/mobile
+  layout and exclusion from production frontend output.
+- [x] Obtain owner approval to finalize and push the locally verified Phase 3.3 implementation.
+- [ ] Approve hosted enablement, remote 0008/0009 preflight, secrets,
+  abuse/idle-cleanup policy and DEV performance separately.
+
+### Login/logout milestone (finalized on dev)
+
+- [x] Add loopback-only/default-disabled email/password login using the existing
+  peppered verifier, credential-generation fencing and seven-day D1 sessions.
+- [x] Add separate HMAC login limits before crypto, generic missing/disabled/wrong
+  credential failures and synthetic verification for missing/disabled accounts.
+- [x] Preserve Secure/HttpOnly/SameSite=Lax/Path=/ host-only cookies and integrate
+  session-bound CSRF logout with D1 revocation before clearing the cookie.
+- [x] Add development-only login/account UI, nickname display, navigation states,
+  unauthenticated redirects and reload persistence without browser token storage.
+- [x] Test the full fictional registration → login → account → logout browser flow,
+  incorrect-password feedback, password clearing and mobile account layout.
+- [x] Pass all 185 automated tests, strict TypeScript, production build and diff
+  checks; verify hosted endpoint rejection and production bundle exclusion of active
+  authentication UI/API calls. Migrations 0001–0009 and deployment configuration are unchanged.
+- [x] Obtain owner approval to finalize and push this locally verified login/logout step.
+- [x] Commit/push `da9e93df838a1ed57cad3973d77821f4bb6f6307`, verify matching remote
+  history, successful GitHub CI and automatic DEV deployment; keep hosted auth disabled.
+- [ ] Obtain separate approval before enabling hosted authentication.
+
+### Phase 3.4 — Email verification (committed locally; hosted activation pending)
+
+- [x] Issue digest-only, purpose/email/generation-bound verification tokens after
+  new registration, with 24-hour expiry and no token in the ordinary API response.
+- [x] Reuse atomic D1 consumption to verify the correct account exactly once;
+  protect against replay, expiry, crossover, concurrent confirmation and storage failures.
+- [x] Add a shared email transport contract, bounded fictional-only local mailbox
+  protected by a third independent secret, and a Resend adapter with fake-HTTP tests.
+- [x] Add generic resend with persistent global/IP/email/account limits, authenticated
+  CSRF protection, transactional supersession and safe explicit recovery after delivery failure.
+- [x] Add development-only verification/secret-protected mailbox pages, immediate
+  URL-fragment removal, explicit confirmation and private account verification status/resend UI.
+- [x] Verify the full fictional browser flow register → local message → verify →
+  login → verified account → reload → logout → unauthenticated redirect, plus mobile layout.
+- [x] Pass all 201 automated tests, strict TypeScript, production build and final
+  diff checks. Verify the resend key allows a 254-character email plus its 6-character
+  prefix, with a registration/resend/verification regression test. Production bundles
+  exclude active authentication/verification/mailbox UI and API calls.
+- [x] Obtain owner approval to finalize and push locally verified Phase 3.4.
+- [ ] Hosted enablement still needs
+  remote 0008–0010 approval/preflight, missing secrets, performance, allowlist, abuse/idle
+  cleanup, token/provider retention, privacy and delivery/reissue reliability decisions.
+
+Later Phase 3 functionality remains unfinished:
+
+Phase 3.6 password recovery and guarded DEV email integration are locally complete.
+Finalization passed all 247 tests (231 application/migration and 16 DNS safety),
+strict TypeScript, default/hosted-DEV builds and diff checks. Hosted activation and
+real email/integrated CPU verification remain separately approved operations.
+
+- [x] Prepare and locally test a persistent shared email budget and guarded DEV
+  transport. Use the single [policy reference](PROJECT.md#hosted-dev-email-policy);
+  recipient configuration and hosted activation remain pending.
+- [x] Integrate the guarded Resend transport locally for registration verification,
+  resends and recovery; deny unapproved registration before writes and enforce the
+  shared atomic allowance. Add exact DEV hostname/mode, HTTPS/CSRF and trusted-IP guards.
+- [x] Require verified email before login and reject legacy unverified sessions;
+  recovery never verifies an address. Add optional DEV-build forms without enabling PROD.
+- [x] Configure the hosted frontend flag only in the DEV deployment build step;
+  preserve hostname guards and default production previews. Backend activation and
+  real email testing remain separate approvals.
+- [x] Implement permanent cosmetic member numbers locally: reserved slots 1–10,
+  regular allocation from 11, atomic 64-bit issuance, immutable deletion tombstones,
+  public nickname display and internal administrator-only new-account provisioning.
+- [x] Apply approved migration 0011 and compatible code to DEV under the #10 rollout.
+- [ ] Actual organization identities/reserved-slot assignments remain separately approved; housekeeping creates no accounts or grants.
+- [x] Verify the uncommitted local password-recovery flow with focused combined
+  regressions, preserving single-use links, generic feedback and session revocation.
+- [x] Complete separately approved [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
+  configuration, migrations, deployment and owner email/password/MFA acceptance under #10. The linked section retains its historical implementation heading.
+- [x] Merge approved Google-removal PR #24 to DEV and verify deployment; Google OAuth is permanently out of scope.
+- [x] Owner confirms all DEV data is disposable; no account transition is required.
+- [x] Apply approved migration 0016 to DEV with recovery/integrity checks under #10.
+- [ ] A disposable DEV reset remains a separate unused proposal; do not run it as housekeeping.
+- [x] Verify #17 DEV source has no Google runtime/vars and DEV secret-name inventory has no Google-named binding.
+- [ ] Independently verify Google Cloud client retirement; any remaining deletion needs separate approval.
+- [x] Complete approved DEV deployment and owner password/optional MFA acceptance under #10/#13.
+- [ ] Decide whether durable security-notification delivery is required; an outbox
+  and any schema changes require separate approval.
+
+### Phase 3.8 — MFA Security
+
+Forward roadmap: [PROJECT.md](PROJECT.md#current-phase-3-sequence-and-status).
+Earlier Phase 3 task/status records are historical checkpoints; keep their open
+decisions without treating them as a fresh remote preflight. MFA DEV implementation
+and owner acceptance are complete at dc36b17; #9/#10/#13/#14/#15 are closed.
+Historical local-only notes below describe their original checkpoints, not current
+DEV availability. No PROD acceptance or new hosted operations are implied.
+
+- [x] Prepare the new Phase 3.8.1 optional-MFA architecture proposal in MFA_DESIGN.md.
+- [x] Owner approve MFA design and local Phase 3.8.2 foundations: one authenticator,
+  shared provider/session gate, staged recovery codes, key management and migration.
+  The new Phase 3.8 MFA name supersedes future Phase 3.9 references; historical
+  Phase 3.8 email/GUI headings below retain their original labels.
+- [x] Local Phase 3.8.2: prepare migration 0013, reviewed pinned TOTP/QR dependencies,
+  AES-GCM/context/key-ring primitives, replay/recovery consumption statements,
+  session-bound enrollment preparation and a hard-disabled UI with no MFA API routes.
+- [x] Owner approve local Phase 3.8.3 shared login MFA integration.
+- [x] Implement local shared password MFA challenges, TOTP/recovery atomic
+  completion, persistent failure limits, local acknowledgment/assured replacement,
+  challenge UI and Account Security action coordination. See MFA_DESIGN.md for
+  verification and the session-replacement policy.
+- [x] Owner approve and implement local Phase 3.8.4 disable/regenerate, purpose-bound
+  recent-primary/MFA checks, account preservation, timestamp-preserving session
+  rotation, security notifications and compact Account Security forms.
+- [x] Owner authorize Phase 3.8.5 local security regression and DEV acceptance
+  preparation in issue #9. Local review covered 278 distinct auth/security tests,
+  strict types, both builds and intercepted browser challenge checks; see
+  `docs/MFA_SECURITY_REVIEW.md` for evidence and limitations.
+- [x] Q/Owner disposition of [3.8.5 regression #9](https://github.com/Awandalo/Lan-Party/issues/9); accepted and closed.
+- [x] **R1 [#13](https://github.com/Awandalo/Lan-Party/issues/13):** owner accepted hosted restricted replacement, single new-TOTP verification and immediate recovery-code display at dc36b17; spent codes remain unusable.
+- [x] **R2 [#14](https://github.com/Awandalo/Lan-Party/issues/14):** reviewed recent MFA assurance and independent primary-proof protections; accepted and closed.
+- [x] **R3 [#15](https://github.com/Awandalo/Lan-Party/issues/15):** reviewed canonical-DEV-only enrollment gate; accepted and closed.
+- [x] **3.8.6 / [#10](https://github.com/Awandalo/Lan-Party/issues/10):** authorized DEV migrations 0013–0016, backed-up keys, CI/deployment and owner hosted MFA acceptance completed; issue closed. Final dc36b17 CI passed 381 tests. Earlier regeneration blockers were corrected.
+- [ ] Track any residual retired Google credentials/provider-console cleanup separately; #10 closure does not establish that every external resource was deleted or authorize deletion.
+- [ ] Approve pepper rotation/key-version and recovery procedures before public use;
+  configure Worker secrets only through a separately approved operation.
+- [ ] Integrate the tested participant nickname adapter into authenticated account
+  tools. Administrator settings/resets/overrides/corrections remain Phase 4 work;
+  ordinary administrative corrections must preserve participant cooldown state.
+
+### Phase 3.9 — Account Lifecycle Management (DEV accepted; reactivation deferred)
+
+- [x] Inspect current account/authentication schema and prepare the state/retention matrix and scoped design in [#16](https://github.com/Awandalo/Lan-Party/issues/16).
+- [x] Owner confirm last-active-administrator protection, administrator-initiated 30-minute single-use invitation, password/optional MFA, restricted completion and minimal authorized Users controls.
+- [x] Owner approve narrowly necessary member-number/News dependency changes in principle.
+- [x] Implement local approved deactivation/reactivation slice: preserve credentials/MFA and private history, erase original private names, mask public identity, revoke sessions/operations, and prevent automatic reactivation.
+- [x] Prepare local 0017 lifecycle metadata/operation schema, scoped service/API/UI files and focused deterministic tests; remote migration remains approval-gated.
+- [x] Owner confirm anonymous registration totals for completed LAN events, both per event and per day, with no identifying participant links; these are not verified attendance.
+- [x] Owner accepts older-backup account resurrection without an identifying deletion registry or automatic deletion replay (2026-10-27); disclose provider-copy and restore limitations accurately.
+- [x] Prepare local 0018 anonymous completed-event/day registration totals, anonymous member-number retirement, nullable News attribution and ordered identity/dependent deletion; preserve unrelated roles/content, registrations and numbering integrity. Integrate the reviewed deletion service locally with current proof checks and a separate final confirmation; DEV publication and owner acceptance are recorded in #16; reactivation testing remains deferred.
+- [x] Verify local deactivation privacy, last-admin races, restricted reactivation/token replay and MFA, atomic rollback, deletion dependencies and event/day counts using 63 distinct changed-area tests, fictional browser fixtures, TypeScript/build and DEV dry-run. Hosted lifecycle acceptance remains separate.
+- [x] Owner authorize scoped local implementation/tests/commits and verified DEV publication with unapplied-migration gates.
+- [x] Apply approved DEV migrations 0017/0018 and verify history, integrity and preservation (see #16 migration report).
+- [x] Publish and owner-accept the password/MFA → final-warning DEV deletion flow; no identifying deletion registry.
+- [ ] At the end of Phase 4, verify administrator-assisted reactivation with two disposable accounts and implemented Users/Roles controls. Do not treat deferred acceptance as tested.
+- Administrator suspension, self-service reactivation, automated refunds and future achievements implementation remain out of scope.
+
+### Phase 3.10 — Polish & Fixes (owner-approved focused implementation)
+
+- [x] [#17](https://github.com/Awandalo/Lan-Party/issues/17): owner accepts scoped DEV polish at 82f7b34 after 3.8/3.9 acceptance;
+  triage reproducible UX, accessibility/mobile, error/notification and functional
+  defects. Do not duplicate security remediations or lifecycle implementation.
+- [x] Owner approve the three scoped #17 implementation batches and DEV publication after affected tests.
+- [x] Owner accept scoped hosted DEV UX; PROD release remains separately gated.
+- [x] Display verified short Git SHA in the served DEV footer; do not invent release numbers.
+- [ ] Retain login replacement fallback until its precise last-code removal dependency is established; no claim of removal.
+
+### Phase 3 closeout — #19
+
+- [x] Inventory current branch/worktree ancestry, existing reconciliation backup, unpublished changes and closed PRs; see [closeout inventory](docs/PHASE3_CLOSEOUT.md).
+- [x] Reconcile historical Google acceptance with permanent retirement; do not reopen obsolete Google-only account work.
+- [ ] Resolve separately scoped unpublished monitor/directive and DNS disposition without discarding work.
+- [ ] Obtain exact branch/worktree cleanup approval after retaining unique/recovery history.
+- [ ] Complete RELEASE.md clean-tree, protection-policy, sensitive-history, mergeability and production-compatibility gates before creating the dev-to-main PR.
+
+### Historical milestone — Authentication email and verification polish (original Phase 3.8)
+
+The following original 3.8–3.8.3 milestone numbers predate MFA numbering. Preserve
+their completed evidence and pending review items as history; they do not assign
+the new MFA stages or the approved 3.10 scope.
+
+- [x] Add shared branded HTML/plain-text verification and recovery templates, with
+  canonical DEV links, escaping, expiry information and no external assets.
+- [x] Keep explicit POST confirmation and add accessible verification success copy
+  with a prominent login action; preserve token, rate-limit and delivery protections.
+- [ ] Confirm Resend click/open tracking is disabled before separately approved
+  real-email/client rendering tests. Local fixtures do not establish inbox rendering.
+- [x] Remove the temporary ignored DEV reset/retirement investigation tools after
+  the owner completed account retirement manually; preserve unrelated recovery data.
+- [x] Remove permanent verification/resend links from login and registration forms.
+- [x] Show verification assistance after valid credentials for an unverified account,
+  preserving authentication, enumeration resistance and abuse controls.
+- [x] Show a friendly verification-pending success screen after registration.
+- [x] Replace the visible long action URL in HTML emails with a descriptive hyperlink;
+  retain the complete fallback URL in plain text.
+- [x] Add friendly organizer support copy without inventing contact links; actual
+  contact destinations remain an owner decision.
+- [x] Owner confirms Gmail and Microsoft 365/Mimecast registration, verification
+  and login passed; no additional live email test was performed for this polish.
+- [x] Locally polish verification pending/error/success states, remove the main route
+  focus outline while retaining control focus indicators, and add a reset-success login action.
+- [ ] Owner review the updated hosted DEV screens after separately approved deployment;
+  perform the real password-recovery test separately.
+
+### Historical milestone — Final authentication GUI polish (original Phase 3.8.1)
+
+- [x] Add friendly registration-pending and verification-confirmation copy while
+  preserving generic responses and explicit token confirmation; keep verified success unchanged.
+- [x] Add an accessible account navigation disclosure with nickname/account access,
+  clearly disabled future options and the existing secure logout flow.
+- [x] Share hidden-by-default Show/Hide password controls across login, registration
+  and reset, retaining autofill and exact password input, including Unicode and spaces.
+- [x] Simplify recovery to a generic request-confirmation screen, one reset-password
+  field using the unchanged API, contextual fresh-link assistance and dedicated success copy.
+- [x] Polish login errors, spacing and responsive layouts; locally check keyboard
+  navigation, Escape/focus handling, logout failure, visibility and fictional form states.
+- [ ] Owner perform the final hosted DEV authentication walkthrough after deployment.
+  No live email, account or database operation is part of the local GUI checks.
+
+### Historical milestone — Final GUI cleanup and login-limit investigation (original Phase 3.8.2)
+
+- [x] Put accessible eye/eye-off visibility controls inside the existing password
+  fields; preserve names, autofill attributes and password handling.
+- [x] Remove account-page logout duplication; retain the secure account dropdown flow.
+- [x] Narrow and round the dropdown, adding a 170 ms opening animation with a
+  reduced-motion override; retain viewport fit, keyboard focus and disabled placeholders.
+- [x] Reproduce cumulative successful-login limits, shared-IP limits and same-password
+  reset behavior using three fictional local tests. See PROJECT.md for the existing
+  policy and cooldown-reporting limitation; no remote accounts/counters were changed.
+- [x] Owner approve precise remaining-cooldown reporting and the revised Phase 3.8.3 policy.
+  Do not change login thresholds or clear counters as a testing workaround.
+- [ ] Owner review the deployed GUI and Keeper integration in the normal browser;
+  no live login/email test is part of this assignment.
+
+### Historical milestone — Login rate-limit improvements (original Phase 3.8.3)
+
+- [x] Implement rolling email+IP confirmed-failure protection and fenced atomic
+  pending leases using existing D1 storage; keep success separate from failures.
+- [x] Replace shared login hard lockouts with conditional server-validated Turnstile
+  challenges and actual retry durations. See PROJECT.md for thresholds and contracts.
+- [x] Validate 100 users sharing one IP plus mistakes, unknown accounts, concurrency,
+  lease expiry, rollback, replay, provider failures, reset/session compatibility and
+  same-password reset using fictional local fixtures; run strict TypeScript/builds.
+- [x] Locally check lazy script loading, blocked-script/expiry feedback, explicit
+  challenge submission and accurate cooldown presentation with intercepted assets.
+- [x] Owner create the DEV widget and configure both Turnstile bindings; read-only
+  metadata verified and public sitekey declared in DEV Wrangler configuration.
+  See PROJECT.md for required widget settings and pending live validation.
+- [x] Owner approve commit/push and automatic DEV deployment after configuration preflight.
+- [ ] Verify automatic DEV deployment and live challenge integration without forcing
+  shared thresholds or writing remote D1 data; report any test limitation explicitly.
+
+Final Phase 3 milestone — before enabling public registration:
+
+- [ ] Publish participant privacy information: public nickname/attendance, private
+  first/last names for administration and addressing attendees, private email for
+  account security and essential event communication, authorized access, retention,
+  deletion and participant rights/request handling. Obtain outstanding owner policy approval.
+- [ ] Include AI-assisted development disclosure and the public
+  [GitHub repository link](https://github.com/Awandalo/Lan-Party), reusing the existing
+  About/footer backlog. About and Privacy pages are not implemented in this task.
+- [ ] Complete final security/privacy review and obtain owner approval before
+  enabling public registration or replacing the operational Jotform workflow.
+
+See `PROJECT.md` for approved requirements, implementation boundaries and the
+locally prepared migration. Live auth endpoints, email delivery and
+remote database changes are not implemented or authorized by Phase 3.1.
+
+## Phase 4 — Administration
+
+- [ ] Implement separately approved Users/Roles administration with backend permission checks.
+- [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.
+
+## Phase 5 — Events
+
+- [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.
+
 ## Phase 6 — News & Community
 
 - [ ] Add a public news listing and individual article pages after the Phase 2.9
@@ -134,7 +495,7 @@ separately approved functionality, checking existing numbers and never reusing t
 
 ### Event Pricing, Cost Sharing & Optional Extras
 
-Future feature dependent on Phase 4 registration/attendance durations and Phase 5
+Future feature dependent on Phase 5 registration/attendance durations and Phase 5
 event creation and participant management being implemented and tested. Plan it
 before participant payments or payment collection. These work packages are backlog
 only, not implementation authorization.
@@ -425,7 +786,8 @@ Technical and verification planning:
 
 ## Current UI decisions
 
-- Login replaces Admin in navigation and has a disabled login preview.
+- Login replaces Admin in navigation. Hosted builds retain the disabled preview;
+  development builds have working Login/Account navigation and local logout.
 - The temporary /admin redirect has been removed; /login is the shared sign-in entry.
 - The obsolete standalone Registration page and /registration route have been removed.
 - Registration should eventually start from the selected event page, including day selection.
@@ -435,6 +797,10 @@ Technical and verification planning:
 - The homepage has a news section between Up next and the three feature cards.
 
 ## Future administration work
+
+- [ ] Phase 4 idea: manually assisted account verification with appropriate identity
+  checks, backend authorization and audit logging. No bootstrap or verification bypass
+  is authorized by this backlog item.
 
 - [ ] Let authorized organizers upload and replace the left/right LAN background photos.
   Support image selection, preview, cropping/position, and removal.
@@ -469,4 +835,3 @@ Saved to `public/lan-hall.png` using the built-in image generator. Final prompt:
 ```text
 Use case: photorealistic-natural. Asset type: decorative side background for a personal LAN party website. Wide overhead overview of a large LAN gaming hall reminiscent of a DreamHack LAN gathering, dense rows of desktop gaming monitors, keyboards, computer towers and seated player silhouettes. Almost pitch-black room with only monitors casting cool cyan, blue and occasional muted green light, no overhead lights, realistic candid photographic atmosphere. Rows recede into darkness, foreground computers clear. Wide landscape composition with interesting monitor detail on both outer sides. No text, branding, watermark, readable screen content or recognizable faces. Generate only the photograph, not a webpage.
 ```
-

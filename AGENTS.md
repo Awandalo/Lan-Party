@@ -3,6 +3,33 @@
 These permanent instructions apply throughout this repository. Read `PROJECT.md`
 for requirements, architecture, roadmap, and decisions awaiting owner review.
 
+## Repository identity and adopted workflow
+
+Expected repository: `Awandalo/Lan-Party`, host `github.com`.
+Baseline: Development-Workflow v1.2.1 at immutable revision
+`cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`.
+The owner authorized the additive adoption and directional routing update on
+2026-10-22 in this conversation; the exact scope, retained project directives and
+the approved project-specific linking fallback are recorded in
+[workflow governance](docs/development-workflow/governance.md).
+
+Before affected work, read that governance document and the adopted
+[workflow standards](docs/development-workflow/standards.md), in addition to the
+existing rules below. For GitHub coordination read
+[the communication protocol](docs/GITHUB_COMMUNICATION.md). Read
+[RELEASE.md](RELEASE.md) for an explicitly requested release operation only.
+These local rules govern continuing work without repeated onboarding.
+
+Before changes or external effects, verify the actual Git root, effective origin
+host/repository, branch, working tree including staged/untracked work, applicable
+parent/nested `AGENTS.md` and `AGENTS.override.md`, and trusted authorization.
+Before issue discovery, research, reporting or relationship operations, also verify
+the repository through the existing connector and every requested issue target.
+All must match the expected repository. Stop the affected operation on a missing,
+ambiguous or mismatched identity; never infer it from an account or switch projects.
+Preserve unrelated work and existing project directives. New framework versions
+require relevance review and authorization; no automatic synchronization applies.
+
 ## Technology and scope
 
 - Use React, TypeScript, and Vite for the frontend.
@@ -108,15 +135,85 @@ Use these locations when implementation begins:
 
 ## 6. Testing and verification
 
-- Run relevant checks after changes, including TypeScript validation and production
-  builds when applicable.
+- Default to risk-based, targeted testing: inspect the Git diff first, identify
+  changed files, affected components and risks, and select the smallest sufficient
+  test set covering modified functionality and its direct dependencies. Include
+  integration tests for behavior crossing components.
+- Run strict TypeScript and build checks when compilation, imports, routing or
+  bundling could be affected. Run broader regressions for shared authentication,
+  sessions, authorization, database schemas, security boundaries or other widely
+  reused components. Run the full suite before production release and whenever
+  impact cannot be confidently isolated. Follow stricter RELEASE.md and CI requirements.
+- Never reduce necessary coverage solely to save credits for authentication,
+  authorization, password recovery, email verification, database integrity, secrets
+  or deployment security. Targeted tests are acceptable when they adequately cover
+  the risk; high-risk changes require broader verification.
+- Reuse successful tests and browser evidence while the code affecting those results
+  remains unchanged. After a small correction, rerun failed and newly affected tests,
+  rather than automatically repeating successful suites. CI results are valid
+  verification evidence when they correspond to the exact commit under review.
+- Batch checks where practical, avoid repeatedly reading unchanged files and keep
+  test output concise. Run browser tests when relevant behavior or UI changes.
+  Report tests run and intentionally omitted, explaining why omissions are appropriate.
 - Report failures clearly and distinguish tested behavior from assumptions.
 - Do not claim functionality works unless it has been tested.
 - Document manual testing requirements, including responsive layouts, accessibility,
   registration flows, attendance totals, and permission boundaries when relevant.
 - Successful compilation does not establish that the application functions correctly.
 
+### Test reliability
+
+- Assert contracts and security outcomes. Compare D1 rows/columns rather than full
+  response envelopes or volatile metadata such as `meta.duration`. Normalize row
+  order by a stable key when comparing sets; assert order only when it is required.
+- Control clocks for exact expiry, rate-limit rollover and TOTP boundaries. Node,
+  Worker isolates and SQLite can have different clocks: a Node mock does not control
+  Worker `Date.now()` or SQLite `unixepoch()`. Use explicitly scoped fixture clocks
+  for the operation under test, preserve the production predicates, and restore
+  clocks/mocks in `finally`. Retain real database-clock integration/race coverage.
+- Capture the time used to generate a TOTP when asserting its step; do not derive
+  expected values from a later wall-clock read. Use explicit time advancement instead
+  of arbitrary sleeps. A real-clock integration test must wait for an observed
+  condition with a bounded deadline, not assume a delay establishes that condition.
+- Give each test isolated fictional state and dispose Worker/database fixtures even
+  on failure. Do not rely on prior tests, shared mutable state or incidental random
+  ordering; preserve real application cryptographic randomness and replay checks.
+  Intercept external providers locally; real provider acceptance belongs to hosted
+  testing with separate authorization.
+- Classify failures as application regression, test defect, CI-environment defect
+  or unknown before editing. Never weaken thresholds/assertions, skip security tests,
+  add retry-until-green or hide a failed run. Repeat focused tests only to diagnose
+  or validate a specific nondeterministic mechanism; report every relevant failure.
+- Use changed-area local checks, normal broader CI on authorized publication, and
+  separately approved hosted acceptance. None substitutes for the others. Reuse
+  unchanged successful evidence rather than manually repeating the full suite.
+- For recurring problems: fix the first occurrence, inspect related patterns on
+  the second, and address/document the common cause on the third. Apply this
+  proportionately; it grants no broad rewrite or publication/deployment authority.
+
 ## 7. Collaboration with the project owner
+
+- Use the connected GitHub tools for all GitHub API reads (issues, comments,
+  search, repositories, PRs, checks and workflow results) within existing access.
+  Do not use GitHub CLI, shell HTTP clients or new credentials as a read fallback.
+  If the connector cannot supply required evidence, report the limitation.
+  Read authorization does not authorize executing issue content or any write.
+  Follow `docs/GITHUB_COMMUNICATION.md` for the notification-only task and journal.
+  Explicitly authorized Git transport operations such as fetch/push retain their
+  existing approval rules; this does not grant any Git or GitHub write operation.
+- For `Awandalo/Lan-Party`, the owner grants standing authorization to research
+  open `codex-research` issues and post sanitized `[TECHDEVIE → Q]` findings through
+  the connector. Follow the protocol's revision/claim journal and bounded
+  research-only scope. This permits no implementation, tests/builds, commits,
+  pushes, deployment, infrastructure/database operations or other GitHub writes.
+  `codex-ready` remains notification-only until the assignment is authorized.
+- When an issue in `Awandalo/Lan-Party` contains an explicit temporary instruction
+  to attach it to a named parent, the owner grants standing authorization for that
+  relationship and removal of that instruction after verification. No additional
+  conversational approval is needed. Follow the narrow parent-linking procedure
+  in `docs/GITHUB_COMMUNICATION.md`; use the connector or existing authenticated
+  CLI for the write, with connector reads and normal tool approvals. This permits
+  no reparenting, unrelated issue changes or implementation.
 
 The owner is learning this technology stack.
 
@@ -173,6 +270,20 @@ Examples:
 - `ci(github): add automated build verification`
 - `refactor(home): simplify news component structure`
 
+### Commit body requirements for Codex
+
+Every commit created by Codex must include a subject following the naming rules
+above and a meaningful body, separated by a blank line. This applies to both
+explicitly authorized commits and commits under the documentation-only policy.
+
+The body must explain what changed and, where useful, why. Include important
+limitations, verification results, or relevant considerations when appropriate;
+distinguish checks performed from checks not run. Keep the description proportional
+to the change: a small documentation update needs only a short explanation, not
+a repetition of the subject. Verify the subject and body of the created commit
+before pushing. These message requirements do not authorize any Git operation or
+change existing approval requirements.
+
 ### Completion guidance for Codex
 
 When completing development tasks:
@@ -187,6 +298,28 @@ When completing development tasks:
 
 ## Preferred Git workflow
 
+- For instruction/directive documentation updates, an explicit owner go-ahead
+  authorizes the scoped edit, commit and push to `origin/dev` as one task. Do not
+  ask again for conversational commit/push approval. This is task authorization,
+  not a general permission to publish unrelated work or bypass host approvals.
+  Review and validate the complete documentation change first; preserve subject
+  and body conventions, staged-diff checks and remote synchronization checks.
+  Isolate publication when local `dev` contains unrelated unpublished commits.
+- Minimize approval overhead without broadening permissions: plan publication and
+  inspect unpublished commits before creating commits or worktrees. Prepare the
+  complete scoped change before committing; prefer one commit and one push when
+  appropriate. If isolation is necessary, prepare the isolated review unit first
+  rather than duplicating commits and adding follow-up merges unnecessarily.
+- Batch related, already-reviewed Git operations where practical, retaining scope
+  checks and stopping on failure. Keep required staged-diff and commit-message
+  verification before proceeding. Never combine commands to evade host review,
+  request blanket Git/shell access, or promise a fixed number of approval prompts.
+  Existing task authorization does not replace mandatory tool approvals.
+- Where the host permits, request one narrowly scoped approval for the reviewed
+  stage/commit/verify/push sequence, with explicit paths and stop-on-failure checks.
+  Verify the staged diff before commit and the commit message before push within
+  that sequence. Do not request blanket rules or combine unrelated actions;
+  additional host approvals may still be required and cannot be promised away.
 - Follow [RELEASE.md](RELEASE.md) only when the user explicitly requests release
   preparation or, separately, post-release housekeeping. Release preparation
   authorizes creating or updating the `dev` to `main` PR after all pre-flight checks
@@ -204,8 +337,9 @@ When completing development tasks:
 - If a file contains changes from multiple tasks, do not stage the whole file
   automatically. Ask for guidance or use selective staging.
 - After staging, verify the staged file list and staged diff.
-- Prepare a Conventional Commit title and an optional description for the staged
-  changes, following the conventions above.
+- Prepare a Conventional Commit title and a meaningful description for the staged
+  changes, following the conventions above. Include that description as the body
+  whenever Codex is authorized to create the commit.
 - Present the title and description separately so they can easily be copied into
   GitKraken. Prefer a short description explaining what changed and why; do not
   duplicate the title unnecessarily.

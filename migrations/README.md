@@ -1,5 +1,78 @@
 # D1 migrations
 
+## Current release boundary — Phase 3 closeout (2026-10-27)
+
+DEV migration history 0001–0018 was verified during the separately approved #10/#16
+operations. This housekeeping pass reuses that evidence and does not query D1.
+PROD has only owner-confirmed foundation migrations 0001–0007; do not assume
+DEV history or test data exists there. Historical local-only/pending descriptions
+below describe their original implementation checkpoints, not current DEV state.
+Migration 0016 retired Google schema on DEV; never skip, edit or reapply an
+applied migration merely because its provider was later removed.
+
+A future production launch needs separately approved exact-target preparation,
+recovery and migration/reset execution. The owner wants a fresh production
+database at initial launch; that is intent, not authorization to erase any data
+now. Later releases must preserve live data through versioned migrations.
+The DEV-to-main source PR does not activate PROD authentication or authorize
+keys, account operations, a database reset or migrations. No SQL files changed.
+
+
+Phase 3.8.6 local integration addendum: 0013/0014 are unchanged from the reviewed
+R1–R3 tree. The local candidate now permits canonical DEV management and restricted
+recovery under the shared eligibility gate. Historical local-only descriptions below
+do not establish current remote migration state or authorize application/activation.
+Remote history, compatibility, a fresh private checkpoint and separate approval for
+each remote change remain mandatory. Only disposable test databases are used locally.
+
+## Restricted MFA replacement (0014) — local only
+
+`0014_create_mfa_recovery_operations.sql` follows 0013 without modifying earlier
+migrations. It adds one STRICT operation table, unique active-operation/identity
+indexes and phase/identity/generation constraints for issue #13's restricted
+authenticator replacement. It changes no existing accounts or factors on application.
+Local populated-0013 compatibility, rollback and foreign-key checks are covered by
+`worker/tests/mfa-recovery.test.mjs`. No remote migration was applied by this task.
+
+Recovery and encrypted display each have separate fixed 300-second windows. Ordinary
+session issuance is never authorized by an operation. Generation changes invalidate
+operations except their own atomically guarded switch; only the new factor/set may
+survive that switch. ACK clears display ciphertext; expiry denies access immediately,
+and request-driven cleanup clears at most 25 expired operations per call. Cleanup is
+not a scheduled erasure guarantee; backups can retain encrypted historical payloads.
+See `MFA_DESIGN.md` for key, replay and interrupted-response behavior. A later DEV
+rollout needs fresh identity/history/recovery checks and explicit approval for both
+pending MFA migrations in order; no automatic restore or pre-MFA rollback.
+
+## Optional account MFA (0013) — local only
+
+`0013_create_account_mfa.sql` is prepared and validated only in disposable local D1.
+It depends on 0001–0012 and creates encrypted TOTP factors, pending MFA transactions,
+hashed recovery-code sets and session MFA assurance. It enrolls no accounts and
+preserves existing data, UUID/member numbers, RBAC and applied migrations.
+Phase 3.8.3–4 integrates shared password/Google MFA enforcement, local enrollment
+and management. The unapplied 0013 now also permits original assurance timestamps
+on rotated sessions (never future proof), and adds a constrained OIDC return choice
+for MFA reauthentication. Applied migrations 0001–0012 are unchanged.
+Hosted enrollment/management remain unavailable. See MFA_DESIGN.md
+for state, recovery, key-management and separate rollout requirements.
+Remote application requires separate approval, a fresh recovery checkpoint and
+compatibility checks. Once an account enrolls, pre-MFA code is not a safe rollback.
+
+## Google OIDC state (0012) — local only
+
+`0012_create_oidc_transactions.sql` is locally prepared, not remotely applied.
+It depends on 0001–0011 and preserves all UUIDs, credentials and member numbers.
+It adds short-lived OIDC transactions, recent-authentication assurance and
+digest-only first-password confirmations, plus Google account/subject uniqueness.
+Existing duplicate Google subjects or multiple Google links on one account are a
+preflight blocker; do not automatically merge or discard them. Generation changes
+invalidate recent proofs and outstanding password-setup confirmations.
+See PROJECT.md Phase 3.7 for flow, retention and deployment boundaries. Fresh DEV
+recovery and explicit migration approval are required before remote application;
+disable Google mode as application rollback, preserve schema/data and never restore
+or drop tables automatically. No prior migration is changed.
+
 This directory is configured as migrations_dir for both Wrangler environments.
 `0001_create_event_structure.sql` creates locations, events, and event days and was
 applied and verified on Cloudflare DEV in Phase 2.3. It must not be edited.
@@ -15,9 +88,10 @@ it is applied and verified on Cloudflare DEV and must not be edited.
 it is applied and verified on Cloudflare DEV (Phase 2.8 complete) and must not be edited.
 `0007_create_news_articles.sql` creates the News article table; it is reviewed,
 applied and verified on remote DEV and must not be edited. Phase 2.9 and the
-Phase 2 database foundation are complete on DEV. No articles are seeded.
-Production promotion remains pending; PROD schema/history have not been inspected
-or migration application approved by this release audit. A MAIN merge/Worker
+Phase 2 database foundation are complete on DEV and PROD, as confirmed by the owner.
+The owner confirms migrations 0001–0007 are applied and verified in both environments;
+the DEV milestones below are retained as historical records. No articles are seeded.
+A MAIN merge/Worker
 deployment does not apply D1 migrations; follow `RELEASE.md` and obtain separate
 production preflight, recovery and migration approval.
 
@@ -34,6 +108,156 @@ The default Wrangler environment targets production. Never execute remote SQL or
 apply remote migrations without explicit approval. Confirm the environment,
 database name, and UUID before any approved remote operation. Do not apply
 migrations automatically during builds, deployments, or CI.
+
+## Authentication state (0008) — local review only
+
+`0008_create_authentication_state.sql` is prepared and tested locally. It has not
+been applied to remote DEV or PROD. Existing migrations 0001–0007 remain immutable.
+Use `PROJECT.md` for current account requirements and environment mappings.
+
+- `users` retains required private first/last names and email, existing UUIDs and
+  references. Only `auth_version` is added, defaulting to zero; no table rebuild.
+- `user_nicknames` has one row per user, preserved display capitalization and a
+  generated lowercase ASCII key with database uniqueness. Length is 3–24; allowed
+  characters are ASCII letters, digits, spaces, underscores and hyphens. Leading,
+  trailing, doubled and separator-adjacent spaces are rejected, as are reserved
+  Admin/Moderator/System variants with separator differences.
+- Existing non-null display names are copied unchanged. Null names remain
+  unclaimed. Invalid/reserved/duplicate names abort the entire migration and
+  preserve previous records; never invent or overwrite names to make it pass.
+  New signup must atomically create the profile, nickname and password credential.
+  `user_nicknames` is the canonical nickname source, not legacy `users.display_name`.
+- `nickname_changed_at` tracks participant changes; corrections can preserve it.
+  NULL allows the first change immediately. The tested participant adapter enforces
+  14 days after each change, counts case-only edits and preserves exact no-ops.
+  Public account routes and Phase 5 settings/admin storage remain unfinished.
+- `auth_sessions` and `auth_action_tokens` use application UUIDs, unique hex token
+  digests, current-account auth generations, constrained timestamps, restrictive
+  user FKs and user/expiry indexes. Tokens also have verification/reset purpose,
+  consumption and the verification email binding. No raw token is stored.
+- Verification tokens expire after 24 hours and reset tokens after 30 minutes.
+  Identity fields cannot be changed; consumption is single-use and revocation final.
+  Password changes/deletion, normalized-email changes and status changes advance
+  the account generation and revoke state. Email changes also clear verification.
+  New sessions cannot use an old generation after reset. Trusted adapters must
+  capture the generation alongside credential verification and preserve that
+  generation when issuing sessions; re-reading the new version after verifying
+  an old password would defeat the concurrency fence.
+- Password credential ownership is immutable: migration 0008 rejects a `user_id`
+  reassignment before any accompanying credential change can advance generations.
+  Regression tests cover moves with and without hash updates, preservation on
+  rejection and continued revocation on legitimate credential changes.
+- Local tests demonstrate guarded `D1Database.batch()` recipes: conditional token
+  consumption followed immediately by an account/credential mutation gated with
+  `changes()=1`. Failed mutations roll back consumption and concurrent attempts
+  have one winner. `worker/auth/action-state.ts` now implements these batches;
+  `worker/auth/sessions.ts` implements generation-fenced session storage and
+  `worker/auth/database.ts` provides private credential/provider lookups. Their local
+  workerd/D1 tests cover real adapter behavior, concurrency and mutation rollback.
+  Completion uses RETURNING rows, because D1 change metadata includes trigger writes.
+  Public flows, delivery, abuse prevention and remote application remain separate gates.
+- The selected development password record `lp-pbkdf2-hmac-sha256-v2` fits existing
+  `user_password_credentials.password_hash` TEXT storage without schema changes.
+  Its pepper is a Worker secret, never a column or migration value. Legacy v1
+  records are neither deleted nor rewritten; see PROJECT.md for compatibility,
+  the approved development trade-off and the integrated DEV performance gate.
+  All SQL migrations 0001–0008 remain unchanged; no 0009 is necessary for these adapters.
+- Credential deletion advances generation using the profile's current timestamp;
+  any future deletion adapter must first maintain `users.updated_at` in the same
+  transaction so revocation audit timestamps describe the actual operation.
+
+Verification commands:
+
+```powershell
+node --test worker/tests/authentication-state.test.mjs worker/tests/account-rules.test.mjs
+node --test worker/tests/*.test.mjs
+```
+
+Tests start disposable local D1 databases, apply 0001–0007, preserve fictional
+profiles/credentials/identities/registrations/News/RBAC records, then apply 0008.
+They cover generated nickname keys, case collisions, invalid fields, STRICT/FKs,
+timestamps, TTL, reset and verification races, rollback and state invalidation.
+Wrangler's migration runner also successfully applied all eight migrations in
+fresh isolated local storage. No remote schema or data was accessed.
+
+Before remote consideration, obtain separate approval plus sanitized existing-name
+preflight/remediation and backup/recovery evidence. Unclaimed profiles need an
+approved onboarding rule; privacy, retention and deletion decisions remain open.
+
+## Registration rate limits (0009) — local only
+
+`0009_create_registration_rate_limits.sql` adds one STRICT counter table with a
+64-character HMAC digest primary key, bounded integer hits (1–30), nonnegative UTC
+expiry and an expiry index. It contains no participant identifiers, secrets or seeds.
+The application caps global admission before allocating per-IP/email keys, uses
+atomic conditional upserts and deletes up to 100 expired rows per eligible request.
+Local login now reuses this table with distinct domain-separated HMAC keys and its
+own limits. Registration and login budgets do not share buckets. No migration 0010
+is needed for login/logout; no existing migration, including 0009, is edited.
+See PROJECT.md for local thresholds and the required hosted retention/idle-cleanup
+review. No remote migration or scheduler is authorized. Migrations 0001–0008 remain
+unchanged; the earlier statement that Phase 3.2 needed no 0009 applies to those
+storage adapters, not the new registration-specific limiter.
+
+Local registration tests apply all nine migrations to fresh disposable D1 databases
+and cover account atomicity, uniqueness, password storage, FK integrity and limits:
+
+```powershell
+node --test worker/tests/registration.test.mjs
+```
+
+## Authentication email budget (0010) — local preparation only
+
+`0010_create_authentication_email_budget.sql` adds two STRICT tables: aggregate
+UTC-day attempt counts, and empty-by-default day-specific extension approvals with
+an approval reference and UTC timestamp. No recipient, message, credential or token
+data is stored. The policy is centralized in
+[PROJECT.md](../PROJECT.md#hosted-dev-email-policy).
+
+The existing 0009 hit constraint cannot accommodate the approved email allowance;
+do not edit it. Apply 0010 only after 0001–0009, after separate DEV preflight,
+recovery capture and owner approval. Nothing has been applied remotely. No rollback
+should drop authentication tables or erase budget history to permit further sending.
+Preserve current-month daily rows for monthly admission accounting. No cleanup
+job, extension-management endpoint or seeded approval is included.
+
+Focused local check: `node --test worker/tests/dev-email-budget.test.mjs` applies
+all ten migrations to disposable D1 and checks atomic quotas, constraints,
+day/month boundaries and fake-provider failure behavior. Existing migration files
+0001–0009 remain unchanged.
+
+## Permanent cosmetic member numbers (0011) — local only
+
+`0011_create_member_numbers.sql` adds an immutable STRICT issuance ledger, reserves
+1–10 without creating accounts, then backfills existing users by `created_at,id`
+starting at 11. Account-insert triggers allocate inside the same transaction as
+profile/credential creation. AUTOINCREMENT and retained rows prevent reuse;
+UPDATE/DELETE/REPLACE protections preserve issued mappings after account deletion.
+Existing UUID keys, relationships, RBAC, migrations 0001–0010 and remote data are unchanged.
+
+The ledger intentionally retains UUID tombstones without a user FK so account
+deletion cannot erase issuance history. Public reads cast INTEGER to TEXT for
+lossless 64-bit JSON; the only numeric ceiling is SQLite's supported range.
+Reserved provisioning is new-account-only through the verified-session/admin/
+explicit-permission internal adapter. No public endpoint or actual assignment exists.
+See [PROJECT.md](../PROJECT.md#permanent-cosmetic-member-numbers--local-migration-0011)
+for privacy/retention implications and the separately approved remote sequence.
+
+Focused check: `node --test worker/tests/member-numbers.test.mjs` applies all eleven
+migrations to disposable local D1, including legacy backfill, concurrent allocation,
+immutability, reserved provisioning, rollback and 64-bit/exhaustion behavior.
+Do not apply remotely or deploy dependent code before owner approval and recovery preflight.
+
+## Phase 3.4 email verification — no new migration
+
+Phase 3.4 email verification also needs no new migration. It reuses 0008's
+purpose-bound action tokens and atomic consumption, with transactional replacement
+in the adapter, plus separate resend/confirmation HMAC counter keys in 0009.
+Only digests are stored in D1; local test messages/raw links are bounded volatile
+memory. All 0001–0009 migration files remain unchanged. 0008/0009 still require
+separate remote preflight/application approval. Token expiry is enforced on use;
+deletion of expired/consumed/revoked records and idle-counter cleanup need an
+owner-approved retention/operations policy before hosted use.
 
 ## Event schema decisions
 
@@ -315,3 +539,39 @@ $env:WRANGLER_SEND_METRICS = 'false'
 This uses ignored workspace storage for Wrangler preferences/logs, without copying
 OAuth credentials or changing the checked-in configuration. Close that session
 after validation; do not use this isolated configuration for remote operations.
+
+### 0015 — no-timer recovery-code regeneration
+
+`0015_create_mfa_regeneration_operations.sql` adds an operation table, phase/identity
+constraints, a per-account pending-operation index and invalidation/cleanup triggers.
+It does not alter historical migrations, existing active factors, credentials, codes,
+member numbers, budgets or rates. No `expires_at`/deadline or recoverable plaintext is
+stored. Session/generation/factor revocation is distinct from operation age. Staged
+verifiers become active only through the guarded explicit activation batch.
+
+Apply remotely only after exact DEV-target approval and a fresh private Time Travel
+checkpoint; verify all previous migrations remain applied once and integrity/preservation
+checks pass. Schema must be installed before publishing the new Worker. Missing 0015
+fails regeneration closed while preserving existing MFA login and ordinary accounts.
+Existing MFA-aware authentication must remain enforced during any recovery/rollback.
+
+## Provider retirement — pending approval
+
+Google OAuth is discontinued. Do not reapply or edit historical migrations.
+The removal PR changes no schema; see [the cleanup plan](../docs/GOOGLE_REMOVAL.md)
+for inert legacy structures, shared assurance preservation and separate approval gates.
+
+## 0016 — retired provider schema cleanup (prepared; remote approval required)
+
+The forward migration removes the three obsolete provider/OIDC/setup tables and
+rebuilds five transient authentication/MFA tables with password-only methods,
+retaining their existing security constraints/indexes/triggers. All sessions and
+in-flight operations are invalidated; inactive staged verifiers are removed. Users,
+passwords, active factors and active/spent code verifiers, application data, ledger
+and quotas remain. No old SQL file is modified and no FK enforcement is disabled.
+
+DEV data disposal is deliberately separate: `scripts/sql/reset-dev-data.sql` is
+never part of automatically applied migrations. The exact 20-table deletion scope
+excludes metadata/history, immutable member ledger/sequence, static RBAC and
+sending/rate budgets. A whole D1-resource rebuild is unnecessary. See
+[the execution proposal](../docs/GOOGLE_REMOVAL.md) for separate gates and commands.

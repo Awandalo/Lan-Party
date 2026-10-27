@@ -1,5 +1,5 @@
 .login-page { display: grid; place-items: center; }
-.login-card { width: min(100%, 28rem); padding: clamp(1.5rem, 4vw, 2.5rem); }
+.login-card { width: min(100%, 28rem); min-width: 0; padding: clamp(1.5rem, 4vw, 2.5rem); }
 .login-card h1 { font-size: 2.5rem; }
 .login-preview { display: grid; gap: .65rem; margin-block: 2rem; }
 .login-preview label { font-size: .9rem; font-weight: 600; }
@@ -10,3 +10,18 @@
 .login-notice p { font-size: .85rem; margin-top: .8rem; }
 .login-notice .status-label { color: var(--warning); background: var(--warning-dim); }
 
+.login-fields { min-width: 0; display: grid; gap: .65rem; padding: 0; border: 0; margin-block: 1.5rem; }
+.login-fields legend { margin-bottom: 1rem; color: var(--muted); }
+.login-fields label { margin-top: .5rem; font-weight: 600; }
+.login-fields input { width: 100%; min-width: 0; min-height: 48px; padding: .8rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--background); color: var(--text); font: inherit; }
+.login-fields button { margin-top: 1rem; font: inherit; cursor: pointer; }
+.login-fields:disabled { opacity: .7; }
+.login-feedback { color: var(--warning); line-height: 1.7; overflow-wrap: anywhere; }
+.login-feedback:not(:empty) { padding: .85rem 1rem; margin-block: 1rem 1.5rem; border: 1px solid var(--warning); border-radius: .5rem; background: var(--warning-dim); }
+.login-feedback:focus { outline: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--warning); }
+.login-card .login-fields > .button { margin-top: .75rem; }
+.login-challenge { min-width: 0; margin-top: .75rem; }
+.login-challenge p { font-size: .85rem; margin-block: .5rem; }
+.login-links { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .5rem 1rem; margin-top: 1.5rem; font-size: .85rem; }
+.login-links p { margin: 0; }
+.login-links > a { margin-left: auto; }

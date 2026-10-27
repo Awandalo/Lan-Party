@@ -1,0 +1,25 @@
+.account-menu { position: relative; }
+.account-menu-trigger { min-height: 44px; padding: .65rem .85rem; border: 0; border-radius: .5rem; background: transparent; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; }
+.account-menu-trigger.active { background: var(--accent-dim); color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
+.account-menu-trigger:hover, .account-menu-trigger[aria-expanded="true"]:not(.active) { background: var(--surface-raised); color: var(--text); }
+.account-menu-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.account-menu-panel { position: absolute; z-index: 5; top: calc(100% + .5rem); right: 0; width: min(16.5rem, calc(100vw - 2rem)); padding: .6rem; border: 1px solid var(--border); border-radius: .6rem .6rem .85rem .85rem; background: var(--surface); box-shadow: 0 .5rem 1.5rem #0008; animation: account-menu-open 170ms ease-out; }
+.account-menu-panel button, .site-nav .account-menu-panel a { display: block; width: 100%; min-height: 44px; padding: .7rem; border: 0; border-radius: .4rem; background: transparent; color: var(--text); font: inherit; text-align: left; overflow-wrap: anywhere; }
+.account-menu-panel button:not(:disabled) { cursor: pointer; }
+.account-menu-panel button:not(:disabled):hover { background: var(--surface-raised); }
+.account-menu-panel button:disabled { color: var(--muted); cursor: not-allowed; }
+.account-menu-panel small, .account-menu-name span { display: block; color: var(--muted); font-size: .8rem; }
+.account-menu-panel hr { border: 0; border-top: 1px solid var(--border); margin: .5rem 0; }
+.account-menu-panel p { padding: .7rem; color: var(--warning); }
+.account-menu-panel button[aria-disabled="true"] { cursor: wait; }
+@keyframes account-menu-open {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-menu-panel { animation: none; }
+}
+@media (max-width: 640px) {
+  .site-nav { position: relative; }
+  .account-menu { position: static; }
+}

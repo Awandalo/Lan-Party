@@ -4,3 +4,5 @@
 .footer-brand { color: var(--text); }
 @media (max-width: 640px) { .footer-inner { flex-direction: column; gap: .4rem; } }
 
+
+.footer-build { color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }

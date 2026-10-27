@@ -29,9 +29,10 @@ Confirm the repository root, active branch, remote repository identity, and GitH
 authentication. `origin` must identify the intended personal GitHub repository.
 Stop if authentication, identity, or permissions cannot be verified.
 
-Use GitHub CLI or an authenticated, owner-approved GitHub integration. CLI commands
-in this document are examples, not a mandatory tool dependency. Before using an
-alternative, verify the signed-in identity, access to `Awandalo/Lan-Party`, and
+Use the existing authenticated GitHub connector for GitHub API reads, following
+`AGENTS.md` and `docs/GITHUB_COMMUNICATION.md`; do not fall back to CLI reads.
+CLI read commands below are historical examples, not an approved execution path.
+Verify the connected identity, access to `Awandalo/Lan-Party`, and
 permissions for each required operation. Git fetch/push access alone does not
 prove access to checks, security results, protection policies, or PR operations.
 
@@ -57,8 +58,8 @@ git diff --cached --check
 git ls-files --others --exclude-standard
 ```
 
-For CLI authentication, use `gh auth status`; for an approved integration, use its
-supported identity and repository-permission inspection operations instead.
+Use the connector's supported identity and repository-permission inspection
+operations. If required evidence is unavailable, stop and report the limitation.
 
 Review the full staged and unstaged diffs privately for sensitive data. Inspect
 ignored-file names when needed to identify local configuration, databases, or
@@ -263,8 +264,19 @@ commit, push, merge, production deployment, or production migration was performe
 
 ## Post-release housekeeping (separate explicit request)
 
-This procedure is inspection and safe remote-tracking refresh only. It does not
-run automatically after PR creation, merge, deployment, or a release report.
+This procedure is read-only inspection, public HTTP verification and safe
+remote-tracking refresh only. It does not run automatically after PR creation,
+merge, deployment, or a release report. TechDevie must use the
+[environment reference in PROJECT.md](PROJECT.md#environment-reference) for
+environment mappings and website addresses; do not maintain duplicate URLs here.
+
+The owner confirms Phase 2 Database Foundation is complete on DEV and PROD, with
+migrations `0001` through `0007` applied and verified in both environments. Phase 3
+Authentication & Accounts is next. This recorded milestone does not replace
+release-specific deployment and public website evidence. Cloudflare Git integration
+handles PROD deployment from `main`; do not assume a local GitHub Actions production
+deployment workflow exists. Worker deployment does not apply D1 migrations, and
+production migrations still require separate explicit owner approval.
 
 1. Re-read the repository protections and inspect the repository identity, current
    branch, complete staged/unstaged/untracked state, and unfinished Git operations.
@@ -277,6 +289,31 @@ run automatically after PR creation, merge, deployment, or a release report.
    commit, and time. A closed unmerged or still-open PR is not a completed release.
    Inspect available MAIN CI results and deployment evidence read-only; report
    unknown production state without claiming deployment or migration success.
+   During post-release verification, TechDevie must:
+
+   - Obtain the production URL and Worker mapping from the environment reference
+     in `PROJECT.md`.
+   - Verify the actual deployment status using GitHub PR/merge, checks and workflow
+     evidence as applicable, together with Cloudflare's production Worker build,
+     deployment and active-version evidence. Tie evidence to the released MAIN
+     commit; record unavailable evidence as unverified. The checked-in DEV workflow
+     does not establish production deployment success.
+   - Check public website availability with a read-only GET of the production URL.
+     Inspect the returned page and assets for unexpected behavior; HTTP 200 alone
+     may still serve an error or unexpected page.
+   - Check `GET /api/health` on that same production origin. Reconfirm its actual
+     route and expected response from `worker/index.ts` and the routing rules in
+     `wrangler.jsonc`; currently it returns HTTP 200 and JSON `{"status":"ok"}`.
+     This is a liveness check independent of D1, not database verification.
+   - Report the URLs checked, check time, HTTP status codes, redirects, response
+     content and unexpected behavior, or request failures when no HTTP response
+     is received. Exclude secrets and private data from the report.
+   - Report deployment status and public website verification separately. A merged
+     PR or successful deployment is not proof of a successfully verified website;
+     public HTTP checks alone do not identify the deployed release. Missing evidence
+     must remain unverified. These checks do not authorize deployment, remote D1
+     access or migrations, or replacing Jotform.
+
 4. Record remote MAIN/DEV and local MAIN/DEV SHAs where local branches exist. Run
    `git rev-list --left-right --count origin/main...origin/dev` and compare the
    two remote trees with `git diff --name-status origin/main origin/dev` and

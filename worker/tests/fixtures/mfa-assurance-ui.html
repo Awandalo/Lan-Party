@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fictional R2 local UI check</title><div id="root"></div><output id="fixture-stats"></output>
+<script type="module">
+import React from 'react';import{createRoot}from'react-dom/client';import{BrowserRouter,Routes,Route}from'react-router';
+import AccountSecurity from '/src/pages/AccountSecurity.tsx';import{AuthProvider}from'/src/lib/auth.tsx';import'/src/CSS/main.css';
+let csrf='a'.repeat(64),starts=0,steps=0;const scenario=new URL(location.href).searchParams.get('scenario');
+const stats=()=>document.getElementById('fixture-stats').textContent=`Fictional requests: link=${starts}, step-up=${steps}`;stats();
+window.fetch=async(url,init={})=>{
+ const path=new URL(url,location.href).pathname;
+ if(path==='/api/auth/session')return Response.json({account:{userId:'11111111-1111-4111-8111-111111111111',nickname:'Fictional fixture',memberNumber:'11'},emailVerified:true,csrfToken:csrf});
+ if(path==='/api/auth/security/methods')return Response.json({password:true});
+ if(path==='/api/auth/mfa/status')return Response.json({enabled:true,enrollmentAvailable:true});
+ if(path==='/api/auth/mfa/step-up'){steps++;stats();if(scenario==='lost')throw new TypeError('Fictional lost response');if(scenario==='failure')return Response.json({error:'Code not accepted. Check it or use an unused recovery code.'},{status:401});csrf='b'.repeat(64);return Response.json({next:'/account/security'});}
+ throw Error('All external and unexpected requests blocked in fictional R2 fixture');
+};
+createRoot(document.getElementById('root')).render(React.createElement(BrowserRouter,null,React.createElement(AuthProvider,null,React.createElement(Routes,null,
+ React.createElement(Route,{path:'/login',element:React.createElement('h1',null,'Fictional normal login destination')}),React.createElement(Route,{path:'*',element:React.createElement(AccountSecurity)})))));
+</script></html>
