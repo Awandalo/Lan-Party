@@ -31,58 +31,66 @@ export function LifecycleProof({csrf,onConfirmed,onBusy,onCancel}:{csrf:string;o
 }
 export default function AccountLifecycle({expanded,disabled=false,onToggle,onBusy}:{expanded?:boolean;disabled?:boolean;onToggle?:()=>void;onBusy?:(busy:boolean)=>void}={}){
  const {session,refresh}=useAuth(),csrf=session?.csrfToken;
- const [available,setAvailable]=useState(false),[admin,setAdmin]=useState(false),[open,setOpen]=useState(false),[message,setMessage]=useState(''),[needsMfa,setNeedsMfa]=useState(false),[busy,setBusy]=useState(false);
- const [blocked,setBlocked]=useState(false),[localExpanded,setLocalExpanded]=useState(false);const sectionOpen=expanded??localExpanded;
+ const [available,setAvailable]=useState(false),[admin,setAdmin]=useState(false),[canDelete,setCanDelete]=useState(false);
+ const [open,setOpen]=useState(false),[mode,setMode]=useState<'deactivate'|'delete'>('deactivate'),[finalWarning,setFinalWarning]=useState(false);
+ const [message,setMessage]=useState(''),[needsMfa,setNeedsMfa]=useState(false),[busy,setBusy]=useState(false),[blocked,setBlocked]=useState(false),[localExpanded,setLocalExpanded]=useState(false);
+ const sectionOpen=expanded??localExpanded,deleting=mode==='delete',actionName=deleting?'Deletion':'Deactivation';
  const pending=useRef(false),continuation=useRef(false),currentCsrf=useRef<string|null>(null);
+ function clear(){setOpen(false);setNeedsMfa(false);setFinalWarning(false);setBlocked(false);setMessage('');}
  useEffect(()=>{currentCsrf.current=null;},[csrf]);
- useEffect(()=>{setOpen(false);setNeedsMfa(false);setBlocked(false);setMessage('');currentCsrf.current=null;},[session?.account.userId]);
- useEffect(()=>{setAvailable(false);setAdmin(false);if(!csrf)return;const abort=new AbortController();
+ useEffect(()=>{clear();currentCsrf.current=null;},[session?.account.userId]);
+ useEffect(()=>{setAvailable(false);setAdmin(false);setCanDelete(false);if(!csrf)return;const abort=new AbortController();
  void fetch('/api/auth/lifecycle/status',{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1'},signal:abort.signal})
- .then(async r=>{if(!r.ok)return;const b=await r.json();if(!abort.signal.aborted){setAvailable(b.available===true);setAdmin(b.administrator===true);}}).catch(()=>{});
+ .then(async r=>{if(!r.ok)return;const b=await r.json();if(!abort.signal.aborted){setAvailable(b.available===true);setAdmin(b.administrator===true);setCanDelete(b.deletionAvailable===true);}}).catch(()=>{});
  return()=>abort.abort();},[csrf]);
  function reportBusy(value:boolean){setBusy(value);onBusy?.(value);}
- useEffect(()=>{if(!sectionOpen&&!pending.current&&!continuation.current){setOpen(false);setNeedsMfa(false);setBlocked(false);setMessage('');if(currentCsrf.current){currentCsrf.current=null;void refresh();}}},[sectionOpen,refresh]);
+ useEffect(()=>{if(!sectionOpen&&!pending.current&&!continuation.current){clear();if(currentCsrf.current){currentCsrf.current=null;void refresh();}}},[sectionOpen,refresh]);
  if(!available||!csrf)return null;
- async function deactivate(proof=currentCsrf.current??csrf,allowMfa=true){
+ async function submit(proof=currentCsrf.current??csrf,allowMfa=true,final=false){
  if(pending.current||!proof)return false;pending.current=true;reportBusy(true);setMessage('');
- try{const r=await lifecycleRequest('deactivate',{confirm:'DEACTIVATE'},proof),b=await r.json();
- if(r.ok){window.location.assign('/login?account=deactivated');return true;}
- if(r.status===428&&b.code==='mfa_required'){setNeedsMfa(allowMfa);setMessage(allowMfa?'':'Your confirmation expired. Confirm your password to continue.');return false;}
- if(r.status===428&&b.code==='primary_required'){setNeedsMfa(false);setMessage('Your password confirmation expired. Confirm it again to continue; no deactivation was performed.');return false;}
+ const action=deleting?(final?'delete':'delete/prepare'):'deactivate';
+ const input=deleting?(final?{confirm:'DELETE',acknowledged:true}:{confirm:'PREPARE_DELETE'}):{confirm:'DEACTIVATE'};
+ try{const r=await lifecycleRequest(action,input,proof),b=await r.json();
+ if(r.ok){
+ if(deleting&&!final){if(b.ready!==true)throw Error('Preparation not confirmed');setNeedsMfa(false);setFinalWarning(true);return true;}
+ window.location.assign(deleting?'/login?account=deleted':'/login?account=deactivated');return true;
+ }
+ if(r.status===428){setFinalWarning(false);setNeedsMfa(!final&&allowMfa&&b.code==='mfa_required');setMessage(b.code==='mfa_required'&&!final&&allowMfa?'':'Your confirmation expired. Confirm your password again to continue; no account change was performed.');return false;}
  if(r.status>=500||r.status===401||b.code==='lifecycle_state_conflict')setBlocked(true);
- setMessage(b.error??'Deactivation could not be confirmed.');
- }catch{setBlocked(true);setMessage('Result not confirmed. Check whether you are still signed in before trying again. No automatic retry was made.');}
+ setMessage(b.error??actionName+' could not be confirmed.');
+ }catch{setBlocked(true);setMessage('Result not confirmed. Check your account status before another attempt. No automatic retry was made.');}
  finally{pending.current=false;reportBusy(false);}
  return false;
  }
  async function finishMfa(){
  if(continuation.current)return;continuation.current=true;
  try{
- // Step-up rotates the HttpOnly session. Read its CSRF token without refreshing
- // the parent first: that used to unmount/reset the pending deactivation journey.
- const r=await fetch('/api/auth/session',{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1'},signal:AbortSignal.timeout(15000)});
- const b=await r.json();
+ // Step-up rotates the session. Preserve the selected action while reading its
+ // new CSRF token; never substitute another account or automatically delete.
+ const r=await fetch('/api/auth/session',{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1'},signal:AbortSignal.timeout(15000)}),b=await r.json();
  if(!r.ok||b.account?.userId!==session?.account.userId||b.emailVerified!==true||typeof b.csrfToken!=='string'||!/^[0-9a-f]{64}$/.test(b.csrfToken))throw Error('Session not confirmed');
  currentCsrf.current=b.csrfToken;
- const completed=await deactivate(b.csrfToken,false);
- if(!completed){setNeedsMfa(false);await refresh();}
+ if(!await submit(b.csrfToken,false)){setNeedsMfa(false);await refresh();}
  }finally{continuation.current=false;}
  }
  function cancel(){
  if(busy||pending.current||continuation.current)return;
- setOpen(false);setNeedsMfa(false);setBlocked(false);setMessage(blocked?'Action closed. Check your account status before another attempt.':'Deactivation cancelled. Your account is unchanged.');
+ clear();setMessage(blocked?'Action closed. Check your account status before another attempt.':actionName+' cancelled. Your account is unchanged.');
  if(currentCsrf.current){currentCsrf.current=null;void refresh();}
  }
+ function start(selected:'deactivate'|'delete'){if(busy||disabled)return;clear();setMode(selected);setOpen(true);}
  return <section className="account-lifecycle" aria-labelledby="lifecycle-title"><h2 id="lifecycle-title">Account lifecycle</h2>
  <dl className="connected-methods"><div><dt>Account access</dt><dd className="security-method-status"><button type="button" className="security-icon-action" aria-label="Account lifecycle options" title="Account lifecycle options" aria-expanded={sectionOpen} aria-controls="lifecycle-options" disabled={busy||disabled} onClick={()=>onToggle?onToggle():setLocalExpanded(v=>!v)}><SecurityActionIcon action="trash"/></button></dd></div></dl>
- {sectionOpen&&<div id="lifecycle-options"><div className="lifecycle-action"><div><h3>Deactivate account</h3>
- {!open&&<p>Pause access and hide your name from other participants. Your email, nickname, password, two-factor protection and registrations stay private. Your first and last names are cleared. An administrator must help you reactivate.</p>}</div>
- {!open&&<button type="button" className="button lifecycle-danger" onClick={()=>{setBlocked(false);setOpen(true);setMessage('');}}>Deactivate account</button>}</div>
- {open&&<div className="lifecycle-confirmation">{!needsMfa&&!blocked&&<><h3>Deactivate your account?</h3><p>This signs out all sessions. It does not delete your account. To return, contact an administrator and use your existing password and two-factor protection if enabled.</p></>}
- {blocked?<div role="alert"><h3>Deactivation stopped</h3><p>Check your account status or contact an administrator before starting another attempt.</p><div className="lifecycle-actions"><Link className="button button-secondary" to="/login">Sign in again</Link><button type="button" className="button button-secondary" onClick={cancel}>Close</button></div></div>:needsMfa?<MfaStepUp csrf={currentCsrf.current??csrf} onBusy={reportBusy} onCancel={cancel} onVerified={finishMfa}
- actionRow confirmationLabel="Confirm and deactivate" description="Confirm your code to deactivate this account and sign out. You will not need to select the action or enter the code again."/>:<><LifecycleProof csrf={currentCsrf.current??csrf} onCancel={cancel} onBusy={reportBusy} onConfirmed={async()=>{await deactivate();}}/></>}
- </div>}
+ {sectionOpen&&<div id="lifecycle-options">
+ {!open&&<><div className="lifecycle-action"><h3>Deactivate account</h3><p>Pause access and hide your name from other participants. Your email, nickname, password, two-factor protection and registrations stay private. Your first and last names are cleared. An administrator must help you reactivate.</p><button type="button" className="button lifecycle-danger" disabled={disabled} onClick={()=>start('deactivate')}>Deactivate account</button></div>
+ <div className="lifecycle-action"><h3>Delete account</h3><p>Permanently remove your account, password, MFA and roles. Anonymous completed-event registration totals and non-identifying number reservations remain. Older backups may retain account data; see our <Link to="/privacy">Privacy Policy</Link>.</p>
+ {canDelete?<button type="button" className="button lifecycle-danger" disabled={disabled} onClick={()=>start('delete')}>Delete account</button>:<p>Permanent account deletion is not available yet.</p>}</div></>}
+ {open&&<><h3>{deleting?'Delete account':'Deactivate account'}</h3><div className="lifecycle-confirmation">
+ {blocked?<div role="alert"><h3>{actionName} stopped</h3><p>Check your account status or contact an administrator before another attempt.</p><div className="lifecycle-actions"><Link className="button button-secondary" to="/login">Sign in again</Link><button type="button" className="button button-secondary" onClick={cancel}>Close</button></div></div>:
+ finalWarning?<div role="alert"><h3>Permanently delete your account?</h3><p>This cannot be undone through LAN Party. Your account, password, MFA, recovery codes and roles will be removed and you will be signed out. Are you sure?</p><p>An older backup restoration can bring back deleted data. See our <Link to="/privacy">Privacy Policy</Link>.</p><div className="lifecycle-actions"><button type="button" className="button lifecycle-danger" disabled={busy||disabled} onClick={()=>void submit(currentCsrf.current??csrf,true,true)}>{busy?'Deleting…':'Yes, delete my account'}</button><button type="button" className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button></div></div>:
+ needsMfa?<MfaStepUp csrf={currentCsrf.current??csrf} onBusy={reportBusy} onCancel={cancel} onVerified={finishMfa} actionRow confirmationLabel={deleting?'Confirm and continue':'Confirm and deactivate'} description={deleting?'Confirm your code, then review the final deletion warning. Your account is not deleted by this verification.':'Confirm your code to deactivate this account and sign out.'}/>:
+ <>{!deleting&&<p>This signs out all sessions. It does not delete your account. An administrator must help you reactivate.</p>}<LifecycleProof csrf={currentCsrf.current??csrf} onCancel={cancel} onBusy={reportBusy} onConfirmed={async()=>{await submit();}}/></>}
+ </div></>}
  <p role="status" aria-live="polite">{message}</p>
- <div className="lifecycle-unavailable"><h3>Permanent deletion</h3><p>Permanent account deletion is not available yet.</p></div>
  {admin&&<Link to="/account/users">Users administration — reactivation</Link>}</div>}</section>;
 }

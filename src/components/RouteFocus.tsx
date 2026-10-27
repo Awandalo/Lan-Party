@@ -5,6 +5,7 @@ import { useLocation } from 'react-router';
 const titles: Record<string, string> = {
   '/': 'Home',
   '/events': 'Events',
+  '/privacy': 'Privacy Policy',
   '/login': 'Login',
   ...((AUTH_UI_AVAILABLE && authUIEnabled()) ? { '/register': 'Create account', '/account': 'Account',
     '/verify-email': 'Verify email', '/local-mail': 'Local mailbox',

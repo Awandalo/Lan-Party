@@ -336,11 +336,12 @@ DEV availability. No PROD acceptance or new hosted operations are implied.
 - [x] Implement local approved deactivation/reactivation slice: preserve credentials/MFA and private history, erase original private names, mask public identity, revoke sessions/operations, and prevent automatic reactivation.
 - [x] Prepare local 0017 lifecycle metadata/operation schema, scoped service/API/UI files and focused deterministic tests; remote migration remains approval-gated.
 - [x] Owner confirm anonymous registration totals for completed LAN events, both per event and per day, with no identifying participant links; these are not verified attendance.
-- [ ] Establish actual backup/provider retention and safe restore handling before deletion goes live; avoid unverified erasure promises.
-- [x] Prepare local 0018 anonymous completed-event/day registration totals, anonymous member-number retirement, nullable News attribution and ordered identity/dependent deletion; preserve unrelated roles/content, registrations and numbering integrity. The deletion service has no live route and remains gated on retention/restore handling.
+- [x] Owner accepts older-backup account resurrection without an identifying deletion registry or automatic deletion replay (2026-10-27); disclose provider-copy and restore limitations accurately.
+- [x] Prepare local 0018 anonymous completed-event/day registration totals, anonymous member-number retirement, nullable News attribution and ordered identity/dependent deletion; preserve unrelated roles/content, registrations and numbering integrity. Integrate the reviewed deletion service locally with current proof checks and a separate final confirmation; hosted publication/testing remain gated.
 - [x] Verify local deactivation privacy, last-admin races, restricted reactivation/token replay and MFA, atomic rollback, deletion dependencies and event/day counts using 63 distinct changed-area tests, fictional browser fixtures, TypeScript/build and DEV dry-run. Hosted lifecycle acceptance remains separate.
 - [x] Owner authorize scoped local implementation/tests/commits and verified DEV publication with unapplied-migration gates.
-- [ ] Obtain separate DEV migration and hosted lifecycle acceptance approval; keep live permanent deletion unavailable until retention/restore handling is established.
+- [x] Apply approved DEV migrations 0017/0018 and verify history, integrity and preservation (see #16 migration report).
+- [ ] Review and publish the locally prepared password/MFA → final-warning account deletion flow, then separately authorize hosted disposable-account acceptance; no identifying deletion registry.
 - Administrator suspension, self-service reactivation, automated refunds and future achievements implementation remain out of scope.
 
 ### Phase 3.10 — Polish & Fixes (planning only)

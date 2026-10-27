@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import RouteFocus from './components/RouteFocus';
 import Home from './pages/Home';
 import Events from './pages/Events';
+import Privacy from './pages/Privacy';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
 import Account from './pages/Account';
@@ -27,6 +28,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/privacy" element={<Privacy />} />
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/reactivate" element={<ReactivateAccount />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/users" element={<UsersAdmin />} />}
           <Route path="/login" element={<Login />} />

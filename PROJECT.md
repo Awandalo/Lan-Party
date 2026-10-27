@@ -438,7 +438,7 @@ authentication and deployment remain separately gated.
 | 3.8.5.2 | R2 recent MFA assurance before sensitive account changes; independent primary proof | [#14](https://github.com/Awandalo/Lan-Party/issues/14) accepted and closed |
 | 3.8.5.3 | R3 canonical-DEV-only enrollment gate | [#15](https://github.com/Awandalo/Lan-Party/issues/15) accepted and closed |
 | 3.8.6 | Controlled hosted DEV MFA rollout/acceptance | [#10](https://github.com/Awandalo/Lan-Party/issues/10) closed; DEV migrations 0013–0016, key provisioning, deployment and MFA acceptance recorded; residual Google-resource cleanup is separate |
-| 3.9 | Account Lifecycle Management | [#16](https://github.com/Awandalo/Lan-Party/issues/16): locally implemented and verified; anonymous historical registration totals approved; operational retention/restore requirements gate live deletion |
+| 3.9 | Account Lifecycle Management | [#16](https://github.com/Awandalo/Lan-Party/issues/16): locally implemented and verified; anonymous historical registration totals approved; owner backup-risk decision accepted; final-confirmation deletion is prepared locally |
 | 3.10 | Polish & Fixes after account lifecycle readiness | [#17](https://github.com/Awandalo/Lan-Party/issues/17), deferred |
 
 Historical email/GUI/login-limit milestones also used 3.8–3.8.3; retain their
@@ -479,9 +479,11 @@ separate remote approval. Runtime readiness checks reject absent/partial lifecyc
 schema; the Account Security controls remain hidden until 0017 is available.
 Normal password/MFA authentication is unchanged on the existing 0016 database.
 
-Permanent deletion is not routed or enabled, including after migration 0018.
-The local deletion service and fictional tests prepare it for later retention/restore
-approval. Reactivation consumes its invitation and password/optional MFA proof in
+Owner decision (2026-10-27): accept that an older backup restore can restore a
+deleted account. Keep no identifying deletion registry or automatic re-deletion
+system. The deletion service is being integrated locally behind existing local/DEV
+environment and schema gates, with password/optional MFA and a separate final warning.
+Publication and real hosted deletion testing remain separate approvals. Reactivation consumes its invitation and password/optional MFA proof in
 one guarded batch and issues a new fully verified session; it never promotes the
 restricted cookie or requires reusing the final recovery code. New sessions use the
 advanced account generation; old sessions stay revoked. Reuse existing email

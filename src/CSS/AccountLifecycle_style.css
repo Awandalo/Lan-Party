@@ -2,8 +2,8 @@
 .lifecycle-action { display:grid; gap:1rem; margin-block:1.5rem; }
 .lifecycle-action h3 { display:flex; align-items:center; gap:.65rem; }
 .lifecycle-action p { max-width:65ch; }
-.lifecycle-danger, .lifecycle-confirmation .mfa-step-up button[type="submit"] { background:#4a242a; border-color:#ed9ba4; color:#ffe5e8; }
-.lifecycle-danger:hover, .lifecycle-confirmation .mfa-step-up button[type="submit"]:hover { background:#653039; }
+.account-lifecycle .lifecycle-danger, .lifecycle-confirmation .mfa-step-up button[type="submit"] { background:#4a242a; border-color:#ed9ba4; color:#ffe5e8; }
+.account-lifecycle .lifecycle-danger:hover, .lifecycle-confirmation .mfa-step-up button[type="submit"]:hover { background:#653039; }
 .lifecycle-confirmation { border:1px solid var(--border); border-radius:12px; padding:clamp(1rem,3vw,1.5rem); margin-block:1rem; }
 .lifecycle-confirmation form, .lifecycle-confirmation fieldset { display:grid; gap:1rem; }
 .lifecycle-confirmation fieldset { border:0; padding:0; min-width:0; }

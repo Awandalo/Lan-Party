@@ -7,18 +7,27 @@ import UsersAdmin from '../../../src/pages/UsersAdmin';
 import ReactivateAccount from '../../../src/pages/ReactivateAccount';
 import '../../../src/CSS/main.css';
 const scenario=new URL(location.href).searchParams.get('scenario')??'account';
-let claims=0,completions=0,deactivations=0,confirmations=0,invites=0,claimed=false,mfaChecks=0,rotated=false;
+let claims=0,completions=0,deactivations=0,confirmations=0,invites=0,claimed=false,mfaChecks=0,rotated=false,deletePreparations=0,deletions=0;
 const flow=scenario.startsWith('deactivate-');
 const counters=document.createElement('output');counters.setAttribute('aria-label','Fictional request counters');document.body.append(counters);
-const count=()=>{counters.textContent=JSON.stringify({claims,completions,deactivations,confirmations,invites,mfaChecks,rotated});};count();
+const count=()=>{counters.textContent=JSON.stringify({claims,completions,deactivations,confirmations,invites,mfaChecks,rotated,deletePreparations,deletions});};count();
 window.fetch=async(url,init={})=>{
  const path=new URL(String(url),location.href).pathname;
  if(path==='/api/auth/session')return Response.json({account:{userId:rotated&&scenario==='deactivate-identity-change'?'00000000-0000-4000-8000-000000000009':'00000000-0000-4000-8000-000000000001',nickname:'Fictional Member',memberNumber:'11'},csrfToken:(rotated?'e':'c').repeat(64),emailVerified:true});
- if(path==='/api/auth/lifecycle/status')return Response.json({available:scenario!=='unmigrated',administrator:true,deletionAvailable:false});
+ if(path==='/api/auth/lifecycle/status')return Response.json({available:scenario!=='unmigrated',administrator:true,deletionAvailable:scenario.startsWith('delete-')});
  if(path==='/api/auth/security/reauth-password'){confirmations++;count();return Response.json({ok:true});}
  if(path==='/api/auth/security/methods')return Response.json({password:true});
  if(path==='/api/auth/mfa/status')return Response.json({enabled:scenario!=='settings-disabled',enrollmentAvailable:true});
  if(path==='/api/auth/mfa/enroll/start')return Response.json({code:'reauth_required',error:'Fictional recent password confirmation required.'},{status:428});
+ if(path==='/api/auth/lifecycle/delete/prepare'){
+ deletePreparations++;count();if(scenario!=='delete-password'&&!rotated)return Response.json({code:'mfa_required',error:'Confirm MFA.'},{status:428});
+ return Response.json({ready:true});
+ }
+ if(path==='/api/auth/lifecycle/delete'){
+ deletions++;count();if(scenario==='delete-expired'&&confirmations<2)return Response.json({code:'primary_required',error:'Confirm password again.'},{status:428});
+ const input=JSON.parse(String(init.body));if(input.confirm!=='DELETE'||input.acknowledged!==true)throw Error('Missing final acknowledgment');
+ return Response.json({error:'Fictional final deletion submitted once; no real account changed.'},{status:409});
+ }
  if(path==='/api/auth/mfa/step-up'){
  mfaChecks++;count();if(scenario==='deactivate-uncertain')throw Error('Fictional uncertain response');
  if(scenario==='deactivate-invalid')return Response.json({error:'Code not accepted.'},{status:401});

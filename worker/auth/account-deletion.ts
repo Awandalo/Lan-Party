@@ -1,9 +1,21 @@
-import {assertChanged,requireLifecycleProof,lastAdministratorSql,LastAdministrator,eraseLifecycleOperations} from './account-lifecycle';
+import {assertChanged,requireLifecycleProof,lastAdministratorSql,LastAdministrator,eraseLifecycleOperations,LifecycleStateConflict} from './account-lifecycle';
 
-// This service is deliberately NOT routed: retention/restore approval is outstanding.
-export async function deleteAccount(db:D1Database,userId:string,version:number,digest:string){
+// Owner-approved DEV policy: no identifying deletion registry or restore replay list.
+export async function deletionSchemaReady(db:D1Database){
+ const tables=await db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE type='table' AND name IN ('anonymous_event_registrations','anonymous_day_registrations')").first<number>('n');
+ if(tables!==2)return false;
+ const member=await db.prepare('PRAGMA table_info(member_numbers)').all<{name:string;notnull:number}>();
+ const news=await db.prepare('PRAGMA table_info(news_articles)').all<{name:string;notnull:number}>();
+ return member.results.some(c=>c.name==='retired'&&c.notnull===1)&&news.results.some(c=>c.name==='author_user_id'&&c.notnull===0);
+}
+export async function prepareAccountDeletion(db:D1Database,userId:string,version:number,digest:string){
  const guard=await requireLifecycleProof(db,userId,version,digest);
  if(!await db.prepare(`SELECT 1 FROM users u WHERE u.id=? AND ${lastAdministratorSql}`).bind(userId).first())throw new LastAdministrator();
+ if(await db.prepare('SELECT 1 FROM account_lifecycle WHERE user_id=?').bind(userId).first())throw new LifecycleStateConflict();
+ return guard;
+}
+export async function deleteAccount(db:D1Database,userId:string,version:number,digest:string){
+ const guard=await prepareAccountDeletion(db,userId,version,digest);
  const completed=`e.publication_status IN ('published','archived')
  AND EXISTS(SELECT 1 FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled')
  AND (SELECT max(d.ends_at) FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled')<=unixepoch()`;

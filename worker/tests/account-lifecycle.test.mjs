@@ -74,10 +74,10 @@ async function local(run,count=18){
  assert.equal(await sql('PRAGMA quick_check').first('quick_check'),'ok');assert.deepEqual((await sql('PRAGMA foreign_key_check').all()).results,[]);
  }finally{await simulator.dispose();}
 }
-test('lifecycle absent and partial schema fail closed; deletion has no route',()=>local(async({request,user,db})=>{
+test('lifecycle absent and partial schema fail closed; deletion remains unavailable',()=>local(async({request,user,db})=>{
  const u=await user();assert.deepEqual(await(await request('status',u)).json(),{available:false});
  assert.equal((await request('deactivate',u,{confirm:'DEACTIVATE'})).status,503);
- assert.equal((await request('delete',u,{confirm:'DELETE'})).status,404);
+ assert.equal((await request('delete',u,{confirm:'DELETE'})).status,503);
  await db.batch(migrations[16].slice(0,1).map(p=>db.prepare(p)));
  assert.equal((await request('status',u)).status,503);
 },16));
@@ -246,10 +246,10 @@ test('legacy disabled users are not eligible and last administrator cannot delet
  assert.equal(await sql('SELECT status FROM users WHERE id=?',admin.id).first('status'),'active');
 }));
 
-test('0017 alone enables only approved safe operations while irreversible deletion remains unrouted',()=>local(async({user,request,value})=>{
+test('0017 alone enables lifecycle but not deletion without the required 0018 schema',()=>local(async({user,request,value})=>{
  const admin=await user({admin:true}),u=await user();
- assert.equal((await request('status',u)).status,200);
- assert.equal((await request('delete',u,{confirm:'DELETE'})).status,404);
+ const status=await request('status',u);assert.equal(status.status,200);assert.equal((await status.json()).deletionAvailable,false);
+ assert.equal((await request('delete',u,{confirm:'DELETE'})).status,503);
  await value('deactivateAccount',u.id,0,u.digest);
  assert.equal((await request('invite',admin,{userId:u.id})).status,200);
 },17));
@@ -265,7 +265,7 @@ test('cancelled context and expired verification lease cannot consume proof or r
  const claim=await request('reactivation/claim',null,{token:invite.token}),cookie=claim.headers.get('set-cookie').split(';')[0],csrf=(await claim.json()).csrfToken;
  assert.equal((await request('reactivation/cancel',null,{}, {Cookie:cookie,'X-CSRF-Token':csrf})).status,200);
  assert.equal((await request('reactivation/status',null,undefined,{Cookie:cookie})).status,401);
-}));
+},17));
 test('completed cancellation exclusions, consecutive deletion and role actor scrubbing preserve anonymous totals exactly once',()=>local(async({user,value,call,sql,now})=>{
  const a=await user({admin:true}),b=await user({admin:true}),u=await user(),time=await now(),event=randomUUID(),day=randomUUID();
  await sql("UPDATE user_roles SET assigned_by_user_id=? WHERE user_id=?",a.id,b.id).run();
@@ -360,4 +360,55 @@ test('inconsistent manual restoration rejects deactivation without changing reco
  const r=await request('deactivate',u,{confirm:'DEACTIVATE'});assert.equal(r.status,409);assert.equal((await r.json()).code,'lifecycle_state_conflict');
  assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
  assert.equal(await sql('SELECT count(*) AS n FROM account_lifecycle WHERE user_id=?',u.id).first('n'),1);
+}));
+
+for(const method of ['password','totp','recovery'])test('HTTP deletion '+method+' requires explicit final confirmation and erases identity without a registry',()=>local(async({user,sql,now,value,request,simulator})=>{
+ const u=await user({mfa:method!=='password'}),other=await user();let current=u;
+ assert.equal((await request('delete/prepare',u,{confirm:'PREPARE_DELETE'},{'X-CSRF-Token':'0'.repeat(64)})).status,403);
+ if(method!=='password'){
+ await sql('DELETE FROM auth_session_mfa WHERE user_id=?',u.id).run();
+ await sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',?,'password',?)",u.digest,u.id,u.factor,u.time-121,u.time).run();
+ const refused=await request('delete/prepare',u,{confirm:'PREPARE_DELETE'});assert.equal(refused.status,428);assert.equal((await refused.json()).code,'mfa_required');
+ const time=await now(),code=method==='totp'?await value('otp',u.secret,time):u.codes.codes[0];
+ if(method==='recovery')await sql('UPDATE auth_mfa_recovery_codes SET consumed_at=? WHERE user_id=? AND verifier<>?',time,u.id,u.codes.verifiers[0]).run();
+ const up=await simulator.dispatchFetch(origin+'/api/auth/mfa/step-up',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-LAN-Request':'1',Cookie:'__Host-lan_session='+u.token,'X-CSRF-Token':u.csrf},body:JSON.stringify({method,code})});assert.equal(up.status,200);
+ const cookie=up.headers.getSetCookie().map(c=>c.split(';')[0]).join('; '),state=await(await simulator.dispatchFetch(origin+'/api/auth/session',{headers:{'X-LAN-Request':'1',Cookie:cookie}})).json();
+ current={...u,token:/__Host-lan_session=([a-f0-9]{64})/.exec(cookie)[1],csrf:state.csrfToken};
+ }
+ const number=await sql('SELECT member_number FROM member_numbers WHERE user_id=?',u.id).first('member_number');
+ const prepared=await request('delete/prepare',current,{confirm:'PREPARE_DELETE'});assert.equal(prepared.status,200);assert.equal((await prepared.json()).ready,true);
+ assert.equal(await sql('SELECT count(*) AS n FROM users WHERE id=?',u.id).first('n'),1);
+ assert.equal((await request('delete',current,{confirm:'DELETE'})).status,400);
+ assert.equal((await request('delete',current,{confirm:'DELETE',acknowledged:false})).status,400);
+ const deleted=await request('delete',current,{confirm:'DELETE',acknowledged:true});assert.equal(deleted.status,200);
+ for(const table of ['users','user_password_credentials','user_roles','user_nicknames','auth_sessions','auth_totp_factors','auth_mfa_recovery_codes','account_lifecycle','account_reactivation']){
+ const key=table==='users'?'id':'user_id';assert.equal(await sql('SELECT count(*) AS n FROM '+table+' WHERE '+key+'=?',u.id).first('n'),0,table);
+ }
+ assert.deepEqual(await sql('SELECT retired,user_id,reserved_by_user_id FROM member_numbers WHERE member_number=?',number).first(),{retired:1,user_id:null,reserved_by_user_id:null});
+ assert.equal(await sql('SELECT count(*) AS n FROM users WHERE id=?',other.id).first('n'),1);
+ assert.equal((await request('delete',current,{confirm:'DELETE',acknowledged:true})).status,401);
+}));
+test('deletion preparation cannot bypass last-admin or final proof expiry',()=>local(async({user,sql,request})=>{
+ const admin=await user({admin:true});assert.equal((await request('delete/prepare',admin,{confirm:'PREPARE_DELETE'})).status,409);assert.equal((await request('delete',admin,{confirm:'DELETE',acknowledged:true})).status,409);
+ const u=await user();assert.equal((await request('delete/prepare',u,{confirm:'PREPARE_DELETE'})).status,200);
+ await sql('UPDATE auth_recent_authentication SET authenticated_at=unixepoch()-120,expires_at=unixepoch()+180 WHERE user_id=?',u.id).run();
+ const r=await request('delete',u,{confirm:'DELETE',acknowledged:true});assert.equal(r.status,428);assert.equal((await r.json()).code,'primary_required');
+ assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
+ assert.equal(await sql('SELECT count(*) AS n FROM account_lifecycle WHERE user_id=?',u.id).first('n'),0);
+}));
+
+test('concurrent final deletion has one winner and never creates a persistent deletion marker',()=>local(async({user,sql,request})=>{
+ const u=await user();const results=await Promise.all([request('delete',u,{confirm:'DELETE',acknowledged:true}),request('delete',u,{confirm:'DELETE',acknowledged:true})]);
+ assert.equal(results.filter(r=>r.status===200).length,1);
+ assert.equal(await sql('SELECT count(*) AS n FROM users WHERE id=?',u.id).first('n'),0);
+ assert.equal(await sql('SELECT count(*) AS n FROM account_lifecycle WHERE user_id=?',u.id).first('n'),0);
+}));
+
+test('final deletion rechecks MFA and cannot be enabled on production origin',()=>local(async({user,sql,request,simulator})=>{
+ const u=await user({mfa:true});assert.equal((await request('delete/prepare',u,{confirm:'PREPARE_DELETE'})).status,200);
+ await sql('DELETE FROM auth_session_mfa WHERE user_id=?',u.id).run();
+ await sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',?,'password',?)",u.digest,u.id,u.factor,u.time-121,u.time).run();
+ const r=await request('delete',u,{confirm:'DELETE',acknowledged:true});assert.equal(r.status,428);assert.equal((await r.json()).code,'mfa_required');
+ for(const action of ['delete','delete/prepare'])assert.equal((await simulator.dispatchFetch('https://lan-party.club/api/auth/lifecycle/'+action,{method:'POST',headers:{Origin:'https://lan-party.club','X-LAN-Request':'1','Content-Type':'application/json'},body:'{}'})).status,404);
+ assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
 }));

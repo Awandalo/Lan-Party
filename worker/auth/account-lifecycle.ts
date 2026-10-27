@@ -5,7 +5,7 @@ export class LifecycleDenied extends Error {}
 export class LifecycleProofRequired extends Error {}
 export class LifecycleStateConflict extends Error {}
 export class LastAdministrator extends Error {}
-export const LIVE_DELETION_ENABLED=false; // Retention/restore handling requires explicit owner approval.
+export const LIVE_DELETION_ENABLED=true; // Owner-approved local/DEV flow; existing environment gate excludes PROD.
 
 // Missing OR partial schema never enables a lifecycle operation.
 export async function lifecycleReady(db:D1Database){

@@ -1,3 +1,4 @@
+import {deleteAccount,prepareAccountDeletion,deletionSchemaReady} from './account-deletion';
 import type {AuthenticationEnvironment} from './http';
 import type {MfaKeys} from './mfa-crypto';
 import {authRouteEnabled,authOrigin,authClientIP,validAuthMutation,emailTransport,recipientAllowed,loopback} from './environment';
@@ -11,7 +12,7 @@ import {LoginLimiter,LoginLimited,LoginBusy} from './login-limits';
 import {LoginChallenge,verifyLoginChallenge} from './turnstile';
 import {registrationLimiter,RegistrationRateLimit} from './registration-limits';
 import {requireRecentMfa,RecentMfaRequired} from './mfa-assurance';
-import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator,LifecycleStateConflict} from './account-lifecycle';
+import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator,LifecycleStateConflict,LIVE_DELETION_ENABLED} from './account-lifecycle';
 import {initiateReactivation,cancelInvitation,claimReactivation,reactivationContext,verifyReactivationPassword,finishReactivation} from './account-reactivation';
 
 const reply=(status:number,data:object,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer',...headers}});
@@ -26,7 +27,7 @@ function contextCookie(request:Request,token:string){
 }
 export async function lifecycleHttp(request:Request,env:AuthenticationEnvironment&MfaKeys){
  const url=new URL(request.url),path=url.pathname.replace('/api/auth/lifecycle/','');
- const routes=['status','deactivate','users','invite','reactivation/claim','reactivation/status','reactivation/complete','reactivation/cancel'];
+ const routes=['status','deactivate','delete/prepare','delete','users','invite','reactivation/claim','reactivation/status','reactivation/complete','reactivation/cancel'];
  if(!routes.includes(path)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
  const environment=mfaManagementEnvironment(request,env);
  if(!environment)return reply(404,{error:'Not found'});
@@ -82,13 +83,26 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  if(!token||!account||account.emailVerifiedAt===null)return reply(401,{error:'Sign in again.'});
  const digest=await digestToken(token,'session');
  const admin=!!await env.DB.prepare(`SELECT 1 FROM users u WHERE u.id=? AND ${administratorSql}`).bind(account.userId).first();
- if(get)return reply(200,{available:true,administrator:admin,deletionAvailable:false});
+ const deletionAvailable=LIVE_DELETION_ENABLED&&await deletionSchemaReady(env.DB);
+ if(get)return reply(200,{available:true,administrator:admin,deletionAvailable});
  if(!await validAuthMutation(request,origin.origin,digest,secret))return reply(403,{error:'Request rejected'});
  const body=await readInput(request) as Record<string,unknown>;
  if(!body||typeof body!=='object'||Array.isArray(body))return reply(400,{error:'Invalid request'});
- if(path!=='deactivate'&&!admin)return reply(403,{error:'Request rejected'});
+ const personal=['deactivate','delete/prepare','delete'].includes(path);
+ if(personal&&path.startsWith('delete')&&!deletionAvailable)return reply(503,{error:'Account deletion is unavailable.'});
+ if(!personal&&!admin)return reply(403,{error:'Request rejected'});
  await requireRecentMfa(env.DB,account,digest);
- await requireLifecycleProof(env.DB,account.userId,account.authVersion,digest,path!=='deactivate');
+ await requireLifecycleProof(env.DB,account.userId,account.authVersion,digest,!personal);
+ if(path==='delete/prepare'){
+ if(Object.keys(body).length!==1||body.confirm!=='PREPARE_DELETE')return reply(400,{error:'Explicit deletion preparation required.'});
+ await prepareAccountDeletion(env.DB,account.userId,account.authVersion,digest);
+ return reply(200,{ready:true,message:'Confirm the final irreversible deletion warning.'});
+ }
+ if(path==='delete'){
+ if(Object.keys(body).length!==2||body.confirm!=='DELETE'||body.acknowledged!==true)return reply(400,{error:'Explicit final deletion confirmation required.'});
+ await deleteAccount(env.DB,account.userId,account.authVersion,digest);
+ return reply(200,{next:'/login',message:'Account deleted.'},{'Set-Cookie':clearSessionCookie()});
+ }
  if(path==='deactivate'){
  if(Object.keys(body).length!==1||body.confirm!=='DEACTIVATE')return reply(400,{error:'Explicit confirmation required.'});
  await deactivateAccount(env.DB,account.userId,account.authVersion,digest);
