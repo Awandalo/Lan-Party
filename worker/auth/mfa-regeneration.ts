@@ -103,7 +103,7 @@ export async function regenerationStatus(db:D1Database,c:EnrollmentContext,token
  const row=await load(db,c,token),p=await primary(db,c),proof=fresh(c,row.operation_digest);
  return {phase:row.phase,seen:row.phase==='revealed',primaryRequired:!p,mfaRequired:!await db.prepare(`SELECT 1 WHERE ${proof.sql}`).bind(...proof.values).first()};
 }
-export async function proveRegeneration(db:D1Database,c:EnrollmentContext,token:string,code:string,method:'totp'|'recovery',keys:MfaKeys,environment:'local'|'dev',held:LoginReservation){
+export async function proveRegeneration(db:D1Database,c:EnrollmentContext,token:string,code:string,method:'totp'|'recovery',keys:MfaKeys,environment:'local'|'dev'|'prod',held:LoginReservation){
  const row=await load(db,c,token),p=await primary(db,c);if(!p)throw new RegenerationProofRequired(true);
  const secret=await decryptTotpSecret({ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id},keys,{environment,userId:row.user_id,id:row.factor_id,purpose:'active'});
  const step=method==='totp'?await verifyTotp(secret,code,c.now,row.last_step):null;
@@ -120,7 +120,7 @@ export async function proveRegeneration(db:D1Database,c:EnrollmentContext,token:
  .bind(method,c.now,p.method,p.authenticated_at,row.operation_digest,...gate.values),one(db)]);
  return {verified:true};
 }
-export async function revealRegeneration(db:D1Database,c:EnrollmentContext,token:string,keys:MfaKeys,environment:'local'|'dev'){
+export async function revealRegeneration(db:D1Database,c:EnrollmentContext,token:string,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  const row=await load(db,c,token);await ready(db,c,row);
  await decryptTotpSecret({ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id},keys,{environment,userId:row.user_id,id:row.factor_id,purpose:'active'});
  const set=crypto.randomUUID(),codes=await generateRecoveryCodes(c.userId,set),ack=randomMfaToken();
@@ -137,7 +137,7 @@ export async function cancelRegeneration(db:D1Database,c:EnrollmentContext,token
  await db.prepare(`UPDATE ${table} SET phase='cancelled',acknowledgment_digest=NULL WHERE operation_digest=? AND user_id=? AND session_digest=? AND auth_version=? AND phase IN ('prepared','revealed')`)
  .bind(await mfaDigest('regeneration',token),c.userId,c.sessionDigest,c.authVersion).run();
 }
-export async function finishRegeneration(db:D1Database,c:EnrollmentContext,token:string,ack:string,keys:MfaKeys,environment:'local'|'dev'){
+export async function finishRegeneration(db:D1Database,c:EnrollmentContext,token:string,ack:string,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  const row=await load(db,c,token);await ready(db,c,row);
  await decryptTotpSecret({ciphertext:row.secret_ciphertext,nonce:row.secret_nonce,keyId:row.key_id},keys,{environment,userId:row.user_id,id:row.factor_id,purpose:'active'});
  const gate=binding(c,row.operation_digest),proof=fresh(c,row.operation_digest),replacement=generateToken(),digest=await digestToken(replacement,'session');

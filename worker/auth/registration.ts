@@ -2,8 +2,7 @@ import { validateRegistration, newAccountId } from './accounts';
 import { hashPassword } from './passwords';
 import { fromHex } from './encoding';
 import { registrationLimiter, RegistrationRateLimit } from './registration-limits';
-import { authClientIP, authOrigin, authRouteEnabled, emailTransport, hostedDev } from './environment';
-import { assertDevEmailRecipient } from './dev-email';
+import { authClientIP, authOrigin, recipientAllowed, authRouteEnabled, emailTransport, hosted } from './environment';
 export { loopback } from './environment';
 import type { EmailEnvironment } from './email';
 import { deliverVerification } from './verification-service';
@@ -42,7 +41,7 @@ export async function readInput(request: Request): Promise<unknown> {
 }
 
 export async function registerAccount(request: Request, env: RegistrationEnvironment): Promise<Response> {
-  // Default off; hosted mode also requires an explicit DEV marker and exact hostname.
+  // Default off; hosted modes require their explicit environment and exact hostname.
   if (!authRouteEnabled(request, env, env.REGISTRATION_MODE)) {
     return reply(404, { error: 'Not found' });
   }
@@ -79,9 +78,10 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
       input = validateRegistration(raw as Parameters<typeof validateRegistration>[0]);
     } catch { return reply(400, { error: 'Check your nickname, first and last name, email and password. Nicknames must follow the displayed rules; passwords need 12–128 characters.' }); }
     await limit('account', input.emailNormalized);
-    if (hostedDev(request, env)) {
+    if (hosted(request, env)) {
       // Deny before hashing or writing personal data, without revealing the allowlist.
-      try { assertDevEmailRecipient(env, input.emailNormalized); emailTransport(request, env); }
+      try { if (!recipientAllowed(request, env, input.emailNormalized)) throw new Error('Recipient denied');
+        emailTransport(request, env); }
       catch { return reply(202, accepted); }
     }
     const passwordHash = await hashPassword(input.password, env.PASSWORD_PEPPER);

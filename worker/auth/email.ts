@@ -7,8 +7,10 @@ export interface EmailTransport { send(mail: AccountMail): Promise<void> }
 export interface EmailEnvironment {
   AUTH_EMAIL_TRANSPORT?: string;
   AUTH_LOCAL_MAIL_SECRET?: string;
-  // Prepared hosted-DEV contract. These fields do not enable application routes.
+  // Hosted environment contract. These fields alone do not enable application routes.
   AUTH_ENVIRONMENT?: string;
+  AUTH_PROD_EMAIL_DAILY_LIMIT?: string;
+  AUTH_PROD_EMAIL_MONTHLY_LIMIT?: string;
   AUTH_PUBLIC_ORIGIN?: string;
   RESEND_API_KEY?: string;
   AUTH_DEV_RECIPIENT_ALLOWLIST?: string;
@@ -47,7 +49,7 @@ export class LocalEmailTransport implements EmailTransport {
 }
 export const localMailbox = new LocalEmailTransport();
 
-// Provider adapter selected only through the guarded DEV transport wrapper.
+// Provider adapter selected only through the guarded environment transport wrappers.
 // RESEND_API_KEY comes from Worker secrets; the wrapper enforces sender, recipient
 // and shared sending policy. Tests inject fake fetch; no SDK/dependency is needed.
 export class ResendEmailTransport implements EmailTransport {

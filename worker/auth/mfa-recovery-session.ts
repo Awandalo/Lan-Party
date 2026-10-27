@@ -4,7 +4,7 @@ import {assertOne,RecoveryPrimaryRequired} from './mfa-recovery';
 import type {RecoveryContext} from './mfa-recovery';
 export class RecoveryMfaRequired extends Error {}
 // A purpose-limited, one-use handoff of actual fresh session proof; no code is accepted again.
-export async function startSessionRecovery(db:D1Database,c:RecoveryContext,user:string,version:number,session:string,keys:MfaKeys,environment:'local'|'dev'){
+export async function startSessionRecovery(db:D1Database,c:RecoveryContext,user:string,version:number,session:string,keys:MfaKeys,environment:'local'|'dev'|'prod'){
  const now=c.now;
  const row=await db.prepare(`SELECT f.factor_id,f.recovery_set_id,r.method,r.authenticated_at,m.method AS mfa_method,m.verified_at,
  (r.method='password') AS trusted_primary

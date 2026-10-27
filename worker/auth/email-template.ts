@@ -19,7 +19,7 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
   const mfa=purpose in mfaCopy?mfaCopy[purpose as keyof typeof mfaCopy]:null;
   const notification = !!mfa || purpose === 'password-changed';
   const path = reactivation ? '/reactivate' : notification ? '/account/security' : reset ? '/reset-password' : '/verify-email';
-  if (url.origin !== 'https://dev.lan-party.club' || url.username || url.password
+  if (!['https://dev.lan-party.club', 'https://www.lan-party.club'].includes(url.origin) || url.username || url.password
     || url.pathname !== path || url.search || (notification ? !!url.hash : !url.hash) || /[\s\u0000-\u001f\u007f]/.test(link)) {
     throw new Error('Invalid authentication email URL');
   }

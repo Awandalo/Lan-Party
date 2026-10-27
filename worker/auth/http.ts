@@ -4,7 +4,7 @@ import { fromHex } from './encoding';
 import { findPasswordCredential } from './database';
 import { isValidPassword, verifyPassword } from './passwords';
 import { readInput } from './registration';
-import { authClientIP, authOrigin, authRouteEnabled, validAuthMutation, hostedDev } from './environment';
+import { authClientIP, authOrigin, authRouteEnabled, validAuthMutation, hosted } from './environment';
 import type { RegistrationEnvironment } from './registration';
 import { LoginLimiter, LoginLimited, LoginBusy } from './login-limits';
 import { LoginChallenge, turnstileConfiguration, verifyLoginChallenge } from './turnstile';
@@ -48,7 +48,7 @@ export async function authentication(request: Request, env: AuthenticationEnviro
     const now = Math.floor(Date.now() / 1000), store = new D1SessionStore(env.DB);
     if (action === 'login') {
       // Do not deploy hosted login without the challenge configuration ready.
-      if (hostedDev(request, env)) turnstileConfiguration(env);
+      if (hosted(request, env)) turnstileConfiguration(env);
       const ip = authClientIP(request, env);
       if (ip.length > 45 || (ip !== 'loopback' && !/^[0-9a-fA-F:.]+$/.test(ip))) return reply(400, invalid);
       const limiter = await LoginLimiter.create(env.DB, env.AUTH_RATE_LIMIT_SECRET, ip.toLowerCase());

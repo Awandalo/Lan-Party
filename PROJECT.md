@@ -97,6 +97,15 @@ Follow the styling boundaries in `AGENTS.md`: global rules belong in
 
 ## Architecture
 
+### Production authentication preparation — 2026-10-27
+
+Owner approved local PROD-specific preparation only. The explicit PROD build/profile
+keeps registration and session modes disabled; no credentials, migrations or hosted
+activation are included. DEV remains isolated. See the
+[activation contract and gates](docs/PROD_AUTH_ACTIVATION.md) for required budgets,
+key recovery, exact-target migration sequence and controlled acceptance. Existing
+DEV acceptance is reused; PROD registration is not yet accepted or enabled.
+
 ### Environment reference
 
 Use this table as the central environment reference for development, deployments
@@ -105,8 +114,8 @@ the default configuration targets PROD and `--env dev` selects DEV.
 
 | Environment | Git branch | Cloudflare Worker | D1 database | Website |
 | --- | --- | --- | --- | --- |
-| DEV | `dev` | `lan-party-dev` | `lan-party-dev` | https://lan-party-dev.servok.workers.dev |
-| PROD | `main` | `lan-party` | `lan-party-prod` | https://lan-party.servok.workers.dev |
+| DEV | `dev` | `lan-party-dev` | `lan-party-dev` | https://dev.lan-party.club |
+| PROD | `main` | `lan-party` | `lan-party-prod` | https://www.lan-party.club |
 
 - DEV is the testing and development environment. PROD is the publicly accessible
   production environment.
@@ -119,7 +128,9 @@ the default configuration targets PROD and `--env dev` selects DEV.
 - Deployments do not automatically apply D1 migrations. Production database
   migrations require separate explicit owner approval; deployment or release
   verification does not grant that approval.
-- Custom domains may be introduced later; do not assume one exists.
+- Custom domains are configured: PROD www is canonical, with apex HTTP/HTTPS and
+  HTTP www redirected to HTTPS www (308, path/query preserved). The apex Worker
+  binding is retained. DEV is unchanged. Worker aliases are not auth origins.
 - The existing health endpoint is `GET /api/health`, defined in `worker/index.ts`
   and routed to the Worker by Wrangler's `/api` and `/api/*` rules. It returns
   HTTP 200 with JSON `{"status":"ok"}` and checks liveness only, independently
