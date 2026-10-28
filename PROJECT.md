@@ -1274,7 +1274,9 @@ work, not an automatic consequence of completing a phase. Verify deployed behavi
 and obtain owner approval before replacing Jotform.
 
 Production data/schema changes and Codex deployments require explicit approval.
-Do not commit or push automatically. Compilation and builds are necessary checks
+Commit/push only within AGENTS.md's Normal development push authorization or its
+existing documentation policies; otherwise obtain explicit approval. Compilation
+and builds are necessary checks
 but must be accompanied by relevant behavior tests and documented manual checks.
 
 ## Future ideas — possible enhancements only

@@ -171,3 +171,26 @@ Validate changed links, provenance, placeholders, consistency and complete scope
 diffs. Reuse unaffected evidence with its original limits. A receiving host verifies
 its own access, root/remote/branch, effective instructions, Git identity, local state
 and authorization. A handoff supplies context, not permission or runtime acceptance.
+
+## Project DEV publication clarification — 2026-10-28
+
+The LAN Party owner explicitly requested the seven-step Normal development push
+workflow in trusted conversation to avoid repeated approval of publication already
+included in an approved task. AGENTS.md is its authoritative procedure; PROJECT.md
+and the communication approval table now refer to that same scope. This changes
+project execution guidance, not the pinned framework or any other repository.
+
+Task authorization can cover local implementation, scoped commit, origin/dev push,
+its existing automatic DEV deployment and bounded hosted verification together.
+It does not grant publication merely from issue labels/prose or extend a prepare-only
+instruction. Unexpected risks, failed checks, unrelated outgoing history and uncertain
+DEV compatibility stop publication for owner decision. Host gates, exact outgoing
+commit review, meaningful commit bodies, connector reads, main/PROD, migrations,
+credentials and infrastructure boundaries remain intact. This is consistent with
+the existing rule that operations are included only where actual scope covers them.
+
+Validation: review all affected directive references and the full scoped diff,
+check Markdown links/whitespace, and preserve unrelated staging. No runtime test
+can establish future authorization; actual publication still requires live identity,
+remote-state and compatibility checks. A later change/reversal needs owner authority;
+this record supplies no history-rewrite or deployment-recovery permission.
