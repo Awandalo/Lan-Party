@@ -1,3 +1,4 @@
+import {useAdministration} from '../lib/administration';
 import { AUTH_UI_AVAILABLE, authUIEnabled } from '../lib/auth-mode';
 import { Link, NavLink } from 'react-router';
 import './Header.css';
@@ -6,6 +7,7 @@ import AccountMenu from './AccountMenu';
 
 export default function Header() {
   const { session } = useAuth();
+  const access = useAdministration();
   return (
     <header className="site-header">
       <div className="container header-inner">
@@ -16,6 +18,7 @@ export default function Header() {
         <nav className="site-nav" aria-label="Main navigation">
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/events">Events</NavLink>
+          {access.sections.length > 0 && <NavLink to="/manage">Administration</NavLink>}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && session
             ? <AccountMenu nickname={session.account.nickname} />
             : <NavLink to="/login">Login</NavLink>}

@@ -1,3 +1,4 @@
+import { manage } from './manage';
 import { lifecycleHttp } from './auth/lifecycle-http';
 import { registerAccount } from './auth/registration';
 import { authentication } from './auth/http';
@@ -15,6 +16,7 @@ interface Env extends AuthenticationEnvironment {
 export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname.startsWith('/api/manage/'))return manage(request,env);
     if(pathname.startsWith('/api/auth/lifecycle/'))return lifecycleHttp(request,env);
     if(pathname.startsWith('/api/auth/mfa/'))return mfaAuthentication(request,env);
     if (pathname.startsWith('/api/auth/security/')) return accountSecurity(request,env);

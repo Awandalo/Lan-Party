@@ -1,9 +1,12 @@
+import {Link} from 'react-router';
+import {useAdministration} from '../lib/administration';
 import { useState } from 'react';
 import { publishedEvents } from '../lib/content';
 import type { PublicEvent } from '../lib/content';
 import '../CSS/Events_style.css';
 
 export default function Events() {
+  const access = useAdministration();
   const [period, setPeriod] = useState<PublicEvent['period']>('upcoming');
   const events = publishedEvents.filter((event) => event.period === period);
 
@@ -11,6 +14,7 @@ export default function Events() {
     <section className="page-section events-page">
       <p className="eyebrow">Make room for a weekend</p>
       <h1>Events</h1>
+      {access.sections.includes('events') && <Link className="button" to="/manage/events">Manage events</Link>}
       <p className="page-intro">Find your next LAN or look back at past weekends.
         Registration will be available from each event's own page.</p>
       <div className="events-filters" role="group" aria-label="Filter events">

@@ -1,3 +1,5 @@
+import Administration from './pages/Administration';
+import {AdministrationProvider} from './lib/administration';
 import { AUTH_UI_AVAILABLE, authUIEnabled } from './lib/auth-mode';
 import { Route, Routes, Link } from 'react-router';
 import Header from './components/Header';
@@ -21,13 +23,15 @@ import { AuthProvider } from './lib/auth';
 
 export default function App() {
   return (
-    <AuthProvider><div className="site-shell">
+    <AuthProvider><AdministrationProvider><div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <Header />
       <main id="main-content" className="container main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
+          {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage" element={<Administration />} />}
+          {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/:section" element={<Administration />} />}
           <Route path="/privacy" element={<Privacy />} />
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/reactivate" element={<ReactivateAccount />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/users" element={<UsersAdmin />} />}
@@ -52,6 +56,6 @@ export default function App() {
       </main>
       <Footer />
       <RouteFocus />
-    </div></AuthProvider>
+    </div></AdministrationProvider></AuthProvider>
   );
 }
