@@ -31,6 +31,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage" element={<Administration />} />}
+          {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/users/:userId" element={<Administration />} />}
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/:section" element={<Administration />} />}
           <Route path="/privacy" element={<Privacy />} />
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/reactivate" element={<ReactivateAccount />} />}

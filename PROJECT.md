@@ -25,6 +25,11 @@ Phase 4 Administration precedes Phase 5 Events; actual event registration and re
 Jotform remain future milestones. PROD authentication is separately gated.
 Google OAuth is permanently discontinued.
 
+Phase 4.1 Administration navigation is owner-accepted in #26. Phase 4.2 (#27)
+adds read-only member browsing/detail behind explicit users.view grants; hosted
+owner acceptance remains pending. Role/account mutations belong to #28/#29. See
+[the administration contract](docs/administration-foundation.md#phase-42--read-only-members-administration).
+
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
 decisions, or future ideas require review and are not immediate requirements.

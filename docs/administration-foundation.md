@@ -119,3 +119,68 @@ cards use their heading as the link name without underlines or redundant Open te
 The redundant Browse events link is removed; main navigation and the shared Events
 management destination remain. Section tabs use charcoal inactive backgrounds,
 mint active styling and explicit hover/focus feedback with mobile wrapping.
+
+## Phase 4.2 — read-only Members administration
+
+`/manage/users` now browses accounts; `/manage/users/:userId` displays approved
+private detail. Access to the shell does not grant access to member data: every
+read requires a verified full session, active explicit `users.view` permission and
+the session-correlation proof. `users.manage` or `roles.manage` alone is insufficient.
+The existing `/account/users` reactivation workflow is unchanged. No edit, role,
+reactivation, password/MFA, export or deletion actions are introduced.
+
+The DEV/local-only read contract is:
+
+- `GET /api/manage/users?status=active&kind=nickname&search=&limit=20`: list
+  nickname, decimal-string member number, account/lifecycle state and assigned
+  role labels with active/inactive distinction. No email or real names in lists.
+- Status is `active` by default, with explicit `deactivated` and `disabled`
+  filters; disabled includes a deleting-state badge when applicable. Unverified
+  active accounts remain accounts; verification appears in detail.
+- Search is a literal case-insensitive nickname prefix or exact member number
+  (`kind=number`, with optional #/leading zeros). No email search. Current nickname
+  storage is ASCII; Unicode input is normalized and handled literally without
+  inventing a Unicode nickname migration. LIKE wildcard characters are escaped.
+- Page size is 20, capped at 50. Pages use member-number/UUID order and a bounded
+  cursor tied to normalized criteria/page size. Previous navigation retains a
+  client-side cursor stack. Cursors are validated pagination positions, not signed
+  credentials or authorization; insertions/deletions do not create a frozen snapshot.
+  No unconditional total count, arbitrary sorting or export endpoint exists.
+- `GET /api/manage/users/:uuid`: the summary plus email, stored first/last name,
+  name prefix, verification state and creation time. Lifecycle-scrubbed names/prefix
+  are null/unavailable; do not reconstruct them. No auth internals are selected.
+- Both endpoints require `X-LAN-Request: 1` and `X-LAN-Session-Proof` from the
+  current session, preserve origin restrictions and return no-store/no-referrer.
+  Denial, invalid query, context change, missing account and outage have distinct
+  HTTP responses. Cursor contents never bypass per-request authorization.
+
+Queries start from existing users with registered member numbers, so reserved
+slots, deleted-account ledger rows and tombstones cannot become directory accounts.
+Missing nicknames or roles remain visible as unavailable/none. Existing schema
+and indexes are reused; no migration or remote data operation is part of this work.
+
+Private result rendering is keyed to the complete session/capability snapshot,
+query and route. Results are cleared/hidden during revalidation, on account/session
+change, permission denial, failed reads and logout. Requests are aborted on change,
+and ignored even if a fictional transport completes after cancellation. The shell
+remains the stable 4.1 navigation; permission hints never authorize a data request.
+The redundant Administration eyebrow is removed in both loading and ready views.
+
+### Verification / owner acceptance
+
+Run `node --test worker/tests/members.test.mjs worker/tests/administration.test.mjs`
+for Worker/D1 permission, projection, lifecycle, search and pagination checks.
+With Vite running, `/worker/tests/fixtures/members-ui.html` provides fictional
+browser data and controls for revoked access, identity replacement, API outage
+and session expiry. A slow prefix request intentionally ignores abort to exercise
+late-response fencing. Use `?mode=manage-only` for shell access without read rights.
+No fixture request reaches real accounts or an external provider.
+
+On hosted DEV, verify the exact deployed footer identity, then use approved test
+accounts to check overview/detail, active/deactivated/disabled filters, nickname
+and member-number searches, previous/next, keyboard focus and narrow layout.
+Check visitors, ordinary members, users.manage-only/roles.manage-only and an explicit
+users.view custom role; creating roles/grants or changing data for acceptance needs
+its own authorization. Confirm no stale member data after revocation/account switch
+and no real names/email in lists. Owner acceptance remains pending; deployment and
+local fictional browser evidence do not substitute for it. PROD is untouched.

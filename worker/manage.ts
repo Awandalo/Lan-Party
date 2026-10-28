@@ -1,3 +1,4 @@
+import {memberRead} from './members';
 import {sessionCsrfToken} from './auth/csrf';
 import {digestToken} from './auth/tokens';
 import {fromHex} from './auth/encoding';
@@ -27,13 +28,14 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     status, headers: {'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer'},
   });
   const url = new URL(request.url);
+  const members = url.pathname === '/api/manage/users' || url.pathname.startsWith('/api/manage/users/');
   // This first iteration is DEV/local only; PROD activation requires separate approval.
   if (!(loopback(url) || hostedDev(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
-    || url.pathname !== '/api/manage/capabilities') return reply(404, {error: 'Not found'});
+    || (!members && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
   if (request.method !== 'GET') return reply(405, {error: 'Method not allowed'});
   try {
     const origin = authOrigin(request, env);
-    if (url.search || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
+    if ((!members && url.search) || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
       || request.headers.has('Origin') && request.headers.get('Origin') !== origin.origin
       || request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin') {
       return reply(403, {error: 'Request rejected'});
@@ -44,12 +46,17 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     // Optional correlation proof prevents applying user B's grants to user A's
     // session snapshot if another tab changes cookies between the two reads.
     const submitted = request.headers.get('X-LAN-Session-Proof');
+    if (members && submitted === null) return reply(403, {error: 'Session proof required'});
     if (submitted !== null) {
       const bytes = fromHex(submitted, 32);
       const expected = fromHex(await sessionCsrfToken(await digestToken(token!, 'session'), env.AUTH_RATE_LIMIT_SECRET!), 32)!;
       if (!bytes || !crypto.subtle.timingSafeEqual(bytes, expected)) return reply(409, {error: 'Session context changed'});
     }
     const permissions = await administrationPermissions(env.DB, account.userId, now);
+    if (members) {
+      if (!permissions.includes('users.view')) return reply(403, {error: 'Member access is restricted'});
+      const result = await memberRead(env.DB, url); return reply(result.status, result.body);
+    }
     const sections = Object.entries(sectionPermissions).filter(([, required]) => required.some(p => permissions.includes(p))).map(([key]) => key);
     if (!sections.length) return reply(403, {error: 'Administration access is not available'});
     return reply(200, {sections});
