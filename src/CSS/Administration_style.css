@@ -1,8 +1,15 @@
 .administration-nav { display:flex; flex-wrap:wrap; gap:.75rem; margin:1.5rem 0; }
-.administration-nav a { padding:.6rem 1rem; border:1px solid currentColor; border-radius:.5rem; }
-.administration-nav a[aria-current="page"] { font-weight:700; text-decoration:underline; }
+.administration-nav a { padding:.6rem 1rem; border:1px solid var(--border); border-radius:.5rem; background:var(--surface); color:var(--muted); text-decoration:none; min-height:44px; display:inline-flex; align-items:center; }
+.administration-nav a[aria-current="page"] { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); font-weight:700; }
 .administration-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:1rem; margin:1.5rem 0; }
 .administration-panel { padding:1.5rem; margin-bottom:1.5rem; overflow-wrap:anywhere; }
 .administration-panel h2 { margin-top:0; }
 .administration-skeleton-nav span { padding:.6rem 1rem; border:1px solid transparent; border-radius:.5rem; background:var(--surface); color:transparent; }
 .administration-skeleton { min-height:8rem; }
+
+.administration-nav a:hover { background:var(--surface-raised); color:var(--text); }
+.administration-nav a[aria-current="page"]:hover { background:var(--accent-dim); color:var(--accent); }
+.administration-grid > a { color:var(--text); text-decoration:none; transition:border-color 120ms ease; }
+.administration-grid > a:hover { border-color:var(--accent); background:var(--surface-raised); }
+.administration-grid > a h2 { margin-bottom:0; }
+.administration-grid > a:focus-visible, .administration-nav a:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }

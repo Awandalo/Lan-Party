@@ -21,8 +21,7 @@ export default function Administration() {
     {section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>{key === 'users' ? 'Member browsing and management will be added in a later iteration.' : key === 'roles' ? 'Role and permission editing will be added in a later iteration.' : 'Event management will be added here in a later iteration.'}</p>
       {key === 'users' && <p>Existing account reactivation remains available through Account Security for eligible administrators.</p>}
     </div> : <><p>Choose an area to get started. Only areas available to your account are shown.</p><div className="administration-grid">
-      {access.sections.map(s => <Link className="panel administration-panel" key={s} to={'/manage/'+s}><h2>{sections[s]}</h2><p>Open {sections[s]}</p></Link>)}
+      {access.sections.map(s => <Link className="panel administration-panel" key={s} to={'/manage/'+s}><h2>{sections[s]}</h2></Link>)}
     </div></>}
-    <Link to="/events">Browse events</Link>
   </section>;
 }

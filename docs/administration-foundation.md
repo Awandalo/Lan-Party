@@ -109,3 +109,13 @@ A capabilities outage does not turn a verified login/MFA session refresh into an
 authentication failure: authentication remains ready while Administration reports
 unavailable with no granted sections. A session-context conflict clears identity
 and requires a fresh explicit check; it is never retried indefinitely.
+
+## Iteration 3 — GUI cleanup
+
+Resolved visitors and ordinary members no longer reserve an Administration-sized
+header slot. Initial unknown access can reserve a temporary noninteractive slot;
+same-context background revalidation retains confirmed staff navigation. Landing
+cards use their heading as the link name without underlines or redundant Open text.
+The redundant Browse events link is removed; main navigation and the shared Events
+management destination remain. Section tabs use charcoal inactive backgrounds,
+mint active styling and explicit hover/focus feedback with mobile wrapping.

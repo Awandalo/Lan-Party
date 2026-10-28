@@ -14,5 +14,5 @@
 }
 
 .administration-nav-slot { display:inline-flex; align-items:center; }
-.account-nav-slot { display:inline-flex; min-width:6rem; align-items:center; }
+.account-nav-slot { display:inline-flex; align-items:center; }
 .administration-nav-placeholder { visibility:hidden; padding:.65rem .85rem; font-size:.9rem; }
