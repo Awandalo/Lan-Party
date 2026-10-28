@@ -14,7 +14,7 @@ export default function Events() {
     <section className="page-section events-page">
       <p className="eyebrow">Make room for a weekend</p>
       <h1>Events</h1>
-      {access.sections.includes('events') && <Link className="button" to="/manage/events">Manage events</Link>}
+      <div className="events-management-slot">{access.sections.includes('events') && <Link className="button" to="/manage/events">Manage events</Link>}</div>
       <p className="page-intro">Find your next LAN or look back at past weekends.
         Registration will be available from each event's own page.</p>
       <div className="events-filters" role="group" aria-label="Filter events">

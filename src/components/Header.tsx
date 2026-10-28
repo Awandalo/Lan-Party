@@ -18,10 +18,10 @@ export default function Header() {
         <nav className="site-nav" aria-label="Main navigation">
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/events">Events</NavLink>
-          {access.sections.length > 0 && <NavLink to="/manage">Administration</NavLink>}
-          {(AUTH_UI_AVAILABLE && authUIEnabled()) && session
+          <span className="administration-nav-slot">{access.sections.length > 0 ? <NavLink to="/manage">Administration</NavLink> : <span className="administration-nav-placeholder" aria-hidden="true">Administration</span>}</span>
+          <span className="account-nav-slot">{(AUTH_UI_AVAILABLE && authUIEnabled()) && session
             ? <AccountMenu nickname={session.account.nickname} />
-            : <NavLink to="/login">Login</NavLink>}
+            : <NavLink to="/login">Login</NavLink>}</span>
         </nav>
       </div>
     </header>

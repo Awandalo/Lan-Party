@@ -1,3 +1,6 @@
+import {sessionCsrfToken} from './auth/csrf';
+import {digestToken} from './auth/tokens';
+import {fromHex} from './auth/encoding';
 import type { AuthenticationEnvironment } from './auth/http';
 import { authOrigin, authRouteEnabled, hostedDev, loopback } from './auth/environment';
 import { readSessionCookie } from './auth/cookies';
@@ -38,6 +41,14 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     const now = Math.floor(Date.now()/1000), token = readSessionCookie(request);
     const account = token ? await resolveSession(env.DB, token, now) : null;
     if (!account || account.emailVerifiedAt === null) return reply(401, {error: 'Please log in'});
+    // Optional correlation proof prevents applying user B's grants to user A's
+    // session snapshot if another tab changes cookies between the two reads.
+    const submitted = request.headers.get('X-LAN-Session-Proof');
+    if (submitted !== null) {
+      const bytes = fromHex(submitted, 32);
+      const expected = fromHex(await sessionCsrfToken(await digestToken(token!, 'session'), env.AUTH_RATE_LIMIT_SECRET!), 32)!;
+      if (!bytes || !crypto.subtle.timingSafeEqual(bytes, expected)) return reply(409, {error: 'Session context changed'});
+    }
     const permissions = await administrationPermissions(env.DB, account.userId, now);
     const sections = Object.entries(sectionPermissions).filter(([, required]) => required.some(p => permissions.includes(p))).map(([key]) => key);
     if (!sections.length) return reply(403, {error: 'Administration access is not available'});

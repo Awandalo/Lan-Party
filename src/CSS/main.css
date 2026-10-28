@@ -45,3 +45,5 @@ p:last-child { margin-bottom: 0; }
 .skip-link:focus { transform: translateY(0); }
 @media (max-width: 640px) { .container { width: calc(100% - 2rem); } }
 
+/* Keep centered navigation stable when switching between long and short pages. */
+html { scrollbar-gutter: stable; }

@@ -10,9 +10,9 @@ const origin='http://127.0.0.1:5173';
 let script,migrations;
 before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
- import app from './worker/index';import {generateToken,digestToken} from './worker/auth/tokens';
+ import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
  export default{async fetch(request,env){if(new URL(request.url).pathname!='/fixture')return app.fetch(request,env);
- const token=generateToken();return Response.json({token,digest:await digestToken(token,'session')});}};`},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
+ const token=generateToken();const digest=await digestToken(token,'session');return Response.json({token,digest,csrf:await sessionCsrfToken(digest,env.AUTH_RATE_LIMIT_SECRET)});}};`},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
  migrations=[];
  for(const name of(await readdir(new URL('../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort()){
  let rest=(await readFile(new URL('../../migrations/'+name,import.meta.url),'utf8')).replace(/--[^\n]*/g,'').trim(),parts=[];
@@ -20,7 +20,7 @@ before(async()=>{
  }
 });
 async function local(run){
- const simulator=new Miniflare(convertV4MiniflareOptions({modules:true,script,compatibilityDate:'2026-10-11',cf:false,d1Databases:{DB:randomUUID()},bindings:{AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin}}));
+ const simulator=new Miniflare(convertV4MiniflareOptions({modules:true,script,compatibilityDate:'2026-10-11',cf:false,d1Databases:{DB:randomUUID()},bindings:{AUTH_RATE_LIMIT_SECRET:'33'.repeat(32),AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin}}));
  try{
  const db=await simulator.getD1Database('DB'),sql=(q,...args)=>db.prepare(q).bind(...args);
  for(const parts of migrations)await db.batch(parts.map(p=>db.prepare(p)));
@@ -70,3 +70,5 @@ test('future assignments/grants and missing authorization tables fail closed',()
  await sql('UPDATE user_roles SET assigned_at=0').run();await sql('UPDATE role_permissions SET granted_at=unixepoch()+3600').run();assert.equal((await request('manage/capabilities',u)).status,403);
  await sql('ALTER TABLE role_permissions RENAME TO unavailable_permissions').run();assert.equal((await request('manage/capabilities',u)).status,503);
 }));
+
+test('session correlation rejects another session snapshot without returning grants',()=>local(async({user,request})=>{const a=await user({admin:true}),b=await user({admin:true});assert.equal((await request('manage/capabilities',a,undefined,{'X-LAN-Session-Proof':a.csrf})).status,200);assert.equal((await request('manage/capabilities',b,undefined,{'X-LAN-Session-Proof':a.csrf})).status,409);}));

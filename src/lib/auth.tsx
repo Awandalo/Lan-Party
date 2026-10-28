@@ -1,52 +1,53 @@
-import { AUTH_UI_AVAILABLE, authUIEnabled } from './auth-mode';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
-import { useLocation } from 'react-router';
-import { isMemberNumber } from './member-number';
-
-interface Session { account: { userId: string; nickname: string; memberNumber: string }; csrfToken: string; emailVerified: boolean; recoveryCodesRemaining?:number }
+import {AUTH_UI_AVAILABLE, authUIEnabled} from './auth-mode';
+import {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
+import type {ReactNode} from 'react';
+import {useLocation} from 'react-router';
+import {SessionValidation} from './session-validation';
+import type {Session, AdministrationAccess, ValidationState} from './session-validation';
 interface Authentication {
   session: Session | null;
   status: 'loading' | 'ready' | 'error';
+  administration?: AdministrationAccess;
   refresh: () => Promise<boolean>;
   logout: () => Promise<boolean>;
 }
 const Context = createContext<Authentication | null>(null);
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [status, setStatus] = useState<Authentication['status']>((AUTH_UI_AVAILABLE && authUIEnabled()) ? 'loading' : 'ready');
-  const { pathname } = useLocation();
-  const refresh = useCallback(async () => {
-    if (!(AUTH_UI_AVAILABLE && authUIEnabled())) return false;
-    try {
-      const response = await fetch('/api/auth/session', { credentials: 'same-origin', redirect: 'error',
-        headers: { 'X-LAN-Request': '1' }, signal: AbortSignal.timeout(15000) });
-      if (response.status === 401) { setSession(null); setStatus('ready'); return false; }
-      if (!response.ok) throw new Error('Session unavailable');
-      const value: Session = await response.json();
-      if (typeof value.account?.userId !== 'string' || typeof value.account?.nickname !== 'string'
-        || !isMemberNumber(value.account?.memberNumber)
-        || typeof value.emailVerified !== 'boolean'
-        || !/^[0-9a-f]{64}$/.test(value.csrfToken)) throw new Error('Invalid session response');
-      if(value.recoveryCodesRemaining!==undefined&&(!Number.isInteger(value.recoveryCodesRemaining)||value.recoveryCodesRemaining<0||value.recoveryCodesRemaining>10))delete value.recoveryCodesRemaining;
-      setSession(value); setStatus('ready'); return true;
-    } catch { setSession(null); setStatus('error'); return false; }
-  }, []);
-  useEffect(() => { void refresh(); }, [refresh, pathname]);
+export function AuthProvider({children}: {children: ReactNode}) {
+  const enabled = AUTH_UI_AVAILABLE && authUIEnabled();
+  const [state, setState] = useState<ValidationState>({session: null, status: enabled ? 'loading' : 'ready', access: {sections: [], status: enabled ? 'loading' : 'ready'}});
+  const [validation] = useState(() => new SessionValidation(setState, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
+  const channel = useRef<BroadcastChannel | null>(null);
+  const {pathname} = useLocation();
+  const refresh = useCallback(() => enabled ? validation.refresh(true) : Promise.resolve(false), [enabled, validation]);
+  useEffect(() => {if (enabled) void validation.refresh();}, [enabled, validation, pathname]);
+  useEffect(() => {
+    if (!enabled) return;
+    // Cross-tab messages carry invalidation only, never identities, grants or tokens.
+    const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('lan-auth-invalidation') : null;
+    channel.current = bus;
+    if (bus) bus.onmessage = () => {validation.invalidate(); void validation.refresh();};
+    const check = () => {if (document.visibilityState === 'visible') void validation.refresh();};
+    const restored = (event: PageTransitionEvent) => {if (event.persisted) {validation.invalidate(); void validation.refresh();}};
+    window.addEventListener('focus', check); document.addEventListener('visibilitychange', check); window.addEventListener('pageshow', restored);
+    return () => {channel.current = null; bus?.close(); validation.dispose(); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); window.removeEventListener('pageshow', restored);};
+  }, [enabled, validation]);
   const logout = async () => {
-    if (!session || !(AUTH_UI_AVAILABLE && authUIEnabled())) return false;
+    const session = validation.state.session;
+    if (!session || !enabled) return false;
+    validation.invalidate();
     try {
-      const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', redirect: 'error',
-        headers: { 'Content-Type': 'application/json', 'X-LAN-Request': '1', 'X-CSRF-Token': session.csrfToken },
-        body: '{}', signal: AbortSignal.timeout(15000) });
-      if (response.ok || response.status === 401) { setSession(null); setStatus('ready'); return true; }
-      // A stale CSRF key can be refreshed without retrying the mutation automatically.
-      if (response.status === 403) await refresh();
-      return false;
-    } catch { return false; }
+      const response = await fetch('/api/auth/logout', {method: 'POST', credentials: 'same-origin', redirect: 'error',
+        headers: {'Content-Type': 'application/json', 'X-LAN-Request': '1', 'X-CSRF-Token': session.csrfToken},
+        body: '{}', signal: AbortSignal.timeout(15000)});
+      if (response.ok || response.status === 401) {
+        channel.current?.postMessage('invalidate');
+        // Invalidate again: an overlapping route/focus read must not revive logout.
+        validation.signedOut(); return true;
+      }
+      await refresh(); return false;
+    } catch {await refresh(); return false;}
   };
-  // Tokens stay in HttpOnly cookies; only the separate CSRF proof lives in React memory.
-  return <Context value={{ session, status, refresh, logout }}>{children}</Context>;
+  return <Context value={{session: state.session, status: state.status, administration: state.access, refresh, logout}}>{children}</Context>;
 }
 export function useAuth() {
   const value = useContext(Context);

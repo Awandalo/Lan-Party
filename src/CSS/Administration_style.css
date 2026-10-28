@@ -4,3 +4,5 @@
 .administration-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:1rem; margin:1.5rem 0; }
 .administration-panel { padding:1.5rem; margin-bottom:1.5rem; overflow-wrap:anywhere; }
 .administration-panel h2 { margin-top:0; }
+.administration-skeleton-nav span { padding:.6rem 1rem; border:1px solid transparent; border-radius:.5rem; background:var(--surface); color:transparent; }
+.administration-skeleton { min-height:8rem; }

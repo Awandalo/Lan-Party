@@ -7,3 +7,4 @@
 .events-empty p { max-width: 38rem; margin-inline: auto; }
 .events-list { display: grid; gap: 1rem; }
 
+.events-management-slot { min-height:3rem; margin-block:.5rem; }
