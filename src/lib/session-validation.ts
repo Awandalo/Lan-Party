@@ -2,7 +2,7 @@ import {isMemberNumber} from './member-number';
 
 export interface Session {account: {userId: string; nickname: string; memberNumber: string}; csrfToken: string; emailVerified: boolean; recoveryCodesRemaining?: number}
 export type Section = 'users' | 'roles' | 'events';
-export interface AdministrationAccess {sections: Section[]; status: 'loading' | 'ready' | 'error'; revalidating?: boolean}
+export interface AdministrationAccess {sections: Section[]; status: 'loading' | 'ready' | 'error'; revalidating?: boolean; revision?: number}
 export interface ValidationState {session: Session | null; status: 'loading' | 'ready' | 'error'; access: AdministrationAccess}
 const empty = (): AdministrationAccess => ({sections: [], status: 'loading'});
 
@@ -32,7 +32,7 @@ export class SessionValidation {
     const current = () => generation === this.generation;
     const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]);
     const read = (path: string, proof?: string) => this.transport(path, {credentials: 'same-origin', redirect: 'error', headers: {'X-LAN-Request': '1', ...(proof ? {'X-LAN-Session-Proof': proof} : {})}, signal});
-    this.set({...this.state, access: {...this.state.access, revalidating: true}});
+    this.set({...this.state, access: {...this.state.access, revalidating: true, revision: generation}});
     const operation = async () => {
       let session: Session | null = null;
       try {
@@ -67,7 +67,7 @@ export class SessionValidation {
         const body = await capabilities.json();
         if (!current()) return false;
         if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events'].includes(s))) throw Error('Invalid capabilities');
-        this.set({session, status: 'ready', access: {sections: [...new Set<Section>(body.sections)], status: 'ready'}});
+        this.set({session, status: 'ready', access: {sections: [...new Set<Section>(body.sections)], status: 'ready', revision: generation}});
         return true;
       } catch {
         if (current()) this.set({session, status: session ? 'ready' : 'error', access: {sections: [], status: 'error'}});

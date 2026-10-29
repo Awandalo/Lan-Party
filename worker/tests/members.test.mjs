@@ -81,13 +81,20 @@ test('lifecycle filters distinguish disabled/deactivated/deleting; scrubbed name
  const row=(await body(f,'/'+d.id,admin)).member;assert.equal(row.firstName,null);assert.equal(row.lastName,null);assert.equal(row.prefix,null);assert.equal((await body(f,'/'+missing.id,admin)).member.nickname,null);
  assert.equal((await get(f,'/'+randomUUID(),admin)).status,404);
 }));
-test('nickname search treats wildcard and Unicode literally; exact member numbers retain 64-bit precision',()=>local(async f=>{
- const admin=await f.user({admin:true});const a=await target(f,{nickname:'Prefix_Name'});await target(f,{nickname:'PrefixXName'});const big=await target(f,{number:'9007199254740993'});
+test('combined substring and numeric search treats wildcards literally and retains 64-bit precision',()=>local(async f=>{
+ const admin=await f.user({admin:true});const a=await target(f,{nickname:'Prefix_Name'});await target(f,{nickname:'PrefixXName'});const big=await target(f,{nickname:'HugeMember',number:'9007199254740993'});
  assert.deepEqual((await body(f,'?search=PREFIX_',admin)).members.map(r=>r.userId),[a.id]);
+ assert.deepEqual((await body(f,'?search=FIX_NA',admin)).members.map(r=>r.userId),[a.id]);
+ const mixed=await target(f,{nickname:'Player'+a.number+'End'});
+ assert.deepEqual((await body(f,'?search='+a.number,admin)).members.map(r=>r.userId),[a.id,mixed.id]);
+ const both=await target(f,{nickname:'Member9007199254740995',number:'9007199254740995'});
+ assert.deepEqual((await body(f,'?search='+both.number,admin)).members.map(r=>r.userId),[both.id]);
  for(const q of ['%','\\',"x' OR 1=1 --",'é','😀'])assert.equal((await body(f,'?search='+encodeURIComponent(q),admin)).members.length,0);
- assert.equal((await body(f,'?kind=number&search=%230000'+a.number,admin)).members[0].userId,a.id);
- assert.equal((await body(f,'?kind=number&search=9007199254740993',admin)).members[0].memberNumber,big.number);
- for(const query of ['kind=email','limit=51','limit=0','limit=20&limit=10','kind=number&search=0','kind=number&search=9223372036854775808','search=%00','unknown=1','cursor=bad'])assert.equal((await get(f,'?'+query,admin)).status,400,query);
+ assert.equal((await body(f,'?search=%230000'+a.number,admin)).members[0].userId,a.id);
+ assert.equal((await body(f,'?search=9007199254740993',admin)).members[0].memberNumber,big.number);
+ assert.deepEqual((await body(f,'?search=0',admin)).members.map(r=>r.userId),[both.id]);
+ for(const q of ['9223372036854775808','999999999999999999999999'])assert.equal((await body(f,'?search='+q,admin)).members.length,0);
+ for(const query of ['kind=email','limit=51','limit=0','limit=20&limit=10','search=1234567890123456789012345','search=%00','unknown=1','cursor=bad'])assert.equal((await get(f,'?'+query,admin)).status,400,query);
 }));
 test('stable bounded cursor pages bind query criteria, exclude duplicates from multiple roles and survive insert between pages',()=>local(async f=>{
  const admin=await f.user({admin:true}),rows=[];for(let i=0;i<23;i++)rows.push(await target(f,{nickname:'Page '+String(i).padStart(2,'0')}));
@@ -98,6 +105,10 @@ test('stable bounded cursor pages bind query criteria, exclude duplicates from m
  await target(f,{nickname:'Page inserted'});const next=await body(f,'?cursor='+encodeURIComponent(first.nextCursor),admin);assert.equal(next.members.length,5);assert.equal(next.nextCursor,null);assert.equal(new Set([...first.members,...next.members].map(r=>r.userId)).size,25);
  assert.equal((await get(f,'?status=disabled&cursor='+encodeURIComponent(first.nextCursor),admin)).status,400);
  assert.equal((await get(f,'?limit=10&cursor='+encodeURIComponent(first.nextCursor),admin)).status,400);
+ assert.equal((await get(f,'?search=Page&cursor='+encodeURIComponent(first.nextCursor),admin)).status,400);
+ const matching=await body(f,'?search=age&limit=10',admin);assert.equal(matching.members.length,10);
+ const matchingNext=await body(f,'?search=age&limit=10&cursor='+encodeURIComponent(matching.nextCursor),admin);
+ assert.equal(new Set([...matching.members,...matchingNext.members].map(r=>r.userId)).size,20);
  assert.deepEqual((await body(f,'',admin)).members.map(r=>r.userId),first.members.map(r=>r.userId));
  const removed=first.members.at(-1).userId;await f.sql('DELETE FROM user_nicknames WHERE user_id=?',removed).run();await f.sql('DELETE FROM auth_sessions WHERE user_id=?',removed).run();await f.sql('DELETE FROM users WHERE id=?',removed).run();assert.deepEqual((await body(f,'?cursor='+encodeURIComponent(first.nextCursor),admin)).members.map(r=>r.userId),next.members.map(r=>r.userId));
 }));

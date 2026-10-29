@@ -131,14 +131,18 @@ reactivation, password/MFA, export or deletion actions are introduced.
 
 The DEV/local-only read contract is:
 
-- `GET /api/manage/users?status=active&kind=nickname&search=&limit=20`: list
+- `GET /api/manage/users?status=active&search=&limit=20`: list
   nickname, decimal-string member number, account/lifecycle state and assigned
   role labels with active/inactive distinction. No email or real names in lists.
 - Status is `active` by default, with explicit `deactivated` and `disabled`
   filters; disabled includes a deleting-state badge when applicable. Unverified
   active accounts remain accounts; verification appears in detail.
-- Search is a literal case-insensitive nickname prefix or exact member number
-  (`kind=number`, with optional #/leading zeros). No email search. Current nickname
+- One search input matches a literal case-insensitive nickname substring anywhere.
+  Numeric input also matches an exact member number (optional #/leading zeros),
+  with no duplicate rows when both match. Numbers beyond SQLite's range only
+  participate in nickname matching; no rounded or clamped number lookup occurs.
+  Clear filters restores an empty query, active-only state and page one.
+  No email search. Current nickname
   storage is ASCII; Unicode input is normalized and handled literally without
   inventing a Unicode nickname migration. LIKE wildcard characters are escaped.
 - Page size is 20, capped at 50. Pages use member-number/UUID order and a bounded
@@ -159,20 +163,34 @@ slots, deleted-account ledger rows and tombstones cannot become directory accoun
 Missing nicknames or roles remain visible as unavailable/none. Existing schema
 and indexes are reused; no migration or remote data operation is part of this work.
 
-Private result rendering is keyed to the complete session/capability snapshot,
-query and route. Results are cleared/hidden during revalidation, on account/session
-change, permission denial, failed reads and logout. Requests are aborted on change,
-and ignored even if a fictional transport completes after cancellation. The shell
+Private results use a memory-only cache owned by the current AuthProvider, bounded
+to eight query/detail views. Returning to a cached view displays it while refreshing;
+an uncached view still requires its first data request. A reserved progress line
+announces background work without displacing the table/detail. Nothing is stored
+in browser storage or a service worker.
+
+Focus, visibility and route session/capability checks remain enabled. Previously,
+each new validation object cleared the member hook's data, causing focus reloads;
+data reads also waited for both validation requests. Each validation generation
+now triggers one deduplicated member read in parallel when a same-context validated
+session is available. Every private endpoint still independently checks the live
+session, proof and explicit users.view grant. Cached same-context content survives
+only background checking, never a detected failure: account/session/proof changes,
+invalidation, expiry, permission denial, validation errors and failed member reads
+purge cached private views and fence late responses even if cancellation is ignored.
+Query/route keys prevent out-of-order results replacing the current view. The shell
 remains the stable 4.1 navigation; permission hints never authorize a data request.
 The redundant Administration eyebrow is removed in both loading and ready views.
 
 ### Verification / owner acceptance
 
-Run `node --test worker/tests/members.test.mjs worker/tests/administration.test.mjs`
+Run `node --test worker/tests/members.test.mjs worker/tests/administration.test.mjs worker/tests/member-read-cache.test.mjs worker/tests/session-validation.test.mjs`
 for Worker/D1 permission, projection, lifecycle, search and pagination checks.
 With Vite running, `/worker/tests/fixtures/members-ui.html` provides fictional
 browser data and controls for revoked access, identity replacement, API outage
-and session expiry. A slow prefix request intentionally ignores abort to exercise
+and session expiry. Focus controls dispatch the real focus/visibility handlers and
+can simulate a read denial/outage without changing shell hints. A slow substring
+request intentionally ignores abort to exercise
 late-response fencing. Use `?mode=manage-only` for shell access without read rights.
 No fixture request reaches real accounts or an external provider.
 
@@ -184,3 +202,9 @@ users.view custom role; creating roles/grants or changing data for acceptance ne
 its own authorization. Confirm no stale member data after revocation/account switch
 and no real names/email in lists. Owner acceptance remains pending; deployment and
 local fictional browser evidence do not substitute for it. PROD is untouched.
+
+Owner reported iteration 1's six hosted checks passed, but withheld final acceptance
+pending iteration 2 (#27 comment 6483398045). Recheck combined search/reset, list/detail
+navigation and the physical two-monitor focus-switch reproduction on DEV. Synthetic
+focus events and delayed fictional transport checks do not prove that OS scenario
+or actual hosted latency. No schema, dependency or remote data changes are required.

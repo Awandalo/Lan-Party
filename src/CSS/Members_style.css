@@ -5,6 +5,7 @@
 .members-search small { display:block; color:var(--muted); margin-top:.4rem; }
 .members-search button { align-self:center; }
 .members-results { min-height:12rem; margin-top:1.5rem; }
+.members-progress { min-height:1.5em; margin:0 0 .75rem; color:var(--muted); }
 .members-table-scroll { overflow-x:auto; }
 .members-page table { width:100%; border-collapse:collapse; text-align:left; }
 .members-page th,.members-page td { padding:.85rem .65rem; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }

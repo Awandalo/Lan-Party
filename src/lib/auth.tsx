@@ -3,11 +3,13 @@ import {createContext, useCallback, useContext, useEffect, useRef, useState} fro
 import type {ReactNode} from 'react';
 import {useLocation} from 'react-router';
 import {SessionValidation} from './session-validation';
+import {MemberReadCache} from './member-read-cache';
 import type {Session, AdministrationAccess, ValidationState} from './session-validation';
 interface Authentication {
   session: Session | null;
   status: 'loading' | 'ready' | 'error';
   administration?: AdministrationAccess;
+  memberReads: MemberReadCache;
   refresh: () => Promise<boolean>;
   logout: () => Promise<boolean>;
 }
@@ -15,7 +17,8 @@ const Context = createContext<Authentication | null>(null);
 export function AuthProvider({children}: {children: ReactNode}) {
   const enabled = AUTH_UI_AVAILABLE && authUIEnabled();
   const [state, setState] = useState<ValidationState>({session: null, status: enabled ? 'loading' : 'ready', access: {sections: [], status: enabled ? 'loading' : 'ready'}});
-  const [validation] = useState(() => new SessionValidation(setState, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
+  const [memberReads] = useState(() => new MemberReadCache());
+  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
   const channel = useRef<BroadcastChannel | null>(null);
   const {pathname} = useLocation();
   const refresh = useCallback(() => enabled ? validation.refresh(true) : Promise.resolve(false), [enabled, validation]);
@@ -47,7 +50,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
       await refresh(); return false;
     } catch {await refresh(); return false;}
   };
-  return <Context value={{session: state.session, status: state.status, administration: state.access, refresh, logout}}>{children}</Context>;
+  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, refresh, logout}}>{children}</Context>;
 }
 export function useAuth() {
   const value = useContext(Context);

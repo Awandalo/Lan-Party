@@ -30,19 +30,20 @@ export async function memberRead(db: D1Database, url: URL): Promise<{status: num
    return {status:200,body:{member:{...row,verified:row.verified===1,roles:assignments.map(({code,name,active})=>({code,name,active:active===1}))}}};
   }
   const params=url.searchParams;
-  for (const key of params.keys()) if (!['status','kind','search','limit','cursor'].includes(key) || params.getAll(key).length!==1) invalid();
-  const status=params.get('status')??'active',kind=params.get('kind')??'nickname';
-  if (!['active','deactivated','disabled'].includes(status) || !['nickname','number'].includes(kind)) invalid();
+  for (const key of params.keys()) if (!['status','search','limit','cursor'].includes(key) || params.getAll(key).length!==1) invalid();
+  const status=params.get('status')??'active';
+  if (!['active','deactivated','disabled'].includes(status)) invalid();
   const raw=params.get('search')??'';
   if (raw.length>128 || /[\u0000-\u001f\u007f]/.test(raw)) invalid();
-  let search=raw.trim().normalize('NFC').toLowerCase();
-  if (kind==='number' && search) {
-   if (!/^#?[0-9]{1,19}$/.test(search)) invalid();
-   search=search.replace(/^#/,'').replace(/^0+(?=\d)/,''); if (!memberNumber(search)) invalid();
-  } else if (Array.from(search).length>24) invalid();
+  const search=raw.trim().normalize('NFC').toLowerCase();
+  if (Array.from(search).length>24) invalid();
+  const numeric=/^#?[0-9]{1,24}$/.test(search)?search.replace(/^#/,'').replace(/^0+(?=\d)/,''):'';
+  // Out-of-range numeric input can still match a nickname; never cast it to a
+  // SQLite integer (which would clamp) or a JavaScript Number (which rounds).
+  const number=memberNumber(numeric)?numeric:null;
   const size=params.get('limit')??'20'; if (!/^[1-9][0-9]?$/.test(size) || Number(size)>50) invalid();
   const limit=Number(size);
-  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({status,kind,search,limit})));
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({version:2,status,search,limit})));
   const hash=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
   let afterNumber='0',afterId='';
   const cursor=params.get('cursor');
@@ -53,11 +54,11 @@ export async function memberRead(db: D1Database, url: URL): Promise<{status: num
    [, ,afterNumber,afterId]=parts;
   }
   const filter=status==='active'?"u.status='active' AND l.state IS NULL":status==='deactivated'?"u.status='disabled' AND l.state='deactivated'":"u.status='disabled' AND (l.state IS NULL OR l.state<>'deactivated')";
-  const searchSql=!search?'1':kind==='number'?'m.member_number=CAST(? AS INTEGER)':"n.nickname_key LIKE ? ESCAPE '\\'";
-  const term=kind==='number'?search:search.replace(/[\\%_]/g,'\\$&')+'%';
+  const searchSql=!search?'1':"(n.nickname_key LIKE ? ESCAPE '\\' OR m.member_number=CAST(? AS INTEGER))";
+  const term='%'+search.replace(/[\\%_]/g,'\\$&')+'%';
   const rows=await db.prepare(`SELECT ${columns} ${joins} WHERE ${filter} AND ${searchSql}
     AND (m.member_number>CAST(? AS INTEGER) OR (m.member_number=CAST(? AS INTEGER) AND u.id>?))
-    ORDER BY m.member_number,u.id LIMIT ?`).bind(...(search?[term]:[]),afterNumber,afterNumber,afterId,limit+1).all<Member>();
+    ORDER BY m.member_number,u.id LIMIT ?`).bind(...(search?[term,number]:[]),afterNumber,afterNumber,afterId,limit+1).all<Member>();
   const page=rows.results.slice(0,limit),assignments=await roles(db,page.map(row=>row.userId));
   const last=page.at(-1);
   return {status:200,body:{members:page.map(row=>({...row,roles:assignments.filter(r=>r.userId===row.userId).map(({code,name,active})=>({code,name,active:active===1}))})),
