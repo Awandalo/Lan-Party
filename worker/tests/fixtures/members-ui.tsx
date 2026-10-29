@@ -7,7 +7,7 @@ import '../../../src/CSS/main.css';
 const params=new URLSearchParams(location.search),mode=params.get('mode')??'viewer';
 let identity='A',denied=false,readDenied=false,fail=false,signedOut=false,requests=0,pending=0,memberRequests=0;
 let tracking=false,minRows=0;
-const rows=Array.from({length:24},(_,i)=>({userId:'10000000-0000-4000-8000-'+String(i+1).padStart(12,'0'),nickname:i===0?'Slow Member':i===1?'Fast Member':'Member '+String(i+1).padStart(2,'0'),memberNumber:String(i+11),status:'active',roles:[{code:'reader',name:'Member viewer',active:true}]}));
+const rows=Array.from({length:27},(_,i)=>({userId:'10000000-0000-4000-8000-'+String(i+1).padStart(12,'0'),nickname:i===0?'Slow Member':i===1?'Fast Member':'Member '+String(i+1).padStart(2,'0'),memberNumber:String(i+11),status:i===24?'deactivated':i===25?'disabled':i===26?'deleting':'active',roles:i===1?[]:i===0?[{code:'poster',name:'Fictional news writer',active:true},{code:'planner',name:'Fictional event planning team',active:true},{code:'user',name:'Fictional member',active:false}]:[{code:'reader',name:'Member viewer',active:true}]}));
 window.fetch=async(input)=>{
  const url=new URL(String(input),location.origin),who=identity;requests++;pending++;
  const search=url.searchParams.get('search')??'';
@@ -22,7 +22,8 @@ window.fetch=async(input)=>{
   if(fail)return Response.json({},{status:503});
   const id=url.pathname.split('/')[4];
   if(id){const row=rows.find(r=>r.userId===id);return row?Response.json({member:{...row,nickname:row.nickname+' '+who,email:'fictional-'+who.toLowerCase()+'@example.test',firstName:'Fictional '+who,lastName:'Tester',prefix:null,createdAt:1790000000,verified:true}}):Response.json({},{status:404});}
- const filtered=rows.filter(r=>!search || r.memberNumber===search.replace(/^#/,'').replace(/^0+(?=\d)/,'') || r.nickname.toLowerCase().includes(search.toLowerCase()));
+ const state=url.searchParams.get('status')??'active';
+ const filtered=rows.filter(r=>(state==='disabled'?['disabled','deleting'].includes(r.status):r.status===state) && (!search || r.memberNumber===search.replace(/^#/,'').replace(/^0+(?=\d)/,'') || r.nickname.toLowerCase().includes(search.toLowerCase())));
   const offset=url.searchParams.has('cursor')?20:0;
   return Response.json({members:filtered.slice(offset,offset+20).map(r=>({...r,nickname:r.nickname+' '+who})),nextCursor:offset===0&&filtered.length>20?'fictional-next':null});
  }

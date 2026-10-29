@@ -182,6 +182,19 @@ Query/route keys prevent out-of-order results replacing the current view. The sh
 remains the stable 4.1 navigation; permission hints never authorize a data request.
 The redundant Administration eyebrow is removed in both loading and ready views.
 
+Iteration 3 presents search actions below the aligned fields. Account-state pills
+share the same styling in list and detail: green for active, red for deactivated,
+disabled or deleting, retaining distinct text labels. Assigned roles use wrapping
+neutral chips, preserving inactive labels and the None empty state.
+
+Authorized member detail also includes an Attended events card with an empty
+Event / Date / Location table and a truthful coming-later message. It fetches no
+event data and infers no attendance. Future event names should link to real event
+details only where the viewer is authorized; no event links/routes are added now.
+The card is rendered only alongside an available authorized private detail result
+and disappears with it on access/session failures. Name prefix remains read-only
+and truthful; profile editing and attendance data belong to their later phases.
+
 ### Verification / owner acceptance
 
 Run `node --test worker/tests/members.test.mjs worker/tests/administration.test.mjs worker/tests/member-read-cache.test.mjs worker/tests/session-validation.test.mjs`
