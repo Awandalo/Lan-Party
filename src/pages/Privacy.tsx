@@ -4,7 +4,7 @@ export default function Privacy() {
   return <article className="page-section privacy-page" aria-labelledby="privacy-title">
     <p className="eyebrow">Your information</p>
     <h1 id="privacy-title">Privacy Policy</h1>
-    <p>Last updated <time dateTime="2026-10-27">27 October 2026</time>.</p>
+    <p>Last updated <time dateTime="2026-10-29">29 October 2026</time>.</p>
     <section aria-labelledby="privacy-scope"><h2 id="privacy-scope">About LAN Party</h2>
       <p>LAN Party is a non-commercial hobby initiative organized by a group of friends. We use the public-facing name LAN Party Organizers. The organizing group makes most decisions about this website and how personal information is used.</p>
       <p>This policy covers the LAN Party website and its separate, invited development tests. The current public website provides information only: public accounts and event registration are not available. You do not need an account to read it.</p>
@@ -28,6 +28,10 @@ export default function Privacy() {
       <p>Where no fixed period has been established, retention is assessed by the purpose: delivering and securing the site, investigating a technical or security issue, responding to a request and keeping any record needed for obligations that apply. Provider logs and email copies also follow the relevant service configuration and provider policies.</p>
       <p>Invited DEV testers can deactivate their account or request permanent deletion in Account Security after confirming their password and optional MFA. Deactivation keeps credentials, email, nickname and registrations privately for administrator-assisted reactivation, while clearing private names and hiding the original public identity. Deletion removes the active account, credentials, MFA, roles and identifying registration links. Anonymous completed-event registration totals and non-identifying member-number reservations can remain.</p>
       <p>Deletion cannot be undone through the website. Backup copies and provider-held email or technical records are not immediately erased by deleting the active account. They remain subject to the relevant service configuration and retention purposes. Restoring an older database backup can restore account data deleted after that backup was made. We do not keep a separate identifying deletion registry or automatically reapply those deletions after restoration. If your deleted account reappears, contact privacy@lan-party.club to request deletion again.</p>
+    </section>
+    <section aria-labelledby="privacy-role-audit"><h2 id="privacy-role-audit">Administration change history</h2>
+      <p>Our development administration records successful role and permission changes in a private Role Activity Log, accessible only to authorized Administrators. It records stable actor and affected account, role and permission IDs, the time, operation and minimal change information. It does not store names, email addresses, passwords, session tokens or authentication proofs.</p>
+      <p>The organizing group has chosen to retain this security and accountability history indefinitely, including after account deletion. Stable IDs may remain linkable to a person; this history is not anonymous. Account deletion removes the active account but does not remove these audit records. We minimize the recorded information and handle privacy requests individually; contact us to discuss the records and the reasons for their retention.</p>
     </section>
     <section aria-labelledby="privacy-rights"><h2 id="privacy-rights">Your privacy questions and rights</h2>
       <p>You can ask what information we hold about you and request access, correction or deletion. Where applicable, you can also request restriction or portability, object to processing, or withdraw consent for processing that relies on consent.</p>

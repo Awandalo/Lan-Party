@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { readFile, readdir } from 'node:fs/promises';
 import { before, test } from 'node:test';
+import {expectedHistory} from './helpers/migration-history.mjs';
 const require = createRequire(import.meta.url), wr = createRequire(require.resolve('wrangler/package.json'));
 const { Miniflare, convertV4MiniflareOptions } = wr('miniflare'), { build } = wr('esbuild');
 const origin = 'https://dev.lan-party.club';
@@ -60,7 +61,8 @@ async function local(run, overrides = {}, production = true, omitBootstrap = fal
       ...(production ? { AUTH_ENVIRONMENT: 'prod', REGISTRATION_MODE: 'hosted-prod', AUTH_SESSION_MODE: 'hosted-prod', AUTH_PROD_EMAIL_DAILY_LIMIT: '60', AUTH_PROD_EMAIL_MONTHLY_LIMIT: '1000' } : {}), ...overrides } }));
   try {
     const db = await instance.getD1Database('DB');
-    for (const statements of (omitBootstrap ? migrations.slice(0,-1) : migrations)) await db.batch(statements.map(s => db.prepare(s)));
+    // Omit 0019 and its dependants by reviewed identity, not whichever file is last.
+    for (const statements of (omitBootstrap ? migrations.slice(0,expectedHistory.indexOf('0019_create_owner_bootstrap.sql')) : migrations)) await db.batch(statements.map(s => db.prepare(s)));
     let ordinal = 0;
     const request = (action, input, headers = {}, host = origin) => instance.dispatchFetch(host + '/api/auth/' + action, {
       method: input === undefined ? 'GET' : 'POST', ...(input === undefined ? {} : { body: JSON.stringify(input) }),
@@ -122,7 +124,7 @@ test('existing accounts block bootstrap and the existing ledger guard still reje
 },setup));
 
 test('verification and privilege completion roll back together if the seeded admin grant is unavailable',()=>local(async f=>{
- const u=await signup(f),p=f.proof((await f.mails())[0]);await f.db.prepare("UPDATE roles SET is_active=0 WHERE code='admin'").run();
+ const u=await signup(f),p=f.proof((await f.mails())[0]);await f.db.prepare("DELETE FROM role_permissions WHERE role_id=(SELECT id FROM roles WHERE code='admin') AND permission_id=(SELECT id FROM permissions WHERE code='users.manage')").run();
  assert.equal((await f.request('verify-email',p)).status,503);assert.equal(await f.db.prepare('SELECT email_verified_at FROM users WHERE id=?').bind(u.id).first('email_verified_at'),null);
  assert.equal(await f.db.prepare("SELECT consumed_at FROM auth_action_tokens WHERE purpose='email-verification'").first('consumed_at'),null);
  assert.equal(await count(f.db,'user_roles'),0);assert.equal(await f.db.prepare('SELECT completed_at FROM owner_bootstrap').first('completed_at'),null);

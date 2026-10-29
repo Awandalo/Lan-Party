@@ -4,11 +4,12 @@ import {readFile,readdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
+import {expectedHistory} from './helpers/migration-history.mjs';
 const require=createRequire(import.meta.url),wr=createRequire(require.resolve('wrangler/package.json'));
 const {Miniflare,convertV4MiniflareOptions}=wr('miniflare'),{build}=wr('esbuild');
 const origin='http://127.0.0.1:5173';
 
-test('password-only Worker supports retained schema and 0013-0019 cleanup without retired provider dependencies',async()=>{
+test('password-only Worker supports retained schema and reviewed migrations without retired provider dependencies',async()=>{
  const root=fileURLToPath(new URL('../../',import.meta.url));
  const script=(await build({stdin:{resolveDir:root,contents:`import app from './worker/index';import {localMailbox} from './worker/auth/email';
  globalThis.fetch=async()=>{throw Error('External traffic forbidden in compatibility fixture');};
@@ -16,11 +17,13 @@ test('password-only Worker supports retained schema and 0013-0019 cleanup withou
  const instance=new Miniflare(convertV4MiniflareOptions({modules:true,script,cf:false,compatibilityDate:'2026-10-11',d1Databases:{DB:randomUUID()},bindings:{REGISTRATION_MODE:'local-only',AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin,PASSWORD_PEPPER:'11'.repeat(32),AUTH_RATE_LIMIT_SECRET:'22'.repeat(32),AUTH_LOCAL_MAIL_SECRET:'33'.repeat(32)}}));
  try{
   const db=await instance.getD1Database('DB'),migrations=[];
-  for(const name of(await readdir(new URL('../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort()){
+  const names=(await readdir(new URL('../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort();
+  assert.deepEqual(names,expectedHistory);
+  for(const name of names){
    let rest=(await readFile(new URL('../../migrations/'+name,import.meta.url),'utf8')).replace(/--[^\n]*/g,'').trim(),parts=[];
    while(rest){const end=rest.startsWith('CREATE TRIGGER')?rest.indexOf('\nEND;')+5:rest.indexOf(';')+1;if(end<=0||end===4)throw Error('Incomplete fixture SQL');parts.push(rest.slice(0,end));rest=rest.slice(end).trim();}migrations.push(parts);
   }
-  assert.equal(migrations.length,19);for(const parts of migrations.slice(0,12))await db.batch(parts.map(s=>db.prepare(s)));
+  assert.equal(migrations.length,expectedHistory.length);for(const parts of migrations.slice(0,12))await db.batch(parts.map(s=>db.prepare(s)));
   const request=(action,input,headers={})=>instance.dispatchFetch(origin+'/api/auth/'+action,{method:input===undefined?'GET':'POST',headers:{Origin:origin,'X-LAN-Request':'1','Content-Type':'application/json',...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
   const profile={email:'rollout@example.test',nickname:'Rollout Fixture',firstName:'Fictional',lastName:'Tester',password:'fictional rollout password'};
   assert.equal((await request('register',profile)).status,202);

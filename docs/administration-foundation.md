@@ -1,5 +1,10 @@
 # Administration foundation — issue 26
 
+The Phase 4.1 sections below retain their original implementation scope. Current
+Phase 4.3 authority, role mutation and audit rules are in
+[Roles & Permissions administration](role-administration.md); its approved genuine
+built-in Administrator exception supersedes older explicit-grant-only wording.
+
 This first iteration adds DEV/local administration navigation. It does not add a
 member directory, role editor, event CRUD or registrations. No migration or new
 dependency is required. Production administration remains unavailable.

@@ -28,7 +28,11 @@ async function local(run){
  const user=async({admin=false}={})=>{
  const id=randomUUID(),time=await sql('SELECT unixepoch() n').first('n'),session=await value();
  await sql("INSERT INTO users(id,first_name,last_name,email,email_normalized,email_verified_at,created_at,updated_at) VALUES (?,'Fictional','Person',?,?,?,?,?)",id,id+'@example.test',id+'@example.test',time-10,time-10,time-10).run();
- if(admin)await sql("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,0 FROM roles WHERE code='admin'",id).run();
+  if(admin){
+ await sql("INSERT OR IGNORE INTO roles(id,code,name,is_active,created_at,updated_at) VALUES ('30000000-0000-4000-8000-000000000001','fixture_admin','Fictional delegated staff',1,0,0)").run();
+ await sql("INSERT OR IGNORE INTO role_permissions(role_id,permission_id,granted_at) SELECT '30000000-0000-4000-8000-000000000001',permission_id,0 FROM role_permissions WHERE role_id='1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7'").run();
+ await sql("INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES (?,'30000000-0000-4000-8000-000000000001',0)",id).run();
+ }
  await sql('INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at) VALUES (?,?,?,0,?,?)',randomUUID(),id,session.digest,time-1,time+604800).run();return{id,...session};
  };
  const request=(path,u,input,headers={})=>simulator.dispatchFetch(origin+'/api/'+path,{method:input===undefined?'GET':'POST',headers:{'X-LAN-Request':'1',...(u?{Cookie:'__Host-lan_session='+u.token}:{}),...headers}});
@@ -50,7 +54,7 @@ async function target(f,{nickname='Fictional '+randomUUID().slice(0,8),number=nu
 }
 const get=(f,path,u,headers={})=>f.request('manage/users'+path,u,undefined,{'X-LAN-Session-Proof':u?.csrf??'00'.repeat(32),...headers});
 async function body(f,path,u){const r=await get(f,path,u);assert.equal(r.status,200,await r.clone().text());assert.equal(r.headers.get('cache-control'),'no-store');return r.json();}
-async function grant(f,u,code){await f.sql('DELETE FROM role_permissions').run();await f.sql("INSERT INTO role_permissions(role_id,permission_id,granted_at) SELECT r.id,p.id,0 FROM roles r,permissions p WHERE r.code='admin' AND p.code=?",code).run();}
+async function grant(f,u,code){await f.sql('DELETE FROM role_permissions').run();await f.sql("INSERT INTO role_permissions(role_id,permission_id,granted_at) SELECT r.id,p.id,0 FROM roles r,permissions p WHERE r.code='fixture_admin' AND p.code=?",code).run();}
 
 test('directory and detail require users.view, not shell access, role labels or other management grants',()=>local(async f=>{
  const t=await target(f),ordinary=await f.user(),admin=await f.user({admin:true});
@@ -59,7 +63,7 @@ test('directory and detail require users.view, not shell access, role labels or 
   for(const code of ['users.manage','roles.manage','events.create']){await grant(f,admin,code);assert.equal((await get(f,path,admin)).status,403);}
   await grant(f,admin,'users.view');assert.equal((await get(f,path,admin)).status,200);
  }
- await f.sql("UPDATE roles SET code='read_staff' WHERE code='admin'").run();assert.equal((await get(f,'',admin)).status,200);
+ await f.sql("UPDATE roles SET code='read_staff' WHERE code='fixture_admin'").run();assert.equal((await get(f,'',admin)).status,200);
  await f.sql("UPDATE roles SET is_active=0 WHERE code='read_staff'").run();assert.equal((await get(f,'',admin)).status,403);
  await f.sql("UPDATE roles SET is_active=1 WHERE code='read_staff'").run();await f.sql('UPDATE user_roles SET assigned_at=unixepoch()+3600 WHERE user_id=?',admin.id).run();assert.equal((await get(f,'',admin)).status,403);
 }));
@@ -98,10 +102,11 @@ test('combined substring and numeric search treats wildcards literally and retai
 }));
 test('stable bounded cursor pages bind query criteria, exclude duplicates from multiple roles and survive insert between pages',()=>local(async f=>{
  const admin=await f.user({admin:true}),rows=[];for(let i=0;i<23;i++)rows.push(await target(f,{nickname:'Page '+String(i).padStart(2,'0')}));
- await f.sql("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,0 FROM roles",rows[0].id).run();
+ await f.sql("INSERT INTO roles(id,code,name,is_active,created_at,updated_at) VALUES ('40000000-0000-4000-8000-000000000001','fixture_role','Fictional ordinary role',1,0,0)").run();
+ await f.sql("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,0 FROM roles WHERE code IN ('admin','fixture_role')",rows[0].id).run();
  assert.equal((await body(f,'?limit=50',admin)).members.length,24);
  const first=await body(f,'',admin);assert.equal(first.members.length,20);assert.ok(first.nextCursor);assert.equal(first.members.find(r=>r.userId===rows[0].id).roles.length,2);
- await f.sql("UPDATE roles SET is_active=0 WHERE code='user'").run();assert.equal((await body(f,'/'+rows[0].id,admin)).member.roles.find(r=>r.code==='user').active,false);
+ await f.sql("UPDATE roles SET is_active=0 WHERE code='fixture_role'").run();assert.equal((await body(f,'/'+rows[0].id,admin)).member.roles.find(r=>r.code==='fixture_role').active,false);
  await target(f,{nickname:'Page inserted'});const next=await body(f,'?cursor='+encodeURIComponent(first.nextCursor),admin);assert.equal(next.members.length,5);assert.equal(next.nextCursor,null);assert.equal(new Set([...first.members,...next.members].map(r=>r.userId)).size,25);
  assert.equal((await get(f,'?status=disabled&cursor='+encodeURIComponent(first.nextCursor),admin)).status,400);
  assert.equal((await get(f,'?limit=10&cursor='+encodeURIComponent(first.nextCursor),admin)).status,400);

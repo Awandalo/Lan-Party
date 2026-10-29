@@ -3,10 +3,13 @@ import type { RegistrationInput } from './accounts';
 import { serverTime } from './database';
 import { hashPassword } from './passwords';
 import { digestToken, isValidToken } from './tokens';
+import {roleSchemaReady} from '../role-administration';
+import {administratorPredicate} from '../rbac-authority';
+import {mfaSessionCondition} from './mfa-session';
 
 // Internal provisioning adapter, NOT an HTTP endpoint. A future admin route must
 // add its ordinary CSRF/request protections. No roles or emails are issued here.
-const administrator = `SELECT a.id FROM auth_sessions s JOIN users a ON a.id=s.user_id
+const legacyAdministrator = `SELECT a.id FROM auth_sessions s JOIN users a ON a.id=s.user_id
   JOIN user_roles ur ON ur.user_id=a.id JOIN roles r ON r.id=ur.role_id
   JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id
   WHERE s.token_digest=? AND s.revoked_at IS NULL AND s.created_at<=? AND s.expires_at>?
@@ -20,6 +23,10 @@ export async function createOrganizationAccount(db: D1Database, adminSessionToke
     throw new Error('Organization provisioning denied');
   }
   const digest = await digestToken(adminSessionToken, 'session');
+  const administrator=await roleSchemaReady(db)?`SELECT a.id FROM auth_sessions s JOIN users a ON a.id=s.user_id
+   WHERE s.token_digest=? AND s.revoked_at IS NULL AND s.created_at<=? AND s.expires_at>?
+   AND a.updated_at<=? AND a.auth_version=s.auth_version AND ${administratorPredicate('a')}
+   AND ${mfaSessionCondition.replaceAll('u.','a.')}`:legacyAdministrator;
   const actor = await db.prepare(administrator).bind(digest, now, now, now).first<{ id: string }>();
   if (!actor) throw new Error('Organization provisioning denied');
   const profile = validateRegistration(input), userId = newAccountId();

@@ -1,0 +1,11 @@
+.roles-page { display:grid; gap:1rem; min-width:0; }
+.role-editor fieldset { border:1px solid var(--border); padding:1rem; margin:0 0 1rem; min-width:0; }
+.roles-page label,.role-editor label { display:block; margin-bottom:1rem; }
+.roles-page input:not([type="checkbox"]),.roles-page textarea,.roles-page select { display:block; width:100%; min-height:44px; margin-top:.4rem; padding:.6rem; border:1px solid var(--border); border-radius:.4rem; background:var(--surface-raised); color:var(--text); font:inherit; }
+.roles-page .role-check { display:flex; align-items:flex-start; gap:.6rem; overflow-wrap:anywhere; }
+.role-check input { flex:0 0 auto; margin-top:.25rem; }
+.roles-page button { justify-self:start; }
+.roles-scroll { overflow-x:auto; }
+.roles-scroll table { width:100%; border-collapse:collapse; }
+.roles-scroll td,.roles-scroll th { padding:.75rem; text-align:left; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.roles-scroll pre { white-space:pre-wrap; overflow-wrap:anywhere; max-width:30rem; font:inherit; }

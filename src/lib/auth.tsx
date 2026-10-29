@@ -10,6 +10,9 @@ interface Authentication {
   status: 'loading' | 'ready' | 'error';
   administration?: AdministrationAccess;
   memberReads: MemberReadCache;
+  invalidateAdministration:()=>Promise<boolean>;
+  roleFeedback:string;
+  setRoleFeedback:(message:string)=>void;
   refresh: () => Promise<boolean>;
   logout: () => Promise<boolean>;
 }
@@ -18,10 +21,12 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const enabled = AUTH_UI_AVAILABLE && authUIEnabled();
   const [state, setState] = useState<ValidationState>({session: null, status: enabled ? 'loading' : 'ready', access: {sections: [], status: enabled ? 'loading' : 'ready'}});
   const [memberReads] = useState(() => new MemberReadCache());
+  const [roleFeedback,setRoleFeedback]=useState('');
   const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
   const channel = useRef<BroadcastChannel | null>(null);
   const {pathname} = useLocation();
   const refresh = useCallback(() => enabled ? validation.refresh(true) : Promise.resolve(false), [enabled, validation]);
+  const invalidateAdministration=useCallback(()=>{validation.invalidate();channel.current?.postMessage('invalidate');return enabled?validation.refresh():Promise.resolve(false);},[enabled,validation]);
   useEffect(() => {if (enabled) void validation.refresh();}, [enabled, validation, pathname]);
   useEffect(() => {
     if (!enabled) return;
@@ -50,7 +55,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
       await refresh(); return false;
     } catch {await refresh(); return false;}
   };
-  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, refresh, logout}}>{children}</Context>;
+  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, invalidateAdministration, roleFeedback,setRoleFeedback,refresh, logout}}>{children}</Context>;
 }
 export function useAuth() {
   const value = useContext(Context);

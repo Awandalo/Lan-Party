@@ -28,7 +28,11 @@ async function local(run){
  const user=async({admin=false}={})=>{
  const id=randomUUID(),time=await sql('SELECT unixepoch() n').first('n'),session=await value();
  await sql("INSERT INTO users(id,first_name,last_name,email,email_normalized,email_verified_at,created_at,updated_at) VALUES (?,'Fictional','Person',?,?,?,?,?)",id,id+'@example.test',id+'@example.test',time-10,time-10,time-10).run();
- if(admin)await sql("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,0 FROM roles WHERE code='admin'",id).run();
+  if(admin){
+ await sql("INSERT OR IGNORE INTO roles(id,code,name,is_active,created_at,updated_at) VALUES ('30000000-0000-4000-8000-000000000001','fixture_admin','Fictional delegated staff',1,0,0)").run();
+ await sql("INSERT OR IGNORE INTO role_permissions(role_id,permission_id,granted_at) SELECT '30000000-0000-4000-8000-000000000001',permission_id,0 FROM role_permissions WHERE role_id='1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7'").run();
+ await sql("INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES (?,'30000000-0000-4000-8000-000000000001',0)",id).run();
+ }
  await sql('INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at) VALUES (?,?,?,0,?,?)',randomUUID(),id,session.digest,time-1,time+604800).run();return{id,...session};
  };
  const request=(path,u,input,headers={})=>simulator.dispatchFetch(origin+'/api/'+path,{method:input===undefined?'GET':'POST',headers:{'X-LAN-Request':'1',...(u?{Cookie:'__Host-lan_session='+u.token}:{}),...headers}});
@@ -36,17 +40,17 @@ async function local(run){
  assert.equal(await sql('PRAGMA quick_check').first('quick_check'),'ok');assert.deepEqual((await sql('PRAGMA foreign_key_check').all()).results,[]);
  }finally{await simulator.dispose();}
 }
-test('capabilities require a verified full session and explicit live grants',()=>local(async({request,user,sql})=>{
+test('genuine built-in Administrator has intrinsic capability; protected identity cannot be edited',()=>local(async({request,user,sql})=>{
  assert.equal((await request('manage/capabilities')).status,401);
  const u=await user();assert.equal((await request('manage/capabilities',u)).status,403);
  await sql("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,0 FROM roles WHERE code='admin'",u.id).run();
- const response=await request('manage/capabilities',u);assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');assert.deepEqual(await response.json(),{sections:['users','roles','events']});
- await sql("UPDATE roles SET is_active=0 WHERE code='admin'").run();assert.equal((await request('manage/capabilities',u)).status,403);
- await sql("UPDATE roles SET is_active=1 WHERE code='admin'").run();
+ await sql('DELETE FROM role_permissions').run();
+ const response=await request('manage/capabilities',u);assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');assert.deepEqual(await response.json(),{sections:['users','roles','activity','events']});
+ await assert.rejects(sql("UPDATE roles SET is_active=0 WHERE code='admin'").run(),/immutable/);
  await sql('DELETE FROM user_roles WHERE user_id=?',u.id).run();assert.equal((await request('manage/capabilities',u)).status,403);
 }));
 test('individual grants reveal only their section, never role-name privileges or private data',()=>local(async({request,user,sql})=>{
- const u=await user({admin:true});await sql('DELETE FROM role_permissions').run();await sql("UPDATE roles SET code='event_staff' WHERE code='admin'").run();
+ const u=await user({admin:true});await sql('DELETE FROM role_permissions').run();await sql("UPDATE roles SET code='event_staff' WHERE code='fixture_admin'").run();
  for(const [permission,section] of [['users.view','users'],['users.manage','users'],['roles.manage','roles'],['events.create','events'],['events.update','events'],['events.publish','events'],['events.cancel','events'],['events.manage_registrations','events']]){
  await sql("INSERT INTO role_permissions(role_id,permission_id,granted_at) SELECT r.id,p.id,0 FROM roles r,permissions p WHERE r.code='event_staff' AND p.code=?",permission).run();
  assert.deepEqual(await(await request('manage/capabilities',u)).json(),{sections:[section]});await sql('DELETE FROM role_permissions').run();

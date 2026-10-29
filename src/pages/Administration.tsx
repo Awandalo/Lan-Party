@@ -1,10 +1,11 @@
 import Members from './Members';
+import Roles,{RoleActivity} from './Roles';
 import {Link, NavLink, Navigate, useParams} from 'react-router';
 import {useAuth} from '../lib/auth';
 import {useAdministration} from '../lib/administration';
 import '../CSS/Administration_style.css';
 
-const sections = {users: 'Members', roles: 'Roles & Permissions', events: 'Events'};
+const sections = {users: 'Members', roles: 'Roles & Permissions', events: 'Events',activity:'Role Activity Log'};
 export default function Administration() {
   const {section:routeSection,userId} = useParams(), {session, status} = useAuth(), access = useAdministration();
   const section = userId ? 'users' : routeSection;
@@ -20,7 +21,7 @@ export default function Administration() {
     <nav className="administration-nav" aria-label="Administration"><NavLink to="/manage" end>Overview</NavLink>
       {access.sections.map(s => <NavLink key={s} to={'/manage/'+s}>{sections[s]}</NavLink>)}
     </nav>
-    {section === 'users' ? <Members/> : section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>{key === 'roles' ? 'Role and permission editing will be added in a later iteration.' : 'Event management will be added here in a later iteration.'}</p>
+    {section === 'users' ? <Members/> : section==='roles'?<Roles/>:section==='activity'?<RoleActivity/>:section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>Event management will be added here in a later iteration.</p>
 
     </div> : <><p>Choose an area to get started. Only areas available to your account are shown.</p><div className="administration-grid">
       {access.sections.map(s => <Link className="panel administration-panel" key={s} to={'/manage/'+s}><h2>{sections[s]}</h2></Link>)}
