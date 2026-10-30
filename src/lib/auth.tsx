@@ -4,12 +4,14 @@ import type {ReactNode} from 'react';
 import {useLocation} from 'react-router';
 import {SessionValidation} from './session-validation';
 import {MemberReadCache} from './member-read-cache';
+import {RoleReadCache} from './role-read-cache';
 import type {Session, AdministrationAccess, ValidationState} from './session-validation';
 interface Authentication {
   session: Session | null;
   status: 'loading' | 'ready' | 'error';
   administration?: AdministrationAccess;
   memberReads: MemberReadCache;
+  roleReads: RoleReadCache;
   invalidateAdministration:()=>Promise<boolean>;
   roleFeedback:string;
   setRoleFeedback:(message:string)=>void;
@@ -21,8 +23,9 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const enabled = AUTH_UI_AVAILABLE && authUIEnabled();
   const [state, setState] = useState<ValidationState>({session: null, status: enabled ? 'loading' : 'ready', access: {sections: [], status: enabled ? 'loading' : 'ready'}});
   const [memberReads] = useState(() => new MemberReadCache());
+  const [roleReads] = useState(() => new RoleReadCache());
   const [roleFeedback,setRoleFeedback]=useState('');
-  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
+  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);roleReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
   const channel = useRef<BroadcastChannel | null>(null);
   const {pathname} = useLocation();
   const refresh = useCallback(() => enabled ? validation.refresh(true) : Promise.resolve(false), [enabled, validation]);
@@ -55,7 +58,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
       await refresh(); return false;
     } catch {await refresh(); return false;}
   };
-  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, invalidateAdministration, roleFeedback,setRoleFeedback,refresh, logout}}>{children}</Context>;
+  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, roleReads, invalidateAdministration, roleFeedback,setRoleFeedback,refresh, logout}}>{children}</Context>;
 }
 export function useAuth() {
   const value = useContext(Context);

@@ -144,3 +144,26 @@ protected, roles.protect_admin exists, revision is zero and audit/bootstrap tabl
 are empty. All seven expected role/audit/reserved-number guards are present.
 No account, membership or bootstrap activation was performed. Schema readiness is
 not hosted application acceptance; exact-commit deployment and owner tests follow.
+
+### Navigation loading correction — 2026-10-30
+
+Roles reads now use an AuthProvider-owned, eight-entry memory cache. Returning to
+Roles renders same-session data immediately while a deduplicated endpoint read
+runs alongside route session validation. First visits use a non-interactive
+placeholder with reserved editor space; an actual network wait remains necessary
+on a cold session. This changes presentation and read coordination, not Worker
+authorization, request proofs, mutation conflict checks or database behavior.
+
+Cached catalogue, membership and activity reads are erased on principal/proof or
+section changes, validation/read failures, logout and explicit mutation/cross-tab
+invalidation. Generation checks fence responses even if transport ignores abort.
+Membership reads still require both roles and users sections; activity requires
+its own capability. No browser storage, prefetch of private members, optimistic
+grants or new database operations are introduced. Same-context refresh preserves
+an editor draft when the returned RBAC revision is unchanged; a changed revision
+still remounts the editor for review, and saves retain server conflict checks.
+
+The fictional Roles UI fixture supports a bounded `delay` query parameter and
+request start/end counters for repeatable before/after navigation checks. It
+intercepts all API traffic locally and cannot establish hosted latency or signed-in
+acceptance. Broader visual redesign remains a separate owner review.

@@ -1,5 +1,5 @@
 import Members from './Members';
-import Roles,{RoleActivity} from './Roles';
+import Roles,{RoleActivity,RolesLoading} from './Roles';
 import {Link, NavLink, Navigate, useParams} from 'react-router';
 import {useAuth} from '../lib/auth';
 import {useAdministration} from '../lib/administration';
@@ -10,7 +10,7 @@ export default function Administration() {
   const {section:routeSection,userId} = useParams(), {session, status} = useAuth(), access = useAdministration();
   const section = userId ? 'users' : routeSection;
   const loading = status === 'loading' || access.status === 'loading';
-  if (loading) return <section className="page-section administration-page" aria-busy="true"><h1>{section === 'users' ? 'Members' : section === 'roles' ? 'Roles & Permissions' : section === 'events' ? 'Events' : 'Administration'}</h1><div className="administration-nav administration-skeleton-nav" aria-hidden="true"><span>Overview</span><span>Members</span><span>Roles & Permissions</span><span>Events</span></div><p role="status">Checking access…</p><div className="panel administration-panel administration-skeleton" aria-hidden="true"/></section>;
+  if (loading) return <section className="page-section administration-page" aria-busy="true"><h1>{section === 'users' ? 'Members' : section === 'roles' ? 'Roles & Permissions' : section === 'events' ? 'Events' : section === 'activity' ? 'Role Activity Log' : 'Administration'}</h1><div className="administration-nav administration-skeleton-nav" aria-hidden="true"><span>Overview</span><span>Members</span><span>Roles & Permissions</span><span>Events</span></div>{section==='roles'?<RolesLoading/>:<><p role="status">Checking access…</p><div className="panel administration-panel administration-skeleton" aria-hidden="true"/></>}</section>;
   if (status === 'error' || access.status === 'error') return <section className="page-section"><h1>Administration unavailable</h1><p role="alert">Access could not be checked. Please reload to try again.</p></section>;
   if (!session) return <Navigate to="/login" replace/>;
   const key = section as keyof typeof sections;

@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useSyncExternalStore} from 'react';
 import {useAuth} from './auth';
 export interface Role {id:string;code:string;name:string;description:string|null;isActive:number;isProtected:number}
 export interface Catalogue {revision:number;administrator:boolean;roles:Role[];permissions:{id:string;code:string;description:string;protected:boolean}[];mappings:{roleId:string;permissionId:string;grantedAt:number}[];assignments?:{roleId:string;assignedAt:number}[];effectivePermissions?:string[]}
@@ -19,25 +19,25 @@ function validRead(value:unknown,activity:boolean):boolean {
 }
 export function useRoleRead<T>(href:string,section:'roles'|'activity'='roles') {
  const auth=useAuth(),proof=auth.session?.csrfToken,principal=auth.session?.account.userId;
- const allowed=auth.status==='ready'&&auth.administration?.status==='ready'&&auth.administration.sections.includes(section);
+ const {roleReads}=auth;
+ const sections=auth.administration?.sections.join(',');
+ const allowed=auth.status==='ready'&&auth.administration?.status==='ready'&&auth.administration.sections.includes(section)&&(!href.startsWith('/api/manage/users/')||auth.administration.sections.includes('users'));
  const revision=auth.administration?.revision;
- const [retry,setRetry]=useState(0),[result,setResult]=useState<{key:string;data:T|null;message:string}|null>(null);
- const key=principal+':'+proof+':'+href;
+ const [retry,setRetry]=useState(0);
+ const result=useSyncExternalStore(roleReads.subscribe,()=>roleReads.get(href));
  useEffect(()=>{
-  if(!allowed||!proof){setResult(null);return;}
-  setResult(previous=>previous?.key===key?previous:null);
-  const abort=new AbortController();
-  void(async()=>{
+  if(!allowed||!proof)return;
+  roleReads.read(href,section,async signal=>{
    let data:T|null=null,message='';
    try{
-    const response=await fetch(href,{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof},signal:AbortSignal.any([abort.signal,AbortSignal.timeout(15000)])});
+    const response=await fetch(href,{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
     if(response.ok){const value:unknown=await response.json();if(!validRead(value,section==='activity'))throw Error('Invalid role response');data=value as T;}
     else message=[401,403].includes(response.status)?'Access is restricted.':'Role information is unavailable. Reload to check the current state.';
    }catch{message='Role information is unavailable. Reload to check the current state.';}
-   if(!abort.signal.aborted)setResult({key,data,message});
-  })();return()=>abort.abort();
- },[allowed,proof,principal,href,key,revision,retry,section]);
- return {data:allowed&&result?.key===key?result.data:null,message:allowed&&result?.key===key?result.message:'',reload:()=>setRetry(n=>n+1)};
+   return {data,message};
+  });
+ },[roleReads,allowed,proof,principal,href,revision,retry,section,sections]);
+ return {data:allowed?(result?.data as T??null):null,message:allowed?result?.message??'':'',loading:!allowed||!result||result.loading,reload:()=>setRetry(n=>n+1)};
 }
 export function useRoleMutation(){
  const auth=useAuth(),[pending,setPending]=useState(false),setMessage=auth.setRoleFeedback;

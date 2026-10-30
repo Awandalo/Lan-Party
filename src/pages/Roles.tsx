@@ -4,6 +4,9 @@ import {useAuth} from '../lib/auth';
 import {builtIn,useRoleMutation,useRoleRead} from '../lib/roles';
 import type {Catalogue,Role} from '../lib/roles';
 import '../CSS/Roles_style.css';
+export function RolesLoading(){
+ return <div className="roles-page" aria-busy="true"><p className="roles-progress" role="status">Loading roles…</p><div className="roles-placeholder" aria-hidden="true"><div className="roles-placeholder-field"/><div className="panel role-editor"><h2>Role detail</h2><div className="roles-placeholder-field"/><div className="roles-placeholder-field"/><div className="roles-placeholder-description"/><div className="roles-placeholder-permissions"/></div></div></div>;
+}
 function Editor({catalogue,role}:{catalogue:Catalogue;role?:Role}){
  const assigned=catalogue.mappings.filter(p=>p.roleId===role?.id).map(p=>p.permissionId);
  const [code,setCode]=useState(role?.code??''),[name,setName]=useState(role?.name??''),[description,setDescription]=useState(role?.description??'');
@@ -30,9 +33,9 @@ function Editor({catalogue,role}:{catalogue:Catalogue;role?:Role}){
 }
 export default function Roles(){
  const read=useRoleRead<Catalogue>('/api/manage/roles'),[selected,setSelected]=useState('new');
- if(!read.data)return <div role="status"><p>{read.message||'Loading roles…'}</p>{read.message&&<button className="button" onClick={read.reload}>Reload roles</button>}</div>;
+ if(!read.data)return read.message?<div role="status"><p>{read.message}</p><button className="button" onClick={read.reload}>Reload roles</button></div>:<RolesLoading/>;
  const data=read.data,role=data.roles.find(r=>r.id===selected);
- return <div className="roles-page"><label>Choose a role<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="new">Create custom role</option>{data.roles.map(r=><option key={r.id} value={r.id}>{r.name} ({r.code}){r.isProtected?' · protected':''}{!r.isActive?' · inactive':''}</option>)}</select></label><Editor key={selected+':'+data.revision} catalogue={data} role={role}/></div>;
+ return <div className="roles-page" aria-busy={read.loading}><p className="roles-progress" role="status">{read.loading?'Checking for updates…':'\u00a0'}</p><label>Choose a role<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="new">Create custom role</option>{data.roles.map(r=><option key={r.id} value={r.id}>{r.name} ({r.code}){r.isProtected?' · protected':''}{!r.isActive?' · inactive':''}</option>)}</select></label><Editor key={selected+':'+data.revision} catalogue={data} role={role}/></div>;
 }
 export function MemberRoles({userId}:{userId:string}){
  const auth=useAuth(),read=useRoleRead<Catalogue>('/api/manage/users/'+userId+'/roles'),mutation=useRoleMutation(),[selected,setSelected]=useState(''),[review,setReview]=useState(false);

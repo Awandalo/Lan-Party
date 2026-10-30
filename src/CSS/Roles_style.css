@@ -1,4 +1,9 @@
 .roles-page { display:grid; gap:1rem; min-width:0; }
+.roles-progress { min-height:1.5em; margin:0; color:var(--muted); }
+.roles-placeholder { display:grid; gap:1rem; }
+.roles-placeholder-field { min-height:5rem; margin-bottom:1rem; border-radius:.4rem; background:var(--surface-raised); }
+.roles-placeholder-description { min-height:8rem; margin-bottom:1rem; background:var(--surface-raised); }
+.roles-placeholder-permissions { min-height:28rem; border:1px solid var(--border); background:var(--surface-raised); }
 .role-editor fieldset { border:1px solid var(--border); padding:1rem; margin:0 0 1rem; min-width:0; }
 .roles-page label,.role-editor label { display:block; margin-bottom:1rem; }
 .roles-page input:not([type="checkbox"]),.roles-page textarea,.roles-page select { display:block; width:100%; min-height:44px; margin-top:.4rem; padding:.6rem; border:1px solid var(--border); border-radius:.4rem; background:var(--surface-raised); color:var(--text); font:inherit; }
