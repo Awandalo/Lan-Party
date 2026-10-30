@@ -28,9 +28,9 @@ export default function Members(){
    <button className="button button-secondary" type="button" onClick={clear}>Clear filters</button></div>
   </form>}
   <div className="members-results" aria-busy={read.loading}>
-   <p className="members-progress" role="status">{read.loading?(read.data?'Checking for updates…':'Loading members…'):'\u00a0'}</p>
+   <p className="members-progress" role="status">{read.loading?(read.data?'Checking for updates…':'Loading members…'):page?(page.members.length?`${page.members.length} member${page.members.length===1?'':'s'} on this page.`:'No members found.'):'\u00a0'}</p>
    {read.message && <div role="status"><p>{read.message}</p><button className="button button-secondary" onClick={read.retry}>Check again</button></div>}
-   {page && <><p role="status">{page.members.length?`${page.members.length} member${page.members.length===1?'':'s'} on this page.`:'No members found.'}</p>
+   {page && <>
     {page.members.length>0 && <div className="members-table-scroll"><table><caption>Members matching your search</caption><thead><tr><th scope="col">Nickname</th><th scope="col">Member number</th><th scope="col">Account state</th><th scope="col">Assigned roles</th></tr></thead><tbody>{page.members.map(row=><tr key={row.userId}><td><Link to={'/manage/users/'+row.userId} aria-label={row.nickname?undefined:'View member '+formatMemberNumber(row.memberNumber)}>{row.nickname??'Nickname unavailable'}</Link></td><td>{formatMemberNumber(row.memberNumber)}</td><td><AccountState row={row}/></td><td><RoleLabels row={row}/></td></tr>)}</tbody></table></div>}
 
    </>}

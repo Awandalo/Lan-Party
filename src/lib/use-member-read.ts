@@ -36,8 +36,8 @@ export function useMemberRead(href: string, detail: boolean) {
    } catch {message='Members are temporarily unavailable. Please try again.';}
    return {data,message};
   });
- // Each validation generation rechecks the private endpoint independently, in
- // parallel with the session/capability reads. In-flight reads are deduplicated.
+ // Foreground navigation/mutations advance the view revision; unchanged focus
+ // checks keep it stable. Identity/access failures still clear and fence reads.
  },[memberReads,allowed,proof,revision,href,detail,retry]);
  return {data:allowed?result?.data??null:null,message:allowed?result?.message??'':'',loading:!allowed || !result || result.loading,retry:()=>setRetry(n=>n+1)};
 }

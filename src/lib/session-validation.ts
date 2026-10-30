@@ -24,15 +24,19 @@ export class SessionValidation {
     this.invalidate(); this.set({session: null, status: 'ready', access: {sections: [], status: 'ready'}});
   }
   dispose() {this.generation++; this.abort?.abort(); this.pending = null;}
-  refresh(force = false): Promise<boolean> {
+  refresh(force = false, reason: 'foreground' | 'background' = 'foreground'): Promise<boolean> {
     if (this.pending && !force) return this.pending;
     this.abort?.abort();
     const generation = ++this.generation, abort = new AbortController();
+    const previous = this.state, background = reason === 'background';
+    // Validation generation fences auth responses. View revision separately
+    // requests data refreshes; unchanged window focus must not restart all views.
+    const revision = background ? previous.access.revision : generation;
     this.abort = abort;
     const current = () => generation === this.generation;
     const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]);
     const read = (path: string, proof?: string) => this.transport(path, {credentials: 'same-origin', redirect: 'error', headers: {'X-LAN-Request': '1', ...(proof ? {'X-LAN-Session-Proof': proof} : {})}, signal});
-    this.set({...this.state, access: {...this.state.access, revalidating: true, revision: generation}});
+    this.set({...this.state, access: {...this.state.access, revalidating: true, revision}});
     const operation = async () => {
       let session: Session | null = null;
       try {
@@ -49,7 +53,7 @@ export class SessionValidation {
           || !/^[0-9a-f]{64}$/.test(value.csrfToken)) throw Error('Invalid session');
         if (value.recoveryCodesRemaining !== undefined && (!Number.isInteger(value.recoveryCodesRemaining) || value.recoveryCodesRemaining < 0 || value.recoveryCodesRemaining > 10)) delete value.recoveryCodesRemaining;
         session = value;
-        const sameContext = this.state.session?.account.userId === value.account.userId && this.state.session.csrfToken === value.csrfToken;
+        const sameContext = previous.session?.account.userId === value.account.userId && previous.session.csrfToken === value.csrfToken;
         this.set({session, status: 'ready', access: sameContext ? {...this.state.access, revalidating: true} : empty()});
         if (!this.administration) {
           this.set({session, status: 'ready', access: {sections: [], status: 'ready'}}); return true;
@@ -67,7 +71,10 @@ export class SessionValidation {
         const body = await capabilities.json();
         if (!current()) return false;
         if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events','activity','userActivity'].includes(s))) throw Error('Invalid capabilities');
-        this.set({session, status: 'ready', access: {sections: [...new Set<Section>(body.sections)], status: 'ready', revision: generation}});
+        const sections = [...new Set<Section>(body.sections)];
+        const unchanged = sameContext && previous.access.status === 'ready'
+          && sections.length === previous.access.sections.length && sections.every(s=>previous.access.sections.includes(s));
+        this.set({session, status: 'ready', access: {sections: unchanged ? previous.access.sections : sections, status: 'ready', revision: background && unchanged ? revision : generation}});
         return true;
       } catch {
         if (current()) this.set({session, status: session ? 'ready' : 'error', access: {sections: [], status: 'error'}});

@@ -44,7 +44,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
     const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('lan-auth-invalidation') : null;
     channel.current = bus;
     if (bus) bus.onmessage = () => {validation.invalidate(); void validation.refresh();};
-    const check = () => {if (document.visibilityState === 'visible') void validation.refresh();};
+    const check = () => {if (document.visibilityState === 'visible') void validation.refresh(false,'background');};
     const restored = (event: PageTransitionEvent) => {if (event.persisted) {validation.invalidate(); void validation.refresh();}};
     window.addEventListener('focus', check); document.addEventListener('visibilitychange', check); window.addEventListener('pageshow', restored);
     return () => {channel.current = null; bus?.close(); validation.dispose(); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); window.removeEventListener('pageshow', restored);};

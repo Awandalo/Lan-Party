@@ -476,7 +476,9 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Implement contextual navigation, User Settings and accessible sign-out power control; preserve separate Events placeholders.
 - [x] Group Role Activity and User Log with route links; preserve audit privacy and existing security behavior.
 - [x] Implement balanced Account Security cards and comfortable Roles/Members sizing.
-- [ ] Verify DEV publication and hand over the exact revision for owner testing.
+- [x] Verify iteration 1 DEV publication at e670ca1 and provide the owner testing handover.
+- [x] Implement iteration 2 bounded Members alignment, neutral idle lifecycle styling, shared log toolbar/pagination and background-focus refresh correction (#30 comment 6535348451).
+- [ ] Owner retest the iteration 2 DEV handover; keep #30 open for acceptance.
 - [ ] Record approved disposable-account hosted acceptance and Phase 4 sign-off; keep #30 open until owner acceptance.
 
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.

@@ -53,6 +53,26 @@ stored retention and Role Activity's separate indefinite retention remain unchan
 A typed frontend validator rejects malformed/privacy-inconsistent rows; session-bound
 memory reads are cancelled/fenced and cleared on identity/capability changes.
 
+## Iteration 2 — DEV feedback 6535348451
+
+Members uses one 75rem bounded workspace for heading, filters/back link, profile
+and attendance cards. The summary occupies the existing progress line rather than
+an extra disconnected row. Both logs share toolbar sizing and a pagination component;
+empty/single cursor pages have no redundant controls, while older pages retain a
+way back. API page size, cursor/filter semantics and empty-state messages are unchanged.
+The collapsed lifecycle card uses normal styling; warning emphasis is limited to
+an opened destructive confirmation. No lifecycle/password/MFA action logic changes.
+
+Focus/visibility events still validate the session and current capabilities. Their
+auth request generation is separate from the view-data revision: unchanged successful
+background checks retain the displayed views and do not restart their data reads.
+Foreground navigation, filters/retry and explicit mutation refresh still reload data.
+Identity/proof changes, changed capabilities, denied/error responses and explicit
+cross-tab invalidation continue to clear/fence private data. Focus is not a content
+polling mechanism; every Worker read/write still independently authorizes its request.
+Equivalent blur/focus/visibility sequences were tested with fictional browser
+diagnostics and request counts; physical two-monitor interaction is owner retesting.
+
 ## Verification and hosted handover
 
 Local fixtures are fictional and intercept all transports. Check main/context route

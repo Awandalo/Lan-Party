@@ -29,6 +29,8 @@ const entries:{sequence:string;operationId:string;occurredAt:number;actorId:stri
  {sequence:'1',operationId:'40000000-0000-4000-8000-000000000001',occurredAt:1793300000,actorId:actor,operation:'role.update',roleId:roles[2].id,accountId:null,delta:JSON.stringify({fields:['description'],active:{before:1,after:1},protected:{before:0,after:0},permissions:{before:[],after:[permissions[0].id]}})}
 ];
 const catalogue=()=>({roles:roles.map((role,index)=>({...role,...(mode==='delegated'?{}:{assignedMemberCount:[1,8,3][index]??0})})),permissions,mappings,revision,administrator:!['delegated','member','guest'].includes(mode)});
+if(params.get('log')==='multi')for(let n=25;n>2;n--)entries.push({...entries[0],sequence:String(n)});
+if(params.get('log')==='empty')entries.length=0;
 window.fetch=async(input,init)=>{
  const url=new URL(String(input),location.origin),request={path:url.pathname,start:Math.round(performance.now())} as typeof requests[number];requests.push(request);await new Promise(resolve=>setTimeout(resolve,delay));request.end=Math.round(performance.now());
  if(recipientScenario&&url.pathname==='/api/auth/session')return recipientVerified?Response.json({account:{userId:target,nickname:'Fictional Participant',memberNumber:'11'},csrfToken:'d'.repeat(64),emailVerified:true}):recipientScenario==='switch-account'?Response.json({account:{userId:actor,nickname:'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true}):Response.json({},{status:401});
@@ -48,10 +50,17 @@ window.fetch=async(input,init)=>{
  if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin',deletionAvailable:false});
  if(url.pathname==='/api/auth/mfa/status')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({enabled:params.get('mfa')!=='disabled',enrollmentAvailable:true});
  if(url.pathname==='/api/auth/security/change-password')return Response.json({error:'Fictional validation response. No password was changed.'},{status:400});
- if(url.pathname==='/api/manage/user-activity')return mode==='admin'?Response.json({entries:[
+ if(url.pathname==='/api/manage/user-activity'){
+  if(mode!=='admin'||revoked||signedOut)return Response.json({},{status:403});
+  let rows=[
   {sequence:'2',occurredAt:1793390400,event:'invitation.accepted',actorKind:'system',dateOnly:0,actorId:null,targetId:target,operationId:'fictional-reference',actorName:null,targetName:'Fictional Participant'},
   {sequence:'1',occurredAt:1793318400,event:'account.deleted',actorKind:'anonymous',dateOnly:1,actorId:null,targetId:null,operationId:null,actorName:null,targetName:null},
- ],nextBefore:null}):Response.json({},{status:403});
+  ];
+  if(params.get('log')==='multi')rows=Array.from({length:25},(_,i)=>({...rows[0],sequence:String(25-i)}));
+  if(params.get('log')==='empty')rows=[];
+  rows=rows.filter(row=>BigInt(row.sequence)<BigInt(url.searchParams.get('before')??'9223372036854775807')&&(!url.searchParams.get('event')||row.event===url.searchParams.get('event')));
+  return Response.json({entries:rows.slice(0,20),nextBefore:rows.length>20?rows[19].sequence:null});
+ }
  if(mode==='guest'||mode==='member')return Response.json({},{status:403});
  if(revoked)return Response.json({},{status:403});
  if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin'});
@@ -66,7 +75,7 @@ window.fetch=async(input,init)=>{
  }
  if(url.pathname==='/api/manage/role-activity'){
   const start=url.searchParams.get('date')?Date.parse(url.searchParams.get('date')+'T00:00:00Z')/1000:null,action=url.searchParams.get('operation'),search=(url.searchParams.get('search')??'').toLowerCase(),before=BigInt(url.searchParams.get('before')??'9223372036854775807');
-  const projected=entries.map(entry=>({...entry,actorName:'Fictional Administrator',accountName:entry.accountId?'Fictional Participant':null,roleName:roles.find(role=>role.id===entry.roleId)?.name??null})).filter(entry=>BigInt(entry.sequence)<before&&(!action||entry.operation===action)&&(start===null||entry.occurredAt>=start&&entry.occurredAt<start+86400)&&JSON.stringify(entry).toLowerCase().includes(search));
+  const projected=entries.map(entry=>({...entry,actorName:'Fictional Administrator',accountName:entry.accountId?'Fictional Participant':null,roleName:roles.find(role=>role.id===entry.roleId)?.name??null})).filter(entry=>BigInt(entry.sequence)<before&&(!action||entry.operation===action)&&(start===null||entry.occurredAt>=start&&entry.occurredAt<start+86400)&&JSON.stringify(entry).toLowerCase().includes(search)).sort((a,b)=>Number(BigInt(b.sequence)-BigInt(a.sequence)));
   return Response.json({entries:projected.slice(0,20),nextBefore:projected.length>20?projected[19].sequence:null,permissions:permissions.map(({id,code})=>({id,code}))});
  }
  if(url.pathname.endsWith('/roles')){
@@ -95,7 +104,7 @@ style.textContent+='.layout-preview-diagnostics{margin:1rem 1rem 5rem 264px;font
 style.textContent+='body:has(.role-sticky-actions) .layout-preview-toolbar{display:none}';
 controls.style.overflowWrap='anywhere';
 document.querySelector('#role-revoke')!.addEventListener('click',()=>{revoked=true;new BroadcastChannel('lan-auth-invalidation').postMessage('invalidate');});
-document.querySelector('#role-check-session')!.addEventListener('click',()=>window.dispatchEvent(new Event('focus')));
+document.querySelector('#role-check-session')!.addEventListener('click',()=>{window.dispatchEvent(new Event('blur'));window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});
 setInterval(()=>{document.querySelector('#role-counters')!.textContent=JSON.stringify({revision,mutations,requests,recipientInspections,recipientClaims,recipientCompletions});},30);
 if(location.pathname.endsWith('.html'))history.replaceState(null,'',(params.get('route')??'/manage/roles')+location.hash);
 createRoot(document.getElementById('root')!).render(<BrowserRouter><App/></BrowserRouter>);
