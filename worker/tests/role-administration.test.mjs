@@ -15,7 +15,8 @@ async function edit(f,u,id,overrides={}){
  return call(f,u,'manage/roles',{action:'update',revision:c.revision,operationId:randomUUID(),roleId:id,code:role.code,name:role.name,description:role.description??'',active:!!role.isActive,protected:!!role.isProtected,permissionIds:c.mappings.filter(m=>m.roleId===id).map(m=>m.permissionId),...overrides});
 }
 async function membership(f,u,target,roleId,action,overrides={}){
- return call(f,u,'manage/users/'+target.id+'/roles',{action,revision:(await catalogue(f,u)).revision,operationId:randomUUID(),roleId,accountId:target.id,...overrides});
+ const revision=overrides.revision??(await catalogue(f,u)).revision;
+ return call(f,u,'manage/users/'+target.id+'/roles',{action,revision,operationId:randomUUID(),roleId,accountId:target.id,...overrides});
 }
 test('intrinsic Administrator works without grants; delegated managers cannot read private members or activity',()=>local(async f=>{
  const a=await f.user({genuine:true}),ordinary=await f.user(),d=await f.user({admin:true});
@@ -65,7 +66,8 @@ test('stale editors, concurrent role changes and replayed operation IDs cannot p
 }));
 test('two administrators removing each other concurrently preserve at least one genuine administrator',()=>local(async f=>{
  const a=await f.user({genuine:true}),b=await f.user({genuine:true});
- const responses=await Promise.all([membership(f,a,b,adminRole,'remove'),membership(f,b,a,adminRole,'remove')]);
+ const revision=(await catalogue(f,a)).revision;
+ const responses=await Promise.all([membership(f,a,b,adminRole,'remove',{revision}),membership(f,b,a,adminRole,'remove',{revision})]);
  assert.equal(responses.filter(r=>r.status===200).length,1);assert.ok(responses.some(r=>[403,409].includes(r.status)));
  assert.equal(await f.sql('SELECT count(*) n FROM user_roles WHERE role_id=?',adminRole).first('n'),1);
 }));
@@ -94,8 +96,10 @@ test('RBAC removal racing lifecycle deactivation/deletion cannot remove the fina
   // Remove other fixture administrators from the preceding scenario only.
   await f.sql('DELETE FROM user_roles WHERE role_id=? AND user_id NOT IN (?,?)',adminRole,a.id,b.id).run();
   await f.sql("INSERT INTO auth_recent_authentication(session_digest,user_id,auth_version,method,authenticated_at,expires_at) VALUES (?,?,0,'password',unixepoch(),unixepoch()+300)",a.digest,a.id).run();
+  // Prepare before racing: lifecycle success may revoke a's session immediately.
+  const revision=(await catalogue(f,a)).revision;
   const responses=await Promise.all([
-   membership(f,a,b,adminRole,'remove'),
+   membership(f,a,b,adminRole,'remove',{revision}),
    f.request('auth/lifecycle/'+action,a,action==='delete'?{confirm:'DELETE',acknowledged:true}:{confirm:'DEACTIVATE'},headers(a)),
   ]);
   assert.equal(responses.filter(r=>r.status===200).length,1);
