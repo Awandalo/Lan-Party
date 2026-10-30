@@ -1,7 +1,9 @@
-.reactivate-page .panel { max-width:44rem; margin-inline:auto; padding:clamp(1.2rem,4vw,2.5rem); }
+.reactivate-page .panel { display:flex; flex-direction:column; gap:1.25rem; max-width:44rem; margin-inline:auto; padding:clamp(1.2rem,4vw,2.5rem); }
+.reactivate-page .panel > * { margin-block:0; }
+.reactivate-page .panel > .button { align-self:flex-start; }
 .reactivate-page h1 { font-size:clamp(1.8rem,5vw,2.6rem); line-height:1.15; }
-.reactivate-page form { margin-top:1.8rem; }
 .reactivate-page fieldset { display:grid; gap:1.35rem; border:0; padding:0; margin:0; min-width:0; }
+.reactivate-page legend.sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .reactivate-page label { display:grid; gap:.5rem; min-width:0; font-weight:600; }
 .reactivate-page input:not([type="checkbox"]) { width:100%; min-width:0; padding:.8rem; min-height:46px; border:1px solid var(--border); border-radius:.5rem; background:var(--background); color:var(--text); font:inherit; }
 .reactivate-name-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }

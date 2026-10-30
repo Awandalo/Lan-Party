@@ -40,3 +40,5 @@
 .member-review > ul { max-height:40vh; overflow:auto; padding-left:1.3rem; line-height:1.7; }
 
 .member-state-switch { min-height:44px; }
+.member-review > .member-state-switch { margin-top:1.25rem; }
+.member-review > .wizard-actions { margin-top:1.25rem; padding-top:1.25rem; flex-wrap:wrap; }
