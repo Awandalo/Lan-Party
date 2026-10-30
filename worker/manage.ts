@@ -3,7 +3,7 @@ import {readUserActivity} from './user-activity-read';
 import {userActivityReady} from './auth/user-activity';
 import {sessionCsrfToken} from './auth/csrf';
 import {digestToken} from './auth/tokens';
-import {fromHex} from './auth/encoding';
+import {fromHex,toHex} from './auth/encoding';
 import type { AuthenticationEnvironment } from './auth/http';
 import { authOrigin, authRouteEnabled, hostedDev, loopback } from './auth/environment';
 import { readSessionCookie } from './auth/cookies';
@@ -108,7 +108,10 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     const sections = Object.entries(sectionPermissions).filter(([key, required]) => key==='activity'?admin:required.some(p => permissions.includes(p))).map(([key]) => key);
     if(admin&&await userActivityReady(env.DB))sections.push('userActivity');
     if (!sections.length) return reply(403, {error: 'Administration access is not available'});
-    return reply(200, {sections});
+    // Cache invalidation hint, never an authorization credential. Section names
+    // alone cannot detect loss of users.view while users.manage still exists.
+    const authorization=toHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([admin,[...new Set(permissions)].sort()])))));
+    return reply(200, {sections,authorization});
   } catch(error) {
     if(error instanceof RoleDenied)return reply(403,{error:'Role change is restricted'});
     if(error instanceof RoleInvalid)return reply(400,{error:'Invalid role request'});

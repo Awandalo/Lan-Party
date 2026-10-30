@@ -45,7 +45,7 @@ window.fetch=async(input,init)=>{
  }
  if(url.pathname==='/api/auth/logout'){if(params.get('logout')==='fail')return Response.json({},{status:503});signedOut=true;return Response.json({ok:true});}
  if(url.pathname==='/api/auth/session')return signedOut||mode==='guest'?Response.json({},{status:401}):Response.json({account:{userId:actor,nickname:mode==='member'?'Fictional Member':'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
- if(url.pathname==='/api/manage/capabilities')return Response.json({sections:signedOut||revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity','userActivity','events']});
+ if(url.pathname==='/api/manage/capabilities')return Response.json({sections:signedOut||revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity','userActivity','events'],authorization:'a'.repeat(64)});
  if(url.pathname==='/api/auth/security/methods')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({password:true});
  if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin',deletionAvailable:false});
  if(url.pathname==='/api/auth/mfa/status')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({enabled:params.get('mfa')!=='disabled',enrollmentAvailable:true});

@@ -45,7 +45,7 @@ test('genuine built-in Administrator has intrinsic capability; protected identit
  const u=await user();assert.equal((await request('manage/capabilities',u)).status,403);
  await sql("INSERT INTO user_roles(user_id,role_id,assigned_at) SELECT ?,id,0 FROM roles WHERE code='admin'",u.id).run();
  await sql('DELETE FROM role_permissions').run();
- const response=await request('manage/capabilities',u);assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');assert.deepEqual(await response.json(),{sections:['users','roles','activity','events','userActivity']});
+ const response=await request('manage/capabilities',u);assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');const capabilities=await response.json();assert.deepEqual(capabilities.sections,['users','roles','activity','events','userActivity']);assert.match(capabilities.authorization,/^[0-9a-f]{64}$/);
  await assert.rejects(sql("UPDATE roles SET is_active=0 WHERE code='admin'").run(),/immutable/);
  await sql('DELETE FROM user_roles WHERE user_id=?',u.id).run();assert.equal((await request('manage/capabilities',u)).status,403);
 }));
@@ -53,7 +53,7 @@ test('individual grants reveal only their section, never role-name privileges or
  const u=await user({admin:true});await sql('DELETE FROM role_permissions').run();await sql("UPDATE roles SET code='event_staff' WHERE code='fixture_admin'").run();
  for(const [permission,section] of [['users.view','users'],['users.manage','users'],['roles.manage','roles'],['events.create','events'],['events.update','events'],['events.publish','events'],['events.cancel','events'],['events.manage_registrations','events']]){
  await sql("INSERT INTO role_permissions(role_id,permission_id,granted_at) SELECT r.id,p.id,0 FROM roles r,permissions p WHERE r.code='event_staff' AND p.code=?",permission).run();
- assert.deepEqual(await(await request('manage/capabilities',u)).json(),{sections:[section]});await sql('DELETE FROM role_permissions').run();
+ const access=await(await request('manage/capabilities',u)).json();assert.deepEqual(access.sections,[section]);assert.match(access.authorization,/^[0-9a-f]{64}$/);await sql('DELETE FROM role_permissions').run();
  }
  await sql("INSERT INTO role_permissions(role_id,permission_id,granted_at) SELECT r.id,p.id,0 FROM roles r,permissions p WHERE r.code='event_staff' AND p.code='news.create'").run();assert.equal((await request('manage/capabilities',u)).status,403);
 }));

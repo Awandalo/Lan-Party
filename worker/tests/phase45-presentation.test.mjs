@@ -4,6 +4,7 @@ import {createRequire,Module} from 'node:module';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
 async function load(path){const r=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'cjs'}),m=new Module(import.meta.filename);m._compile(r.outputFiles[0].text,import.meta.filename);return m.exports;}
 const nav=await load('src/lib/navigation.ts'),dto=await load('src/lib/user-activity.ts'),{RoleReadCache}=await load('src/lib/role-read-cache.ts');
+const {MemberReadCache}=await load('src/lib/member-read-cache.ts');
 test('context menus derive from routes, omit empty areas and retain authorized order',()=>{
  const all=['users','roles','events','activity','userActivity'];
  for(const route of ['/','/events','/privacy','/reactivate'])assert.deepEqual(nav.contextualNavigation(route,all,true),[]);
@@ -26,5 +27,15 @@ test('User Log cache never applies late records after role loss or identity swit
   cache.synchronize(state);let resolve;const waiting=new Promise(r=>resolve=r);cache.read('/api/manage/user-activity','userActivity',()=>waiting);await new Promise(r=>setImmediate(r));
   cache.synchronize(next==='other'?{...state,session:{...state.session,account:{userId:'other'}}}:{...state,access:{status:'ready',sections:[]}});
   resolve({data:{entries:['private']},message:''});await new Promise(r=>setImmediate(r));assert.equal(cache.get('/api/manage/user-activity'),undefined);
+ }
+});
+test('effective-authority fingerprint changes clear member and log caches despite identical sections and session',async()=>{
+ const state={session:{account:{userId:'fictional'},csrfToken:'proof'},status:'ready',access:{status:'ready',sections:['users','roles','userActivity'],authorization:'a'.repeat(64)}};
+ for(const cache of [new MemberReadCache(),new RoleReadCache()]){
+  cache.synchronize(state);
+  const read=()=>Promise.resolve({data:{private:'fictional'},message:''});
+  if(cache instanceof MemberReadCache)cache.read('private',read);else cache.read('private','userActivity',read);
+  await new Promise(r=>setImmediate(r));assert.ok(cache.get('private').data);
+  cache.synchronize({...state,access:{...state.access,authorization:'b'.repeat(64)}});assert.equal(cache.get('private'),undefined);
  }
 });

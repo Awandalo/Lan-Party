@@ -8,7 +8,7 @@ const session=(id='fictional-a',csrf='a')=>({account:{userId:id,nickname:'Fictio
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture(){const calls=[],states=[];const transport=(path,options)=>{const d=deferred();calls.push({path,options,...d});return d.promise};const model=new SessionValidation(s=>states.push(s),transport,true);return{model,calls,states};}
-async function ready(f,sections=['users','roles','events']){const p=f.model.refresh();f.calls.at(-1).resolve(Response.json(session()));await tick();f.calls.at(-1).resolve(Response.json({sections}));await p;}
+async function ready(f,sections=['users','roles','events']){const p=f.model.refresh();f.calls.at(-1).resolve(Response.json(session()));await tick();f.calls.at(-1).resolve(Response.json({sections,authorization:'a'.repeat(64)}));await p;}
 test('session then one capability request; overlapping navigation deduplicates and same-context hints never disappear',async()=>{
  const f=fixture();await ready(f);assert.equal(f.calls.length,2);const p=f.model.refresh(),q=f.model.refresh();assert.equal(p,q);assert.deepEqual(f.model.state.access.sections,['users','roles','events']);
  assert.equal(f.calls.length,3);f.calls[2].resolve(Response.json(session()));await tick();assert.equal(f.calls.length,4);assert.deepEqual(f.model.state.access.sections,['users','roles','events']);f.calls[3].resolve(Response.json({sections:['events']}));await p;assert.deepEqual(f.model.state.access.sections,['events']);
@@ -48,7 +48,7 @@ test('focus/visibility checks verify session and capabilities without advancing 
   assert.equal(f.model.state.access.revision,initial);
   f.calls.at(-1).resolve(Response.json(session()));await tick();assert.equal(f.model.state.access.revision,initial);
   assert.equal(f.calls.at(-1).options.headers['X-LAN-Session-Proof'],session().csrfToken);
-  f.calls.at(-1).resolve(Response.json({sections:['events','roles','users']}));await p;
+  f.calls.at(-1).resolve(Response.json({sections:['events','roles','users'],authorization:'a'.repeat(64)}));await p;
  }
  assert.equal(f.calls.length,8);assert.ok(f.states.slice(states).every(s=>s.status==='ready'&&s.access.status==='ready'&&s.access.revision===initial));
  const foreground=f.model.refresh(true);assert.ok(f.model.state.access.revision>initial);
@@ -66,4 +66,13 @@ test('background checks still revoke access, reject identity/proof changes and f
   if(['denied','outage'].includes(outcome))assert.deepEqual(f.model.state.access.sections,[]);
   if(outcome==='denied')assert.equal(f.model.state.session,null);
  }
+});
+
+test('fine-grained permission changes invalidate views even with identical section names; unversioned servers stay conservative',async()=>{
+ for(const authorization of ['b'.repeat(64),undefined]){
+  const f=fixture();await ready(f);const initial=f.model.state.access.revision,p=f.model.refresh(false,'background');
+  f.calls.at(-1).resolve(Response.json(session()));await tick();f.calls.at(-1).resolve(Response.json({sections:['users','roles','events'],authorization}));await p;
+  assert.ok(f.model.state.access.revision>initial);assert.deepEqual(f.model.state.access.sections,['users','roles','events']);
+ }
+ const f=fixture();await ready(f);const p=f.model.refresh(false,'background');f.calls.at(-1).resolve(Response.json(session()));await tick();f.calls.at(-1).resolve(Response.json({sections:['users'],authorization:'invalid'}));await p;assert.equal(f.model.state.access.status,'error');assert.deepEqual(f.model.state.access.sections,[]);
 });

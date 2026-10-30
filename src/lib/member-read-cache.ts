@@ -22,7 +22,7 @@ export class MemberReadCache {
  private clear() {this.cancel();this.entries.clear();}
  synchronize({session,status,access}:ValidationState) {
   const context=session && status==='ready' && access.status==='ready' && access.sections.includes('users')
-   ? session.account.userId+':'+session.csrfToken : '';
+   ? session.account.userId+':'+session.csrfToken+':'+(access.authorization??'') : '';
   if(context!==this.context || !context && this.entries.size) {
    this.context=context;this.clear();this.publish();
   } else if(context && this.revision!==(access.revision??0)) {

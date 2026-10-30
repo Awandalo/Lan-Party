@@ -19,7 +19,7 @@ export class RoleReadCache {
  synchronize({session,status,access}:ValidationState) {
   const sections=access.sections.filter(s=>['roles','users','activity','userActivity'].includes(s)).sort();
   const context=session && status==='ready' && access.status==='ready' && sections.some(s=>s==='roles'||s==='activity'||s==='userActivity')
-   ? session.account.userId+':'+session.csrfToken+':'+sections.join(',') : '';
+   ? session.account.userId+':'+session.csrfToken+':'+sections.join(',')+':'+(access.authorization??'') : '';
   this.sections=context?sections:[];
   if(context!==this.context || !context && this.entries.size) {this.context=context;this.clear();this.publish();}
   else if(context && this.revision!==(access.revision??0)) this.cancel();

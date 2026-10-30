@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {local} from './helpers/role-fixture.mjs';
 const call=(f,u,path='manage/user-activity',extra={})=>f.request(path,u,undefined,{'X-LAN-Session-Proof':u?.csrf??'a'.repeat(64),...extra});
+test('capability fingerprint detects fine-grained revocation that leaves section navigation unchanged',()=>local(async f=>{
+ const d=await f.user({admin:true});
+ const before=await(await f.request('manage/capabilities',d)).json();
+ await f.sql("DELETE FROM role_permissions WHERE role_id='30000000-0000-4000-8000-000000000001' AND permission_id IN (SELECT id FROM permissions WHERE code='users.view')").run();
+ const after=await(await f.request('manage/capabilities',d)).json();
+ assert.deepEqual(after.sections,before.sections);assert.notEqual(after.authorization,before.authorization);assert.match(after.authorization,/^[0-9a-f]{64}$/);
+ assert.equal((await call(f,d,'manage/users')).status,403);
+ assert.equal((await f.request('manage/capabilities',d)).status,200);
+}));
 test('User Log requires genuine current Administrator and session-correlated same-origin reads',()=>local(async f=>{
  const a=await f.user({genuine:true}),d=await f.user({admin:true}),member=await f.user();
  assert.equal((await call(f,a)).status,200);

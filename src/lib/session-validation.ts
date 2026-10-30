@@ -2,7 +2,7 @@ import {isMemberNumber} from './member-number';
 
 export interface Session {account: {userId: string; nickname: string; memberNumber: string}; csrfToken: string; emailVerified: boolean; recoveryCodesRemaining?: number}
 export type Section = 'users' | 'roles' | 'events' | 'activity' | 'userActivity';
-export interface AdministrationAccess {sections: Section[]; status: 'loading' | 'ready' | 'error'; revalidating?: boolean; revision?: number}
+export interface AdministrationAccess {sections: Section[]; status: 'loading' | 'ready' | 'error'; revalidating?: boolean; revision?: number; authorization?: string}
 export interface ValidationState {session: Session | null; status: 'loading' | 'ready' | 'error'; access: AdministrationAccess}
 const empty = (): AdministrationAccess => ({sections: [], status: 'loading'});
 
@@ -71,10 +71,12 @@ export class SessionValidation {
         const body = await capabilities.json();
         if (!current()) return false;
         if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events','activity','userActivity'].includes(s))) throw Error('Invalid capabilities');
+        if(body.authorization!==undefined&&(typeof body.authorization!=='string'||!/^[0-9a-f]{64}$/.test(body.authorization)))throw Error('Invalid authorization hint');
         const sections = [...new Set<Section>(body.sections)];
         const unchanged = sameContext && previous.access.status === 'ready'
+          && typeof body.authorization==='string' && body.authorization===previous.access.authorization
           && sections.length === previous.access.sections.length && sections.every(s=>previous.access.sections.includes(s));
-        this.set({session, status: 'ready', access: {sections: unchanged ? previous.access.sections : sections, status: 'ready', revision: background && unchanged ? revision : generation}});
+        this.set({session, status: 'ready', access: {sections: unchanged ? previous.access.sections : sections, status: 'ready', authorization:body.authorization, revision: background && unchanged ? revision : generation}});
         return true;
       } catch {
         if (current()) this.set({session, status: session ? 'ready' : 'error', access: {sections: [], status: 'error'}});

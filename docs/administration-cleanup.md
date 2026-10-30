@@ -66,6 +66,11 @@ an opened destructive confirmation. No lifecycle/password/MFA action logic chang
 Focus/visibility events still validate the session and current capabilities. Their
 auth request generation is separate from the view-data revision: unchanged successful
 background checks retain the displayed views and do not restart their data reads.
+The capability response includes an opaque fingerprint of effective permission codes
+and genuine-Administrator status, used only for cache invalidation, never as a grant
+or credential. Changes clear both private caches even when section names stay the
+same (for example users.view loss while users.manage remains). Missing hints from
+an older server conservatively trigger normal view refresh; malformed hints fail closed.
 Foreground navigation, filters/retry and explicit mutation refresh still reload data.
 Identity/proof changes, changed capabilities, denied/error responses and explicit
 cross-tab invalidation continue to clear/fence private data. Focus is not a content
