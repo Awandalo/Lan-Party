@@ -250,3 +250,25 @@ confirmed session change, and ignores late setters captured before navigation.
 Activity Collapse all sits beside the Details heading and resets expanded records
 without changing filters or pagination. Hosted owner acceptance remains separate
 from local checks, publication and automatic deployment verification.
+
+### Iteration 4 — focused acceptance corrections, 2026-10-30
+
+Owner authorized building/publishing the corrections in #28 comment 6521731280.
+Membership activity explicitly says which role was assigned to or removed from
+which member, with labeled Role/Member context in list and expanded details.
+Only the existing authorized current labels are used; original IDs/JSON and the
+historical-label disclaimer remain. No audit data or retention change is made.
+
+One saved-role icon rule serves the list, heading and summary: genuine built-in
+Administrator uses a shield, built-in User uses people, a custom role with one
+non-Roles category uses that category's icon, and mixed/empty/Roles-only custom
+roles use a neutral grid. Custom protection stays a separate lock badge. Names
+and icons confer no authority, and unsaved grant edits do not change the icon.
+
+Owner clarified the reported eyebrow movement occurs switching Home and Events.
+Local frame/geometry checks found different intro padding, not animation: at
+1280px the labels started at 192.19px versus 157px, and at 390px at 136.19px
+versus 117px. Removing Home's extra top inset and matching its hero top padding
+to the existing page-section rule aligns both routes at 157px desktop and 117px
+mobile. The approved headline, font/line-height, hero bottom padding and existing
+reduced-motion policy remain unchanged. No animation was added to mask movement.

@@ -31,7 +31,6 @@
 .site-shell .button { transition:background 160ms ease,border-color 160ms ease; cursor:pointer; }
 .site-shell .button:disabled { opacity:.5; cursor:not-allowed; }
 .site-shell .panel { border-radius:.9rem; }
-.home-page { padding-top:1.2rem; }
 @media (min-width:1600px) { .site-shell { margin-left:248px; }.site-sidebar { width:248px; } }
 @media (max-width:900px) { .site-shell { margin-left:0; }.site-sidebar { display:none; }.navigation-trigger { display:inline-flex; }.site-header .header-inner { min-height:68px; padding:.75rem 1rem; flex-direction:row; }.site-breadcrumb { margin-right:auto; gap:.4rem; font-size:.75rem; }.header-site-label { display:none; }.main-content:has(.administration-page) { width:calc(100% - 2rem); }.administration-page { padding-top:1.5rem; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }

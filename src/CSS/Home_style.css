@@ -1,4 +1,4 @@
-.home-hero { position: relative; isolation: isolate; overflow: hidden; padding-block: clamp(3rem, 8vw, 6rem); }
+.home-hero { position: relative; isolation: isolate; overflow: hidden; padding-block: clamp(3rem, 7vw, 5rem) clamp(3rem, 8vw, 6rem); }
 .home-hero h1 { max-width: 12ch; font-size: clamp(2.8rem, 7vw, 5.8rem); line-height: 1.04; letter-spacing: -.055em; }
 .home-hero h1 span { color: var(--accent); }
 .home-intro { max-width: 36rem; font-size: 1.1rem; }

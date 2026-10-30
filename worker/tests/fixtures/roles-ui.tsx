@@ -18,6 +18,8 @@ const permissions=['news.create','users.view','roles.manage','roles.protect_admi
  'news.update':'Update existing announcements.','news.publish':'Publish announcements for the crew.','news.archive':'Archive old announcements.','locations.manage':'Maintain event locations.','users.manage':'Carry out authorized member administration.'
  } as Record<string,string>)[code],protected:['users.view','users.manage','roles.manage','roles.protect_admin'].includes(code)}));
 let mappings=[{roleId:roles[2].id,permissionId:permissions[0].id,grantedAt:0}];
+roles.push({id:'20000000-0000-4000-8000-000000000002',code:'fictional_events',name:'Fictional Event Planner',description:'Fictional event planning role',isActive:1,isProtected:0});
+mappings.push({roleId:roles[3].id,permissionId:permissions.find(p=>p.code==='events.create')!.id,grantedAt:0});
 const assignments=[{roleId:roles[1].id,assignedAt:0}];
 const entries:{sequence:string;operationId:string;occurredAt:number;actorId:string;operation:string;roleId:string;accountId:string|null;delta:string}[]=[
  {sequence:'2',operationId:'40000000-0000-4000-8000-000000000002',occurredAt:1793361600,actorId:actor,operation:'membership.add',roleId:roles[1].id,accountId:target,delta:JSON.stringify({assigned:{before:false,after:true}})},

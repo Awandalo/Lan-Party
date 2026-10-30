@@ -2,6 +2,10 @@ import {permissionLabel} from './role-presentation';
 export interface ActivityEntry {sequence:string;occurredAt:number;actorId:string;actorName?:string|null;operation:string;roleId:string;roleName?:string|null;accountId:string|null;accountName?:string|null;delta:string;operationId:string}
 export interface ActivityPage {entries:ActivityEntry[];nextBefore:string|null;permissions?:{id:string;code:string}[]}
 export const activityOperations:Record<string,string>={'role.create':'Role created','role.update':'Role updated','membership.add':'Role assigned','membership.remove':'Role removed'};
+export function membershipAction(entry:ActivityEntry){
+ const role=entry.roleName??'Unavailable role',member=entry.accountName??'Former or unavailable member';
+ return entry.operation==='membership.add'?`${role} assigned to ${member}`:entry.operation==='membership.remove'?`${role} removed from ${member}`:null;
+}
 export function activityChanges(entry:ActivityEntry,permissions:ActivityPage['permissions']=[]){
  let delta:Record<string,unknown>={};try{const raw:unknown=JSON.parse(entry.delta);if(raw&&typeof raw==='object'&&!Array.isArray(raw))delta=raw as Record<string,unknown>;}catch{/* Keep the original record available in technical details. */}
  const rows:{field:string;before:string;after:string}[]=[];
