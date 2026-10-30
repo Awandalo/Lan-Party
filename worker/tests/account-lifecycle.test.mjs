@@ -557,3 +557,42 @@ test('cancellation racing recipient completion has one winner and never leaves a
  assert.equal(await f.value('reactivationContext',ctx.context),null);
  assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),activated?'active':'disabled');
 },21));
+
+test('passive invitation inspection reveals only eligibility/origin and does not claim or write audit state',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ const invite=await f.value('initiateReactivation',a.id,0,a.digest,u.id),before=await f.sql('SELECT count(*) n FROM user_activity').first('n');
+ for(let i=0;i<2;i++){const r=await f.request('reactivation/inspect',null,{token:invite.token});assert.equal(r.status,200);assert.equal(r.headers.get('set-cookie'),null);assert.deepEqual(await r.json(),{available:true,claimed:false,origin:'voluntary'});}
+ assert.equal(await f.sql('SELECT phase FROM account_reactivation WHERE invitation_digest=?',invite.digest).first('phase'),'invited');
+ assert.equal(await f.sql('SELECT count(*) n FROM user_activity').first('n'),before);
+ assert.equal((await f.request('reactivation/inspect',null,{token:invite.token},{Origin:'https://foreign.example'})).status,403);
+ assert.equal((await f.request('reactivation/inspect',null,{token:invite.token,extra:true})).status,400);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:'invalid'})).json(),{available:false});
+},21));
+test('inspection rejects cancelled/replaced/foreign claimed links and resumes only the matching browser context',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ const old=await f.value('initiateReactivation',a.id,0,a.digest,u.id),fresh=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:old.token})).json(),{available:false});
+ const claim=await f.request('reactivation/claim',null,{token:fresh.token}),cookie=claim.headers.get('set-cookie').split(';')[0];
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:fresh.token})).json(),{available:false});
+ const same=await (await f.request('reactivation/inspect',null,{token:fresh.token},{Cookie:cookie})).json();assert.equal(same.available,true);assert.equal(same.claimed,true);assert.equal(same.origin,'voluntary');assert.match(same.csrfToken,/^[0-9a-f]{64}$/);
+ assert.deepEqual(Object.keys(same).sort(),['available','claimed','csrfToken','mfa','origin']);
+ await f.value('cancelInvitation',fresh.digest);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:fresh.token},{Cookie:cookie})).json(),{available:false});
+},21));
+test('admin-origin inspection/status preserves privacy and successful completion hands off to account overview',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();assert.equal((await f.request('command',a,await memberCommand(f,a,u,'disable'))).status,200);
+ const invite=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:true,claimed:false,origin:'administrator'});
+ const claim=await f.request('reactivation/claim',null,{token:invite.token}),cookie=claim.headers.get('set-cookie').split(';')[0],csrf=(await claim.json()).csrfToken;
+ const status=await(await f.request('reactivation/status',null,undefined,{Cookie:cookie})).json();assert.equal(status.origin,'administrator');assert.ok(!JSON.stringify(status).includes('@example.test'));
+ const done=await f.request('reactivation/complete',null,{password,firstName:'Fresh',lastName:'Fixture',code:'',method:'totp'},{Cookie:cookie,'X-CSRF-Token':csrf});assert.equal(done.status,200);assert.equal((await done.json()).next,'/account');
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:false});
+ const session=done.headers.getSetCookie().find(c=>c.startsWith('__Host-lan_session=')).split(';')[0];assert.equal((await f.simulator.dispatchFetch(origin+'/api/auth/session',{headers:{Cookie:session,'X-LAN-Request':'1'}})).status,200);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='account.activated' AND target_id=?",u.id).first('n'),1);
+},21));
+test('expired invitation inspection is unavailable without mutating the token',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);const invite=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ await f.sql('DELETE FROM account_reactivation WHERE user_id=?',u.id).run();
+ await f.sql("INSERT INTO account_reactivation(invitation_digest,user_id,auth_version,email_normalized,phase,created_at,expires_at) SELECT ?,id,auth_version,email_normalized,'invited',unixepoch()-1800,unixepoch() FROM users WHERE id=?",invite.digest,u.id).run();
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:false});assert.equal(await f.sql('SELECT phase FROM account_reactivation WHERE invitation_digest=?',invite.digest).first('phase'),'invited');
+},21));

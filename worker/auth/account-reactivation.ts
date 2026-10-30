@@ -55,6 +55,20 @@ export async function acceptInvitationDelivery(db:D1Database,operationId:string)
  db.prepare("INSERT INTO user_activity(event,actor_kind,target_id,operation_id) SELECT 'invitation.accepted','system',target_id,operation_id FROM lifecycle_commands WHERE operation_id=? AND NOT EXISTS(SELECT 1 FROM user_activity WHERE operation_id=? AND event='invitation.accepted')").bind(operationId,operationId),
  ]);
 }
+// Passive landing check: never consumes an invitation or creates a context.
+export async function inspectReactivation(db:D1Database,token:string,context:string){
+ if(!isValidToken(token))return null;
+ const digest=await mfaDigest('reactivation-invitation',token);
+ if(context){
+  const claimed=await reactivationContext(db,context);
+  if(claimed&&await db.prepare("SELECT 1 FROM account_reactivation WHERE invitation_digest=? AND context_digest=? AND phase='claimed'").bind(digest,claimed.context_digest).first())return {claimed:true,origin:claimed.origin,mfa:!!claimed.factor_id,contextDigest:claimed.context_digest};
+ }
+ const audited=await userActivityReady(db);
+ const row=await db.prepare(`SELECT ${audited?'l.origin':"'voluntary'"} AS origin FROM account_reactivation r JOIN users u ON u.id=r.user_id JOIN account_lifecycle l ON l.user_id=u.id JOIN user_password_credentials c ON c.user_id=u.id
+ WHERE r.invitation_digest=? AND r.phase='invited' AND r.created_at<=unixepoch() AND r.expires_at>unixepoch()
+ AND u.status='disabled' AND u.email_verified_at IS NOT NULL AND u.auth_version=r.auth_version AND u.email_normalized=r.email_normalized AND l.state='deactivated'`).bind(digest).first<{origin:'voluntary'|'administrator'}>();
+ return row?{claimed:false,origin:row.origin}:null;
+}
 export async function claimReactivation(db:D1Database,token:string){
  if(!isValidToken(token))return null;
  const context=generateToken(),digest=await mfaDigest('reactivation-context',context);
@@ -72,12 +86,13 @@ export const liveReactivation=`r.phase='claimed' AND r.created_at<=unixepoch() A
  AND u.email_normalized=r.email_normalized AND l.state='deactivated'`;
 export async function reactivationContext(db:D1Database,context:string){
  if(!isValidToken(context))return null;
- return db.prepare(`SELECT r.user_id,r.auth_version,r.context_digest,r.email_normalized,
+ const audited=await userActivityReady(db);
+ return db.prepare(`SELECT r.user_id,r.auth_version,r.context_digest,r.email_normalized,${audited?'l.origin':"'voluntary'"} AS origin,
  c.password_hash,f.factor_id,f.secret_ciphertext,f.secret_nonce,f.key_id,f.last_step,f.recovery_set_id
  FROM account_reactivation r JOIN users u ON u.id=r.user_id JOIN account_lifecycle l ON l.user_id=u.id
  JOIN user_password_credentials c ON c.user_id=u.id LEFT JOIN auth_totp_factors f ON f.user_id=u.id
  WHERE r.context_digest=? AND ${liveReactivation}`).bind(await mfaDigest('reactivation-context',context)).first<{
- user_id:string;auth_version:number;context_digest:string;email_normalized:string;password_hash:string;
+ user_id:string;auth_version:number;context_digest:string;email_normalized:string;password_hash:string;origin:'voluntary'|'administrator';
  factor_id:string|null;secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number;recovery_set_id:string}>();
 }
 export async function verifyReactivationPassword(row:NonNullable<Awaited<ReturnType<typeof reactivationContext>>>,password:string,pepper?:string){

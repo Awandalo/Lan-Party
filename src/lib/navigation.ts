@@ -8,6 +8,7 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
  {href:'/manage/events',label:'Events',icon:'calendar',section:'events'},
 ];
 export function routeLabel(path:string){
+ if(path==='/reactivate')return 'Reactivate account';
  if(path.startsWith('/manage/users/'))return 'Member details';
  return [...publicNavigation,...administrationNavigation,{href:'/account',label:'My account'},{href:'/account/security',label:'Account security'},{href:'/privacy',label:'Privacy Policy'},{href:'/login',label:'Login'},{href:'/register',label:'Create account'}].find(item=>item.href===path)?.label??'LAN Party';
 }

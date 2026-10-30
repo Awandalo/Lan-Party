@@ -26,3 +26,17 @@
 
 .member-account-control { display:grid; gap:.65rem; margin-top:.8rem; max-width:40rem; }
 .member-account-control small { color:var(--muted); line-height:1.5; }
+
+.member-lifecycle-status { color:var(--muted); font-size:.85rem; line-height:1.5; margin:.5rem 0; }
+.member-lifecycle-status:empty { display:none; }
+.member-state-switch { display:flex; align-items:center; gap:.7rem; text-align:left; border:0; padding:.3rem 0; color:var(--text); background:none; font:inherit; cursor:pointer; }
+.member-state-switch > span:first-child { position:relative; flex:0 0 44px; height:26px; border:1px solid #758395; border-radius:20px; background:#566373; }
+.member-state-switch > span:first-child::after { content:''; position:absolute; width:20px; height:20px; left:2px; top:2px; border-radius:50%; background:var(--text); }
+.member-state-switch[aria-checked="true"] > span:first-child { background:var(--accent); border-color:var(--accent); }
+.member-state-switch[aria-checked="true"] > span:first-child::after { left:19px; background:var(--background); }
+.member-state-switch:focus-visible { outline:3px solid var(--accent); outline-offset:4px; border-radius:.3rem; }
+.member-state-switch:disabled { opacity:.65; cursor:default; }
+.member-edit-footer { display:contents; }
+.member-review > ul { max-height:40vh; overflow:auto; padding-left:1.3rem; line-height:1.7; }
+
+.member-state-switch { min-height:44px; }

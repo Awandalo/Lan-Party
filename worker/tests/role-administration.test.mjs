@@ -159,3 +159,19 @@ test('inactive roles/accounts support revocation but cannot receive new membersh
  assert.equal((await membership(f,a,target,id,'assign')).status,409);
  assert.equal(await f.sql('SELECT status FROM users WHERE id=?',target.id).first('status'),'disabled');
 }));
+
+test('sequential multi-role edits and admin disable preserve per-operation audit, revisions and retained roles',()=>local(async f=>{
+ const a=await f.user({genuine:true}),u=await f.user();const ids=[];for(let i=0;i<3;i++)ids.push((await (await create(f,a)).response.json()).roleId);
+ assert.equal((await membership(f,a,u,ids[0],'assign')).status,200);
+ const metaResponse=await f.request('auth/lifecycle/member',a,{userId:u.id},headers(a));assert.equal(metaResponse.status,200);const {member}=await metaResponse.json();
+ let revision=(await catalogue(f,a)).revision;
+ for(const [roleId,action] of [[ids[0],'remove'],[ids[1],'assign'],[ids[2],'assign']]){
+  const r=await call(f,a,'manage/users/'+u.id+'/roles',{roleId,action,accountId:u.id,revision,operationId:randomUUID()});assert.equal(r.status,200,await r.clone().text());const b=await r.json();assert.equal(b.revision,revision+1);revision=b.revision;
+ }
+ const disable=await f.request('auth/lifecycle/command',a,{userId:u.id,action:'disable',version:member.version,issuedAt:member.issuedAt,invitationId:member.invitationId,operationId:randomUUID()},headers(a));assert.equal(disable.status,200,await disable.clone().text());
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'disabled');
+ assert.deepEqual((await f.sql('SELECT role_id FROM user_roles WHERE user_id=? ORDER BY role_id',u.id).all()).results.map(r=>r.role_id).sort(),ids.slice(1).sort());
+ assert.equal(await f.sql("SELECT count(*) n FROM role_activity WHERE account_id=? AND operation LIKE 'membership.%'",u.id).first('n'),4);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE target_id=? AND event='account.deactivated'",u.id).first('n'),1);
+ assert.equal((await call(f,u)).status,401);
+}));

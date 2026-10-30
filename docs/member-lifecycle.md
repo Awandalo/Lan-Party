@@ -2,17 +2,22 @@
 
 Owner authorized implementation and DEV publication after the #29 review on
 2026-10-30. Consolidated scope: issue comment 6523408137. This includes the proposed
-administrator name-preservation, exclusive destructive intent and two-year User
-Log foundation. Hosted account/email tests and PROD remain separate operations.
+administrator name-preservation and the two-year User Log foundation. Iteration 2
+feedback (6525890922), separately authorized for development/DEV publication by the
+owner, supersedes the initial one-role/exclusive-destructive-intent restrictions. Hosted account/email tests and PROD remain separate operations.
 
 ## Member editing
 
-Members detail has one Review / Save changes / Cancel bar, supporting one role
-change and one compatible account intent. Disabled accounts cannot receive new
-roles. A role removal is saved first; failure stops the account command. Successful
-removal is never automatically undone if sending fails. The UI reports each
+Members detail has one Review / Save changes / Cancel bar, supporting multiple distinct role
+additions/removals and one compatible account intent. Disabled accounts cannot receive new
+roles. Role removals save first, followed by additions and then the account command;
+failure stops all remaining writes. Each role response supplies the revision
+for the next command. Successful removal is never automatically undone if sending
+fails. The UI reports each
 outcome separately and makes uncertain results require explicit inspection/reissue.
-Administrator disable/cancel is exclusive of simultaneous role edits.
+Active accounts may stage role changes with administrator disable. Deactivated
+accounts may stage removals with invitation/cancel, but never new role grants.
+These are separately committed/audited commands, not a new atomic bulk API.
 
 The invitation switch stages a request; it does not represent active access.
 After provider submission, the account remains disabled until recipient completion.
@@ -125,3 +130,37 @@ applied; postflight confirms history through 0021, seven foundation objects, cle
 integrity/FKs, unchanged aggregate account count and zero initial events/receipts.
 No historical backfill, account mutations or invitations were executed. Recovery
 bookmark and detailed pre/postflight output remain in ignored local files.
+
+## Iteration 2 — owner acceptance corrections, 2026-10-30
+
+The owner authorized corrective development and DEV publication for comment
+6525890922. The multi-action contract above supersedes the initial one-role and
+exclusive-destructive-intent restrictions. Repeated toggles undo a staged role
+change rather than enqueueing inverse writes. Confirmed role IDs are removed from
+the draft on partial failure; remaining commands are never silently retried.
+
+Account intents use keyboard-accessible visual switches. The single sticky Save
+bar follows Attended events in DOM order so appearing controls do not push that
+section downward. Actual role chips can naturally wrap as their content changes.
+Invitation status is secondary text directly under the account-state badge.
+
+The recipient landing performs a same-origin, no-store POST inspection of the
+fragment token before showing instructions. This read never claims a token, sets a
+cookie, activates access or writes audit events. Invalid/cancelled/expired/replayed/
+replaced links display the same unavailable state without requiring Continue. A
+claimed token resumes only with its matching live restricted browser cookie. No
+identities, names, emails or token/context values are returned; only availability,
+origin and, for the proven context, MFA requirement/CSRF proof. Explicit Continue
+still performs the guarded single-use claim and completion still rechecks all
+recipient protections. Inspection is a snapshot; a later cancellation is handled
+again by claim/completion.
+
+Origin-specific copy says names were cleared only for voluntary deactivation. The
+responsive form uses aligned fields, a separate bottom sign-in link and bounded
+read checks. Successful completion initializes the new session and invalidates old
+identity/grant caches before navigating directly to /account. If that read fails,
+activation is not resubmitted; the page offers account/sign-in recovery.
+
+No migration, feature/configuration/retention change or User Log viewer is part of
+this iteration. Existing 0021 writers persist the lifecycle events; #30 still owns
+the Logs read API/viewer/navigation. Hosted owner acceptance remains separate.

@@ -11,6 +11,7 @@ sessionStorage.setItem('lan-layout-preview-mode',mode);
 let revoked=false,revision=0,mutations=0;
 let memberState=params.get('account')==='deactivated'?'deactivated':'active',memberVersion=0,invitationId:string|null=null;
 const commandResults=new Map<string,string>();
+const recipientScenario=params.get('reactivation');let recipientClaims=0,recipientCompletions=0,recipientInspections=0,recipientClaimed=false,recipientVerified=false;
 const requests:{path:string;start:number;end?:number}[]=[],delay=Math.min(3000,Math.max(0,Number(params.get('delay')??100)));
 const actor='10000000-0000-4000-8000-000000000001',target='10000000-0000-4000-8000-000000000002';
 const roles=[{id:'1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7',code:'admin',name:'Administrator',description:'Built-in',isActive:1,isProtected:1},{id:'193e06d9-4dfa-4ef9-80f2-9d457b6b7b5f',code:'user',name:'User',description:'Built-in',isActive:1,isProtected:0},{id:'20000000-0000-4000-8000-000000000001',code:'fictional_news',name:'Fictional News Team',description:'Fictional team',isActive:1,isProtected:0}];
@@ -30,6 +31,16 @@ const entries:{sequence:string;operationId:string;occurredAt:number;actorId:stri
 const catalogue=()=>({roles:roles.map((role,index)=>({...role,...(mode==='delegated'?{}:{assignedMemberCount:[1,8,3][index]??0})})),permissions,mappings,revision,administrator:!['delegated','member','guest'].includes(mode)});
 window.fetch=async(input,init)=>{
  const url=new URL(String(input),location.origin),request={path:url.pathname,start:Math.round(performance.now())} as typeof requests[number];requests.push(request);await new Promise(resolve=>setTimeout(resolve,delay));request.end=Math.round(performance.now());
+ if(recipientScenario&&url.pathname==='/api/auth/session')return recipientVerified?Response.json({account:{userId:target,nickname:'Fictional Participant',memberNumber:'11'},csrfToken:'d'.repeat(64),emailVerified:true}):recipientScenario==='switch-account'?Response.json({account:{userId:actor,nickname:'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true}):Response.json({},{status:401});
+ if(recipientScenario&&url.pathname==='/api/manage/capabilities')return Response.json({sections:recipientScenario==='switch-account'&&!recipientVerified?['users','roles','activity']:[]});
+ if(recipientScenario&&url.pathname.startsWith('/api/auth/lifecycle/reactivation/')){
+  const origin=recipientScenario==='voluntary'?'voluntary':'administrator';
+  if(url.pathname.endsWith('/inspect')){recipientInspections++;return Response.json({available:!['cancelled','expired','replayed'].includes(recipientScenario),claimed:false,origin});}
+  if(url.pathname.endsWith('/claim')){recipientClaims++;if(recipientScenario==='late-cancelled')return Response.json({error:'Invitation unavailable. Ask the administrator for a new invitation.'},{status:409});recipientClaimed=true;return Response.json({csrfToken:'d'.repeat(64)});}
+  if(url.pathname.endsWith('/status'))return recipientClaimed?Response.json({available:true,mfa:true,origin,csrfToken:'d'.repeat(64)}):Response.json({},{status:401});
+  if(url.pathname.endsWith('/complete')){recipientCompletions++;recipientVerified=true;return Response.json({next:'/account'});}
+  if(url.pathname.endsWith('/cancel')){recipientClaimed=false;return Response.json({message:'Reactivation cancelled. Your account remains disabled.'});}
+ }
  if(url.pathname==='/api/auth/session')return mode==='guest'?Response.json({},{status:401}):Response.json({account:{userId:actor,nickname:mode==='member'?'Fictional Member':'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
  if(url.pathname==='/api/manage/capabilities')return Response.json({sections:revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity']});
  if(mode==='guest'||mode==='member')return Response.json({},{status:403});
@@ -76,6 +87,6 @@ style.textContent+='body:has(.role-sticky-actions) .layout-preview-toolbar{displ
 controls.style.overflowWrap='anywhere';
 document.querySelector('#role-revoke')!.addEventListener('click',()=>{revoked=true;new BroadcastChannel('lan-auth-invalidation').postMessage('invalidate');});
 document.querySelector('#role-check-session')!.addEventListener('click',()=>window.dispatchEvent(new Event('focus')));
-setInterval(()=>{document.querySelector('#role-counters')!.textContent=JSON.stringify({revision,mutations,requests});},30);
-if(location.pathname.endsWith('.html'))history.replaceState(null,'',params.get('route')??'/manage/roles');
+setInterval(()=>{document.querySelector('#role-counters')!.textContent=JSON.stringify({revision,mutations,requests,recipientInspections,recipientClaims,recipientCompletions});},30);
+if(location.pathname.endsWith('.html'))history.replaceState(null,'',(params.get('route')??'/manage/roles')+location.hash);
 createRoot(document.getElementById('root')!).render(<BrowserRouter><App/></BrowserRouter>);

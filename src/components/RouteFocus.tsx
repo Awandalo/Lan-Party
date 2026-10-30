@@ -12,7 +12,7 @@ const titles: Record<string, string> = {
   ...((AUTH_UI_AVAILABLE && authUIEnabled()) ? { '/register': 'Create account', '/account': 'Account',
     '/verify-email': 'Verify email', '/local-mail': 'Local mailbox',
     '/forgot-password': 'Forgot password', '/reset-password': 'Reset password',
-    '/account/security': 'Account security', '/mfa':'Verify sign-in' } : {}),
+    '/account/security': 'Account security', '/mfa':'Verify sign-in', '/reactivate':'Reactivate account' } : {}),
 };
 
 export default function RouteFocus() {

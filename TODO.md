@@ -465,7 +465,9 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Prepare additive 0021 User Log/command receipt foundation, deletion anonymization, two-year retention maintenance and attempt-specific delivery cleanup.
 - [x] Complete local security/browser verification; exact run history is recorded in the #29 handover.
 - [x] Obtain separate DEV migration/feature/retention schedule approval; apply and verify 0021 on DEV (2026-10-30).
-- [ ] Publish and verify the authorized DEV revision, CI and daily schedule.
+- [x] Publish/verify iteration 1 at 58819df, green CI and the installed daily schedule.
+- [x] Implement iteration 2 multi-action staging, stable Save placement, passive invitation checks, origin-specific copy and direct account handoff without a migration/configuration change.
+- [ ] Owner retest the iteration 2 DEV handover in #29; keep acceptance/closure separate.
 - [ ] Owner performs the approved disposable-account/email reactivation acceptance; record results in #16 and #29.
 - [ ] Build User Log viewing/read API/navigation under #30, with Administrator-only access and retention filtering; not included in #29.
 

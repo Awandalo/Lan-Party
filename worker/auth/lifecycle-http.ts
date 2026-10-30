@@ -13,7 +13,7 @@ import {LoginChallenge,verifyLoginChallenge} from './turnstile';
 import {registrationLimiter,RegistrationRateLimit} from './registration-limits';
 import {requireRecentMfa,RecentMfaRequired} from './mfa-assurance';
 import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator,LifecycleStateConflict,LIVE_DELETION_ENABLED,assertChanged} from './account-lifecycle';
-import {initiateReactivation,cancelInvitation,acceptInvitationDelivery,claimReactivation,reactivationContext,verifyReactivationPassword,finishReactivation} from './account-reactivation';
+import {initiateReactivation,cancelInvitation,acceptInvitationDelivery,inspectReactivation,claimReactivation,reactivationContext,verifyReactivationPassword,finishReactivation} from './account-reactivation';
 import {commandUuid,memberLifecycle,changeAccountState,requireAdmin,commandReplay,LifecycleConflict,LifecycleForbidden} from './lifecycle-admin';
 import type {LifecycleCommand} from './lifecycle-admin';
 import {userActivityReady} from './user-activity';
@@ -30,7 +30,7 @@ function contextCookie(request:Request,token:string){
 }
 export async function lifecycleHttp(request:Request,env:AuthenticationEnvironment&MfaKeys){
  const url=new URL(request.url),path=url.pathname.replace('/api/auth/lifecycle/','');
- const routes=['status','member','command','deactivate','delete/prepare','delete','users','invite','reactivation/claim','reactivation/status','reactivation/complete','reactivation/cancel'];
+ const routes=['status','member','command','deactivate','delete/prepare','delete','users','invite','reactivation/inspect','reactivation/claim','reactivation/status','reactivation/complete','reactivation/cancel'];
  if(!routes.includes(path)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
  const environment=mfaManagementEnvironment(request,env);
  if(!environment)return reply(404,{error:'Not found'});
@@ -46,6 +46,14 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  if(env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled'&&!await userActivityReady(env.DB))return reply(503,{error:'Lifecycle log migration unavailable.'});
  const time=Math.floor(Date.now()/1000);
  if(path.startsWith('reactivation/')){
+ if(path==='reactivation/inspect'){
+ if(request.headers.get('Origin')!==origin.origin||request.headers.get('Content-Type')!=='application/json')return reply(403,{error:'Request rejected'});
+ const body=await readInput(request) as Record<string,unknown>;
+ if(!body||Array.isArray(body)||Object.keys(body).length!==1||typeof body.token!=='string')return reply(400,{error:'Invalid request'});
+ const checked=await inspectReactivation(env.DB,body.token,readContext(request));
+ if(!checked)return reply(200,{available:false});
+ return reply(200,{available:true,claimed:checked.claimed,origin:checked.origin,...(checked.claimed&&'contextDigest' in checked?{mfa:checked.mfa,csrfToken:await sessionCsrfToken(checked.contextDigest!,secret)}:{})});
+ }
  if(path==='reactivation/claim'){
  if(request.headers.get('Origin')!==origin.origin||request.headers.get('Content-Type')!=='application/json')return reply(403,{error:'Request rejected'});
  const body=await readInput(request) as Record<string,unknown>;
@@ -55,8 +63,8 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  return reply(200,{csrfToken:await sessionCsrfToken(result.digest,secret)},{'Set-Cookie':contextCookie(request,result.context)});
  }
  const context=readContext(request),row=context?await reactivationContext(env.DB,context):null;
- if(!row)return reply(401,{error:'Reactivation unavailable. Ask the administrator for a new invitation.'});
- if(get)return reply(200,{available:true,mfa:!!row.factor_id,csrfToken:await sessionCsrfToken(row.context_digest,secret)});
+ if(!row)return reply(401,{code:'reactivation_unavailable',error:'Reactivation unavailable. Ask the administrator for a new invitation.'});
+ if(get)return reply(200,{available:true,mfa:!!row.factor_id,origin:row.origin,csrfToken:await sessionCsrfToken(row.context_digest,secret)});
  if(!await validAuthMutation(request,origin.origin,row.context_digest,secret))return reply(403,{error:'Request rejected'});
  const body=await readInput(request) as Record<string,unknown>;
  if(path==='reactivation/cancel'){
@@ -87,7 +95,7 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  if(!ok){await held.finish(true);done=true;return reply(401,{error:'Authentication could not be confirmed.'});}
  await held.finish(false);done=true;
  // A NEW fully verified session is issued in the completion batch, never by promoting the context.
- const response=reply(200,{next:'/account/security',message:'Account reactivated. Your password and two-factor protection have been verified.'},{'Set-Cookie':sessionCookie(ok.token)});
+ const response=reply(200,{next:'/account',message:'Account reactivated. Your password and two-factor protection have been verified.'},{'Set-Cookie':sessionCookie(ok.token)});
  response.headers.append('Set-Cookie',contextCookie(request,''));return response;
  }finally{body.code='';if(!done)await held.finish(false);}
  }
