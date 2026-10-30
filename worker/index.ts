@@ -7,6 +7,7 @@ import { verification } from './auth/verification';
 import { passwordRecovery } from './auth/recovery';
 import {accountSecurity} from './auth/account-security';
 import {mfaAuthentication} from './auth/mfa-http';
+import {purgeUserActivity} from './auth/user-activity';
 
 interface Env extends AuthenticationEnvironment {
   ASSETS: Fetcher;
@@ -14,6 +15,9 @@ interface Env extends AuthenticationEnvironment {
 }
 
 export default {
+  async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext) {
+    if(['dev','prod'].includes(env.AUTH_ENVIRONMENT??'')&&env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled')ctx.waitUntil(purgeUserActivity(env.DB));
+  },
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
     if(pathname.startsWith('/api/manage/'))return manage(request,env);

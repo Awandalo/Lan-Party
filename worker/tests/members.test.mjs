@@ -48,7 +48,7 @@ async function target(f,{nickname='Fictional '+randomUUID().slice(0,8),number=nu
  if(!verified)await f.sql('UPDATE users SET email_verified_at=NULL WHERE id=?',u.id).run();
  if(state!=='active'){
   await f.sql("UPDATE users SET status='disabled' WHERE id=?",u.id).run();
-  if(['deactivated','deleting'].includes(state))await f.sql('INSERT INTO account_lifecycle VALUES (?,?,0)',u.id,state).run();
+  if(['deactivated','deleting'].includes(state))await f.sql('INSERT INTO account_lifecycle(user_id,state,deactivated_at) VALUES (?,?,0)',u.id,state).run();
  }
  return {...u,number:await f.sql('SELECT CAST(member_number AS TEXT) n FROM member_numbers WHERE user_id=?',u.id).first('n')};
 }

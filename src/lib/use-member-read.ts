@@ -5,7 +5,7 @@ import {isMemberNumber} from './member-number';
 import type {MemberDetail, MemberPage, MemberSummary} from './members';
 function member(value: MemberSummary): boolean {
  return !!value && typeof value.userId==='string' && (value.nickname===null || typeof value.nickname==='string')
-  && isMemberNumber(value.memberNumber) && ['active','disabled','deactivated','deleting'].includes(value.status)
+  && isMemberNumber(value.memberNumber) && ['active','disabled','deactivated','admin-disabled','deleting'].includes(value.status)
   && Array.isArray(value.roles) && value.roles.every(r=>r && typeof r.code==='string' && typeof r.name==='string' && typeof r.active==='boolean');
 }
 function valid(value: unknown, detail: boolean): value is MemberPage | {member:MemberDetail} {

@@ -193,3 +193,11 @@ test('fixture restores only transport Host; application still rejects hostile Ho
  }
  assert.equal(await count(f.db,'users'),0);
 },{...setup,MFA_ENCRYPTION_KEYS:JSON.stringify({fixture:'33'.repeat(32)}),MFA_ACTIVE_KEY_ID:'fixture'}));
+
+test('fully configured PROD auth profile keeps new admin lifecycle routes disabled without enablement',()=>local(async f=>{
+ for(const path of ['member','command','invite','users']){
+  const r=await f.request('lifecycle/'+path,{});assert.equal(r.status,404,path);
+ }
+ assert.equal((await f.request('lifecycle/status')).status,401);
+ assert.equal(await count(f.db,'user_activity'),0);
+},{MFA_ENCRYPTION_KEYS:JSON.stringify({fixture:'44'.repeat(32)}),MFA_ACTIVE_KEY_ID:'fixture',AUTH_LIFECYCLE_ADMIN_MODE:'disabled'}));

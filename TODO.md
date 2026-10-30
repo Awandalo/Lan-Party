@@ -459,6 +459,16 @@ remote database changes are not implemented or authorized by Phase 3.1.
 
 ## Phase 4 — Administration
 
+### Phase 4.4 — administrator-assisted reactivation (#29)
+
+- [x] Implement reviewed local member Save coordination, no-extra-step-up genuine-admin commands, retained roles and administrator-origin disable with preserved names.
+- [x] Prepare additive 0021 User Log/command receipt foundation, deletion anonymization, two-year retention maintenance and attempt-specific delivery cleanup.
+- [x] Complete local security/browser verification; exact run history is recorded in the #29 handover.
+- [x] Obtain separate DEV migration/feature/retention schedule approval; apply and verify 0021 on DEV (2026-10-30).
+- [ ] Publish and verify the authorized DEV revision, CI and daily schedule.
+- [ ] Owner performs the approved disposable-account/email reactivation acceptance; record results in #16 and #29.
+- [ ] Build User Log viewing/read API/navigation under #30, with Administrator-only access and retention filtering; not included in #29.
+
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.
 - [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.
 

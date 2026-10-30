@@ -41,8 +41,10 @@
       },
       // Public DEV configuration is versioned; encrypted secrets stay in Cloudflare.
       "vars": {
+        "AUTH_LIFECYCLE_ADMIN_MODE": "enabled",
         "AUTH_TURNSTILE_SITE_KEY": "0x4AAAAAAFaMzRB_kUUn7MuZ"
       },
+      "triggers": { "crons": ["0 3 * * *"] },
       "assets": {
         "directory": "./dist",
         "binding": "ASSETS",

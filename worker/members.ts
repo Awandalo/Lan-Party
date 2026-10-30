@@ -1,9 +1,10 @@
+import {userActivityReady} from './auth/user-activity';
 // Read-only projections: never join authentication tables or expose SELECT *.
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const memberNumber = (value: string) => /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n;
 const joins = `FROM users u JOIN member_numbers m ON m.user_id=u.id AND m.registered=1
  LEFT JOIN user_nicknames n ON n.user_id=u.id LEFT JOIN account_lifecycle l ON l.user_id=u.id`;
-const columns = `u.id AS userId,n.nickname,CAST(m.member_number AS TEXT) AS memberNumber,
+const memberColumns = `u.id AS userId,n.nickname,CAST(m.member_number AS TEXT) AS memberNumber,
  CASE WHEN l.state='deleting' THEN 'deleting' WHEN u.status='disabled' AND l.state='deactivated'
  THEN 'deactivated' WHEN u.status='disabled' THEN 'disabled' ELSE 'active' END AS status`;
 interface Member {userId: string; nickname: string | null; memberNumber: string; status: string}
@@ -17,13 +18,15 @@ async function roles(db: D1Database, ids: string[]) {
 }
 export async function memberRead(db: D1Database, url: URL): Promise<{status: number; body: object}> {
  try {
+  const audited=await userActivityReady(db);
+  const columns=audited?memberColumns.replace("THEN 'deactivated'","THEN CASE WHEN l.origin='administrator' THEN 'admin-disabled' ELSE 'deactivated' END"):memberColumns;
   const id = url.pathname.slice('/api/manage/users'.length).replace(/^\//,'');
   if (id) {
    if (!uuid.test(id) || url.search) invalid();
    const row = await db.prepare(`SELECT ${columns},u.email,u.email_verified_at IS NOT NULL AS verified,
-    CASE WHEN l.state IS NULL THEN u.first_name ELSE NULL END AS firstName,
-    CASE WHEN l.state IS NULL THEN u.last_name ELSE NULL END AS lastName,
-    CASE WHEN l.state IS NULL THEN p.label ELSE NULL END AS prefix,u.created_at AS createdAt
+    CASE WHEN l.state IS NULL ${audited?"OR l.origin='administrator'":''} THEN u.first_name ELSE NULL END AS firstName,
+    CASE WHEN l.state IS NULL ${audited?"OR l.origin='administrator'":''} THEN u.last_name ELSE NULL END AS lastName,
+    CASE WHEN l.state IS NULL ${audited?"OR l.origin='administrator'":''} THEN p.label ELSE NULL END AS prefix,u.created_at AS createdAt
     ${joins} LEFT JOIN name_prefixes p ON p.id=u.name_prefix_id WHERE u.id=?`).bind(id).first<Member & {verified:number}>();
    if (!row) return {status:404,body:{error:'Member not found'}};
    const assignments=await roles(db,[id]);

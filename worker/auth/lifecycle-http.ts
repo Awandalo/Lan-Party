@@ -12,8 +12,11 @@ import {LoginLimiter,LoginLimited,LoginBusy} from './login-limits';
 import {LoginChallenge,verifyLoginChallenge} from './turnstile';
 import {registrationLimiter,RegistrationRateLimit} from './registration-limits';
 import {requireRecentMfa,RecentMfaRequired} from './mfa-assurance';
-import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator,LifecycleStateConflict,LIVE_DELETION_ENABLED} from './account-lifecycle';
-import {initiateReactivation,cancelInvitation,claimReactivation,reactivationContext,verifyReactivationPassword,finishReactivation} from './account-reactivation';
+import {lifecycleReady,administratorSql,requireLifecycleProof,deactivateAccount,LifecycleProofRequired,LastAdministrator,LifecycleStateConflict,LIVE_DELETION_ENABLED,assertChanged} from './account-lifecycle';
+import {initiateReactivation,cancelInvitation,acceptInvitationDelivery,claimReactivation,reactivationContext,verifyReactivationPassword,finishReactivation} from './account-reactivation';
+import {commandUuid,memberLifecycle,changeAccountState,requireAdmin,commandReplay,LifecycleConflict,LifecycleForbidden} from './lifecycle-admin';
+import type {LifecycleCommand} from './lifecycle-admin';
+import {userActivityReady} from './user-activity';
 
 const reply=(status:number,data:object,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer',...headers}});
 const cookieName=(request:Request)=>loopback(new URL(request.url))?'lan_reactivation_local':'__Host-lan_reactivation';
@@ -27,10 +30,11 @@ function contextCookie(request:Request,token:string){
 }
 export async function lifecycleHttp(request:Request,env:AuthenticationEnvironment&MfaKeys){
  const url=new URL(request.url),path=url.pathname.replace('/api/auth/lifecycle/','');
- const routes=['status','deactivate','delete/prepare','delete','users','invite','reactivation/claim','reactivation/status','reactivation/complete','reactivation/cancel'];
+ const routes=['status','member','command','deactivate','delete/prepare','delete','users','invite','reactivation/claim','reactivation/status','reactivation/complete','reactivation/cancel'];
  if(!routes.includes(path)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
  const environment=mfaManagementEnvironment(request,env);
  if(!environment)return reply(404,{error:'Not found'});
+ if(environment==='prod'&&env.AUTH_LIFECYCLE_ADMIN_MODE!=='enabled'&&['member','command','invite','users'].includes(path))return reply(404,{error:'Not found'});
  const get=path==='status'||path==='reactivation/status';
  if(request.method!==(get?'GET':'POST'))return reply(405,{error:'Method not allowed'});
  try{
@@ -39,6 +43,7 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  ||request.headers.has('Origin')&&request.headers.get('Origin')!==origin.origin
  ||request.headers.has('Sec-Fetch-Site')&&request.headers.get('Sec-Fetch-Site')!=='same-origin')return reply(403,{error:'Request rejected'});
  if(!await lifecycleReady(env.DB))return get?reply(200,{available:false}):reply(503,{error:'Account lifecycle is not available yet.'});
+ if(env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled'&&!await userActivityReady(env.DB))return reply(503,{error:'Lifecycle log migration unavailable.'});
  const time=Math.floor(Date.now()/1000);
  if(path.startsWith('reactivation/')){
  if(path==='reactivation/claim'){
@@ -56,7 +61,14 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  const body=await readInput(request) as Record<string,unknown>;
  if(path==='reactivation/cancel'){
  if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length)return reply(400,{error:'Invalid request'});
- await env.DB.prepare("UPDATE account_reactivation SET phase='cancelled' WHERE context_digest=? AND phase='claimed'").bind(row.context_digest).run();
+ const audited=await userActivityReady(env.DB);
+ await env.DB.batch([
+ env.DB.prepare("UPDATE account_reactivation SET phase='cancelled' WHERE context_digest=? AND phase='claimed'").bind(row.context_digest),assertChanged(env.DB),
+ ...(audited?[
+ env.DB.prepare("UPDATE lifecycle_commands SET outcome='cancelled' WHERE operation_id IN (SELECT operation_id FROM account_reactivation WHERE context_digest=?) AND outcome<>'completed'").bind(row.context_digest),
+ env.DB.prepare("INSERT INTO user_activity(event,actor_kind,actor_id,target_id,operation_id) SELECT 'invitation.cancelled','account',user_id,user_id,operation_id FROM account_reactivation WHERE context_digest=? AND phase='cancelled'").bind(row.context_digest),
+ ]:[]),
+ ]);
  return reply(200,{message:'Reactivation cancelled. Your account remains deactivated.'},{'Set-Cookie':contextCookie(request,'')});
  }
  if(!body||Object.keys(body).some(k=>!['password','firstName','lastName','code','method','turnstileToken'].includes(k))
@@ -84,15 +96,46 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  const digest=await digestToken(token,'session');
  const admin=!!await env.DB.prepare(`SELECT 1 FROM users u WHERE u.id=? AND ${administratorSql}`).bind(account.userId).first();
  const deletionAvailable=LIVE_DELETION_ENABLED&&await deletionSchemaReady(env.DB);
- if(get)return reply(200,{available:true,administrator:admin,deletionAvailable});
+ const adminEnabled=loopback(url)||env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled';
+ if(get)return reply(200,{available:true,administrator:admin,deletionAvailable,memberCommands:adminEnabled&&admin&&await userActivityReady(env.DB)});
  if(!await validAuthMutation(request,origin.origin,digest,secret))return reply(403,{error:'Request rejected'});
  const body=await readInput(request) as Record<string,unknown>;
  if(!body||typeof body!=='object'||Array.isArray(body))return reply(400,{error:'Invalid request'});
  const personal=['deactivate','delete/prepare','delete'].includes(path);
+ if(['member','command'].includes(path)) {
+ if(!adminEnabled)return reply(404,{error:'Not found'});
+ if(!admin)return reply(403,{error:'Request rejected'});
+ if(!await userActivityReady(env.DB))return reply(503,{error:'Member lifecycle requires migration 0021.'});
+ await requireAdmin(env.DB,account.userId,account.authVersion,digest);
+ if(path==='member') {
+ if(Object.keys(body).length!==1||typeof body.userId!=='string'||!commandUuid.test(body.userId))return reply(400,{error:'Invalid member request'});
+ const member=await memberLifecycle(env.DB,body.userId);return member?reply(200,{member}):reply(404,{error:'Member not found'});
+ }
+ if(Object.keys(body).sort().join(',')!=='action,invitationId,issuedAt,operationId,userId,version'||typeof body.userId!=='string'||!commandUuid.test(body.userId)||typeof body.operationId!=='string'||!commandUuid.test(body.operationId)
+ ||!Number.isSafeInteger(body.version)||(body.version as number)<0||!Number.isSafeInteger(body.issuedAt)||(body.issuedAt as number)>time||(body.issuedAt as number)<=time-86400
+ ||!['invite','disable','cancel'].includes(String(body.action))||!(body.invitationId===null||typeof body.invitationId==='string'&&commandUuid.test(body.invitationId)))return reply(400,{error:'Invalid or expired member command'});
+ const c=body as unknown as LifecycleCommand;
+ const replay=await commandReplay(env.DB,account.userId,c);if(replay)return reply(200,replay);
+ if(c.action!=='invite')return reply(200,await changeAccountState(env.DB,account.userId,account.authVersion,digest,c));
+ const recipient=await env.DB.prepare('SELECT email FROM users WHERE id=?').bind(c.userId).first<string>('email');
+ if(!recipient||!recipientAllowed(request,env,recipient))return reply(409,{error:'Invitation could not be prepared.'});
+ const limit=await registrationLimiter(env.DB,secret,time,'lifecycle-invite');
+ await limit('account',account.userId);await limit('account',c.userId);await limit('ip',authClientIP(request,env));
+ let invitation;
+ try{invitation=await initiateReactivation(env.DB,account.userId,account.authVersion,digest,c.userId,c);}
+ catch{const replay=await commandReplay(env.DB,account.userId,c);if(replay)return reply(200,replay);throw new LifecycleConflict();}
+ if('replayed' in invitation)return reply(200,invitation);
+ try{
+ await emailTransport(request,env).send({to:invitation.email,url:origin.origin+'/reactivate#'+invitation.token,expiresAt:invitation.expiresAt,idempotencyKey:'reactivate-'+invitation.digest,purpose:'account-reactivation'});
+ await acceptInvitationDelivery(env.DB,c.operationId);
+ }catch{await cancelInvitation(env.DB,invitation.digest);}
+ const result=await commandReplay(env.DB,account.userId,c);
+ return reply(200,{...result,member:await memberLifecycle(env.DB,c.userId)});
+ }
  if(personal&&path.startsWith('delete')&&!deletionAvailable)return reply(503,{error:'Account deletion is unavailable.'});
  if(!personal&&!admin)return reply(403,{error:'Request rejected'});
- await requireRecentMfa(env.DB,account,digest);
- await requireLifecycleProof(env.DB,account.userId,account.authVersion,digest,!personal);
+ if(personal){await requireRecentMfa(env.DB,account,digest);await requireLifecycleProof(env.DB,account.userId,account.authVersion,digest);}
+ else await requireAdmin(env.DB,account.userId,account.authVersion,digest);
  if(path==='delete/prepare'){
  if(Object.keys(body).length!==1||body.confirm!=='PREPARE_DELETE')return reply(400,{error:'Explicit deletion preparation required.'});
  await prepareAccountDeletion(env.DB,account.userId,account.authVersion,digest);
@@ -117,11 +160,13 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  return reply(200,{users:result.results});
  }
  if(Object.keys(body).length!==1||typeof body.userId!=='string'||!/^[0-9a-f-]{36}$/.test(body.userId))return reply(400,{error:'Invalid request'});
+ if(await userActivityReady(env.DB))return reply(409,{error:'Use the reviewed member command in Members administration.'});
  const recipient=await env.DB.prepare("SELECT email FROM users WHERE id=? AND status='disabled'").bind(body.userId).first<string>('email');
  if(!recipient||!recipientAllowed(request,env,recipient))return reply(409,{error:'Invitation could not be prepared.'});
  const limit=await registrationLimiter(env.DB,secret,time,'lifecycle-invite');
  await limit('account',account.userId);await limit('account',body.userId);await limit('ip',authClientIP(request,env));
  const invitation=await initiateReactivation(env.DB,account.userId,account.authVersion,digest,body.userId);
+ if('replayed' in invitation)return reply(200,invitation);
  try{
  await emailTransport(request,env).send({to:invitation.email,url:origin.origin+'/reactivate#'+invitation.token,
  expiresAt:invitation.expiresAt,idempotencyKey:'reactivate-'+invitation.digest,purpose:'account-reactivation'});
@@ -131,6 +176,8 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  }
  return reply(200,{message:'Reactivation invitation requested. It expires after 30 minutes.'});
  }catch(error){
+ if(error instanceof LifecycleConflict)return reply(409,{error:'Member state changed or command was already processed. Reload and review.'});
+ if(error instanceof LifecycleForbidden)return reply(403,{error:'Administrator access required.'});
  if(error instanceof LifecycleStateConflict)return reply(409,{code:'lifecycle_state_conflict',error:'Your account lifecycle state needs administrator assistance. Deactivation was not started. Do not repeat this action.'});
  if(error instanceof LastAdministrator)return reply(409,{error:'Another active administrator must be available before you deactivate or delete your account.'});
  if(error instanceof RecentMfaRequired)return reply(428,{code:'mfa_required',error:'Confirm two-factor authentication before continuing.'});

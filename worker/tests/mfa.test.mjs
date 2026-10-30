@@ -917,8 +917,16 @@ test('DEV reset removes disposable accounts but retains migration history, ledge
  await db.prepare('INSERT INTO auth_email_daily_budget VALUES(?,12)').bind(Math.floor(m.c.now/86400)*86400).run();
  const retained=['d1_migrations','unrelated_fixture','member_numbers','sqlite_sequence','roles','permissions','role_permissions','registration_rate_limits','auth_email_daily_budget','auth_email_budget_extensions'];
  const before={};for(const t of retained)before[t]=(await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results;
+ const deletedAccounts=await db.prepare('SELECT count(*) n FROM users').first('n');
  await db.batch(await resetStatements(db));assert.equal(await db.prepare('SELECT count(*) n FROM users').first('n'),0);
- for(const t of retained)assert.deepEqual((await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results,before[t],t);
+ for(const t of retained){const after=(await db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()).results;
+  if(t==='sqlite_sequence'){
+   // Deletion now appends anonymized User Log events. Other sequences, including
+   // the immutable member-number ledger, must still remain exactly unchanged.
+   assert.deepEqual(after.filter(r=>r.name!=='user_activity'),before[t].filter(r=>r.name!=='user_activity'),t);
+   assert.equal(after.find(r=>r.name==='user_activity').seq,before[t].find(r=>r.name==='user_activity').seq+deletedAccounts);
+  }else assert.deepEqual(after,before[t],t);
+ }
  assert.equal((await request('session',undefined,m.headers)).status,401);
  const fresh=await enrollHttp(fixture),activated=await fresh.activate();assert.equal(activated.status,200);
  const id=await db.prepare('SELECT id FROM users').first('id');assert.notEqual(id,m.c.userId);

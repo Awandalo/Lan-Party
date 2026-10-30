@@ -1,4 +1,5 @@
 import { createFirstOwner } from './owner-bootstrap';
+import {userActivityReady} from './user-activity';
 import { hostedProd } from './production';
 import { validateRegistration, newAccountId } from './accounts';
 import { hashPassword } from './passwords';
@@ -50,6 +51,7 @@ export async function registerAccount(request: Request, env: RegistrationEnviron
   if (request.method !== 'POST') return reply(405, { error: 'Method not allowed' }, { Allow: 'POST' });
   let origin: URL;
   try {
+    if(env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled'&&!await userActivityReady(env.DB))throw Error('Lifecycle log migration unavailable');
     origin = authOrigin(request, env);
     if (!env.PASSWORD_PEPPER || !fromHex(env.PASSWORD_PEPPER, 32)
       || !env.AUTH_RATE_LIMIT_SECRET || !fromHex(env.AUTH_RATE_LIMIT_SECRET, 32)

@@ -9,6 +9,8 @@ const params=new URLSearchParams(location.search),mode=params.get('mode')??sessi
 // Fixture presentation mode only, no identity, grant, token or production cache.
 sessionStorage.setItem('lan-layout-preview-mode',mode);
 let revoked=false,revision=0,mutations=0;
+let memberState=params.get('account')==='deactivated'?'deactivated':'active',memberVersion=0,invitationId:string|null=null;
+const commandResults=new Map<string,string>();
 const requests:{path:string;start:number;end?:number}[]=[],delay=Math.min(3000,Math.max(0,Number(params.get('delay')??100)));
 const actor='10000000-0000-4000-8000-000000000001',target='10000000-0000-4000-8000-000000000002';
 const roles=[{id:'1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7',code:'admin',name:'Administrator',description:'Built-in',isActive:1,isProtected:1},{id:'193e06d9-4dfa-4ef9-80f2-9d457b6b7b5f',code:'user',name:'User',description:'Built-in',isActive:1,isProtected:0},{id:'20000000-0000-4000-8000-000000000001',code:'fictional_news',name:'Fictional News Team',description:'Fictional team',isActive:1,isProtected:0}];
@@ -32,6 +34,16 @@ window.fetch=async(input,init)=>{
  if(url.pathname==='/api/manage/capabilities')return Response.json({sections:revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity']});
  if(mode==='guest'||mode==='member')return Response.json({},{status:403});
  if(revoked)return Response.json({},{status:403});
+ if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin'});
+ if(url.pathname==='/api/auth/lifecycle/member')return Response.json({member:{version:memberVersion,issuedAt:Math.floor(Date.now()/1000),status:memberState==='active'?'active':'disabled',origin:memberState==='admin-disabled'?'administrator':'voluntary',invitationId,eligible:memberState==='active'?0:1}});
+ if(url.pathname==='/api/auth/lifecycle/command'){
+  const body=JSON.parse(String(init?.body));if(commandResults.has(body.operationId))return Response.json({outcome:commandResults.get(body.operationId),replayed:true});
+  mutations++;let outcome='accepted';
+  if(body.action==='disable'){memberState='admin-disabled';memberVersion++;invitationId=null;outcome='disabled';}
+  else if(body.action==='cancel'){invitationId=null;outcome='cancelled';}
+  else {invitationId=body.operationId;if(params.get('delivery')==='unconfirmed'){outcome='unconfirmed';invitationId=null;}}
+  commandResults.set(body.operationId,outcome);return Response.json({outcome});
+ }
  if(url.pathname==='/api/manage/role-activity'){
   const start=url.searchParams.get('date')?Date.parse(url.searchParams.get('date')+'T00:00:00Z')/1000:null,action=url.searchParams.get('operation'),search=(url.searchParams.get('search')??'').toLowerCase(),before=BigInt(url.searchParams.get('before')??'9223372036854775807');
   const projected=entries.map(entry=>({...entry,actorName:'Fictional Administrator',accountName:entry.accountId?'Fictional Participant':null,roleName:roles.find(role=>role.id===entry.roleId)?.name??null})).filter(entry=>BigInt(entry.sequence)<before&&(!action||entry.operation===action)&&(start===null||entry.occurredAt>=start&&entry.occurredAt<start+86400)&&JSON.stringify(entry).toLowerCase().includes(search));
@@ -50,7 +62,7 @@ window.fetch=async(input,init)=>{
   }
   return Response.json({...catalogue(),...(url.pathname.includes('/users/')?{assignments,effectivePermissions:['news.create']}: {})});
  }
- if(url.pathname==='/api/manage/users/'+target)return Response.json({member:{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:assignments.map(a=>roles.find(r=>r.id===a.roleId)!).map(r=>({code:r.code,name:r.name,active:!!r.isActive})),email:'fictional@example.test',firstName:'Fictional',lastName:'Tester',prefix:null,verified:true,createdAt:1790000000}});
+ if(url.pathname==='/api/manage/users/'+target)return Response.json({member:{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:memberState,roles:assignments.map(a=>roles.find(r=>r.id===a.roleId)!).map(r=>({code:r.code,name:r.name,active:!!r.isActive})),email:'fictional@example.test',firstName:memberState==='deactivated'?null:'Fictional',lastName:memberState==='deactivated'?null:'Tester',prefix:null,verified:true,createdAt:1790000000}});
  if(url.pathname==='/api/manage/users')return Response.json({members:[{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[]}],nextCursor:null});
  throw Error('Unexpected fixture request');
 };
