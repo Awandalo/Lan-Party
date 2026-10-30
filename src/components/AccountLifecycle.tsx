@@ -7,6 +7,7 @@ import PasswordInput from './PasswordInput';
 import LoginChallenge from './LoginChallenge';
 import MfaStepUp from './MfaStepUp';
 import SecurityActionIcon from './SecurityActionIcon';
+import SecurityDetails from './SecurityDetails';
 import '../CSS/AccountLifecycle_style.css';
 
 export async function lifecycleRequest(action:string,input:object,csrf:string){
@@ -31,7 +32,7 @@ export function LifecycleProof({csrf,onConfirmed,onBusy,onCancel}:{csrf:string;o
 }
 export default function AccountLifecycle({expanded,disabled=false,onToggle,onBusy}:{expanded?:boolean;disabled?:boolean;onToggle?:()=>void;onBusy?:(busy:boolean)=>void}={}){
  const {session,refresh}=useAuth(),csrf=session?.csrfToken;
- const [available,setAvailable]=useState(false),[admin,setAdmin]=useState(false),[canDelete,setCanDelete]=useState(false);
+ const [available,setAvailable]=useState(false),[canDelete,setCanDelete]=useState(false);
  const [open,setOpen]=useState(false),[mode,setMode]=useState<'deactivate'|'delete'>('deactivate'),[finalWarning,setFinalWarning]=useState(false);
  const [message,setMessage]=useState(''),[needsMfa,setNeedsMfa]=useState(false),[busy,setBusy]=useState(false),[blocked,setBlocked]=useState(false),[localExpanded,setLocalExpanded]=useState(false);
  const sectionOpen=expanded??localExpanded,deleting=mode==='delete',actionName=deleting?'Deletion':'Deactivation';
@@ -39,9 +40,9 @@ export default function AccountLifecycle({expanded,disabled=false,onToggle,onBus
  function clear(){setOpen(false);setNeedsMfa(false);setFinalWarning(false);setBlocked(false);setMessage('');}
  useEffect(()=>{currentCsrf.current=null;},[csrf]);
  useEffect(()=>{clear();currentCsrf.current=null;},[session?.account.userId]);
- useEffect(()=>{setAvailable(false);setAdmin(false);setCanDelete(false);if(!csrf)return;const abort=new AbortController();
+ useEffect(()=>{setAvailable(false);setCanDelete(false);if(!csrf)return;const abort=new AbortController();
  void fetch('/api/auth/lifecycle/status',{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1'},signal:abort.signal})
- .then(async r=>{if(!r.ok)return;const b=await r.json();if(!abort.signal.aborted){setAvailable(b.available===true);setAdmin(b.administrator===true);setCanDelete(b.deletionAvailable===true);}}).catch(()=>{});
+ .then(async r=>{if(!r.ok)return;const b=await r.json();if(!abort.signal.aborted){setAvailable(b.available===true);setCanDelete(b.deletionAvailable===true);}}).catch(()=>{});
  return()=>abort.abort();},[csrf]);
  function reportBusy(value:boolean){setBusy(value);onBusy?.(value);}
  useEffect(()=>{if(!sectionOpen&&!pending.current&&!continuation.current){clear();if(currentCsrf.current){currentCsrf.current=null;void refresh();}}},[sectionOpen,refresh]);
@@ -81,7 +82,7 @@ export default function AccountLifecycle({expanded,disabled=false,onToggle,onBus
  function start(selected:'deactivate'|'delete'){if(busy||disabled)return;clear();setMode(selected);setOpen(true);}
  return <section className="account-lifecycle" aria-labelledby="lifecycle-title"><h2 id="lifecycle-title">Account lifecycle</h2>
  <dl className="connected-methods"><div><dt>Account access</dt><dd className="security-method-status"><button type="button" className="security-icon-action" aria-label="Account lifecycle options" title="Account lifecycle options" aria-expanded={sectionOpen} aria-controls="lifecycle-options" disabled={busy||disabled} onClick={()=>onToggle?onToggle():setLocalExpanded(v=>!v)}><SecurityActionIcon action="trash"/></button></dd></div></dl>
- {sectionOpen&&<div id="lifecycle-options">
+ <SecurityDetails open={sectionOpen} title="Account lifecycle options" controlsId="lifecycle-options" disabled={busy||disabled} onClose={()=>onToggle?onToggle():setLocalExpanded(false)} className="account-lifecycle">{sectionOpen&&<div id="lifecycle-options">
  {!open&&<><div className="lifecycle-action"><h3>Deactivate account</h3><p>Pause access and hide your name from other participants. Your email, nickname, password, two-factor protection and registrations stay private. Your first and last names are cleared. An administrator must help you reactivate.</p><button type="button" className="button lifecycle-danger" disabled={disabled} onClick={()=>start('deactivate')}>Deactivate account</button></div>
  <div className="lifecycle-action"><h3>Delete account</h3><p>Permanently remove your account, password, MFA and roles. Anonymous completed-event registration totals and non-identifying number reservations remain. Older backups may retain account data; see our <Link to="/privacy">Privacy Policy</Link>.</p>
  {canDelete?<button type="button" className="button lifecycle-danger" disabled={disabled} onClick={()=>start('delete')}>Delete account</button>:<p>Permanent account deletion is not available yet.</p>}</div></>}
@@ -92,5 +93,5 @@ export default function AccountLifecycle({expanded,disabled=false,onToggle,onBus
  <>{!deleting&&<p>This signs out all sessions. It does not delete your account. An administrator must help you reactivate.</p>}<LifecycleProof csrf={currentCsrf.current??csrf} onCancel={cancel} onBusy={reportBusy} onConfirmed={async()=>{await submit();}}/></>}
  </div></>}
  <p role="status" aria-live="polite">{message}</p>
- {admin&&<Link to="/account/users">Users administration — reactivation</Link>}</div>}</section>;
+ </div>}</SecurityDetails></section>;
 }

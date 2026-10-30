@@ -1,4 +1,5 @@
 import MfaReplacement from './MfaReplacement';
+import SecurityDetails from './SecurityDetails';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import MfaRegeneration from './MfaRegeneration';
@@ -75,7 +76,7 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
  }
  return <section className="mfa-enrollment security-mfa-section" aria-labelledby="mfa-management-heading"><h2 id="mfa-management-heading">Two-factor authentication</h2>
   <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">Enabled <button type="button" className="security-icon-action" aria-label="Manage MFA" title="Manage MFA" aria-expanded={expanded} aria-controls="mfa-options" disabled={disabled||busy} onClick={()=>onToggle?onToggle():setExpanded(value=>!value)}><SecurityActionIcon action="shield"/></button></dd></div></dl>
-  <div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects your sign-in.</p>
+  <SecurityDetails open={expanded} title="Manage two-factor authentication" controlsId="mfa-options" disabled={disabled||busy} onClose={()=>onToggle?onToggle():setExpanded(false)} className="mfa-enrollment"><div id="mfa-options" hidden={!expanded}><div className="mfa-enabled-description"><p>Your authenticator or a recovery code protects your sign-in.</p>
    {!regenerationActive&&!replacementActive&&!(open&&transaction&&purpose==='disable')&&<button ref={trigger} className="security-icon-action" aria-label="Disable MFA" title="Disable MFA" disabled={disabled||busy||regenerationActive||replacementActive} onClick={()=>void select('disable')}><SecurityActionIcon action="unlink"/></button>}
 </div>
   <div className="mfa-action-row">
@@ -97,6 +98,6 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
      <button className="button" disabled={!saved||busy} onClick={()=>void run('finish')}>{busy?'Saving…':purpose==='disable'?'Confirm disable MFA':'Activate new recovery codes'}</button></>}
    <button className="button button-secondary" disabled={busy} onClick={()=>void run('cancel')}>Cancel</button>
   </div>}
-  <p className="mfa-latest-action" role="status" aria-live="polite">{feedback}</p></div>
+  <p className="mfa-latest-action" role="status" aria-live="polite">{feedback}</p></div></SecurityDetails>
  </section>;
 }

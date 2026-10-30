@@ -78,6 +78,42 @@ polling mechanism; every Worker read/write still independently authorizes its re
 Equivalent blur/focus/visibility sequences were tested with fictional browser
 diagnostics and request counts; physical two-monitor interaction is owner retesting.
 
+## Iteration 3 — DEV feedback 6535820652
+
+Members no longer centers its outer section independently. All Administration
+headings use the existing shared workspace origin; only Members' inner content
+retains its 75rem limit. Desktop checks at 1280/1920px confirm matching heading
+origins across Overview, Events, Members list/detail, Roles and both Logs.
+
+Permission categories start collapsed, including roles with saved grants, and
+reset through the existing selected-role component key. Manual group controls and
+Expand all/Collapse all remain available. Single/empty first-page Members results
+hide pagination; later cursor pages retain their return navigation.
+
+Security keeps its Sign-in, MFA, email and lifecycle summaries in fixed positions.
+Existing action components render their details in a shared region after the
+summaries using a presentation-only React portal. The destination stays mounted;
+action state, busy guards, proof handling and transport handlers are retained.
+Opening details focuses their region unless an action already focused its field.
+Close details uses the existing section toggle and returns focus to its control;
+existing Cancel behavior remains. Standalone action screens retain inline rendering.
+The personal reactivation shortcut is removed; Administration reactivation remains.
+
+No missing last-admin safeguard was found. Existing lifecycle checks repeat the
+genuine active/verified Administrator survival predicate inside the final database
+transaction. Isolated tests cover refusal through HTTP and direct paths, stale
+proof, invalid replacement candidates and concurrent changes. An added mixed
+delete/deactivate race permits one winner and verifies that the surviving genuine
+Administrator cannot then delete or deactivate. No real hosted account is changed.
+
+Local evidence: 60 lifecycle/role tests, 196 focused lifecycle/MFA/session/presentation
+tests, then 6 updated UI contracts; strict TypeScript and hosted-dev Vite build pass.
+The initial JSX compile error during development was corrected before these checks.
+Fictional browser checks cover 320/390/768px without horizontal overflow, desktop
+alignment, category reset/manual expansion, Members cursors/filter reset, stable
+Security summaries and password/lifecycle keyboard focus. Hosted owner acceptance
+of the revised presentation remains pending; publication evidence is recorded in #30.
+
 ## Verification and hosted handover
 
 Local fixtures are fictional and intercept all transports. Check main/context route

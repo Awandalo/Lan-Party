@@ -107,6 +107,19 @@ test('last active administrator cannot deactivate; two simultaneous administrato
  assert.equal(results.filter(r=>r.status===200).length,1);
  assert.equal(await sql("SELECT count(*) AS n FROM users WHERE status='active'").first('n'),1);
 }));
+
+test('concurrent administrator deletion and deactivation preserve one genuine active administrator',()=>local(async({user,call,sql})=>{
+ const a=await user({admin:true}),b=await user({admin:true});
+ const results=await Promise.all([call('deleteAccount',a.id,0,a.digest),call('deactivateAccount',b.id,0,b.digest)]);
+ assert.equal(results.filter(r=>r.status===200).length,1);
+ assert.equal(results.filter(r=>r.status===409).length,1);
+ const survivors=(await sql("SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.status='active' AND u.email_verified_at IS NOT NULL AND r.code='admin' AND r.is_active=1 AND NOT EXISTS (SELECT 1 FROM account_lifecycle l WHERE l.user_id=u.id)").all()).results;
+ assert.equal(survivors.length,1);
+ const survivor=survivors[0].id===a.id?a:b;
+ assert.equal((await call('deleteAccount',survivor.id,0,survivor.digest)).status,409);
+ assert.equal((await call('deactivateAccount',survivor.id,0,survivor.digest)).status,409);
+ assert.equal(await sql('SELECT status FROM users WHERE id=?',survivor.id).first('status'),'active');
+}));
 test('exact two-minute primary or MFA boundary refuses deactivation without touching identity',()=>local(async({user,call,sql})=>{
  for(const which of ['primary','mfa']){
  const u=await user({mfa:true});

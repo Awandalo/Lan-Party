@@ -3,7 +3,7 @@ import type {Catalogue} from '../lib/roles';
 import {groups,groupLabels,groupIcons,permissionLabel} from '../lib/role-presentation';
 import Icon from './Icon';
 export default function RolePermissions({catalogue,ids,onChange,editing=false,modules}:{catalogue:Catalogue;ids:string[];onChange:(ids:string[])=>void;editing?:boolean;modules?:string[]}){
- const available=groups(catalogue).filter(group=>!modules||modules.includes(group)),[expanded,setExpanded]=useState<string[]>(()=>{const enabled=available.find(group=>catalogue.permissions.some(p=>p.code.startsWith(group+'.')&&ids.includes(p.id)));return enabled?[enabled]:available.slice(0,1);}),uid=useId();
+ const available=groups(catalogue).filter(group=>!modules||modules.includes(group)),[expanded,setExpanded]=useState<string[]>([]),uid=useId();
  return <section className="permission-groups" aria-label="Permissions"><div className="permissions-heading"><div><h2>Permissions</h2><p>{editing?'Choose what this role is allowed to do.':'Explore the access included in this role.'}</p></div><button type="button" className="text-action" onClick={()=>setExpanded(expanded.length?[]:available)}>{expanded.length?'Collapse all':'Expand all'}</button></div>
   {!available.length&&<p>Select categories in the previous step to configure permissions. No permissions are granted automatically.</p>}
   {available.map(group=>{const permissions=catalogue.permissions.filter(p=>p.code.startsWith(group+'.')),open=expanded.includes(group),count=permissions.filter(p=>ids.includes(p.id)).length,id=uid+'-'+group;

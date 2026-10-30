@@ -92,7 +92,7 @@ window.fetch=async(input,init)=>{
   return Response.json({...catalogue(),...(url.pathname.includes('/users/')?{assignments,effectivePermissions:['news.create']}: {})});
  }
  if(url.pathname==='/api/manage/users/'+target)return Response.json({member:{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:memberState,roles:assignments.map(a=>roles.find(r=>r.id===a.roleId)!).map(r=>({code:r.code,name:r.name,active:!!r.isActive})),email:'fictional@example.test',firstName:memberState==='deactivated'?null:'Fictional',lastName:memberState==='deactivated'?null:'Tester',prefix:null,verified:true,createdAt:1790000000}});
- if(url.pathname==='/api/manage/users')return Response.json({members:[{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[]}],nextCursor:null});
+ if(url.pathname==='/api/manage/users')return Response.json({members:params.get('members')==='empty'?[]:[{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[]}],nextCursor:params.get('members')==='multi'&&!url.searchParams.has('cursor')?'fictional-next':null});
  throw Error('Unexpected fixture request');
 };
 const preview=document.createElement('div');preview.className='layout-preview-toolbar';preview.innerHTML='<span>Local layout preview · fictional data</span><a href="/after.html?mode=guest&route=/">Public</a><a href="/after.html?mode=member&route=/account">Member</a><a href="/after.html?mode=admin&route=/manage/roles">Administrator</a><a href="/after.html?mode=delegated&route=/manage/roles">Role manager</a>';document.body.append(preview);
