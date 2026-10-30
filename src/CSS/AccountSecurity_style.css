@@ -42,3 +42,14 @@ button.mfa-summary:focus-visible { outline: 2px solid var(--accent); outline-off
 .mfa-action-row > div > .button { width: 100%; margin: 0; }
 .mfa-action-row > div:has(.mfa-regeneration-panel) { grid-column: 1 / -1; }
 @media (max-width: 480px) { .mfa-action-row { grid-template-columns: 1fr; } }
+/* Bounded security workspace; forms keep their existing state and action wiring. */
+.main-content:has(.account-security-page) { width:calc(100% - 4rem); max-width:1200px; }
+.account-security-page .account-security-card { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem; max-width:75rem; background:transparent; border:0; padding:0; }
+.account-security-card > * { grid-column:1/-1; min-width:0; }
+.account-security-card > h1 { margin-bottom:0; }
+.account-security-card > p { margin:0; }
+.account-security-card > section { margin:0; padding:1.5rem; border:1px solid var(--border); border-radius:.9rem; background:var(--surface); }
+.account-security-card > .connected-accounts,.account-security-card > .mfa-enrollment { grid-column:auto; min-height:12rem; }
+.account-security-card > section:has([aria-expanded="true"]),.account-security-card > section:has(.account-confirmation) { grid-column:1/-1; }
+.account-security-card > .account-lifecycle { border-top:3px solid var(--warning); }
+@media(max-width:1050px) { .account-security-page .account-security-card { grid-template-columns:minmax(0,1fr); }.main-content:has(.account-security-page) { width:calc(100% - 2rem); }.account-security-card > section { padding:1.2rem; } }

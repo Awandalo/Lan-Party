@@ -1,5 +1,9 @@
 # Administration foundation — issue 26
 
+Current Phase 4.5 route/navigation and User Log behavior is documented in
+[Administration cleanup](administration-cleanup.md). Historical foundation sections
+below do not supersede its accepted navigation decisions or current implementation.
+
 The Phase 4.1 sections below retain their original implementation scope. Current
 Phase 4.3 authority, role mutation and audit rules are in
 [Roles & Permissions administration](role-administration.md); its approved genuine

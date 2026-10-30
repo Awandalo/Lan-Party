@@ -8,7 +8,7 @@ import '../../../src/CSS/main.css';
 const params=new URLSearchParams(location.search),mode=params.get('mode')??sessionStorage.getItem('lan-layout-preview-mode')??'guest';
 // Fixture presentation mode only, no identity, grant, token or production cache.
 sessionStorage.setItem('lan-layout-preview-mode',mode);
-let revoked=false,revision=0,mutations=0;
+let revoked=false,revision=0,mutations=0,signedOut=false;
 let memberState=params.get('account')==='deactivated'?'deactivated':'active',memberVersion=0,invitationId:string|null=null;
 const commandResults=new Map<string,string>();
 const recipientScenario=params.get('reactivation');let recipientClaims=0,recipientCompletions=0,recipientInspections=0,recipientClaimed=false,recipientVerified=false;
@@ -41,8 +41,17 @@ window.fetch=async(input,init)=>{
   if(url.pathname.endsWith('/complete')){recipientCompletions++;recipientVerified=true;return Response.json({next:'/account'});}
   if(url.pathname.endsWith('/cancel')){recipientClaimed=false;return Response.json({message:'Reactivation cancelled. Your account remains disabled.'});}
  }
- if(url.pathname==='/api/auth/session')return mode==='guest'?Response.json({},{status:401}):Response.json({account:{userId:actor,nickname:mode==='member'?'Fictional Member':'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
- if(url.pathname==='/api/manage/capabilities')return Response.json({sections:revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity']});
+ if(url.pathname==='/api/auth/logout'){if(params.get('logout')==='fail')return Response.json({},{status:503});signedOut=true;return Response.json({ok:true});}
+ if(url.pathname==='/api/auth/session')return signedOut||mode==='guest'?Response.json({},{status:401}):Response.json({account:{userId:actor,nickname:mode==='member'?'Fictional Member':'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
+ if(url.pathname==='/api/manage/capabilities')return Response.json({sections:signedOut||revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity','userActivity','events']});
+ if(url.pathname==='/api/auth/security/methods')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({password:true});
+ if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin',deletionAvailable:false});
+ if(url.pathname==='/api/auth/mfa/status')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({enabled:params.get('mfa')!=='disabled',enrollmentAvailable:true});
+ if(url.pathname==='/api/auth/security/change-password')return Response.json({error:'Fictional validation response. No password was changed.'},{status:400});
+ if(url.pathname==='/api/manage/user-activity')return mode==='admin'?Response.json({entries:[
+  {sequence:'2',occurredAt:1793390400,event:'invitation.accepted',actorKind:'system',dateOnly:0,actorId:null,targetId:target,operationId:'fictional-reference',actorName:null,targetName:'Fictional Participant'},
+  {sequence:'1',occurredAt:1793318400,event:'account.deleted',actorKind:'anonymous',dateOnly:1,actorId:null,targetId:null,operationId:null,actorName:null,targetName:null},
+ ],nextBefore:null}):Response.json({},{status:403});
  if(mode==='guest'||mode==='member')return Response.json({},{status:403});
  if(revoked)return Response.json({},{status:403});
  if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin'});

@@ -467,9 +467,17 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Obtain separate DEV migration/feature/retention schedule approval; apply and verify 0021 on DEV (2026-10-30).
 - [x] Publish/verify iteration 1 at 58819df, green CI and the installed daily schedule.
 - [x] Implement iteration 2 multi-action staging, stable Save placement, passive invitation checks, origin-specific copy and direct account handoff without a migration/configuration change.
-- [ ] Owner retest the iteration 2 DEV handover in #29; keep acceptance/closure separate.
+- [x] Owner accepted the final DEV corrections at bba6ff5 and authorized closing #29 (2026-10-30).
 - [ ] Owner performs the approved disposable-account/email reactivation acceptance; record results in #16 and #29.
-- [ ] Build User Log viewing/read API/navigation under #30, with Administrator-only access and retention filtering; not included in #29.
+- [x] Implement User Log viewing/read API/navigation under #30, with Administrator-only access and retention filtering; not included in #29.
+
+### Phase 4.5 — final Administration cleanup (#30)
+
+- [x] Implement contextual navigation, User Settings and accessible sign-out power control; preserve separate Events placeholders.
+- [x] Group Role Activity and User Log with route links; preserve audit privacy and existing security behavior.
+- [x] Implement balanced Account Security cards and comfortable Roles/Members sizing.
+- [ ] Verify DEV publication and hand over the exact revision for owner testing.
+- [ ] Record approved disposable-account hosted acceptance and Phase 4 sign-off; keep #30 open until owner acceptance.
 
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.
 - [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.

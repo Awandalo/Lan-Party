@@ -1,7 +1,7 @@
 import {isMemberNumber} from './member-number';
 
 export interface Session {account: {userId: string; nickname: string; memberNumber: string}; csrfToken: string; emailVerified: boolean; recoveryCodesRemaining?: number}
-export type Section = 'users' | 'roles' | 'events' | 'activity';
+export type Section = 'users' | 'roles' | 'events' | 'activity' | 'userActivity';
 export interface AdministrationAccess {sections: Section[]; status: 'loading' | 'ready' | 'error'; revalidating?: boolean; revision?: number}
 export interface ValidationState {session: Session | null; status: 'loading' | 'ready' | 'error'; access: AdministrationAccess}
 const empty = (): AdministrationAccess => ({sections: [], status: 'loading'});
@@ -66,7 +66,7 @@ export class SessionValidation {
         if (!capabilities.ok) throw Error('Capabilities unavailable');
         const body = await capabilities.json();
         if (!current()) return false;
-        if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events','activity'].includes(s))) throw Error('Invalid capabilities');
+        if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events','activity','userActivity'].includes(s))) throw Error('Invalid capabilities');
         this.set({session, status: 'ready', access: {sections: [...new Set<Section>(body.sections)], status: 'ready', revision: generation}});
         return true;
       } catch {

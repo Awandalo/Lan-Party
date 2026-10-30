@@ -16,3 +16,10 @@
 .administration-nav-slot { display:inline-flex; align-items:center; }
 .account-nav-slot { display:inline-flex; align-items:center; }
 .administration-nav-placeholder { visibility:hidden; padding:.65rem .85rem; font-size:.9rem; }
+.sign-out-control { position:relative; display:inline-flex; }
+.sign-out-button { display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--border); border-radius:.5rem; color:var(--accent); background:var(--surface); cursor:pointer; }
+.sign-out-button:hover { background:var(--accent-dim); }
+.sign-out-button:disabled { opacity:.6; cursor:wait; }
+.sign-out-control [role="tooltip"] { display:none; position:absolute; top:calc(100% + .5rem); right:0; white-space:nowrap; padding:.5rem .75rem; border:1px solid var(--border); border-radius:.4rem; background:var(--surface); color:var(--text); font-size:.8rem; }
+.sign-out-control:hover [role="tooltip"],.sign-out-control:focus-within [role="tooltip"] { display:block; }
+.header-feedback { padding:.7rem 1.5rem; margin:0; border-top:1px solid var(--border); }

@@ -1,0 +1,6 @@
+@import './RoleActivity_style.css';
+.user-activity-page { display:grid; gap:1rem; min-width:0; }
+.user-activity-page .activity-pagination { flex-wrap:wrap; }
+.logs-navigation { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1.5rem; }
+.logs-navigation a { display:inline-flex; align-items:center; min-height:44px; padding:.6rem 1rem; border:1px solid var(--border); border-radius:.5rem; color:var(--muted); text-decoration:none; }
+.logs-navigation a[aria-current="page"] { color:var(--accent); background:var(--accent-dim); border-color:var(--accent); }

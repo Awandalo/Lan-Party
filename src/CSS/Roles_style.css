@@ -56,3 +56,9 @@ html:has(.role-sticky-actions) { scroll-padding-bottom:140px; }
 @media (min-width:1181px) and (max-width:1350px) { .role-workspace { grid-template-columns:195px minmax(0,1fr) 220px; }.role-list-item { gap:.5rem; padding:.9rem .6rem; }.role-list-item .role-icon { width:30px; height:30px; } }
 @media (max-width:1180px) { .role-workspace { grid-template-columns:210px minmax(0,1fr); }.role-summary-column { grid-column:2; position:static; }.role-summary-note { display:none; } }
 @media (max-width:650px) { .role-workspace { grid-template-columns:minmax(0,1fr); }.role-list-column { min-height:0; border-right:0; padding:0; }.role-list { display:flex; overflow-x:auto; padding-bottom:.6rem; }.role-list-item { min-width:215px; max-width:260px; }.role-main-column,.role-summary-column { grid-column:1; }.selected-role-heading { flex-wrap:wrap; }.selected-role-heading .button { margin-left:auto; }.wizard-steps { gap:.5rem; }.wizard-steps li { flex-direction:column; text-align:center; font-size:.6rem; }.module-picker { grid-template-columns:1fr; }.role-wizard { padding:1rem; }.role-summary-column { margin-top:.2rem; } }
+/* Comfortable role list without stretching the editor on ultrawide displays. */
+.role-workspace { grid-template-columns:minmax(260px,290px) minmax(0,1fr) minmax(240px,280px); }
+.role-list-item { padding:1.15rem .9rem; }
+.role-list-item strong { font-size:.9rem; }.role-list-item small { font-size:.75rem; }
+@media(max-width:1550px) { .role-workspace { grid-template-columns:260px minmax(0,1fr); }.role-summary-column { grid-column:2; position:static; }.role-summary-note { display:none; } }
+@media(max-width:800px) { .role-workspace { grid-template-columns:minmax(0,1fr); }.role-list-column { min-height:0; border:0; padding:0; }.role-list { display:flex; overflow-x:auto; padding-bottom:.6rem; }.role-list-item { min-width:240px; max-width:280px; }.role-main-column,.role-summary-column { grid-column:1; } }

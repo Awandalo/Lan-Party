@@ -17,15 +17,15 @@ export class RoleReadCache {
  private cancel() {this.generation++;for(const abort of this.pending.values())abort.abort();this.pending.clear();}
  private clear() {this.cancel();this.entries.clear();}
  synchronize({session,status,access}:ValidationState) {
-  const sections=access.sections.filter(s=>['roles','users','activity'].includes(s)).sort();
-  const context=session && status==='ready' && access.status==='ready' && sections.some(s=>s==='roles'||s==='activity')
+  const sections=access.sections.filter(s=>['roles','users','activity','userActivity'].includes(s)).sort();
+  const context=session && status==='ready' && access.status==='ready' && sections.some(s=>s==='roles'||s==='activity'||s==='userActivity')
    ? session.account.userId+':'+session.csrfToken+':'+sections.join(',') : '';
   this.sections=context?sections:[];
   if(context!==this.context || !context && this.entries.size) {this.context=context;this.clear();this.publish();}
   else if(context && this.revision!==(access.revision??0)) this.cancel();
   this.revision=access.revision??0;
  }
- read(href:string,section:'roles'|'activity',load:(signal:AbortSignal)=>Promise<Omit<RoleReadResult,'loading'>>) {
+ read(href:string,section:'roles'|'activity'|'userActivity',load:(signal:AbortSignal)=>Promise<Omit<RoleReadResult,'loading'>>) {
   if(!this.context || !this.sections.includes(section) || href.startsWith('/api/manage/users/')&&!this.sections.includes('users') || this.pending.has(href))return;
   const generation=this.generation,abort=new AbortController();
   if(!this.entries.has(href) && this.entries.size>=8) {

@@ -42,3 +42,8 @@
 .member-state-switch { min-height:44px; }
 .member-review > .member-state-switch { margin-top:1.25rem; }
 .member-review > .wizard-actions { margin-top:1.25rem; padding-top:1.25rem; flex-wrap:wrap; }
+.members-page { max-width:90rem; margin-inline:auto; }
+.members-page .members-table-scroll td { padding:1.1rem .85rem; }
+.members-page .members-table-scroll th { padding:.85rem; }
+.members-search { grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
+@media(max-width:640px) { .members-search { grid-template-columns:minmax(0,1fr); }.members-page .members-table-scroll td,.members-page .members-table-scroll th { padding:.85rem .45rem; } }

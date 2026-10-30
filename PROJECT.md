@@ -27,8 +27,9 @@ Google OAuth is permanently discontinued.
 
 Phase 4.1 Administration navigation is owner-accepted in #26. Phase 4.2 (#27)
 adds read-only member browsing/detail behind explicit users.view grants and is
-owner-accepted. Phase 4.3 (#28) is accepted at 8e00e0d; Phase 4.4 (#29) is the
-current administrator-assisted lifecycle candidate. See
+owner-accepted. Phase 4.3 (#28) is accepted at 8e00e0d; Phase 4.4 (#29) is
+owner-accepted on DEV at bba6ff5. Phase 4.5 (#30) adds contextual navigation,
+the User Log viewer and final Administration polish, pending hosted owner acceptance. See
 [the administration contract](docs/administration-foundation.md#phase-42--read-only-members-administration).
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
@@ -323,10 +324,12 @@ Owner separately approved DEV 0019/0020 execution after a fresh preflight and
 recovery checkpoint; both are applied and verified on DEV. Hosted application
 acceptance and any PROD operations remain separate.
 
-### Phase 4.4 — administrator-assisted reactivation candidate
+### Phase 4.4 — administrator-assisted reactivation (DEV accepted)
 
 Owner authorized #29 implementation and DEV publication on 2026-10-30 after the
-consolidated review. The [member lifecycle contract](docs/member-lifecycle.md)
+consolidated review, and accepted/closed #29 after final DEV testing at bba6ff5.
+The final Phase 4 two-account acceptance and #16 evidence remain separate.
+The [member lifecycle contract](docs/member-lifecycle.md)
 records one reviewed Save, genuine-admin commands without fresh step-up, retained
 roles, administrator disable with preserved names, invitation/replay handling and
 the separate two-year User Log foundation. Recipient password/MFA and personal

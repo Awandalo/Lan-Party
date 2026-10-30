@@ -7,7 +7,7 @@ const titles: Record<string, string> = {
   '/events': 'Events',
   ...(import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' ? {'/manage':'Administration','/manage/users':'Members','/manage/roles':'Roles & Permissions','/manage/events':'Event management'} : {}),
   '/privacy': 'Privacy Policy',
-  ...(import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'?{'/manage/activity':'Role Activity Log'}:{}),
+  ...(import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'?{'/manage/activity':'Role Activity Log','/manage/logs':'Logs','/manage/user-activity':'User Log'}:{}),
   '/login': 'Login',
   ...((AUTH_UI_AVAILABLE && authUIEnabled()) ? { '/register': 'Create account', '/account': 'Account',
     '/verify-email': 'Verify email', '/local-mail': 'Local mailbox',

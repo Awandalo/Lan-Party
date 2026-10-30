@@ -1,4 +1,6 @@
 import {memberRead} from './members';
+import {readUserActivity} from './user-activity-read';
+import {userActivityReady} from './auth/user-activity';
 import {sessionCsrfToken} from './auth/csrf';
 import {digestToken} from './auth/tokens';
 import {fromHex} from './auth/encoding';
@@ -35,14 +37,15 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
   });
   const url = new URL(request.url);
   const members = url.pathname === '/api/manage/users' || url.pathname.startsWith('/api/manage/users/');
+  const userLog=url.pathname==='/api/manage/user-activity';
   const roleEndpoint=url.pathname==='/api/manage/roles'||url.pathname==='/api/manage/role-activity'||/^\/api\/manage\/users\/[^/]+\/roles$/.test(url.pathname);
   // This first iteration is DEV/local only; PROD activation requires separate approval.
   if (!(loopback(url) || hostedDev(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
-    || (!members && !roleEndpoint && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
+    || (!members && !roleEndpoint && !userLog && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
   if (request.method !== 'GET' && !(roleEndpoint && request.method==='POST' && !url.pathname.endsWith('role-activity'))) return reply(405, {error: 'Method not allowed'});
   try {
     const origin = authOrigin(request, env);
-    if ((!members && !roleEndpoint && url.search) || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
+    if ((!members && !roleEndpoint && !userLog && url.search) || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
       || request.headers.has('Origin') && request.headers.get('Origin') !== origin.origin
       || request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin') {
       return reply(403, {error: 'Request rejected'});
@@ -53,13 +56,18 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     // Optional correlation proof prevents applying user B's grants to user A's
     // session snapshot if another tab changes cookies between the two reads.
     const submitted = request.headers.get('X-LAN-Session-Proof');
-    if ((members||roleEndpoint) && submitted === null) return reply(403, {error: 'Session proof required'});
+    if ((members||roleEndpoint||userLog) && submitted === null) return reply(403, {error: 'Session proof required'});
     if (submitted !== null) {
       const bytes = fromHex(submitted, 32);
       const expected = fromHex(await sessionCsrfToken(await digestToken(token!, 'session'), env.AUTH_RATE_LIMIT_SECRET!), 32)!;
       if (!bytes || !crypto.subtle.timingSafeEqual(bytes, expected)) return reply(409, {error: 'Session context changed'});
     }
     const permissions = await administrationPermissions(env.DB, account.userId, now);
+    if(userLog){
+      if(!await isAdministrator(env.DB,account.userId))return reply(403,{error:'User Log access is restricted'});
+      if(!await userActivityReady(env.DB))return reply(503,{error:'User Log is unavailable'});
+      return reply(200,await readUserActivity(env.DB,url));
+    }
     if(roleEndpoint) {
       if(!await roleSchemaReady(env.DB))return reply(503,{error:'Role administration requires its approved database migration'});
       if(!permissions.includes('roles.manage'))return reply(403,{error:'Role access is restricted'});
@@ -98,6 +106,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     }
     const admin=await roleSchemaReady(env.DB)&&await isAdministrator(env.DB,account.userId);
     const sections = Object.entries(sectionPermissions).filter(([key, required]) => key==='activity'?admin:required.some(p => permissions.includes(p))).map(([key]) => key);
+    if(admin&&await userActivityReady(env.DB))sections.push('userActivity');
     if (!sections.length) return reply(403, {error: 'Administration access is not available'});
     return reply(200, {sections});
   } catch(error) {

@@ -1,5 +1,9 @@
 # Phase 4.4 — member lifecycle commands
 
+Owner accepted/closed #29 on DEV at bba6ff5. The Phase 4.5
+[Administration cleanup](administration-cleanup.md) adds its separately authorized
+User Log read surface; the #29 sections below retain their implementation scope.
+
 Owner authorized implementation and DEV publication after the #29 review on
 2026-10-30. Consolidated scope: issue comment 6523408137. This includes the proposed
 administrator name-preservation and the two-year User Log foundation. Iteration 2
