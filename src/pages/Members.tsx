@@ -5,7 +5,7 @@ import {formatMemberNumber} from '../lib/member-number';
 import {useMemberRead} from '../lib/use-member-read';
 import type {MemberDetail,MemberPage,MemberSummary} from '../lib/members';
 import '../CSS/Members_style.css';
-import {MemberRoles} from './Roles';
+import MemberRoleEditor from '../components/MemberRoleEditor';
 const labels:Record<MemberSummary['status'],string>={active:'Active',disabled:'Disabled',deactivated:'Voluntarily deactivated',deleting:'Deletion in progress'};
 function RoleLabels({row}:{row:MemberSummary}){return row.roles.length?<ul className="member-roles" aria-label="Assigned roles">{row.roles.map(r=><li className="member-role" key={r.code}>{r.name}{!r.active && ' (inactive)'}</li>)}</ul>:<>None</>;}
 function AccountState({row}:{row:MemberSummary}){return <span className={'member-state '+(row.status==='active'?'member-state-active':'member-state-inactive')}>{labels[row.status]}</span>;}
@@ -35,9 +35,9 @@ export default function Members(){
 
    </>}
    {!userId && !read.message && <nav className="members-pagination" aria-label="Member pages"><button className="button button-secondary" aria-disabled={read.loading || !cursors.length} onClick={()=>{if(!read.loading && cursors.length)setCursors(c=>c.slice(0,-1));}}>Previous page</button><span>Page {cursors.length+1}</span><button className="button button-secondary" aria-disabled={read.loading || !page?.nextCursor} onClick={()=>{if(!read.loading && page?.nextCursor)setCursors(c=>[...c,page.nextCursor!]);}}>Next page</button></nav>}
-   {detail && <><section className="panel members-detail" aria-labelledby="member-detail-heading"><h2 id="member-detail-heading">{detail.nickname??'Nickname unavailable'} · {formatMemberNumber(detail.memberNumber)}</h2><dl>
-    <dt>Account state</dt><dd><AccountState row={detail}/></dd><dt>Assigned roles</dt><dd><RoleLabels row={detail}/></dd><dt>Email</dt><dd>{detail.email}</dd><dt>Email verification</dt><dd>{detail.verified?'Verified':'Not verified'}</dd><dt>First name</dt><dd>{detail.firstName??'Unavailable'}</dd><dt>Name prefix</dt><dd>{detail.prefix??'Unavailable'}</dd><dt>Last name</dt><dd>{detail.lastName??'Unavailable'}</dd><dt>Created</dt><dd>{date(detail.createdAt)}</dd>
-   </dl></section><MemberRoles key={detail.userId} userId={detail.userId}/><section className="panel members-attendance" aria-labelledby="member-attendance-heading"><h2 id="member-attendance-heading">Attended events</h2><div className="members-table-scroll"><table><caption className="members-attendance-caption">Attendance history</caption><thead><tr><th scope="col">Event</th><th scope="col">Date</th><th scope="col">Location</th></tr></thead><tbody><tr><td colSpan={3}>Attendance history will appear here when event registration and attendance tracking are available.</td></tr></tbody></table></div></section></>}
+   {detail && <MemberRoleEditor key={detail.userId} userId={detail.userId} eligible={detail.status==='active'&&detail.verified} fallback={<RoleLabels row={detail}/>} >{(roleEditor,roleActions)=><><section className="panel members-detail" aria-labelledby="member-detail-heading"><h2 id="member-detail-heading">{detail.nickname??'Nickname unavailable'} · {formatMemberNumber(detail.memberNumber)}</h2><dl>
+    <dt>Account state</dt><dd><AccountState row={detail}/></dd><dt>Assigned roles</dt><dd>{roleEditor}</dd><dt>Email</dt><dd>{detail.email}</dd><dt>Email verification</dt><dd>{detail.verified?'Verified':'Not verified'}</dd><dt>First name</dt><dd>{detail.firstName??'Unavailable'}</dd><dt>Name prefix</dt><dd>{detail.prefix??'Unavailable'}</dd><dt>Last name</dt><dd>{detail.lastName??'Unavailable'}</dd><dt>Created</dt><dd>{date(detail.createdAt)}</dd>
+   </dl></section>{roleActions}<section className="panel members-attendance" aria-labelledby="member-attendance-heading"><h2 id="member-attendance-heading">Attended events</h2><div className="members-table-scroll"><table><caption className="members-attendance-caption">Attendance history</caption><thead><tr><th scope="col">Event</th><th scope="col">Date</th><th scope="col">Location</th></tr></thead><tbody><tr><td colSpan={3}>Attendance history will appear here when event registration and attendance tracking are available.</td></tr></tbody></table></div></section></>}</MemberRoleEditor>}
   </div>
  </div>;
 }

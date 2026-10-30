@@ -167,3 +167,86 @@ The fictional Roles UI fixture supports a bounded `delay` query parameter and
 request start/end counters for repeatable before/after navigation checks. It
 intercepts all API traffic locally and cannot establish hosted latency or signed-in
 acceptance. Broader visual redesign remains a separate owner review.
+
+### Iteration 2 — shared workspace and role administration UX, 2026-10-30
+
+Owner directly authorized Stage A/B implementation after the scope decisions
+in #28 comment 6519849448, reviewed successive local annotation passes, then
+authorized DEV publication of the resulting fixes. Shared sidebar/navigation, a compact account header and existing dark/mint
+tokens now serve both public pages and the wider Administration workspace. Public
+content keeps its constrained width. Navigation has one shared destination list;
+mobile uses a native modal drawer with Escape, focus containment and route close.
+
+Roles has a searchable list, explicit Edit mode, grouped animated permission
+accordions, friendly labels, accessible left-off/right-on switches and a desktop
+summary. At narrower widths the summary follows the editor. Creating a role uses
+four modal steps; selecting categories filters the configuration UI and never
+grants permissions. Review/confirmation and existing server conflict/invariant
+checks remain mandatory. Built-in Administrator is described as Full administrative
+access rather than as limited by its explicit grants. Existing member assignment
+and activity routes remain available.
+
+The catalogue read adds optional `assignedMemberCount` on roles,
+returned only when the caller also has current `users.view` authority. The count
+is taken in the catalogue's database batch and includes active, verified accounts
+without lifecycle state, non-future account updates, active roles and non-future
+assignments. It counts memberships, independent of session presence or optional
+MFA enrollment. Inactive roles report zero; unauthorized callers receive no field,
+not a misleading zero. No identities, new schema, mutation or privacy bypass is
+introduced. No server-created/updated dates are invented for the summary.
+
+Run `npm run preview:layout` to build and serve a **fictional local review** on
+127.0.0.1:5189. Its Public/Member/Administrator/Role Manager links switch isolated
+fixture modes; a tab-local sessionStorage value remembers only the presentation
+mode across refresh. No real credentials, identities or authorization state are
+stored. The production application does not import this fixture. API calls are
+intercepted with fictional responses; the preview server rejects actual API calls
+and non-GET requests. Generated assets stay ignored under .wrangler. Rebuild the
+running preview with `node scripts/preview-layout.mjs --build-only` after edits,
+then reload. This is for layout/annotation and fictional interaction checks, not
+live session, provider or deployed backend acceptance.
+
+Owner annotation follow-up: direct editing now has one sticky bottom action bar
+with actual dirty-state feedback, Cancel, Review changes and Save changes. The
+review dialog requires explicit confirmation without saving; every subsequent
+draft edit clears confirmation. Equivalent permission ordering is not a change.
+An unchanged edit cannot save, a new editing session clears prior success feedback,
+and the summary badge appears only for a real draft difference. Confirmed saves
+return to read-only after authoritative revalidation. Account-menu links and
+buttons now share independent row styling rather than relying on the old header.
+Role switching and ordinary link navigation warn about unsaved edits; reload/close
+uses the native beforeunload guard. Browser Back/Forward within the SPA is not
+blocked by this bounded guard. No router/history workaround is introduced.
+
+The next owner annotation pass authorizes local activity-log usability and inline
+membership improvements. Activity now projects **current** role names and current
+nicknames for active accounts without lifecycle state, only behind Administrator
+activity access and users.view for member names. Names are not copied into audit
+rows. Unknown/deleted/deactivated identities display an unavailable label; IDs and
+the original recorded delta remain in expandable technical details. Before/after
+tables use only recorded flags, memberships and permission IDs. Historical role
+names/descriptions remain explicitly Not retained; this does not change the
+indefinite minimal audit policy or reconstruct unavailable values.
+
+Search/date/action filters run on the server before the existing bounded keyset
+pagination. Date selection and displayed timestamps explicitly use UTC. Search
+matches current labels or technical references; it is bounded to 80 characters
+and uses literal matching. Invalid/duplicate query parameters fail closed. These
+are owner-requested read-only API changes, not new audit writes or migrations.
+
+Member detail embeds authorized membership controls in its Assigned roles row.
+Typing an existing role and pressing Enter stages a pending chip; removing a chip
+stages removal. Neither action saves. One membership change is reviewed/saved at a
+time through the existing single-operation API, with sticky Cancel/Review/Save
+controls. No partial bulk-save behavior, self-change, protected-role bypass or
+account reactivation is introduced. Effective permissions remain a current-state
+disclosure. The owner reviewed these interactions through the fictional local
+preview before authorizing DEV publication.
+
+Final owner annotations authorize DEV publication after fixing stale feedback and
+adding activity Collapse all. Feedback now belongs to the originating route and
+session generation: it survives same-page validation, clears on navigation or a
+confirmed session change, and ignores late setters captured before navigation.
+Activity Collapse all sits beside the Details heading and resets expanded records
+without changing filters or pagination. Hosted owner acceptance remains separate
+from local checks, publication and automatic deployment verification.

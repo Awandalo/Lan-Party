@@ -4,9 +4,9 @@
 .account-menu-trigger:hover, .account-menu-trigger[aria-expanded="true"]:not(.active) { background: var(--surface-raised); color: var(--text); }
 .account-menu-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .account-menu-panel { position: absolute; z-index: 5; top: calc(100% + .5rem); right: 0; width: min(16.5rem, calc(100vw - 2rem)); padding: .6rem; border: 1px solid var(--border); border-radius: .6rem .6rem .85rem .85rem; background: var(--surface); box-shadow: 0 .5rem 1.5rem #0008; animation: account-menu-open 170ms ease-out; }
-.account-menu-panel button, .site-nav .account-menu-panel a { display: block; width: 100%; min-height: 44px; padding: .7rem; border: 0; border-radius: .4rem; background: transparent; color: var(--text); font: inherit; text-align: left; overflow-wrap: anywhere; }
+.account-menu-panel button, .account-menu-panel a { display: block; width: 100%; min-height: 44px; padding: .7rem; border: 0; border-radius: .4rem; background: transparent; color: var(--text); font: inherit; text-align: left; text-decoration:none; overflow-wrap: anywhere; }
 .account-menu-panel button:not(:disabled) { cursor: pointer; }
-.account-menu-panel button:not(:disabled):hover { background: var(--surface-raised); }
+.account-menu-panel button:not(:disabled):hover,.account-menu-panel a:hover { background: var(--surface-raised); }
 .account-menu-panel button:disabled { color: var(--muted); cursor: not-allowed; }
 .account-menu-panel small, .account-menu-name span { display: block; color: var(--muted); font-size: .8rem; }
 .account-menu-panel hr { border: 0; border-top: 1px solid var(--border); margin: .5rem 0; }
@@ -20,6 +20,5 @@
   .account-menu-panel { animation: none; }
 }
 @media (max-width: 640px) {
-  .site-nav { position: relative; }
-  .account-menu { position: static; }
+  .account-menu { position: relative; }
 }

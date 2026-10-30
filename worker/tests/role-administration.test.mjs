@@ -45,7 +45,9 @@ test('audit and mutations are atomic, minimal, append-only and do not require re
  const {response}=await create(f,a,{name:'Never retain this name',description:'Never retain this description'});assert.equal(response.status,200);
  const roleId=(await response.json()).roleId;
  const log=await (await call(f,a,'manage/role-activity')).json();assert.equal(log.entries.length,1);
- assert.ok(!JSON.stringify(log).includes('Never retain'));assert.ok(!JSON.stringify(log).includes('@example.test'));
+ // Current role labels are now a read-time projection, never an audit snapshot.
+ assert.equal(log.entries[0].roleName,'Never retain this name');
+ assert.ok(!JSON.stringify((await f.sql('SELECT delta FROM role_activity').all()).results).includes('Never retain'));assert.ok(!JSON.stringify(log).includes('@example.test'));
  await assert.rejects(f.sql('UPDATE role_activity SET actor_id=?',randomUUID()).run(),/append-only/);
  await assert.rejects(f.sql('DELETE FROM role_activity').run(),/append-only/);
  const before=await f.sql('SELECT revision FROM rbac_state').first('revision');

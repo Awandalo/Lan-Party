@@ -1,6 +1,6 @@
 import {useEffect,useState,useSyncExternalStore} from 'react';
 import {useAuth} from './auth';
-export interface Role {id:string;code:string;name:string;description:string|null;isActive:number;isProtected:number}
+export interface Role {id:string;code:string;name:string;description:string|null;isActive:number;isProtected:number;assignedMemberCount?:number}
 export interface Catalogue {revision:number;administrator:boolean;roles:Role[];permissions:{id:string;code:string;description:string;protected:boolean}[];mappings:{roleId:string;permissionId:string;grantedAt:number}[];assignments?:{roleId:string;assignedAt:number}[];effectivePermissions?:string[]}
 export const builtIn=(role:Role)=>['1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7','193e06d9-4dfa-4ef9-80f2-9d457b6b7b5f'].includes(role.id);
 function validRead(value:unknown,activity:boolean):boolean {
@@ -8,9 +8,10 @@ function validRead(value:unknown,activity:boolean):boolean {
  const data=value as Catalogue&{entries:unknown[];nextBefore:unknown};
  if(activity)return Array.isArray(data.entries)&&data.entries.length<=20&&data.entries.every(entry=>{
   if(!entry||typeof entry!=='object')return false;const e=entry as Record<string,unknown>;
-  return typeof e.sequence==='string'&&Number.isSafeInteger(e.occurredAt)&&['actorId','operation','roleId','delta','operationId'].every(k=>typeof e[k]==='string')&&(e.accountId===null||typeof e.accountId==='string');
- })&&(data.nextBefore===null||typeof data.nextBefore==='string');
+  return typeof e.sequence==='string'&&Number.isSafeInteger(e.occurredAt)&&['actorId','operation','roleId','delta','operationId'].every(k=>typeof e[k]==='string')&&(e.accountId===null||typeof e.accountId==='string')&&['actorName','accountName','roleName'].every(k=>e[k]===undefined||e[k]===null||typeof e[k]==='string');
+ })&&(data.nextBefore===null||typeof data.nextBefore==='string')&&(data.permissions===undefined||Array.isArray(data.permissions)&&data.permissions.length<=100&&data.permissions.every(p=>p&&typeof p.id==='string'&&typeof p.code==='string'));
  return Number.isSafeInteger(data.revision)&&typeof data.administrator==='boolean'&&Array.isArray(data.roles)&&data.roles.length<=200
+  &&data.roles.every(r=>r.assignedMemberCount===undefined||Number.isSafeInteger(r.assignedMemberCount)&&r.assignedMemberCount>=0)
   &&data.roles.every(r=>r&&['id','code','name'].every(k=>typeof r[k as 'id'|'code'|'name']==='string')&&(r.description===null||typeof r.description==='string')&&[0,1].includes(r.isActive)&&[0,1].includes(r.isProtected))
   &&Array.isArray(data.permissions)&&data.permissions.length<=100&&data.permissions.every(p=>p&&typeof p.id==='string'&&typeof p.code==='string'&&typeof p.description==='string'&&typeof p.protected==='boolean')
   &&Array.isArray(data.mappings)&&data.mappings.length<=20000&&data.mappings.every(m=>m&&typeof m.roleId==='string'&&typeof m.permissionId==='string'&&Number.isSafeInteger(m.grantedAt))

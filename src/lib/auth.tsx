@@ -5,6 +5,7 @@ import {useLocation} from 'react-router';
 import {SessionValidation} from './session-validation';
 import {MemberReadCache} from './member-read-cache';
 import {RoleReadCache} from './role-read-cache';
+import {RoleFeedback} from './role-feedback';
 import type {Session, AdministrationAccess, ValidationState} from './session-validation';
 interface Authentication {
   session: Session | null;
@@ -24,10 +25,16 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const [state, setState] = useState<ValidationState>({session: null, status: enabled ? 'loading' : 'ready', access: {sections: [], status: enabled ? 'loading' : 'ready'}});
   const [memberReads] = useState(() => new MemberReadCache());
   const [roleReads] = useState(() => new RoleReadCache());
-  const [roleFeedback,setRoleFeedback]=useState('');
+  const [feedback]=useState(()=>new RoleFeedback());
+  const [,renderFeedback]=useState(0);
   const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);roleReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
   const channel = useRef<BroadcastChannel | null>(null);
   const {pathname} = useLocation();
+  const feedbackContext=state.session?state.session.account.userId+':'+state.session.csrfToken:null;
+  feedback.enter(pathname,feedbackContext,state.status==='loading');
+  const captureFeedback=feedback.setter();
+  const setRoleFeedback=useCallback((message:string)=>{captureFeedback(message);renderFeedback(n=>n+1);},[feedback,pathname,feedbackContext]);
+  const roleFeedback=feedback.get(feedbackContext);
   const refresh = useCallback(() => enabled ? validation.refresh(true) : Promise.resolve(false), [enabled, validation]);
   const invalidateAdministration=useCallback(()=>{validation.invalidate();channel.current?.postMessage('invalidate');return enabled?validation.refresh():Promise.resolve(false);},[enabled,validation]);
   useEffect(() => {if (enabled) void validation.refresh();}, [enabled, validation, pathname]);

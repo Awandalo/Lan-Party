@@ -5,22 +5,36 @@ import App from '../../../src/App';
 import '../../../src/CSS/main.css';
 // Fictional UI transport. It never queries a database or external service;
 // real Worker authorization and transaction tests are separate.
-const params=new URLSearchParams(location.search),mode=params.get('mode')??'admin';
+const params=new URLSearchParams(location.search),mode=params.get('mode')??sessionStorage.getItem('lan-layout-preview-mode')??'guest';
+// Fixture presentation mode only, no identity, grant, token or production cache.
+sessionStorage.setItem('lan-layout-preview-mode',mode);
 let revoked=false,revision=0,mutations=0;
 const requests:{path:string;start:number;end?:number}[]=[],delay=Math.min(3000,Math.max(0,Number(params.get('delay')??100)));
 const actor='10000000-0000-4000-8000-000000000001',target='10000000-0000-4000-8000-000000000002';
 const roles=[{id:'1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7',code:'admin',name:'Administrator',description:'Built-in',isActive:1,isProtected:1},{id:'193e06d9-4dfa-4ef9-80f2-9d457b6b7b5f',code:'user',name:'User',description:'Built-in',isActive:1,isProtected:0},{id:'20000000-0000-4000-8000-000000000001',code:'fictional_news',name:'Fictional News Team',description:'Fictional team',isActive:1,isProtected:0}];
-const permissions=['news.create','users.view','roles.manage','roles.protect_admin'].map((code,i)=>({id:'30000000-0000-4000-8000-'+String(i+1).padStart(12,'0'),code,description:'Fictional description for '+code,protected:code!=='news.create'}));
+const permissions=['news.create','users.view','roles.manage','roles.protect_admin','events.create','events.update','events.publish','events.cancel','events.manage_registrations','news.update','news.publish','news.archive','locations.manage','users.manage'].map((code,i)=>({id:'30000000-0000-4000-8000-'+String(i+1).padStart(12,'0'),code,description:({
+ 'news.create':'Draft announcements for the community.','users.view':'Browse members and their private account details.','roles.manage':'Manage ordinary roles and their memberships.','roles.protect_admin':'Reserved protection capability; genuine Administrator membership is still required.',
+ 'events.create':'Create new LAN events.','events.update':'Update event details and schedules.','events.publish':'Make events visible to the community.','events.cancel':'Cancel an event when plans change.','events.manage_registrations':'Manage participant registrations for events.',
+ 'news.update':'Update existing announcements.','news.publish':'Publish announcements for the crew.','news.archive':'Archive old announcements.','locations.manage':'Maintain event locations.','users.manage':'Carry out authorized member administration.'
+ } as Record<string,string>)[code],protected:['users.view','users.manage','roles.manage','roles.protect_admin'].includes(code)}));
 let mappings=[{roleId:roles[2].id,permissionId:permissions[0].id,grantedAt:0}];
 const assignments=[{roleId:roles[1].id,assignedAt:0}];
-const entries:{sequence:string;operationId:string;occurredAt:number;actorId:string;operation:string;roleId:string;accountId:string|null;delta:string}[]=[];
-const catalogue=()=>({roles,permissions,mappings,revision,administrator:mode!=='delegated'});
+const entries:{sequence:string;operationId:string;occurredAt:number;actorId:string;operation:string;roleId:string;accountId:string|null;delta:string}[]=[
+ {sequence:'2',operationId:'40000000-0000-4000-8000-000000000002',occurredAt:1793361600,actorId:actor,operation:'membership.add',roleId:roles[1].id,accountId:target,delta:JSON.stringify({assigned:{before:false,after:true}})},
+ {sequence:'1',operationId:'40000000-0000-4000-8000-000000000001',occurredAt:1793300000,actorId:actor,operation:'role.update',roleId:roles[2].id,accountId:null,delta:JSON.stringify({fields:['description'],active:{before:1,after:1},protected:{before:0,after:0},permissions:{before:[],after:[permissions[0].id]}})}
+];
+const catalogue=()=>({roles:roles.map((role,index)=>({...role,...(mode==='delegated'?{}:{assignedMemberCount:[1,8,3][index]??0})})),permissions,mappings,revision,administrator:!['delegated','member','guest'].includes(mode)});
 window.fetch=async(input,init)=>{
  const url=new URL(String(input),location.origin),request={path:url.pathname,start:Math.round(performance.now())} as typeof requests[number];requests.push(request);await new Promise(resolve=>setTimeout(resolve,delay));request.end=Math.round(performance.now());
- if(url.pathname==='/api/auth/session')return Response.json({account:{userId:actor,nickname:'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
- if(url.pathname==='/api/manage/capabilities')return Response.json({sections:revoked?[]:mode==='delegated'?['roles']:['users','roles','activity']});
+ if(url.pathname==='/api/auth/session')return mode==='guest'?Response.json({},{status:401}):Response.json({account:{userId:actor,nickname:mode==='member'?'Fictional Member':'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
+ if(url.pathname==='/api/manage/capabilities')return Response.json({sections:revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity']});
+ if(mode==='guest'||mode==='member')return Response.json({},{status:403});
  if(revoked)return Response.json({},{status:403});
- if(url.pathname==='/api/manage/role-activity')return Response.json({entries,nextBefore:null});
+ if(url.pathname==='/api/manage/role-activity'){
+  const start=url.searchParams.get('date')?Date.parse(url.searchParams.get('date')+'T00:00:00Z')/1000:null,action=url.searchParams.get('operation'),search=(url.searchParams.get('search')??'').toLowerCase(),before=BigInt(url.searchParams.get('before')??'9223372036854775807');
+  const projected=entries.map(entry=>({...entry,actorName:'Fictional Administrator',accountName:entry.accountId?'Fictional Participant':null,roleName:roles.find(role=>role.id===entry.roleId)?.name??null})).filter(entry=>BigInt(entry.sequence)<before&&(!action||entry.operation===action)&&(start===null||entry.occurredAt>=start&&entry.occurredAt<start+86400)&&JSON.stringify(entry).toLowerCase().includes(search));
+  return Response.json({entries:projected.slice(0,20),nextBefore:projected.length>20?projected[19].sequence:null,permissions:permissions.map(({id,code})=>({id,code}))});
+ }
  if(url.pathname.endsWith('/roles')){
   if(init?.method==='POST') {
    if(mode==='conflict')return Response.json({},{status:409});
@@ -29,16 +43,22 @@ window.fetch=async(input,init)=>{
    else if(body.action==='update'){Object.assign(roles.find(r=>r.id===body.roleId)!,{name:body.name,description:body.description,isActive:Number(body.active),isProtected:Number(body.protected)});mappings=mappings.filter(m=>m.roleId!==body.roleId);mappings.push(...body.permissionIds.map((p:string)=>({roleId:body.roleId,permissionId:p,grantedAt:0})));}
    else if(body.action==='assign')assignments.push({roleId:body.roleId,assignedAt:0});
    else if(body.action==='remove'){const index=assignments.findIndex(a=>a.roleId===body.roleId);if(index>=0)assignments.splice(index,1);}
-   entries.unshift({sequence:String(revision),operationId:body.operationId,occurredAt:1793300000,actorId:actor,operation:body.action,roleId:body.roleId??roles.at(-1)!.id,accountId:body.accountId??null,delta:'{"fields":["name"]}'});
+   entries.unshift({sequence:String(entries.length+1),operationId:body.operationId,occurredAt:Math.floor(Date.now()/1000),actorId:actor,operation:({create:'role.create',update:'role.update',assign:'membership.add',remove:'membership.remove'} as Record<string,string>)[body.action],roleId:body.roleId??roles.at(-1)!.id,accountId:body.accountId??null,delta:JSON.stringify(body.action==='assign'||body.action==='remove'?{assigned:{before:body.action==='remove',after:body.action==='assign'}}:{fields:['name','description']})});
    return Response.json({revision});
   }
   return Response.json({...catalogue(),...(url.pathname.includes('/users/')?{assignments,effectivePermissions:['news.create']}: {})});
  }
- if(url.pathname==='/api/manage/users/'+target)return Response.json({member:{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[],email:'fictional@example.test',firstName:'Fictional',lastName:'Tester',prefix:null,verified:true,createdAt:1790000000}});
+ if(url.pathname==='/api/manage/users/'+target)return Response.json({member:{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:assignments.map(a=>roles.find(r=>r.id===a.roleId)!).map(r=>({code:r.code,name:r.name,active:!!r.isActive})),email:'fictional@example.test',firstName:'Fictional',lastName:'Tester',prefix:null,verified:true,createdAt:1790000000}});
  if(url.pathname==='/api/manage/users')return Response.json({members:[{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[]}],nextCursor:null});
  throw Error('Unexpected fixture request');
 };
-const controls=document.createElement('div');controls.innerHTML='<button id="role-revoke">Revoke access</button><button id="role-check-session">Check session</button><output id="role-counters"></output>';document.body.append(controls);
+const preview=document.createElement('div');preview.className='layout-preview-toolbar';preview.innerHTML='<span>Local layout preview · fictional data</span><a href="/after.html?mode=guest&route=/">Public</a><a href="/after.html?mode=member&route=/account">Member</a><a href="/after.html?mode=admin&route=/manage/roles">Administrator</a><a href="/after.html?mode=delegated&route=/manage/roles">Role manager</a>';document.body.append(preview);
+const style=document.createElement('style');style.textContent='.layout-preview-toolbar{position:fixed;bottom:12px;right:12px;z-index:50;display:flex;gap:12px;flex-wrap:wrap;max-width:calc(100% - 24px);padding:10px 14px;background:#171c22;border:1px solid #8de2bd;border-radius:9px;font:12px system-ui;box-shadow:0 4px 24px #0008}.layout-preview-toolbar span{color:#aeb9c7}.layout-preview-toolbar a{color:#8de2bd}';document.head.append(style);
+const controls=document.createElement('details');controls.innerHTML='<summary>Fictional preview diagnostics</summary><button id="role-revoke">Revoke access</button><button id="role-check-session">Check session</button><output id="role-counters"></output>';document.body.append(controls);
+controls.className='layout-preview-diagnostics';
+style.textContent+='.layout-preview-diagnostics{margin:1rem 1rem 5rem 264px;font:12px system-ui;color:#aeb9c7}.layout-preview-diagnostics button{margin:10px;padding:8px;cursor:pointer}.layout-preview-diagnostics output{display:block}@media(max-width:900px){.layout-preview-diagnostics{margin-left:1rem}}';
+// Keep fixture navigation out of the editor's sticky action area.
+style.textContent+='body:has(.role-sticky-actions) .layout-preview-toolbar{display:none}';
 controls.style.overflowWrap='anywhere';
 document.querySelector('#role-revoke')!.addEventListener('click',()=>{revoked=true;new BroadcastChannel('lan-auth-invalidation').postMessage('invalidate');});
 document.querySelector('#role-check-session')!.addEventListener('click',()=>window.dispatchEvent(new Event('focus')));

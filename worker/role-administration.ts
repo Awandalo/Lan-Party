@@ -29,7 +29,7 @@ const actorSql=`EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u
 const assertOne=(db:D1Database)=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('RBAC conflict') END");
 interface RoleRow {id:string;code:string;name:string;description:string|null;isActive:number;isProtected:number}
 const roleColumns='id,code,name,description,is_active AS isActive,is_protected AS isProtected';
-export async function roleCatalogue(db:D1Database,userId:string) {
+export async function roleCatalogue(db:D1Database,userId:string,includeMemberCounts=false) {
  // A version must describe these exact rows. Separate reads could attach a newer
  // revision to stale definitions and allow a subsequent editor to lose a change.
  const snapshot=await db.batch([
@@ -38,22 +38,45 @@ export async function roleCatalogue(db:D1Database,userId:string) {
   db.prepare('SELECT id,code,description FROM permissions ORDER BY code LIMIT 101'),
   db.prepare('SELECT role_id AS roleId,permission_id AS permissionId,granted_at AS grantedAt FROM role_permissions ORDER BY role_id,permission_id LIMIT 20001'),
   db.prepare(`SELECT 1 AS allowed FROM users u WHERE u.id=? AND ${administratorPredicate()}`).bind(userId),
+  ...(includeMemberCounts?[db.prepare(`SELECT ur.role_id AS roleId,count(*) AS count FROM user_roles ur
+   JOIN roles r ON r.id=ur.role_id JOIN users u ON u.id=ur.user_id
+   WHERE r.is_active=1 AND ur.assigned_at<=unixepoch() AND u.status='active'
+   AND u.email_verified_at IS NOT NULL AND u.updated_at<=unixepoch()
+   AND NOT EXISTS(SELECT 1 FROM account_lifecycle al WHERE al.user_id=u.id)
+   GROUP BY ur.role_id`)]:[]),
  ]);
  const roles=snapshot[1].results as unknown as RoleRow[];
  if(roles.length>200)throw Error('Role catalogue exceeds bound');
  const permissions=snapshot[2].results as unknown as {id:string;code:string;description:string}[];
  if(permissions.length>100||snapshot[3].results.length>20000)throw Error('Permission catalogue exceeds bound');
  const revision=(snapshot[0].results[0] as {revision?:unknown}|undefined)?.revision;
+ const memberCounts=includeMemberCounts?snapshot[5].results as unknown as {roleId:string;count:number}[]:[];
  if(typeof revision!=='number'||!Number.isSafeInteger(revision))throw Error('Role revision unavailable');
  return {revision,administrator:snapshot[4].results.length===1,
-  roles,mappings:snapshot[3].results as unknown as {roleId:string;permissionId:string;grantedAt:number}[],permissions:permissions.map(p=>({...p,protected:PROTECTED_PERMISSIONS.includes(p.code as typeof PROTECTED_PERMISSIONS[number])}))};
+  roles:includeMemberCounts?roles.map(role=>({...role,assignedMemberCount:Number(memberCounts.find(row=>row.roleId===role.id)?.count??0)})):roles,
+  mappings:snapshot[3].results as unknown as {roleId:string;permissionId:string;grantedAt:number}[],permissions:permissions.map(p=>({...p,protected:PROTECTED_PERMISSIONS.includes(p.code as typeof PROTECTED_PERMISSIONS[number])}))};
 }
-export async function roleActivity(db:D1Database,before:string|null) {
+export async function roleActivity(db:D1Database,before:string|null,filters:{date?:string;operation?:string;search?:string;includeNames?:boolean}={}) {
  if(before!==null && (!/^[1-9][0-9]{0,18}$/.test(before)||BigInt(before)>9223372036854775807n))throw new RoleInvalid();
- const rows=(await db.prepare(`SELECT CAST(sequence AS TEXT) AS sequence,operation_id AS operationId,occurred_at AS occurredAt,
- actor_id AS actorId,operation,role_id AS roleId,account_id AS accountId,delta FROM role_activity
- WHERE sequence<CAST(? AS INTEGER) ORDER BY sequence DESC LIMIT 21`).bind(before??'9223372036854775807').all()).results;
- return {entries:rows.slice(0,20),nextBefore:rows.length>20?String(rows[19].sequence):null};
+ const date=filters.date??'',operation=filters.operation??'',search=filters.search??'';
+ if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date))throw new RoleInvalid();
+ if(operation&&!['role.create','role.update','membership.add','membership.remove'].includes(operation)||search.length>80||/[\u0000-\u001f\u007f]/.test(search))throw new RoleInvalid();
+ const start=date?Math.floor(Date.parse(date+'T00:00:00Z')/1000):0;
+ const names=filters.includeNames===true;
+ const rows=(await db.prepare(`SELECT CAST(a.sequence AS TEXT) AS sequence,a.operation_id AS operationId,a.occurred_at AS occurredAt,
+ a.actor_id AS actorId,a.operation,a.role_id AS roleId,a.account_id AS accountId,a.delta,
+ ${names?'an.nickname':'NULL'} AS actorName,${names?'tn.nickname':'NULL'} AS accountName,r.name AS roleName
+ FROM role_activity a LEFT JOIN roles r ON r.id=a.role_id
+ ${names?`LEFT JOIN users au ON au.id=a.actor_id AND au.status='active' AND NOT EXISTS(SELECT 1 FROM account_lifecycle WHERE user_id=au.id)
+ LEFT JOIN user_nicknames an ON an.user_id=au.id
+ LEFT JOIN users tu ON tu.id=a.account_id AND tu.status='active' AND NOT EXISTS(SELECT 1 FROM account_lifecycle WHERE user_id=tu.id)
+ LEFT JOIN user_nicknames tn ON tn.user_id=tu.id`:''}
+ WHERE a.sequence<CAST(? AS INTEGER) AND (?='' OR a.operation=?) AND (?='' OR a.occurred_at>=? AND a.occurred_at<?)
+ AND (?='' OR instr(lower(a.operation_id||' '||a.actor_id||' '||a.role_id||' '||coalesce(a.account_id,'')||' '||coalesce(r.name,'')${names?"||' '||coalesce(an.nickname,'')||' '||coalesce(tn.nickname,'')":''}),lower(?))>0)
+ ORDER BY a.sequence DESC LIMIT 21`).bind(before??'9223372036854775807',operation,operation,date,start,start+86400,search,search).all()).results;
+ const permissions=(await db.prepare('SELECT id,code FROM permissions ORDER BY code LIMIT 101').all()).results;
+ if(permissions.length>100)throw Error('Permission catalogue exceeds bound');
+ return {entries:rows.slice(0,20),nextBefore:rows.length>20?String(rows[19].sequence):null,permissions};
 }
 function input(value:unknown):Record<string,unknown> {
  if(!value || typeof value!=='object' || Array.isArray(value))throw new RoleInvalid();

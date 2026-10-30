@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {randomUUID} from 'node:crypto';
+import {local} from './helpers/role-fixture.mjs';
+test('activity filters are bounded and current labels do not change append-only records',()=>local(async f=>{
+ const admin=await f.user({genuine:true}),ordinary=await f.user(),delegate=await f.user({admin:true});
+ const call=(user,suffix='')=>f.request('manage/role-activity'+suffix,user,undefined,{'X-LAN-Session-Proof':user.csrf});
+ const role=randomUUID();await f.sql("INSERT INTO roles(id,code,name,is_active,created_at,updated_at) VALUES (?,'fictional_activity','Current fictional role',1,0,0)",role).run();
+ const insert=async(sequence,operation,time)=>f.sql('INSERT INTO role_activity(sequence,operation_id,occurred_at,actor_id,operation,role_id,account_id,delta,revision) VALUES (?,?,?,?,?,?,NULL,?,?)',sequence,randomUUID(),time,admin.id,operation,role,JSON.stringify({active:{before:1,after:0}}),sequence).run();
+ await insert(1,'role.create',1793232000);await insert(2,'role.update',1793318400);
+ const original=(await f.sql('SELECT * FROM role_activity ORDER BY sequence').all()).results;
+ await f.sql('INSERT INTO user_nicknames(user_id,nickname,created_at,updated_at) VALUES (?,?,0,0)',admin.id,'Fictional Actor').run();
+ let response=await call(admin,'?date=2026-10-30&operation=role.update&search=Current');assert.equal(response.status,200);let page=await response.json();assert.equal(page.entries.length,1);assert.equal(page.entries[0].sequence,'2');assert.equal(page.entries[0].roleName,'Current fictional role');assert.equal(page.entries[0].actorName,'Fictional Actor');
+ assert.equal((await (await call(admin,'?search=Fictional%20Actor')).json()).entries.length,2);
+ assert.equal((await call(ordinary)).status,403);assert.equal((await call(delegate)).status,403);
+ for(const query of ['?date=2026-02-30','?date=garbage','?operation=delete','?before=0','?search='+('a'.repeat(81)),'?operation=role.update&operation=role.create','?unknown=1'])assert.equal((await call(admin,query)).status,400,query);
+ assert.equal((await (await call(admin,'?search=%25')).json()).entries.length,0);
+ assert.equal((await (await call(admin,'?before=2')).json()).entries[0].sequence,'1');
+ await f.sql('UPDATE roles SET name=? WHERE id=?','Renamed current role',role).run();page=await (await call(admin)).json();assert.equal(page.entries[0].roleName,'Renamed current role');
+ assert.deepEqual((await f.sql('SELECT * FROM role_activity ORDER BY sequence').all()).results,original);
+ for(let i=3;i<=24;i++)await insert(i,'role.update',1793318400);
+ page=await (await call(admin)).json();assert.equal(page.entries.length,20);assert.equal(page.nextBefore,'5');assert.equal((await (await call(admin,'?before=5')).json()).entries.length,4);
+ const observer=await f.user({genuine:true});await f.sql("INSERT INTO account_lifecycle(user_id,state,deactivated_at) VALUES (?,'deactivated',0)",admin.id).run();page=await (await call(observer)).json();assert.equal(page.entries[0].actorName,null);assert.equal(page.entries[0].actorId,admin.id);
+}));

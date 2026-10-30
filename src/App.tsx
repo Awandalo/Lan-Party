@@ -20,12 +20,17 @@ import ReactivateAccount from './pages/ReactivateAccount';
 import AccountSecurity from './pages/AccountSecurity';
 import MfaChallenge from './pages/MfaChallenge';
 import { AuthProvider } from './lib/auth';
+import {useCallback,useState} from 'react';
+import SiteNavigation from './components/SiteNavigation';
+import './CSS/Workspace_style.css';
 
 export default function App() {
+  const [menuOpen,setMenuOpen]=useState(false),closeMenu=useCallback(()=>setMenuOpen(false),[]);
   return (
     <AuthProvider><AdministrationProvider><div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to content</a>
-      <Header />
+      <SiteNavigation open={menuOpen} onClose={closeMenu}/>
+      <Header onMenu={()=>setMenuOpen(true)}/>
       <main id="main-content" className="container main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />

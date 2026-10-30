@@ -1,0 +1,35 @@
+import {useEffect,useId,useRef,useState} from 'react';
+import type {ReactNode} from 'react';
+import {useAuth} from '../lib/auth';
+import {useRoleRead,useRoleMutation} from '../lib/roles';
+import type {Catalogue,Role} from '../lib/roles';
+import {permissionLabel,administratorRole} from '../lib/role-presentation';
+import {useUnsavedRole} from '../lib/use-unsaved-role';
+interface Change {roleId:string;action:'assign'|'remove'}
+function ReviewMembership({label,onConfirm,onClose}:{label:string;onConfirm:()=>void;onClose:()=>void}){
+ const dialog=useRef<HTMLDialogElement>(null),[checked,setChecked]=useState(false);
+ useEffect(()=>{dialog.current?.showModal();},[]);
+ return <dialog className="role-wizard" ref={dialog} aria-label="Review membership change" onClose={onClose}><h2>Review membership change</h2><p>{label}</p><p>Before: {label.startsWith('Add')?'Not assigned':'Assigned'} → After: {label.startsWith('Add')?'Assigned':'Not assigned'}</p><label className="role-check"><input type="checkbox" checked={checked} onChange={event=>setChecked(event.target.checked)}/>I reviewed this membership change</label><div className="wizard-actions"><button className="button button-secondary" onClick={()=>dialog.current?.close()}>Back to editing</button><button className="button" disabled={!checked} onClick={()=>{onConfirm();dialog.current?.close();}}>Confirm review</button></div></dialog>;
+}
+export default function MemberRoleEditor({userId,eligible,fallback,children}:{userId:string;eligible:boolean;fallback:ReactNode;children:(editor:ReactNode,actions:ReactNode)=>ReactNode}){
+ const auth=useAuth(),read=useRoleRead<Catalogue>('/api/manage/users/'+userId+'/roles'),mutation=useRoleMutation(),[query,setQuery]=useState(''),[change,setChange]=useState<Change|null>(null),[review,setReview]=useState(false),[reviewOpen,setReviewOpen]=useState(false),[active,setActive]=useState(-1),[message,setMessage]=useState(''),id=useId();
+ useUnsavedRole(!!change&&!mutation.pending);
+ if(!auth.administration?.sections.includes('roles'))return children(fallback,null);
+ if(!read.data)return children(<>{fallback}<small>{read.message||'Checking role membership…'}</small></>,null);
+ const data=read.data,self=userId===auth.session?.account.userId,assigned=data.assignments?.map(a=>a.roleId)??[];
+ const restricted=(role:Role)=>!data.administrator&&(!!role.isProtected||role.id===administratorRole||data.mappings.some(m=>m.roleId===role.id&&data.permissions.some(p=>p.id===m.permissionId&&p.protected)));
+ const visible=data.roles.filter(role=>assigned.includes(role.id)||change?.action==='assign'&&change.roleId===role.id);
+ const matches=query.trim()?data.roles.filter(role=>!assigned.includes(role.id)&&role.isActive&&!restricted(role)&&(role.name.toLowerCase().includes(query.trim().toLowerCase())||role.code.includes(query.trim().toLowerCase()))):[];
+ const selected=data.roles.find(role=>role.id===change?.roleId),label=selected?`${change?.action==='assign'?'Add':'Remove'} ${selected.name}`:'';
+ function stage(next:Change){setChange(next);setReview(false);setQuery('');setActive(-1);setMessage('');auth.setRoleFeedback('');}
+ function choose(role:Role){if(!change&&!self&&eligible&&!restricted(role))stage({roleId:role.id,action:'assign'});}
+ async function save(){if(!change||!review||self)return;await mutation.save('/api/manage/users/'+userId+'/roles',{...change,accountId:userId,revision:data.revision});}
+ const editor=<div className="member-role-editor"><ul className="member-roles" aria-label="Assigned roles">{visible.map(role=><li key={role.id} className={'member-role'+(change?.roleId===role.id?' membership-pending':'')}><span>{role.name}{!role.isActive?' (inactive)':''}{change?.roleId===role.id?(change.action==='assign'?' · pending addition':' · pending removal'):''}</span>{!self&&!restricted(role)&&<button type="button" aria-label={change?.roleId===role.id?'Undo '+role.name:'Remove '+role.name} disabled={mutation.pending||!!change&&change.roleId!==role.id} onClick={()=>change?.roleId===role.id?setChange(null):stage({roleId:role.id,action:'remove'})}>×</button>}</li>)}</ul>{!visible.length&&<span className="membership-empty">No assigned roles</span>}
+  {!self&&<div className="member-role-search"><input role="combobox" aria-label="Add role" aria-expanded={matches.length>0} aria-controls={id} aria-autocomplete="list" aria-activedescendant={active>=0?id+'-'+active:undefined} placeholder={change?'Save or cancel this change first':'Type a role name and press Enter…'} value={query} disabled={!!change||mutation.pending||!eligible} onChange={event=>{setQuery(event.target.value);setActive(-1);setMessage('');}} onKeyDown={event=>{
+   if(event.key==='ArrowDown'){event.preventDefault();setActive(index=>Math.min(index+1,matches.length-1));}else if(event.key==='ArrowUp'){event.preventDefault();setActive(index=>Math.max(index-1,0));}else if(event.key==='Escape'){setQuery('');setActive(-1);}else if(event.key==='Enter'){event.preventDefault();const role=matches.find(r=>r.name.toLowerCase()===query.trim().toLowerCase()||r.code===query.trim().toLowerCase())??(active>=0?matches[active]:matches.length===1?matches[0]:null);if(role)choose(role);else setMessage('Choose an existing role from the suggestions.');}
+  }}/>{matches.length>0&&<ul id={id} role="listbox" aria-label="Matching roles">{matches.map((role,index)=><li id={id+'-'+index} key={role.id} role="option" aria-selected={active===index} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(role)}>{role.name}</li>)}</ul>}</div>}
+  {self&&<small>You cannot change your own role memberships.</small>}{!eligible&&!self&&<small>This account cannot receive new roles. Existing assignments can still be removed.</small>}{message&&<small role="status">{message}</small>}<details className="member-permissions"><summary>Effective permissions</summary><p>{data.effectivePermissions?.map(permissionLabel).join(', ')||'None'}</p></details>
+ </div>;
+ const actions=<>{change&&<div className="role-sticky-actions member-role-actions" aria-label="Membership editing actions"><div className="role-save-state" role="status"><strong>{mutation.pending?'Saving membership…':label+' · unsaved'}</strong><small>{review?'Review confirmed. Ready to save.':'One membership change at a time. Review before saving.'}</small></div><div className="role-action-buttons"><button className="button button-secondary" disabled={mutation.pending} onClick={()=>{setChange(null);setReview(false);auth.setRoleFeedback('');}}>Cancel</button><button className="button button-secondary" disabled={mutation.pending} onClick={()=>setReviewOpen(true)}>{review?'Review again':'Review changes'}</button><button className="button" disabled={!review||mutation.pending} onClick={()=>void save()}>Save membership</button></div></div>}<p className="membership-feedback" role="status">{mutation.message}</p>{reviewOpen&&<ReviewMembership label={label} onConfirm={()=>setReview(true)} onClose={()=>setReviewOpen(false)}/>}</>;
+ return children(editor,actions);
+}

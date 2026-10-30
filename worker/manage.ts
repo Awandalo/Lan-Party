@@ -67,14 +67,14 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
       if(membership && !permissions.includes('users.view'))return reply(403,{error:'Member access is restricted'});
       if(url.pathname==='/api/manage/role-activity') {
         if(!await isAdministrator(env.DB,account.userId))return reply(403,{error:'Activity access is restricted'});
-        if([...url.searchParams.keys()].some(k=>k!=='before')||url.searchParams.getAll('before').length>1)throw new RoleInvalid();
-        return reply(200,await roleActivity(env.DB,url.searchParams.get('before')));
+        if([...url.searchParams.keys()].some(k=>!['before','date','operation','search'].includes(k)||url.searchParams.getAll(k).length>1))throw new RoleInvalid();
+        return reply(200,await roleActivity(env.DB,url.searchParams.get('before'),{date:url.searchParams.get('date')??'',operation:url.searchParams.get('operation')??'',search:url.searchParams.get('search')??'',includeNames:permissions.includes('users.view')}));
       }
       if(url.search)throw new RoleInvalid();
       const target=membership?url.pathname.split('/')[4]:null;
       if(target && !UUID.test(target))throw new RoleInvalid();
       if(request.method==='GET') {
-        const catalogue=await roleCatalogue(env.DB,account.userId);
+        const catalogue=await roleCatalogue(env.DB,account.userId,permissions.includes('users.view'));
         if(!target)return reply(200,catalogue);
         if(!await env.DB.prepare('SELECT 1 FROM users WHERE id=?').bind(target).first())return reply(404,{error:'Member not found'});
         const assignments=(await env.DB.prepare('SELECT role_id AS roleId,assigned_at AS assignedAt FROM user_roles WHERE user_id=? ORDER BY role_id').bind(target).all()).results;
