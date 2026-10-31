@@ -71,6 +71,16 @@ cursors retain their prior fingerprint. The card exposes the normal approved mem
 summary fields and requires `users.view` on every server read. It neither fetches
 the whole directory nor grants member access to roles-only managers.
 
+Role creation and editing share metadata normalization and field errors in
+`role-presentation.ts` and `RoleFields`. Surrounding whitespace in the name,
+description and identifier is removed consistently for validation, review, dirty
+comparison and submission. Internal control characters and invalid identifiers
+remain rejected, with field-linked accessible feedback instead of an unexplained
+disabled Next/Review button. New role dialogs should reuse these helpers and
+fields. This is scoped to role metadata; it is not a global input transformation
+and must not be applied to passwords or tokens. Deleted custom identifiers can be
+reused by a new role; its identity and audit history remain separate.
+
 Built-in roles, protected roles and roles carrying protected grants are never
 deletable, including by Administrators. Any `user_roles` row blocks deletion,
 including inactive/unverified members and future/held assignments. Effective member

@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 import {useAuth} from '../lib/auth';
 import type {Catalogue,Role} from '../lib/roles';
 import {builtIn,useRoleMutation,useRoleRead} from '../lib/roles';
-import {administratorRole,assignedPermissions,enabledGroups,roleIcon,roleDraft,draftValid,sameRoleDraft} from '../lib/role-presentation';
+import {administratorRole,assignedPermissions,enabledGroups,roleIcon,roleDraft,normalizeRoleDraft,draftValid,sameRoleDraft} from '../lib/role-presentation';
 import Icon from './Icon';
 import RoleFields from './RoleFields';
 import RolePermissions from './RolePermissions';
@@ -24,7 +24,7 @@ function SelectedRole({catalogue,role,onDirtyChange}:{catalogue:Catalogue;role:R
  const assigned=assignedPermissions(catalogue,role),locked=builtIn(role)||!catalogue.administrator&&(!!role.isProtected||assigned.some(id=>catalogue.permissions.find(p=>p.id===id)?.protected));
  const full=role.id===administratorRole,ids=full?catalogue.permissions.map(p=>p.id):editing?draft.permissionIds:assigned,modules=enabledGroups(catalogue,ids);
  const deletable=catalogue.deletionAvailable===true&&!builtIn(role)&&!role.isProtected&&!assigned.some(id=>catalogue.permissions.find(p=>p.id===id)?.protected);
- async function save(){if(locked||!dirty||!review||!draftValid(draft))return;await mutation.save('/api/manage/roles',{action:'update',roleId:role.id,revision:catalogue.revision,...draft});}
+ async function save(){if(locked||!dirty||!review||!draftValid(draft))return;await mutation.save('/api/manage/roles',{action:'update',roleId:role.id,revision:catalogue.revision,...normalizeRoleDraft(draft)});}
  return <><div className="role-main-column"><section className="panel selected-role-heading"><span className="role-icon role-icon-large"><Icon name={roleIcon(catalogue,role)}/></span><div><p className="eyebrow">{builtIn(role)?'Built-in role':role.isProtected?'Protected role':'Custom role'}</p><h2>{role.name}</h2><p>{role.description||'A role for your LAN Party crew.'}</p></div><div className="selected-role-actions">{!locked&&<button className="button button-secondary" disabled={editing||mutation.pending} onClick={()=>{setRoleFeedback('');setEditing(true);}}>Edit role</button>}{deletable&&<button className="button button-secondary role-danger" disabled={editing||mutation.pending} onClick={()=>{setRoleFeedback('');setDeleteOpen(true);}}>Delete role</button>}</div></section>
   {deleteOpen&&<DeleteRoleDialog role={role} pending={mutation.pending} onClose={()=>{if(!mutation.pending)setDeleteOpen(false);}} onDelete={async()=>{await mutation.save('/api/manage/roles',{action:'delete',roleId:role.id,revision:catalogue.revision,confirmed:true},'Role deleted.');setDeleteOpen(false);}}/>}
   {full&&<div className="role-notice"><Icon name="shield"/><div><strong>Full administrative access</strong><p>Administrators have full authority through their built-in membership. The explicit grants below do not limit that access.</p></div></div>}

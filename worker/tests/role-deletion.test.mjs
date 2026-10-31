@@ -124,3 +124,13 @@ test('assignment/deletion and duplicate-delete races have one winner; failed aud
  assert.equal(await f.sql('SELECT count(*) n FROM role_permissions WHERE role_id=?',third).first('n'),1);
  assert.equal((await catalogue(f,a)).revision,before);
 }));
+
+test('a deleted custom role identifier can be recreated with a new identity and its own activity',()=>local(async f=>{
+ const a=await f.user({genuine:true}),code='event_planner',id=await create(f,a,{code,name:'Event Planner',description:'Fictional test role'});
+ assert.equal((await deletion(f,a,id)).status,200);
+ const replacement=await create(f,a,{code,name:'Event Planner',description:'Fictional test role'});
+ assert.notEqual(replacement,id);
+ assert.equal(await f.sql('SELECT count(*) n FROM roles WHERE code=?',code).first('n'),1);
+ assert.equal(await f.sql("SELECT count(*) n FROM role_activity WHERE role_id=? AND operation='role.delete'",id).first('n'),1);
+ assert.equal(await f.sql("SELECT count(*) n FROM role_activity WHERE role_id=? AND operation='role.create'",replacement).first('n'),1);
+}));

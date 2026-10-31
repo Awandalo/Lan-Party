@@ -75,3 +75,6 @@ html:has(.role-sticky-actions) { scroll-padding-bottom:140px; }
 .role-assigned-members li { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem 0; border-bottom:1px solid var(--border); }
 .role-assigned-members li a { display:flex; flex-wrap:wrap; gap:.5rem; min-width:0; overflow-wrap:anywhere; }
 .role-member-pages { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; margin-top:1rem; }
+
+.role-fields .role-field-error { color:#ed9ba4; }
+.role-fields [aria-invalid=true] { border-color:#ed9ba4; }
