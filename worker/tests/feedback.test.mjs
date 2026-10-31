@@ -7,6 +7,27 @@ const call=(f,u,path='feedback/requests',body)=>f.request(path,u,body,headers(u)
 const create=async(f,u,patch={})=>{const r=await call(f,u,'feedback/requests',{operationId:randomUUID(),kind:'bug',title:'Fictional bug',description:'Expected behavior\nActual behavior',...patch});assert.equal(r.status,200,await r.clone().text());return(await r.json()).requestId;};
 const detail=async(f,u,id,admin=false)=>(await call(f,u,(admin?'manage/feedback/':'feedback/requests/')+id)).json();
 const unread=async(f,u)=>(await call(f,u,'feedback/unread')).json();
+
+test('conversation pages use numeric event order across digit boundaries and expose the latest rendered read boundary',()=>local(async f=>{
+ const u=await f.user(),a=await f.user({genuine:true}),id=await create(f,u);
+ await f.db.batch(Array.from({length:120},(_,i)=>f.sql(`INSERT INTO feedback_events(request_id,actor_id,actor_kind,kind,notification,body,operation_id,operation_hash)
+  VALUES (?,?,'administrator','reply','member',?,?,?)`,id,a.id,'Fictional event '+(i+2),randomUUID(),'fixture')));
+ const rows=(await f.sql('SELECT CAST(sequence AS TEXT) sequence FROM feedback_events WHERE request_id=? ORDER BY feedback_events.sequence',id).all()).results.map(r=>r.sequence);
+ const first=await detail(f,u,id);assert.deepEqual(first.events.map(e=>e.sequence),rows.slice(-50));assert.equal(first.through,rows.at(-1));
+ const second=await(await call(f,u,'feedback/requests/'+id+'?before='+first.nextBefore)).json();assert.deepEqual(second.events.map(e=>e.sequence),rows.slice(-100,-50));
+ const third=await(await call(f,u,'feedback/requests/'+id+'?before='+second.nextBefore)).json();assert.deepEqual(third.events.map(e=>e.sequence),rows.slice(0,-100));assert.equal(third.nextBefore,null);
+ const combined=[...third.events,...second.events,...first.events].map(e=>e.sequence);assert.deepEqual(combined,rows);assert.equal(new Set(combined).size,121);
+ assert.equal((await unread(f,u)).memberUnread,1);
+ assert.equal((await call(f,u,'feedback/requests/'+id+'/read',{through:first.through})).status,200);assert.equal((await unread(f,u)).memberUnread,0);
+ await f.sql(`INSERT INTO feedback_events(request_id,actor_id,actor_kind,kind,notification,body,operation_id,operation_hash) VALUES (?,?,'administrator','reply','member','Later fictional event',?,?)`,id,a.id,randomUUID(),'fixture').run();
+ assert.equal((await call(f,u,'feedback/requests/'+id+'/read',{through:first.through})).status,200);assert.equal((await unread(f,u)).memberUnread,1);
+}));
+
+test('conversation ordering preserves exact event sequence strings beyond JavaScript safe integers',()=>local(async f=>{
+ const u=await f.user(),id=await create(f,u);
+ for(const sequence of ['9007199254740993','10000000000000000'])await f.sql(`INSERT INTO feedback_events(sequence,request_id,actor_id,actor_kind,kind,notification,body,operation_id,operation_hash) VALUES (CAST(? AS INTEGER),?,?,'member','reply','administrator','Fictional large sequence',?,?)`,sequence,id,u.id,randomUUID(),'fixture').run();
+ const result=await detail(f,u,id);assert.deepEqual(result.events.slice(-2).map(e=>e.sequence),['9007199254740993','10000000000000000']);assert.equal(result.through,'10000000000000000');
+}));
 test('feedback ownership, genuine Administrator authority, session correlation and no-store boundaries',()=>local(async f=>{
  const a=await f.user({genuine:true}),u=await f.user(),v=await f.user(),d=await f.user({admin:true}),id=await create(f,u);
  assert.equal((await call(f,v,'feedback/requests/'+id)).status,404);

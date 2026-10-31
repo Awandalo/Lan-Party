@@ -6,9 +6,11 @@ export async function feedbackRead(db:D1Database,c:FeedbackContext,admin:boolean
   for(const k of params.keys())if(k!=='before'||params.getAll(k).length!==1)throw new FeedbackError(400,'Invalid query');
   const before=params.get('before')??'9223372036854775807';if(!/^[1-9][0-9]{0,18}$/.test(before)||BigInt(before)>9223372036854775807n)throw new FeedbackError(400,'Invalid cursor');
   const row=await feedbackRequest(db,id,c,admin);
-  const events=(await db.prepare(`SELECT CAST(sequence AS TEXT) AS sequence,actor_kind AS actorKind,
+  // Keep exact sequence strings in JSON, but sort the stored integer column.
+  // An unqualified ORDER BY sequence resolves to the text response alias.
+  const events=(await db.prepare(`SELECT CAST(e.sequence AS TEXT) AS sequence,actor_kind AS actorKind,
    CASE WHEN actor_id IS NULL THEN 1 ELSE 0 END AS anonymized,kind,body,delta,occurred_at AS occurredAt
-   FROM feedback_events WHERE request_id=? AND sequence<CAST(? AS INTEGER) ORDER BY sequence DESC LIMIT 51`).bind(id,before).all()).results;
+   FROM feedback_events e WHERE e.request_id=? AND e.sequence<CAST(? AS INTEGER) ORDER BY e.sequence DESC LIMIT 51`).bind(id,before).all()).results;
   const page=events.slice(0,50),oldest=page.at(-1),through=page[0]?.sequence??'0';
   return {request:{...feedbackSummary(admin?row:{...row,nickname:undefined}),description:row.description},events:page.reverse(),nextBefore:events.length>50?oldest?.sequence:null,through};
  }

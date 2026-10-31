@@ -95,6 +95,22 @@ schema/data; never automatically DROP tables or rewind the whole database.
 
 ## Verification / handover
 
+### Conversation ordering correction
+
+Conversations display oldest first and newest at the bottom beside the reply
+composer. The read query previously ordered its CAST-to-text response alias,
+which sorts identifiers lexically (for example 1, 10, 2). It now explicitly orders
+the stored integer column, preserving exact sequence strings in JSON. This also
+corrects latest-rendered read boundaries and older-page cursors; no audit data,
+timestamps, permissions or schema are changed. Role Activity and User Log already
+use numeric ordering and required no edits.
+
+Two D1/API regressions reproduced the defect before the correction and passed
+afterward. Coverage includes 121 events across three pages, 9/10 and 99/100 digit
+boundaries, no skipped/duplicate events, exact IDs beyond JavaScript safe integers,
+the read watermark and a later concurrent unread event. All 28 focused feedback,
+cache, presentation and private-read checks plus TypeScript and both builds passed.
+
 ### Final polish — assignment 6549889302
 
 Feedback's member route and its descendants are independent of User Settings in
