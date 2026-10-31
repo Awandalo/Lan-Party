@@ -5,6 +5,7 @@ import {useLocation} from 'react-router';
 import {SessionValidation} from './session-validation';
 import {MemberReadCache} from './member-read-cache';
 import {RoleReadCache} from './role-read-cache';
+import {FeedbackReadCache} from './feedback-read-cache';
 import {RoleFeedback} from './role-feedback';
 import type {Session, AdministrationAccess, ValidationState} from './session-validation';
 interface Authentication {
@@ -13,6 +14,7 @@ interface Authentication {
   administration?: AdministrationAccess;
   memberReads: MemberReadCache;
   roleReads: RoleReadCache;
+  feedbackReads: FeedbackReadCache;
   invalidateAdministration:()=>Promise<boolean>;
   roleFeedback:string;
   setRoleFeedback:(message:string)=>void;
@@ -25,9 +27,10 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const [state, setState] = useState<ValidationState>({session: null, status: enabled ? 'loading' : 'ready', access: {sections: [], status: enabled ? 'loading' : 'ready'}});
   const [memberReads] = useState(() => new MemberReadCache());
   const [roleReads] = useState(() => new RoleReadCache());
+  const [feedbackReads] = useState(() => new FeedbackReadCache());
   const [feedback]=useState(()=>new RoleFeedback());
   const [,renderFeedback]=useState(0);
-  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);roleReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
+  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);roleReads.synchronize(next);feedbackReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
   const channel = useRef<BroadcastChannel | null>(null);
   const {pathname} = useLocation();
   const feedbackContext=state.session?state.session.account.userId+':'+state.session.csrfToken:null;
@@ -37,7 +40,9 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const roleFeedback=feedback.get(feedbackContext);
   const refresh = useCallback(() => enabled ? validation.refresh(true) : Promise.resolve(false), [enabled, validation]);
   const invalidateAdministration=useCallback(()=>{validation.invalidate();channel.current?.postMessage('invalidate');return enabled?validation.refresh():Promise.resolve(false);},[enabled,validation]);
-  useEffect(() => {if (enabled) void validation.refresh();}, [enabled, validation, pathname]);
+  // Route reads can run beside validation. Unchanged authority must not cancel
+  // and restart them; explicit invalidations and failures still clear all views.
+  useEffect(() => {if (enabled) void validation.refresh(false,'background');}, [enabled, validation, pathname]);
   useEffect(() => {
     if (!enabled) return;
     // Cross-tab messages carry invalidation only, never identities, grants or tokens.
@@ -65,7 +70,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
       await refresh(); return false;
     } catch {await refresh(); return false;}
   };
-  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, roleReads, invalidateAdministration, roleFeedback,setRoleFeedback,refresh, logout}}>{children}</Context>;
+  return <Context value={{session: state.session, status: state.status, administration: state.access, memberReads, roleReads,feedbackReads, invalidateAdministration, roleFeedback,setRoleFeedback,refresh, logout}}>{children}</Context>;
 }
 export function useAuth() {
   const value = useContext(Context);

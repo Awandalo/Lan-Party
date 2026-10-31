@@ -20,8 +20,8 @@ before(async()=>{
  import {purgeUserActivity} from './worker/auth/user-activity';
  let mailMode='ok';const originalSend=localMailbox.send.bind(localMailbox);
  import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
- export default{async fetch(request,env){
- if(new URL(request.url).pathname!='/fixture')return app.fetch(request,env);
+ export default{async fetch(request,env,ctx){
+ if(new URL(request.url).pathname!='/fixture')return app.fetch(request,env,ctx);
  const {action,args=[]}=await request.json();
  try{
  if(action==='mailMode'){mailMode=args[0];return Response.json(true);}

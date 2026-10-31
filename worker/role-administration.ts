@@ -22,12 +22,12 @@ export async function roleDeletionState(db:D1Database,id:string){
  return row.assigned?'assigned':'available';
 }
 export async function roleSchemaReady(db:D1Database) {
- const row=await db.prepare("SELECT count(*) n FROM sqlite_schema WHERE type='table' AND name IN ('rbac_state','role_activity')").first<number>('n');
- if(row===0)return false;
- if(row!==2)throw Error('Partial role schema');
- const columns=(await db.prepare('PRAGMA table_info(roles)').all<{name:string}>()).results;
- const triggers=await db.prepare("SELECT count(*) n FROM sqlite_schema WHERE type='trigger' AND name IN ('role_activity_no_update','role_activity_no_delete','role_activity_no_replace','builtin_role_no_update','builtin_role_no_delete','builtin_role_no_replace')").first<number>('n');
- if(!columns.some(c=>c.name==='is_protected')||triggers!==6)throw Error('Partial role schema');
+ const row=await db.prepare(`SELECT
+  (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN ('rbac_state','role_activity')) AS tables,
+  (SELECT count(*) FROM pragma_table_info('roles') WHERE name='is_protected') AS protectedColumn,
+  (SELECT count(*) FROM sqlite_schema WHERE type='trigger' AND name IN ('role_activity_no_update','role_activity_no_delete','role_activity_no_replace','builtin_role_no_update','builtin_role_no_delete','builtin_role_no_replace')) AS guards`).first<{tables:number;protectedColumn:number;guards:number}>();
+ if(row?.tables===0)return false;
+ if(row?.tables!==2||row.protectedColumn!==1||row.guards!==6)throw Error('Partial role schema');
  return true;
 }
 export async function isAdministrator(db:D1Database,userId:string) {

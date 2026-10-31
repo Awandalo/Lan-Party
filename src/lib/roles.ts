@@ -28,17 +28,9 @@ export function useRoleRead<T>(href:string,section:'roles'|'activity'='roles') {
  const result=useSyncExternalStore(roleReads.subscribe,()=>roleReads.get(href));
  useEffect(()=>{
   if(!allowed||!proof)return;
-  roleReads.read(href,section,async signal=>{
-   let data:T|null=null,message='';
-   try{
-    const response=await fetch(href,{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
-    if(response.ok){const value:unknown=await response.json();if(!validRead(value,section==='activity'))throw Error('Invalid role response');data=value as T;}
-    else message=[401,403].includes(response.status)?'Access is restricted.':'Role information is unavailable. Reload to check the current state.';
-   }catch{message='Role information is unavailable. Reload to check the current state.';}
-   return {data,message};
-  });
+  roleReads.read(href,section,signal=>loadRoleRead(href,section,proof,signal),5000);
  },[roleReads,allowed,proof,principal,href,revision,retry,section,sections]);
- return {data:allowed?(result?.data as T??null):null,message:allowed?result?.message??'':'',loading:!allowed||!result||result.loading,reload:()=>setRetry(n=>n+1)};
+ return {data:allowed?(result?.data as T??null):null,message:allowed?result?.message??'':'',loading:!allowed||!result||result.loading,reload:()=>{roleReads.expire(href);setRetry(n=>n+1);}};
 }
 export function useRoleMutation(){
  const auth=useAuth(),[pending,setPending]=useState(false),setMessage=auth.setRoleFeedback;
@@ -52,4 +44,14 @@ export function useRoleMutation(){
   finally{setPending(false);await auth.invalidateAdministration();}
  }
  return {save,pending,message:auth.roleFeedback};
+}
+
+export async function loadRoleRead(href:string,section:'roles'|'activity',proof:string,signal:AbortSignal) {
+   let data:unknown=null,message='';
+   try{
+    const response=await fetch(href,{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
+    if(response.ok){const value:unknown=await response.json();if(!validRead(value,section==='activity'))throw Error('Invalid role response');data=value;}
+    else message=[401,403].includes(response.status)?'Access is restricted.':'Role information is unavailable. Reload to check the current state.';
+   }catch{message='Role information is unavailable. Reload to check the current state.';}
+   return {data,message};
 }

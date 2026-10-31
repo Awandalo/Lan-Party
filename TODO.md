@@ -493,6 +493,7 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Keep GitHub publication manual with an editable blank technical scaffold, explicit copy/open confirmation and audited validated issue links.
 - [x] Test additive 0023, obtain separate DEV preflight/migration/retention approval, and apply/verify the exact migration without account/grant changes.
 - [x] Cover ownership, full sessions, transactional replay/races, closure/purge, actual account deletion, responsive layout and sign-out cleanup locally.
+- [x] Optimize private-page loading with request-local query reuse, background feedback cleanup, session-bound result reuse and navigation-intent prefetch; preserve security checks. See [loading behavior and verification limits](docs/private-page-loading.md).
 - [ ] Verify CI and DEV deployment, then owner two-account acceptance; keep #44 open. No Phase 5 implementation until acceptance/closure.
 
 ## Phase 5 — Events

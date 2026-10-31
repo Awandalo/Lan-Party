@@ -50,3 +50,11 @@ test('bounded cache and endpoint section gates preserve users.view and administr
  assert.equal(c.get('roles0'),undefined);assert.equal(c.get('roles8').data.name,8);
  c.synchronize({...state(),session:null});c.synchronize(state());assert.equal(c.get('roles8'),undefined);
 });
+
+test('five-second intent reuse avoids duplicate transport and explicit reload/invalidation bypasses freshness',async()=>{
+ let now=10000,reads=0;const c=new RoleReadCache(()=>now);c.synchronize(state());const load=async()=>{reads++;return result('Fictional');};
+ c.read('roles','roles',load,5000);await tick();c.read('roles','roles',load,5000);await tick();assert.equal(reads,1);
+ now+=5000;c.read('roles','roles',load,5000);await tick();assert.equal(reads,2);
+ c.expire('roles');c.read('roles','roles',load,5000);await tick();assert.equal(reads,3);
+ c.synchronize({...state(),access:{...state().access,revision:1}});c.read('roles','roles',load,5000);await tick();assert.equal(reads,4);
+});

@@ -9,7 +9,7 @@ import {isAdministrator} from './role-administration';
 import {FeedbackError,feedbackReady,purgeFeedback,feedbackUUID} from './feedback-data';
 import {feedbackRead,feedbackUnread} from './feedback-read';
 import {feedbackWrite} from './feedback-write';
-export async function feedback(request:Request,env:AuthenticationEnvironment){
+export async function feedback(request:Request,env:AuthenticationEnvironment,ctx:ExecutionContext){
  const reply=(status:number,data:object)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
  const url=new URL(request.url),admin=url.pathname.startsWith('/api/manage/');
  if(!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
@@ -17,6 +17,7 @@ export async function feedback(request:Request,env:AuthenticationEnvironment){
  const unread=!admin&&url.pathname==='/api/feedback/unread';
  if(!unread&&(!url.pathname.startsWith(prefix)||parts.length>2||parts[0]&&!feedbackUUID.test(parts[0])||parts[1]&&!['replies','read','triage','github-link'].includes(parts[1])))return reply(404,{error:'Not found'});
  if(!['GET','POST'].includes(request.method)||request.method==='GET'&&parts[1]||request.method==='POST'&&(unread||parts.length===1||admin&&!parts.length))return reply(405,{error:'Method not allowed'});
+ let cleanupReady=false;
  try{
   const origin=authOrigin(request,env),proof=fromHex(request.headers.get('X-LAN-Session-Proof')??'',32);
   if(request.headers.get('X-LAN-Request')!=='1'||request.headers.has('Content-Encoding')||request.headers.has('Origin')&&request.headers.get('Origin')!==origin.origin||request.headers.has('Sec-Fetch-Site')&&request.headers.get('Sec-Fetch-Site')!=='same-origin')return reply(403,{error:'Request rejected'});
@@ -28,7 +29,7 @@ export async function feedback(request:Request,env:AuthenticationEnvironment){
   const administrator=await isAdministrator(env.DB,account.userId);
   if(admin&&!administrator)return reply(403,{error:'Feedback administration is restricted'});
   if(!await feedbackReady(env.DB))return reply(503,{error:'Feedback requires its approved database migration'});
-  await purgeFeedback(env.DB);
+  cleanupReady=true;
   const c={userId:account.userId,digest,admin:administrator,ip:authClientIP(request,env),secret:env.AUTH_RATE_LIMIT_SECRET!};
   if(unread){if(url.search)throw new FeedbackError(400,'Invalid query');return reply(200,await feedbackUnread(env.DB,c));}
   if(request.method==='GET')return reply(200,await feedbackRead(env.DB,c,admin,parts[0]??null,url.searchParams));
@@ -40,4 +41,9 @@ export async function feedback(request:Request,env:AuthenticationEnvironment){
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new FeedbackError(400,'Invalid request');
   return reply(200,await feedbackWrite(env.DB,c,admin,parts[0]??null,parts[1]??'create',raw as Record<string,unknown>));
  }catch(e){return e instanceof FeedbackError?reply(e.status,{error:e.message}):reply(503,{error:'Feedback is unavailable. Reload to check the current state.'});}
+ finally{
+  // Start maintenance after foreground queries, without awaiting physical purge.
+  // Exact expiry stays enforced by SQL; the daily job remains the backstop.
+  if(cleanupReady)ctx.waitUntil(purgeFeedback(env.DB,1,true));
+ }
 }

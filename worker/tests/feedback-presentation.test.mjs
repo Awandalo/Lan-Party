@@ -5,8 +5,9 @@ const require=createRequire(import.meta.url),{build}=createRequire(require.resol
 const output=(await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`
  import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';
  import FeedbackEntry from './src/components/FeedbackEntry';
+ import {AuthProvider} from './src/lib/auth';import {FeedbackProvider} from './src/lib/feedback';
  export * from './src/lib/feedback';export * from './src/lib/navigation';
- export const entry=()=>renderToStaticMarkup(<MemoryRouter><FeedbackEntry/></MemoryRouter>);
+ export const entry=()=>renderToStaticMarkup(<MemoryRouter><AuthProvider><FeedbackProvider><FeedbackEntry/></FeedbackProvider></AuthProvider></MemoryRouter>);
  `},bundle:true,packages:'external',write:false,platform:'node',format:'cjs',jsx:'automatic',loader:{'.css':'empty'},define:{'import.meta.env.DEV':'true','import.meta.env.VITE_AUTH_MODE':'"hosted-dev"'}})).outputFiles[0].text;
 const compiled=new Module(import.meta.filename);compiled.paths=Module._nodeModulePaths(process.cwd());compiled._compile(output,import.meta.filename);const ui=compiled.exports;
 test('feedback entry has an accessible bug link and no duplicate Settings destination',()=>{

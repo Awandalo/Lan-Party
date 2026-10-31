@@ -21,15 +21,20 @@ const sectionPermissions = {
 
 // Resolve current grants for every request. Role names never imply permissions.
 export async function administrationPermissions(db: D1Database, userId: string, now: number) {
-  if(await roleSchemaReady(db) && await isAdministrator(db,userId)) {
-    return (await db.prepare('SELECT code FROM permissions').all<{code:string}>()).results.map(p=>p.code);
+  return (await administrationAuthority(db,userId,now)).permissions;
+}
+async function administrationAuthority(db:D1Database,userId:string,now:number) {
+  // Request-local facts only: never cache grants or schema readiness across requests.
+  const rolesReady=await roleSchemaReady(db),admin=rolesReady&&await isAdministrator(db,userId);
+  if(admin) {
+    return {rolesReady,admin,permissions:(await db.prepare('SELECT code FROM permissions').all<{code:string}>()).results.map(p=>p.code)};
   }
   const rows = await db.prepare(`SELECT DISTINCT p.code FROM user_roles ur
     JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id
     JOIN permissions p ON p.id=rp.permission_id
     WHERE ur.user_id=? AND r.is_active=1 AND ur.assigned_at<=? AND rp.granted_at<=?`)
     .bind(userId, now, now).all<{code: string}>();
-  return rows.results.map(row => row.code);
+  return {rolesReady,admin,permissions:rows.results.map(row => row.code)};
 }
 
 export async function manage(request: Request, env: AuthenticationEnvironment): Promise<Response> {
@@ -65,14 +70,14 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
       const expected = fromHex(await sessionCsrfToken(await digestToken(token!, 'session'), env.AUTH_RATE_LIMIT_SECRET!), 32)!;
       if (!bytes || !crypto.subtle.timingSafeEqual(bytes, expected)) return reply(409, {error: 'Session context changed'});
     }
-    const permissions = await administrationPermissions(env.DB, account.userId, now);
+    const {permissions,rolesReady,admin} = await administrationAuthority(env.DB, account.userId, now);
     if(userLog){
       if(!await isAdministrator(env.DB,account.userId))return reply(403,{error:'User Log access is restricted'});
       if(!await userActivityReady(env.DB))return reply(503,{error:'User Log is unavailable'});
       return reply(200,await readUserActivity(env.DB,url));
     }
     if(roleEndpoint) {
-      if(!await roleSchemaReady(env.DB))return reply(503,{error:'Role administration requires its approved database migration'});
+      if(!rolesReady)return reply(503,{error:'Role administration requires its approved database migration'});
       if(!permissions.includes('roles.manage'))return reply(403,{error:'Role access is restricted'});
       if(deletion){
         if(url.search)throw new RoleInvalid();
@@ -112,7 +117,6 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
       if (!permissions.includes('users.view')) return reply(403, {error: 'Member access is restricted'});
       const result = await memberRead(env.DB, url); return reply(result.status, result.body);
     }
-    const admin=await roleSchemaReady(env.DB)&&await isAdministrator(env.DB,account.userId);
     const sections = Object.entries(sectionPermissions).filter(([key, required]) => key==='activity'?admin:required.some(p => permissions.includes(p))).map(([key]) => key);
     if(admin&&await userActivityReady(env.DB))sections.push('userActivity');
     if(admin&&await feedbackReady(env.DB))sections.push('feedback');

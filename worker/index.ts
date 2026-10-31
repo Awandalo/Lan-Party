@@ -21,9 +21,9 @@ export default {
     if(env.AUTH_ENVIRONMENT==='dev'&&await feedbackReady(env.DB))ctx.waitUntil(purgeFeedback(env.DB,20));
     if(['dev','prod'].includes(env.AUTH_ENVIRONMENT??'')&&env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled')ctx.waitUntil(purgeUserActivity(env.DB));
   },
-  async fetch(request, env): Promise<Response> {
+  async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
-    if(pathname.startsWith('/api/feedback/')||pathname==='/api/manage/feedback'||pathname.startsWith('/api/manage/feedback/'))return feedback(request,env);
+    if(pathname.startsWith('/api/feedback/')||pathname==='/api/manage/feedback'||pathname.startsWith('/api/manage/feedback/'))return feedback(request,env,ctx);
     if(pathname.startsWith('/api/manage/'))return manage(request,env);
     if(pathname.startsWith('/api/auth/lifecycle/'))return lifecycleHttp(request,env);
     if(pathname.startsWith('/api/auth/mfa/'))return mfaAuthentication(request,env);

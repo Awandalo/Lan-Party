@@ -11,12 +11,27 @@ let script,migrations;
 before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
- export default{async fetch(request,env){const path=new URL(request.url).pathname;
+ const background=new Set();
+ export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
+ if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
+ const runtime=ctx;ctx={waitUntil(task){background.add(task);runtime.waitUntil(task.finally(()=>background.delete(task)));}};
  if(path!='/fixture'){
+  if(request.headers.get('X-Fixture-Read-Profile')==='1'){
+   const sqls=[],tasks=[];
+   const statement=(value,sql)=>new Proxy(value,{get(target,key){if(key==='bind')return(...args)=>statement(target.bind(...args),sql);const entry=Reflect.get(target,key);if(['first','all','run'].includes(key))return(...args)=>{sqls.push(sql);return entry.apply(target,args);};return typeof entry==='function'?entry.bind(target):entry;}});
+   const db=new Proxy(env.DB,{get(target,key){if(key==='prepare')return sql=>statement(target.prepare(sql),sql);const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;}});
+   const response=await app.fetch(request,{...env,DB:db},{waitUntil:p=>tasks.push(p)});
+   response.headers.set('X-Fixture-Background-Cleanup',String(tasks.length));
+   response.headers.set('X-Fixture-Role-Schema-Reads',String(sqls.filter(s=>s.includes("name IN ('rbac_state','role_activity')")).length));
+   response.headers.set('X-Fixture-Feedback-Schema-Reads',String(sqls.filter(s=>s.includes("name IN ('feedback_requests','feedback_events','feedback_reads')")).length));
+   response.headers.set('X-Fixture-Foreground-Queries',String(sqls.length));
+   for(const task of tasks)ctx.waitUntil(task);
+   return response;
+  }
   // Test-only interleaving: invoke the real RBAC endpoint after lifecycle
   // prechecks, before its transaction. Never included in the deployed Worker.
   const member=request.headers.get('X-Fixture-Rbac-Remove');
-  if(!member)return app.fetch(request,env);
+  if(!member)return app.fetch(request,env,ctx);
   let removalStatus=0;
   const queries=new WeakMap();
   const statement=(value,sql)=>{const wrapped=new Proxy(value,{get(target,key){if(key==='bind')return(...args)=>statement(target.bind(...args),sql);const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;}});queries.set(wrapped,sql);return wrapped;};
@@ -32,7 +47,7 @@ before(async()=>{
    };
    const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;
   }});
-  const response=await app.fetch(request,{...env,DB:db});response.headers.set('X-Fixture-Rbac-Status',String(removalStatus));return response;
+  const response=await app.fetch(request,{...env,DB:db},ctx);response.headers.set('X-Fixture-Rbac-Status',String(removalStatus));return response;
  }
  const token=generateToken();const digest=await digestToken(token,'session');return Response.json({token,digest,csrf:await sessionCsrfToken(digest,env.AUTH_RATE_LIMIT_SECRET)});}};`},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
  migrations=[];
@@ -60,7 +75,8 @@ async function local(run,count){
  await sql('INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at) VALUES (?,?,?,0,?,?)',randomUUID(),id,session.digest,time-1,time+604800).run();return{id,...session};
  };
  const request=(path,u,input,headers={})=>simulator.dispatchFetch(origin+'/api/'+path,{method:input===undefined?'GET':'POST',headers:{'X-LAN-Request':'1',...(u?{Cookie:'__Host-lan_session='+u.token}:{}),...(input===undefined?{}:{'Content-Type':'application/json',Origin:origin}),...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
- await run({db,sql,user,value,request,migrate});
+ const drain=()=>simulator.dispatchFetch(origin+'/fixture-drain');
+ await run({db,sql,user,value,request,migrate,drain});
  assert.equal(await sql('PRAGMA quick_check').first('quick_check'),'ok');assert.deepEqual((await sql('PRAGMA foreign_key_check').all()).results,[]);
  }finally{await simulator.dispose();}
 }

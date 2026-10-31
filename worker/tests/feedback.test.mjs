@@ -59,7 +59,9 @@ test('account deletion cascades private threads, administrator deletion anonymiz
  assert.equal(await f.sql("SELECT count(*) n FROM feedback_events WHERE actor_id IS NULL AND actor_kind='administrator'").first('n'),1);
  assert.equal((await detail(f,u,id)).events.length,2);
  await f.sql("UPDATE feedback_requests SET progress='closed',closed_at=unixepoch()-2592000 WHERE id=?",id).run();
- assert.equal((await call(f,u,'feedback/requests/'+id)).status,404);assert.equal(await f.sql('SELECT count(*) n FROM feedback_events').first('n'),0);
+ const expired=await call(f,u,'feedback/requests/'+id);assert.equal(expired.status,404);
+ // Physical purge is now background work; await that task, not an arbitrary delay.
+ await f.drain();assert.equal(await f.sql('SELECT count(*) n FROM feedback_events').first('n'),0);
  const second=await create(f,u);await f.sql('DELETE FROM auth_sessions WHERE user_id=?',u.id).run();await f.sql('DELETE FROM users WHERE id=?',u.id).run();assert.equal(await f.sql('SELECT count(*) n FROM feedback_requests WHERE id=?',second).first('n'),0);
 }));
 test('feedback migration is additive, absent/partial schema fails closed, and expired visibility does not depend on cleanup',()=>local(async f=>{

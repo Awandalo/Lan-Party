@@ -23,7 +23,13 @@ export function useMemberRead(href: string, detail: boolean) {
  const revision=access.revision;
  useEffect(()=>{
   if (!allowed || !proof) return;
-  memberReads.read(href,async signal=>{
+  memberReads.read(href,signal=>loadMemberRead(href,detail,proof,signal),5000);
+ // Mutations advance the view revision; unchanged route/focus checks keep it stable. Identity/access failures still clear and fence reads.
+ },[memberReads,allowed,proof,revision,href,detail,retry]);
+ return {data:allowed?result?.data??null:null,message:allowed?result?.message??'':'',loading:!allowed || !result || result.loading,retry:()=>{memberReads.expire(href);setRetry(n=>n+1);}};
+}
+
+export async function loadMemberRead(href:string,detail:boolean,proof:string,signal:AbortSignal) {
    let data:MemberPage|{member:MemberDetail}|null=null,message='';
    try {
     const response=await fetch(href,{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
@@ -35,9 +41,4 @@ export function useMemberRead(href: string, detail: boolean) {
     else {const value:unknown=await response.json();if(!valid(value,detail))throw Error('Invalid response');data=value;}
    } catch {message='Members are temporarily unavailable. Please try again.';}
    return {data,message};
-  });
- // Foreground navigation/mutations advance the view revision; unchanged focus
- // checks keep it stable. Identity/access failures still clear and fence reads.
- },[memberReads,allowed,proof,revision,href,detail,retry]);
- return {data:allowed?result?.data??null:null,message:allowed?result?.message??'':'',loading:!allowed || !result || result.loading,retry:()=>setRetry(n=>n+1)};
 }

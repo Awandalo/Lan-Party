@@ -49,3 +49,11 @@ test('return navigation can immediately read a bounded cache without crossing co
  assert.equal(c.get('page0'),undefined);assert.equal(c.get('page8').data.members[0].nickname,'Fictional 8');
  c.synchronize({...state(),session:null});c.synchronize(state());assert.equal(c.get('page8'),undefined);
 });
+
+test('five-second intent reuse avoids duplicate transport and explicit reload/invalidation bypasses freshness',async()=>{
+ let now=10000,reads=0;const c=new MemberReadCache(()=>now);c.synchronize(state());const load=async()=>{reads++;return page('Fictional');};
+ c.read('list',load,5000);await tick();c.read('list',load,5000);await tick();assert.equal(reads,1);
+ now+=5000;c.read('list',load,5000);await tick();assert.equal(reads,2);
+ c.expire('list');c.read('list',load,5000);await tick();assert.equal(reads,3);
+ c.synchronize({...state(),access:{...state().access,revision:1}});c.read('list',load,5000);await tick();assert.equal(reads,4);
+});

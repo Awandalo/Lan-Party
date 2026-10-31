@@ -33,7 +33,9 @@ cross-system duplicate prevention. Public content has a separate lifetime.
 Completed/Closed records a closure timestamp; switching between closed states or
 later closed-thread activity does not reset it. Reopening clears it. Every read
 and mutation excludes records at 30 days after closure even before cleanup.
-Authenticated feature access purges up to 500 expired threads. The existing
+Authenticated feature access schedules background purge of up to 500 expired
+threads with Worker `waitUntil`, after foreground queries. It does not wait for
+physical deletion before returning the response. The existing
 03:00 UTC DEV maintenance trigger additionally drains up to 20 batches of 500;
 there is no new cron, infrastructure or configuration flag. Cleanup remains
 active when session UI is disabled. Thus physical cleanup
@@ -92,6 +94,10 @@ Rollback normally disables the compatible feature code while preserving additive
 schema/data; never automatically DROP tables or rewind the whole database.
 
 ## Verification / handover
+
+The follow-up [private-page loading optimization](private-page-loading.md) covers
+Members, Roles and Feedback caching, intent prefetch, request-local query savings,
+security boundaries and the distinction between local and hosted timing evidence.
 
 146 selected integration/regression tests and strict TypeScript/hosted-dev build
 passed. Focused evidence includes

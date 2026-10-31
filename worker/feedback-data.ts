@@ -7,13 +7,14 @@ export const visibleFeedback="(f.closed_at IS NULL OR f.closed_at>unixepoch()-25
 export class FeedbackError extends Error {constructor(readonly status:number, message:string){super(message);}}
 export interface FeedbackContext {userId:string;digest:string;admin:boolean;ip:string;secret:string}
 export async function feedbackReady(db:D1Database){
- const n=await db.prepare("SELECT count(*) n FROM sqlite_schema WHERE type='table' AND name IN ('feedback_requests','feedback_events','feedback_reads')").first<number>('n');
- if(n===0)return false;
- const guards=await db.prepare("SELECT count(*) n FROM sqlite_schema WHERE type='trigger' AND name IN ('feedback_request_identity','feedback_event_content','feedback_event_actor')").first<number>('n');
- if(n!==3||guards!==3)throw new Error('Partial feedback schema');return true;
+ const row=await db.prepare(`SELECT
+  (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN ('feedback_requests','feedback_events','feedback_reads')) AS tables,
+  (SELECT count(*) FROM sqlite_schema WHERE type='trigger' AND name IN ('feedback_request_identity','feedback_event_content','feedback_event_actor')) AS guards`).first<{tables:number;guards:number}>();
+ if(row?.tables===0)return false;
+ if(row?.tables!==3||row.guards!==3)throw new Error('Partial feedback schema');return true;
 }
-export async function purgeFeedback(db:D1Database,batches=1){
- if(!await feedbackReady(db))return;
+export async function purgeFeedback(db:D1Database,batches=1,ready=false){
+ if(!ready&&!await feedbackReady(db))return;
  // Same daily DEV maintenance trigger, plus bounded cleanup on authenticated use.
  for(let i=0;i<batches;i++){const result=await db.prepare('DELETE FROM feedback_requests WHERE id IN (SELECT id FROM feedback_requests WHERE closed_at<=unixepoch()-2592000 ORDER BY closed_at LIMIT 500)').run();if(result.meta.changes<500)break;}
 }
