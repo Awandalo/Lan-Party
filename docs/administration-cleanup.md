@@ -189,6 +189,18 @@ owner acceptance and final publication evidence remain in #30.
 
 ## Verification and hosted handover
 
+The owner accepted Phase 4.5 in the 2026-10-31 Codex conversation and requested
+#30 closure after the final switch consistency changes are deployed and verified.
+Remaining native checkbox presentations in role setup/review and MFA recovery-code
+acknowledgements now use `SwitchInput` and its shared stylesheet. Future binary
+input controls should reuse this component. It retains native required validation,
+names/IDs, controlled or uncontrolled state and disabled-fieldset behavior while
+exposing switch semantics, keyboard input, focus indication and a 44px hit target.
+Existing button-based account/member switches remain switches. This changes no
+authentication policy, backend workflow, schema or configuration. Automated/local
+evidence is distinct from the owner's hosted acceptance; no new hosted account or
+provider mutation is implied by closure.
+
 Local fixtures are fictional and intercept all transports. Check main/context route
 selection, no-empty submenu, deep links/history/refresh, mobile drawer/focus, logout
 busy/failure/success and stale reads. Check User Log strict filters, cursor paging,

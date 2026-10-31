@@ -1,3 +1,4 @@
+import SwitchInput from './SwitchInput';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import {Link} from 'react-router';
@@ -101,7 +102,7 @@ export default function MfaRecovery(){
   {!uncertain&&status?.phase==='initial'&&<form onSubmit={e=>submit(e,'start')}><fieldset disabled={busy}>
    <p>Use an unused recovery code, including your last one. It will be spent immediately. Losing this browser context may require administrator assistance.</p>
    <label htmlFor="replace-code">Unused recovery code</label><input id="replace-code" name="code" required maxLength={40} autoComplete="one-time-code"/>
-   <label><input name="confirmed" type="checkbox" required/> I understand this code will be spent and I have five minutes to replace my authenticator.</label>
+   <label><SwitchInput name="confirmed" required/> I understand this code will be spent and I have five minutes to replace my authenticator.</label>
    <button className="button" disabled={!!siteKey&&!proof}>Start restricted recovery</button></fieldset></form>}
   {!uncertain&&active&&status.primaryRequired&&<form onSubmit={e=>submit(e,'primary','password')}><fieldset disabled={busy}>
    <label htmlFor="recovery-password">Confirm current password</label><PasswordInput id="recovery-password" name="password" required autoComplete="current-password" maxLength={256}/>
@@ -121,7 +122,7 @@ export default function MfaRecovery(){
   </>}
   {!uncertain&&codes.length===10&&<><p>Save all ten one-use recovery codes somewhere private.</p><ul className="mfa-recovery-codes" aria-label="Replacement recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
    <p className="mfa-clipboard-guidance">Clipboard contents are sensitive. Paste into a secure password manager and clear the clipboard when finished.</p><button className="button button-secondary" disabled={busy} onClick={()=>void copy()}>{copied?'Copied':'Copy all codes'}</button>
-   <form onSubmit={e=>{e.preventDefault();void run('ack',{confirmed:true});}}><fieldset disabled={busy}><label><input id="recovery-saved" type="checkbox" required/> I saved these recovery codes somewhere private</label><button className="button">Finish recovery</button></fieldset></form></>}
+   <form onSubmit={e=>{e.preventDefault();void run('ack',{confirmed:true});}}><fieldset disabled={busy}><label><SwitchInput id="recovery-saved" required/> I saved these recovery codes somewhere private</label><button className="button">Finish recovery</button></fieldset></form></>}
   {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}
   <p role="status" aria-live="polite">{busy?'Checking securely…':feedback}</p>
   <footer className="mfa-recovery-footer">

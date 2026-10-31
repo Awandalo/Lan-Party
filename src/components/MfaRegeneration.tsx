@@ -1,3 +1,4 @@
+import SwitchInput from './SwitchInput';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import {flushSync} from 'react-dom';
@@ -125,7 +126,7 @@ export default function MfaRegeneration(props:Props){
    {codes.length>0&&<><p><strong>Not active yet.</strong> Save these ten codes privately. They are shown once, with no countdown. Leaving or refreshing this view loses the display.</p>
     <ul className="mfa-regeneration-codes" aria-label="New recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
     <p className="mfa-clipboard-guidance">Clipboard contents are sensitive. Paste into a secure password manager and clear the clipboard when finished.</p><button className="button button-secondary" disabled={busy} onClick={()=>void copy()}>Copy all codes</button>
-    <label className="mfa-saved"><input type="checkbox" checked={saved} disabled={busy} onChange={event=>setSaved(event.target.checked)}/>I have saved the new recovery codes</label>
+    <label className="mfa-saved"><SwitchInput checked={saved} disabled={busy} onChange={event=>setSaved(event.target.checked)}/>I have saved the new recovery codes</label>
     {primaryRequired&&primaryControls}{!primaryRequired&&mfaRequired&&totpControls}
     <div className="mfa-actions">
     <button className="button" disabled={busy||!saved||uncertain||primaryRequired||mfaRequired} onClick={()=>void run('finish',{acknowledgment:operation?.acknowledgment,confirmed:true})}>{busy&&pending.current==='finish'?'Activating…':'Activate'}</button>{!primaryRequired&&!mfaRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}</div>

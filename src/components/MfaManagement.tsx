@@ -1,3 +1,4 @@
+import SwitchInput from './SwitchInput';
 import MfaReplacement from './MfaReplacement';
 import SecurityDetails from './SecurityDetails';
 import {useEffect,useRef,useState} from 'react';
@@ -93,8 +94,8 @@ export default function MfaManagement({csrf,open,disabled,onOpen,onBusy,onActiva
       {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button" disabled={!!siteKey&&!proof}>{busy?'Checking…':'Confirm code'}</button></fieldset></form>
 </>:
     <>{purpose==='regenerate'?<><p>Save these new codes privately. Each works once; they cannot be displayed again.</p><ul aria-label="New recovery codes">{transaction?.codes?.map(code=><li key={code}><code>{code}</code></li>)}</ul>
-     <p>Select and copy the codes, or save them in your password manager.</p><label className="mfa-saved"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved the new recovery codes</label></>:
-     <><p>Disable two-factor authentication? Your old authenticator and recovery codes will stop working. Your account and connected sign-in methods will be preserved.</p><label className="mfa-saved"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>Yes, disable two-factor authentication</label></>}
+     <p>Select and copy the codes, or save them in your password manager.</p><label className="mfa-saved"><SwitchInput checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved the new recovery codes</label></>:
+     <><p>Disable two-factor authentication? Your old authenticator and recovery codes will stop working. Your account and connected sign-in methods will be preserved.</p><label className="mfa-saved"><SwitchInput checked={saved} onChange={e=>setSaved(e.target.checked)}/>Yes, disable two-factor authentication</label></>}
      <button className="button" disabled={!saved||busy} onClick={()=>void run('finish')}>{busy?'Saving…':purpose==='disable'?'Confirm disable MFA':'Activate new recovery codes'}</button></>}
    <button className="button button-secondary" disabled={busy} onClick={()=>void run('cancel')}>Cancel</button>
   </div>}

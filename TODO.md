@@ -481,8 +481,8 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Apply iteration 3 shared Administration origin, collapsed permission categories, stable Security details, shortcut removal and single-page Members pagination corrections; verify last-admin safety in isolated tests (#30 comment 6535820652).
 - [x] Implement iteration 4 confirmed unassigned custom-role deletion and compact Security action rows; separately approve/apply/verify DEV migration 0022 (#30 comment 6536111969).
 - [x] Implement owner follow-up: deletion switch/blocked-member preflight, selected-role member card with bounded pages, matching destructive red and Account Access expansion without a forced scroll.
-- [ ] Owner retest the latest Phase 4.5 DEV handover; keep #30 open for acceptance.
-- [ ] Record approved disposable-account hosted acceptance and Phase 4 sign-off; keep #30 open until owner acceptance.
+- [x] Owner completed hosted review and accepted Phase 4.5 on 2026-10-31; authorized #30 closure after the final shared-switch consistency deployment and verification.
+- [x] Record owner acceptance and Phase 4.5 sign-off in #30; preserve the distinction between owner testing and Codex's bounded hosted checks.
 
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.
 - [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.

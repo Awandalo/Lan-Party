@@ -1,3 +1,4 @@
+import SwitchInput from './SwitchInput';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import QRCode from 'qrcode';
@@ -142,7 +143,7 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
           <><p>Save these ten recovery codes somewhere private. Each works once. They cannot be displayed again.</p>
             <ul aria-label="Recovery codes">{codes.codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
             <p className="mfa-clipboard-guidance">Clipboard contents are sensitive. Paste into a secure password manager and clear the clipboard when finished.</p><button type="button" className="button button-secondary" disabled={busy} onClick={()=>void copyCodes()}>{copied?'Copied':'Copy all codes'}</button>
-            <label className="mfa-saved"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved my recovery codes</label>
+            <label className="mfa-saved"><SwitchInput checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved my recovery codes</label>
             <button className="button" disabled={!MFA_ENROLLMENT_AVAILABLE||!saved||busy} onClick={()=>void run('activate')}>{busy?'Enabling…':'Enable MFA'}</button>
             <p>MFA remains disabled until you acknowledge the codes and enable it.</p></>}
 

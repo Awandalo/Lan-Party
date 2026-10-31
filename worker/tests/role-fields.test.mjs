@@ -8,7 +8,7 @@ const output=(await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents
  export * from './src/lib/role-presentation';
  export const fields=(draft)=>renderToStaticMarkup(<RoleFields draft={draft} administrator onChange={()=>{}}/>);
  export const review=(draft)=>renderToStaticMarkup(<RoleReview draft={draft} catalogue={{permissions:[],mappings:[]}}/>);
- `},bundle:true,packages:'external',write:false,platform:'node',format:'cjs',jsx:'automatic'})).outputFiles[0].text;
+ `},bundle:true,packages:'external',write:false,platform:'node',format:'cjs',jsx:'automatic',loader:{'.css':'empty'}})).outputFiles[0].text;
 const compiled=new Module(import.meta.filename);compiled.paths=Module._nodeModulePaths(process.cwd());compiled._compile(output,import.meta.filename);
 const ui=compiled.exports,draft={code:'event_planner',name:'Event Planner',description:'Custom role for a event manager.',active:true,protected:false,permissionIds:['fictional-permission']};
 test('role metadata whitespace is normalized consistently for validation, review, dirty comparison and submission',()=>{

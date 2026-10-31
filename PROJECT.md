@@ -29,7 +29,9 @@ Phase 4.1 Administration navigation is owner-accepted in #26. Phase 4.2 (#27)
 adds read-only member browsing/detail behind explicit users.view grants and is
 owner-accepted. Phase 4.3 (#28) is accepted at 8e00e0d; Phase 4.4 (#29) is
 owner-accepted on DEV at bba6ff5. Phase 4.5 (#30) adds contextual navigation,
-the User Log viewer and final Administration polish, pending hosted owner acceptance. See
+the User Log viewer and final Administration polish. The owner accepted it on
+2026-10-31 and authorized #30 closure after the final switch consistency deployment
+and verification. See
 [the administration contract](docs/administration-foundation.md#phase-42--read-only-members-administration).
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
