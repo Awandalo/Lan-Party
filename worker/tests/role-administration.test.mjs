@@ -90,21 +90,27 @@ test('request validation, stale sessions and protected identity replacement fail
  await assert.rejects(f.sql("INSERT OR REPLACE INTO roles(id,code,name,created_at,updated_at) VALUES (?,'forged_admin','Forged',0,0)",adminRole).run(),/immutable/);
  await f.sql('UPDATE auth_sessions SET revoked_at=created_at WHERE user_id=?',a.id).run();assert.equal((await call(f,a)).status,401);
 }));
-test('RBAC removal racing lifecycle deactivation/deletion cannot remove the final genuine administrator',()=>local(async f=>{
+test('RBAC removal between lifecycle precheck and commit cannot remove the final genuine administrator',()=>local(async f=>{
  for(const action of ['deactivate','delete']) {
   const a=await f.user({genuine:true}),b=await f.user({genuine:true});
   // Remove other fixture administrators from the preceding scenario only.
   await f.sql('DELETE FROM user_roles WHERE role_id=? AND user_id NOT IN (?,?)',adminRole,a.id,b.id).run();
   await f.sql("INSERT INTO auth_recent_authentication(session_digest,user_id,auth_version,method,authenticated_at,expires_at) VALUES (?,?,0,'password',unixepoch(),unixepoch()+300)",a.digest,a.id).run();
-  // Prepare before racing: lifecycle success may revoke a's session immediately.
+  // The fixture inserts a real, authorized RBAC request after lifecycle
+  // prechecks but before its final batch. No clock or production predicate changes.
   const revision=(await catalogue(f,a)).revision;
-  const responses=await Promise.all([
-   membership(f,a,b,adminRole,'remove',{revision}),
-   f.request('auth/lifecycle/'+action,a,action==='delete'?{confirm:'DELETE',acknowledged:true}:{confirm:'DEACTIVATE'},headers(a)),
-  ]);
-  assert.equal(responses.filter(r=>r.status===200).length,1);
-  assert.ok(responses.every(r=>[200,401,403,409].includes(r.status)));
+  const refused=await f.request('auth/lifecycle/'+action,a,action==='delete'?{confirm:'DELETE',acknowledged:true}:{confirm:'DEACTIVATE'},{...headers(a),'X-Fixture-Rbac-Remove':b.id,'X-Fixture-Rbac-Revision':String(revision)});
+  assert.equal(refused.headers.get('X-Fixture-Rbac-Status'),'200');
+  // A losing final SQL guard deliberately returns the existing uncertain-result
+  // response, not the earlier LastAdministrator precheck's 409 response.
+  assert.equal(refused.status,503,await refused.clone().text());
+  assert.deepEqual(await refused.json(),{error:'The lifecycle result could not be confirmed. No automatic retry was made. Check your account status before trying again.'});
   assert.equal(await f.sql("SELECT count(*) n FROM users u JOIN user_roles ur ON ur.user_id=u.id WHERE ur.role_id=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM account_lifecycle l WHERE l.user_id=u.id)",adminRole).first('n'),1);
+  assert.equal(await f.sql('SELECT count(*) n FROM account_lifecycle WHERE user_id=?',a.id).first('n'),0);
+  assert.deepEqual(await f.sql('SELECT status,auth_version,first_name,last_name FROM users WHERE id=?',a.id).first(),{status:'active',auth_version:0,first_name:'Fictional',last_name:'Person'});
+  assert.equal(await f.sql('SELECT revoked_at FROM auth_sessions WHERE token_digest=?',a.digest).first('revoked_at'),null);
+  assert.equal(await f.sql("SELECT count(*) n FROM role_activity WHERE operation='membership.remove' AND actor_id=? AND account_id=?",a.id,b.id).first('n'),1);
+  assert.equal(await f.sql('SELECT revision FROM rbac_state').first('revision'),revision+1);
  }
 }));
 test('audit actor IDs survive approved account deletion without identity data or blocking deletion',()=>local(async f=>{

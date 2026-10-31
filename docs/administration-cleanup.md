@@ -147,6 +147,19 @@ retry using the existing authentication, which succeeded. No reauthentication,
 credential or permission change was performed. Recovery and pre/postflight evidence
 remain in ignored local files. PROD and live destructive tests were not performed.
 
+The subsequent AGENTS-only commit's CI exposed a nondeterministic status assertion
+in an existing last-admin race test (547/548 passed). The original failure omitted
+the actual response status. A controlled fixture reproduces the valid late-guard
+interleaving: a real authorized role removal commits after lifecycle prechecks;
+the final lifecycle transaction refuses with its existing uncertain-result 503.
+The test now exercises that precise window and asserts exact responses, one
+surviving Administrator, unchanged account/session state, no lifecycle record and
+only the successful role audit/revision. Other real concurrent-operation tests
+remain. Production handlers/predicates and clocks are unchanged; this is a test
+contract correction, not an HTTP or authorization policy change. An initial
+diagnostic harness using cross-request promises was rejected by Workerd and was
+replaced with request-local interleaving; no compatibility flag was weakened.
+
 ## Verification and hosted handover
 
 Local fixtures are fictional and intercept all transports. Check main/context route

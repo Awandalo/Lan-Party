@@ -11,7 +11,29 @@ let script,migrations;
 before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
- export default{async fetch(request,env){if(new URL(request.url).pathname!='/fixture')return app.fetch(request,env);
+ export default{async fetch(request,env){const path=new URL(request.url).pathname;
+ if(path!='/fixture'){
+  // Test-only interleaving: invoke the real RBAC endpoint after lifecycle
+  // prechecks, before its transaction. Never included in the deployed Worker.
+  const member=request.headers.get('X-Fixture-Rbac-Remove');
+  if(!member)return app.fetch(request,env);
+  let removalStatus=0;
+  const queries=new WeakMap();
+  const statement=(value,sql)=>{const wrapped=new Proxy(value,{get(target,key){if(key==='bind')return(...args)=>statement(target.bind(...args),sql);const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;}});queries.set(wrapped,sql);return wrapped;};
+  const db=new Proxy(env.DB,{get(target,key){
+   if(key==='prepare')return sql=>statement(target.prepare(sql),sql);
+   if(key==='batch')return async statements=>{
+    if(statements.some(s=>queries.get(s)?.startsWith('INSERT INTO account_lifecycle'))){
+     const headers=new Headers(request.headers);headers.delete('Content-Length');
+     const removal=await app.fetch(new Request(new URL('/api/manage/users/'+member+'/roles',request.url),{method:'POST',headers,body:JSON.stringify({action:'remove',accountId:member,roleId:'1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7',revision:Number(request.headers.get('X-Fixture-Rbac-Revision')),operationId:crypto.randomUUID()})}),env);
+     removalStatus=removal.status;
+    }
+    return target.batch(statements);
+   };
+   const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;
+  }});
+  const response=await app.fetch(request,{...env,DB:db});response.headers.set('X-Fixture-Rbac-Status',String(removalStatus));return response;
+ }
  const token=generateToken();const digest=await digestToken(token,'session');return Response.json({token,digest,csrf:await sessionCsrfToken(digest,env.AUTH_RATE_LIMIT_SECRET)});}};`},bundle:true,write:false,format:'esm',platform:'browser'})).outputFiles[0].text;
  migrations=[];
  for(const name of(await readdir(new URL('../../../migrations/',import.meta.url))).filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort()){
