@@ -15,4 +15,5 @@ export const expectedHistory = [
   '0019_create_owner_bootstrap.sql', '0020_create_role_administration.sql',
   '0021_create_user_lifecycle_log.sql',
  '0022_allow_role_deletion_activity.sql',
+ '0023_create_member_feedback.sql',
 ];

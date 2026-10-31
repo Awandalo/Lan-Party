@@ -74,6 +74,14 @@ It adds the three tables, indexes and immutability guards; existing accounts,
 roles, assignments and prior audit history are untouched. Scoped Git attributes
 preserve its reviewed LF bytes. No permission seed or account mutation.
 
+The explicit reviewed-history list in
+`worker/tests/helpers/migration-history.mjs` must be updated with each reviewed
+migration. Email-budget and rollout-compatibility tests intentionally reject
+unreviewed, missing or renamed files; run these consumers when adding migrations.
+The initial 5f4cbe2 CI run passed 558/570 tests; its 12 failures shared this stale
+0022 history list. Adding the reviewed 0023 entry fixed all 12 locally without
+changing application code, migration bytes, security assertions or limits.
+
 After approval: verify DEV identity lan-party-dev / a3c4cea6-ceb7-43b8-b9b7-b374726b35b4,
 clean history through 0022, sole pending 0023, integrity/FKs, aggregate protected
 state and recovery bookmark. Stop on drift. Apply only the approved file, verify
