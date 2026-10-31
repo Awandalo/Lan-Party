@@ -9,7 +9,7 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
  {href:'/manage/logs',label:'Logs',icon:'history',section:'activity'},
 ];
 export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
-export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account(?:\/|$)/.test(path)?'account':null;}
+export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account\/feedback(?:\/|$)/.test(path)?null:/^\/account(?:\/|$)/.test(path)?'account':null;}
 export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity'].includes(path);}
 // Match the Logs landing redirect, including accounts allowed only User Log.
 export function logDestination(path:string,sections:Section[]){

@@ -95,6 +95,21 @@ schema/data; never automatically DROP tables or rewind the whole database.
 
 ## Verification / handover
 
+### Final polish — assignment 6549889302
+
+Feedback's member route and its descendants are independent of User Settings in
+sidebar grouping and active-state presentation. Direct account/security navigation
+retains its submenu/selection; administrator Feedback remains in Administration.
+History rendering hides equal before/after pairs, including older triage events
+that stored both fields when only one changed. Decision-only, Progress-only and
+combined changes remain independent; nullable issue links and malformed-record
+fallbacks are preserved. Stored events and all backend behavior are unchanged.
+
+54 focused presentation/navigation/prefetch/workflow checks, TypeScript and both
+build modes passed. Fictional browser checks cover the bug icon from Home, direct
+User Settings navigation, administrator Feedback selection and Progress-only
+history display. #44 remains open for the owner's final acceptance.
+
 ### GUI refinement — assignment 6549506417
 
 The owner authorized the two UI changes and DEV publication on 2026-10-31.

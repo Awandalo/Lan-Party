@@ -45,3 +45,28 @@ test('administrator controls retain independent values and never auto-export pri
 test('conversation change details safely render untrusted text and malformed metadata',()=>{
  const html=ui.delta(JSON.stringify({progress:{before:'<script>fictional</script>',after:'<img src=x onerror=fictional>'}}));assert.doesNotMatch(html,/<script>|<img /);assert.match(html,/&lt;script&gt;/);assert.match(ui.delta('not json'),/Change details unavailable/);
 });
+
+test('member Feedback routes do not select or expand User Settings; normal account and admin navigation remain intact',()=>{
+ for(const path of ['/account/feedback','/account/feedback/new','/account/feedback/50000000-0000-4000-8000-000000000001']){
+  assert.equal(ui.mainArea(path),null);assert.deepEqual(ui.contextualNavigation(path,[],true),[]);
+ }
+ for(const path of ['/account','/account/security','/account/feedback-extra']){
+  assert.equal(ui.mainArea(path),'account');assert.deepEqual(ui.contextualNavigation(path,[],true),ui.accountNavigation);
+ }
+ assert.equal(ui.mainArea('/manage/feedback'),'administration');assert.ok(ui.contextualNavigation('/manage/feedback',['feedback'],true).some(x=>x.href==='/manage/feedback'));
+});
+test('historical triage presentation includes only independently changed fields',()=>{
+ const progress=ui.delta(JSON.stringify({decision:{before:'pending',after:'pending'},progress:{before:'new',after:'planned'}}));
+ assert.doesNotMatch(progress,/<dt>Decision<\/dt>|Pending/);assert.match(progress,/<dt>Progress<\/dt>/);assert.match(progress,/New.*Planned/);
+ const decision=ui.delta(JSON.stringify({decision:{before:'pending',after:'yes'},progress:{before:'planned',after:'planned'}}));
+ assert.match(decision,/<dt>Decision<\/dt>/);assert.doesNotMatch(decision,/<dt>Progress<\/dt>/);
+ const both=ui.delta(JSON.stringify({decision:{before:'pending',after:'maybe'},progress:{before:'new',after:'under_review'}}));
+ assert.match(both,/<dt>Decision<\/dt>/);assert.match(both,/<dt>Progress<\/dt>/);
+ assert.match(ui.delta(JSON.stringify({progress:{before:'new',after:'planned'}})),/<dt>Progress<\/dt>/);
+});
+test('unchanged, nullable issue links and malformed historical pairs have truthful presentation',()=>{
+ assert.match(ui.delta(JSON.stringify({decision:{before:'pending',after:'pending'}})),/No field changes recorded/);
+ assert.match(ui.delta(JSON.stringify({issue:{before:null,after:44}})),/None.*44/);
+ assert.match(ui.delta(JSON.stringify({issue:{before:44,after:null}})),/44.*None/);
+ for(const value of [null,[],{decision:null},{decision:{before:'pending'}}])assert.match(ui.delta(JSON.stringify(value)),/Change details unavailable/);
+});

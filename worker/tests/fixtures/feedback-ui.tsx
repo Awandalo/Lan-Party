@@ -27,7 +27,7 @@ export function feedbackFixture(options=new URLSearchParams()){
   if(!body)return Response.json({request:item,events:events[item.id],nextBefore:null,through:events[item.id].at(-1)?.sequence??'0'});
   if(parts[1]==='read'){item.unread=false;if(admin)adminUnread=0;else memberUnread=0;return Response.json({requestId:item.id});}
   if(parts[1]==='replies'){events[item.id].push({sequence:String(++sequence),actorKind:admin?'administrator':'member',anonymized:0,kind:'reply',body:body.body,delta:null,occurredAt:1793440030});if(admin)memberUnread++;else adminUnread++;}
-  if(parts[1]==='triage'){item.decision=body.decision;item.progress=body.progress;item.closedAt=['closed','completed'].includes(body.progress)?Math.floor(Date.now()/1000):null;}
+  if(parts[1]==='triage'){events[item.id].push({sequence:String(++sequence),actorKind:'administrator',anonymized:0,kind:'triage',body:null,delta:JSON.stringify({decision:{before:item.decision,after:body.decision},progress:{before:item.progress,after:body.progress}}),occurredAt:1793440040});item.decision=body.decision;item.progress=body.progress;item.closedAt=['closed','completed'].includes(body.progress)?Math.floor(Date.now()/1000):null;}
   if(parts[1]==='github-link')item.githubNumber=body.url?Number(body.url.split('/').at(-1)):null;
   item.revision++;return Response.json({requestId:item.id});
  };
