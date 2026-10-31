@@ -1,0 +1,2 @@
+# Keep the reviewed Phase 4.6 migration bytes stable on Windows and CI.
+migrations/0023_create_member_feedback.sql text eol=lf

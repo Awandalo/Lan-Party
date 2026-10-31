@@ -1,3 +1,4 @@
+import {feedbackReady} from './feedback-data';
 import {memberRead} from './members';
 import {readUserActivity} from './user-activity-read';
 import {userActivityReady} from './auth/user-activity';
@@ -114,6 +115,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     const admin=await roleSchemaReady(env.DB)&&await isAdministrator(env.DB,account.userId);
     const sections = Object.entries(sectionPermissions).filter(([key, required]) => key==='activity'?admin:required.some(p => permissions.includes(p))).map(([key]) => key);
     if(admin&&await userActivityReady(env.DB))sections.push('userActivity');
+    if(admin&&await feedbackReady(env.DB))sections.push('feedback');
     if (!sections.length) return reply(403, {error: 'Administration access is not available'});
     // Cache invalidation hint, never an authorization credential. Section names
     // alone cannot detect loss of users.view while users.manage still exists.

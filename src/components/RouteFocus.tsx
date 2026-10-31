@@ -1,3 +1,4 @@
+import {FEEDBACK_UI_AVAILABLE} from '../lib/feedback';
 import { AUTH_UI_AVAILABLE, authUIEnabled } from '../lib/auth-mode';
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
@@ -20,7 +21,8 @@ export default function RouteFocus() {
   const previousPath = useRef(pathname);
 
   useEffect(() => {
-    document.title = `LAN Party | ${titles[pathname] ?? (pathname.startsWith('/manage/users/') && import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' ? 'Member details' : 'Page not found')}`;
+    const feedbackTitle=FEEDBACK_UI_AVAILABLE&&(/^\/account\/feedback(?:\/|$)/.test(pathname)||/^\/manage\/feedback(?:\/|$)/.test(pathname))?'Feedback':null;
+    document.title = `LAN Party | ${feedbackTitle ?? titles[pathname] ?? (pathname.startsWith('/manage/users/') && import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' ? 'Member details' : 'Page not found')}`;
     if (previousPath.current !== pathname) {
       document.getElementById('main-content')?.focus({ preventScroll: true });
       window.scrollTo(0, 0);

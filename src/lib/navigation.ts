@@ -5,6 +5,7 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
  {href:'/manage/events',label:'Events',icon:'calendar',section:'events'},
  {href:'/manage/users',label:'Members',icon:'users',section:'users'},
  {href:'/manage/roles',label:'Roles & Permissions',icon:'shield',section:'roles'},
+ {href:'/manage/feedback',label:'Feedback',icon:'bug',section:'feedback'},
  {href:'/manage/logs',label:'Logs',icon:'history',section:'activity'},
 ];
 export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
@@ -17,6 +18,8 @@ export function contextualNavigation(path:string,sections:Section[],signedIn:boo
  return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&sections.includes('userActivity'));
 }
 export function routeLabel(path:string){
+ if(path.startsWith('/account/feedback'))return 'Feedback';
+ if(path.startsWith('/manage/feedback'))return 'Feedback';
  if(path==='/reactivate')return 'Reactivate account';
  if(path.startsWith('/manage/users/'))return 'Member details';
  if(path==='/manage/activity')return 'Role Activity Log';

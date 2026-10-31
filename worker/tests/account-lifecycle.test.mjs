@@ -26,7 +26,7 @@ before(async()=>{
  try{
  if(action==='mailMode'){mailMode=args[0];return Response.json(true);}
  if(action==='purge')return Response.json(await purgeUserActivity(env.DB));
- if(action==='scheduled'){const tasks=[];await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev',AUTH_LIFECYCLE_ADMIN_MODE:args[0]??'enabled'},{waitUntil(task){tasks.push(task);}});await Promise.all(tasks);return Response.json(tasks.length);}
+ if(action==='scheduled'){const tasks=[];await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev',AUTH_LIFECYCLE_ADMIN_MODE:args[0]??'enabled',AUTH_SESSION_MODE:args[1]??env.AUTH_SESSION_MODE},{waitUntil(task){tasks.push(task);}});await Promise.all(tasks);return Response.json(tasks.length);}
  localMailbox.send=async mail=>{if(mailMode==='claim-fail'){await reactivate.claimReactivation(env.DB,new URL(mail.url).hash.slice(1));throw Error('Fictional uncertain delivery');}if(mailMode==='fail')throw Error('Fictional rejected delivery');await originalSend(mail);};
  if(action==='credential')return Response.json(await hashPassword(args[0],env.PASSWORD_PEPPER));
  if(action==='session'){const token=generateToken(),digest=await digestToken(token,'session');return Response.json({token,digest,csrf:await sessionCsrfToken(digest,env.AUTH_RATE_LIMIT_SECRET)});}
@@ -609,3 +609,24 @@ test('expired invitation inspection is unavailable without mutating the token',(
  await f.sql("INSERT INTO account_reactivation(invitation_digest,user_id,auth_version,email_normalized,phase,created_at,expires_at) SELECT ?,id,auth_version,email_normalized,'invited',unixepoch()-1800,unixepoch() FROM users WHERE id=?",invite.digest,u.id).run();
  assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:false});assert.equal(await f.sql('SELECT phase FROM account_reactivation WHERE invitation_digest=?',invite.digest).first('phase'),'invited');
 },21));
+
+test('Phase 4.6 feedback cascades inside real permanent account deletion and anonymizes an administrator in other threads',()=>local(async({user,value,sql})=>{
+ const member=await user({admin:true}),admin=await user({admin:true});await user({admin:true});
+ const own=randomUUID(),other=randomUUID();
+ for(const [id,owner] of [[own,member.id],[other,admin.id]])await sql('INSERT INTO feedback_requests(id,owner_id,creation_id,creation_hash,kind,title,description) VALUES (?,?,?,?,?,?,?)',id,owner,randomUUID(),'fixture','bug','Fictional feedback','Fictional private text').run();
+ await sql("INSERT INTO feedback_events(request_id,actor_id,actor_kind,kind,notification,body,operation_id,operation_hash) VALUES (?,?,'administrator','reply','member','Fictional reply',?,'fixture')",other,member.id,randomUUID()).run();
+ await sql("INSERT INTO feedback_reads VALUES (?,?,'member',0)",own,member.id).run();
+ await value('deleteAccount',member.id,0,member.digest);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',own).first('n'),0);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_reads WHERE request_id=?',own).first('n'),0);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_events WHERE request_id=? AND actor_id IS NULL',other).first('n'),1);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',other).first('n'),1);
+},23));
+
+test('existing DEV scheduler purges feedback past 30 days while preserving open, reopened and younger closures',()=>local(async({user,value,sql})=>{
+ const u=await user(),ids=[];
+ for(const days of [31,29,null]){const id=randomUUID();ids.push(id);await sql("INSERT INTO feedback_requests(id,owner_id,creation_id,creation_hash,kind,title,description,progress,closed_at) VALUES (?,?,?,?,?,?,?,CASE WHEN ? IS NULL THEN 'new' ELSE 'closed' END,CASE WHEN ? IS NULL THEN NULL ELSE unixepoch()-?*86400 END)",id,u.id,randomUUID(),'fixture','bug','Fictional retention','Fictional content',days,days,days).run();}
+ assert.equal(await value('scheduled','enabled','disabled'),2);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',ids[0]).first('n'),0);
+ for(const id of ids.slice(1))assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',id).first('n'),1);
+},23));

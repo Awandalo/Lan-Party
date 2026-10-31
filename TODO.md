@@ -487,6 +487,14 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.
 - [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.
 
+### Phase 4.6 — private member feedback (#44)
+
+- [x] Implement text-only private submissions/conversations, independent admin triage, per-viewer unread state and the signed-in header bug entry.
+- [x] Keep GitHub publication manual with an editable blank technical scaffold, explicit copy/open confirmation and audited validated issue links.
+- [x] Test additive 0023, obtain separate DEV preflight/migration/retention approval, and apply/verify the exact migration without account/grant changes.
+- [x] Cover ownership, full sessions, transactional replay/races, closure/purge, actual account deletion, responsive layout and sign-out cleanup locally.
+- [ ] Verify CI and DEV deployment, then owner two-account acceptance; keep #44 open. No Phase 5 implementation until acceptance/closure.
+
 ## Phase 5 — Events
 
 - [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.

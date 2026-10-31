@@ -1,7 +1,7 @@
 import {isMemberNumber} from './member-number';
 
 export interface Session {account: {userId: string; nickname: string; memberNumber: string}; csrfToken: string; emailVerified: boolean; recoveryCodesRemaining?: number}
-export type Section = 'users' | 'roles' | 'events' | 'activity' | 'userActivity';
+export type Section = 'users' | 'roles' | 'events' | 'activity' | 'userActivity' | 'feedback';
 export interface AdministrationAccess {sections: Section[]; status: 'loading' | 'ready' | 'error'; revalidating?: boolean; revision?: number; authorization?: string}
 export interface ValidationState {session: Session | null; status: 'loading' | 'ready' | 'error'; access: AdministrationAccess}
 const empty = (): AdministrationAccess => ({sections: [], status: 'loading'});
@@ -70,7 +70,7 @@ export class SessionValidation {
         if (!capabilities.ok) throw Error('Capabilities unavailable');
         const body = await capabilities.json();
         if (!current()) return false;
-        if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events','activity','userActivity'].includes(s))) throw Error('Invalid capabilities');
+        if (!Array.isArray(body.sections) || !body.sections.every((s: unknown) => typeof s === 'string' && ['users','roles','events','activity','userActivity','feedback'].includes(s))) throw Error('Invalid capabilities');
         if(body.authorization!==undefined&&(typeof body.authorization!=='string'||!/^[0-9a-f]{64}$/.test(body.authorization)))throw Error('Invalid authorization hint');
         const sections = [...new Set<Section>(body.sections)];
         const unchanged = sameContext && previous.access.status === 'ready'
