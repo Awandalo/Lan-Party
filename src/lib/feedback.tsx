@@ -47,8 +47,9 @@ export function useFeedback(){const value=useContext(Context);if(!value)throw Er
 export function useFeedbackRead<T>(path:string){
  const {request,context,reads}=useFeedback(),[version,setVersion]=useState(0);
  const state=useSyncExternalStore(reads.subscribe,()=>reads.get(path));
+ const reload=useCallback(()=>{reads.expire(path);setVersion(v=>v+1);},[reads,path]);
  useEffect(()=>{if(!context)return;reads.read(path,async signal=>{const data=await request(path,undefined,signal);if(!validFeedbackRead(data))throw new FeedbackFailure('Invalid feedback response.');return data;});},[reads,path,context,request,version]);
- return {data:context?(state?.data as T??null):null,error:context?state?.error??'':'',loading:!!context&&(!state||state.loading),reload:()=>{reads.expire(path);setVersion(v=>v+1);}};
+ return {data:context?(state?.data as T??null):null,error:context?state?.error??'':'',loading:!!context&&(!state||state.loading),reload};
 }
 export const PUBLIC_ISSUE_URL='https://github.com/Awandalo/Lan-Party/issues/new';
 // Blank technical scaffold: never auto-copy private submission text or identities.

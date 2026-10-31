@@ -95,6 +95,50 @@ schema/data; never automatically DROP tables or rewind the whole database.
 
 ## Verification / handover
 
+### GUI refinement — assignment 6549506417
+
+The owner authorized the two UI changes and DEV publication on 2026-10-31.
+New Request now opens a named native dialog using the existing role-dialog
+styling and focus pattern. Cancel/Escape restore focus; a successful submission
+closes it, refreshes My Requests and focuses/highlights the created request.
+Rejected submissions keep editable drafts; uncertain outcomes freeze the exact
+payload and retry its operation ID. The legacy /account/feedback/new URL opens
+the same modal. Closing after an attempted submission also refreshes the list
+so an uncertain server outcome can be inspected. Initial session/capability readiness gates the page so completing
+that initial check cannot remount and silently close a newly opened dialog.
+
+The Administrator inbox keeps a selectable list, selected details/conversation/
+reply, and Decision/Progress/GitHub controls in three desktop columns. Progress
+and Decision filters lead the top filter bar; type, title search and pagination
+remain available. Selection updates the workspace without route navigation;
+existing administrator detail URLs initialize a selection. Filters/pages clear
+selection; a request moved outside the current results by triage remains clearly
+identified until another selection/filter change. Saving temporarily disables
+selection/filter submission to avoid abandoning an in-flight change.
+
+Read acknowledgements still follow rendered conversations only. Their completion
+refreshes the visible list, while the stable reload callback avoids acknowledgement
+effect churn. Request changes refresh both conversation and list. Principal/access
+changes unmount private selections/drafts; late responses cannot navigate or update
+a different selected thread. No new polling, backend/schema/permission change,
+retention change, GitHub integration or attachment support is introduced.
+
+Local fictional browser checks cover modal cancel/submit, error draft retention,
+uncertain-outcome replay without duplicate creation, legacy routes, in-place ticket
+switching, reply/triage persistence, empty filters, sanitized GitHub preparation,
+closed member threads, sign-out and access revocation. Layout checks at 1440,
+1920 and 390 CSS pixels show no horizontal overflow and retain sensible column/
+stacking behavior. Native browser zoom shortcuts produced no observable zoom
+change through the available browser surface; actual reduced browser zoom remains
+an explicit owner acceptance check, alongside two-account hosted testing. The
+wide viewport check is not presented as actual browser-zoom verification.
+
+The first modal browser check exposed an initial access-readiness remount race;
+it was fixed and the same immediate-open, Escape and submission checks passed.
+27 focused presentation/cache/prefetch/feedback tests and TypeScript/default/
+hosted-dev build checks passed. Reuse unchanged server security/data evidence;
+exact final CI/deployment results are recorded in #44, which remains open.
+
 The follow-up [private-page loading optimization](private-page-loading.md) covers
 Members, Roles and Feedback caching, intent prefetch, request-local query savings,
 security boundaries and the distinction between local and hosted timing evidence.

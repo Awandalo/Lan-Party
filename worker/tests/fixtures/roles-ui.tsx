@@ -32,7 +32,7 @@ const entries:{sequence:string;operationId:string;occurredAt:number;actorId:stri
 const catalogue=()=>({deletionAvailable:params.get('deletion')!=='unavailable',roles:roles.map((role,index)=>({...role,...(mode==='delegated'?{}:{assignedMemberCount:[1,8,3][index]??0})})),permissions,mappings,revision,administrator:!['delegated','member','guest'].includes(mode)});
 if(params.get('log')==='multi')for(let n=25;n>2;n--)entries.push({...entries[0],sequence:String(n)});
 if(params.get('log')==='empty')entries.length=0;
-const feedbackTransport=feedbackFixture();
+const feedbackTransport=feedbackFixture(params);
 window.fetch=async(input,init)=>{
  const url=new URL(String(input),location.origin),request={path:url.pathname,start:Math.round(performance.now())} as typeof requests[number];requests.push(request);await new Promise(resolve=>setTimeout(resolve,delay));request.end=Math.round(performance.now());
  if(recipientScenario&&url.pathname==='/api/auth/session')return recipientVerified?Response.json({account:{userId:target,nickname:'Fictional Participant',memberNumber:'11'},csrfToken:'d'.repeat(64),emailVerified:true}):recipientScenario==='switch-account'?Response.json({account:{userId:actor,nickname:'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true}):Response.json({},{status:401});
