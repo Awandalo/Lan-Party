@@ -1,7 +1,8 @@
 # Private page loading — DEV follow-up
 
 Owner authorized five loading improvements and DEV publication on 2026-10-31.
-Scope: Members, Roles and Feedback. Messaging feature refinements remain separate.
+Scope: Members, Roles, Feedback and the owner-requested Logs follow-up. Messaging
+feature refinements remain separate.
 No migrations, configuration, credentials, new services or authentication-policy
 changes are needed. Existing DEV schema through 0023 remains compatible.
 
@@ -23,6 +24,13 @@ changes are needed. Existing DEV schema through 0023 remains compatible.
   Prefetch never marks a conversation read or performs a mutation.
 - Feedback shows a reserved progress line, distinguishing initial loading from
   checking for updates; refreshed content does not disappear beneath a spinner.
+- Logs navigation and its Overview card prefetch the same permitted destination
+  as the landing redirect (Role Activity first, User Log as the fallback). Each
+  log tab also prefetches on pointer/keyboard focus. User Log now shares the same
+  five-second freshness window and explicit-reload bypass. Both logs retain their
+  tables during background refresh and keep filters/cursors in separate entries.
+  The existing RoleReadCache bound, principal/authority fences and independent
+  activity/userActivity gates apply; neither log is fetched without its section.
 - Role and Feedback schema readiness each use one SQL request. Administration
   reuses role-schema/authority facts only within the same HTTP request; nothing
   caches server authorization or schema readiness between requests. Capability
@@ -65,3 +73,11 @@ navigation. These demonstrate the loading sequence, not authenticated DEV latenc
 or database speed. Cold visits still require a network response. Actual DEV timing
 and two-account acceptance remain owner handover checks; no real account or message
 mutation is needed or performed for these local comparisons.
+
+The Logs follow-up adds deterministic loader/cache integration tests for landing
+selection, independently authorized tabs, single-fetch prefetch/mount reuse,
+filters, explicit reload, denial and malformed responses. In the fictional
+300 ms-delay browser check, Members-to-Logs and Role Activity-to-User Log each
+started their GET on keyboard focus, completed it before navigation, and reused
+it without a second log GET on mount. Log access/retention regression evidence
+remains separate from these frontend loading checks.

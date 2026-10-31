@@ -11,6 +11,13 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
 export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
 export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account(?:\/|$)/.test(path)?'account':null;}
 export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity'].includes(path);}
+// Match the Logs landing redirect, including accounts allowed only User Log.
+export function logDestination(path:string,sections:Section[]){
+ if(path==='/manage/logs')path=sections.includes('activity')?'/manage/activity':'/manage/user-activity';
+ if(path==='/manage/activity'&&sections.includes('activity'))return {path,api:'/api/manage/role-activity',section:'activity' as const};
+ if(path==='/manage/user-activity'&&sections.includes('userActivity'))return {path,api:'/api/manage/user-activity',section:'userActivity' as const};
+ return null;
+}
 export function contextualNavigation(path:string,sections:Section[],signedIn:boolean){
  if(!signedIn)return [];
  if(mainArea(path)==='account')return signedIn?accountNavigation:[];
