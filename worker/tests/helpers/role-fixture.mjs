@@ -19,11 +19,12 @@ before(async()=>{
  while(rest){const end=rest.startsWith('CREATE TRIGGER')?rest.indexOf('\nEND;')+5:rest.indexOf(';')+1;if(end<=0||end===4)throw Error('Incomplete SQL '+name);parts.push(rest.slice(0,end));rest=rest.slice(end).trim();}migrations.push(parts);
  }
 });
-async function local(run){
+async function local(run,count){
  const simulator=new Miniflare(convertV4MiniflareOptions({modules:true,script,compatibilityDate:'2026-10-11',cf:false,d1Databases:{DB:randomUUID()},bindings:{AUTH_RATE_LIMIT_SECRET:'33'.repeat(32),AUTH_SESSION_MODE:'local-only',AUTH_EMAIL_TRANSPORT:'local',AUTH_PUBLIC_ORIGIN:origin}}));
  try{
  const db=await simulator.getD1Database('DB'),sql=(q,...args)=>db.prepare(q).bind(...args);
- for(const parts of migrations)await db.batch(parts.map(p=>db.prepare(p)));
+ const migrate=(index,after=[])=>db.batch([...migrations[index-1],...after].map(p=>db.prepare(p)));
+ for(const parts of migrations.slice(0,count))await db.batch(parts.map(p=>db.prepare(p)));
  const value=async()=> (await simulator.dispatchFetch(origin+'/fixture')).json();
  const user=async({admin=false,genuine=false}={})=>{
  const id=randomUUID(),time=await sql('SELECT unixepoch() n').first('n'),session=await value();
@@ -37,7 +38,7 @@ async function local(run){
  await sql('INSERT INTO auth_sessions(id,user_id,token_digest,auth_version,created_at,expires_at) VALUES (?,?,?,0,?,?)',randomUUID(),id,session.digest,time-1,time+604800).run();return{id,...session};
  };
  const request=(path,u,input,headers={})=>simulator.dispatchFetch(origin+'/api/'+path,{method:input===undefined?'GET':'POST',headers:{'X-LAN-Request':'1',...(u?{Cookie:'__Host-lan_session='+u.token}:{}),...(input===undefined?{}:{'Content-Type':'application/json',Origin:origin}),...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
- await run({db,sql,user,value,request});
+ await run({db,sql,user,value,request,migrate});
  assert.equal(await sql('PRAGMA quick_check').first('quick_check'),'ok');assert.deepEqual((await sql('PRAGMA foreign_key_check').all()).results,[]);
  }finally{await simulator.dispose();}
 }

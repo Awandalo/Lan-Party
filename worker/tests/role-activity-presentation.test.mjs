@@ -20,3 +20,7 @@ test('membership wording identifies role and member with safe unavailable-name f
  assert.equal(membershipAction({...entry,roleName:null}),'Unavailable role assigned to Fictional Member');
  assert.equal(membershipAction({...entry,operation:'role.update'}),null);
 });
+
+test('deleted role details describe removal without retaining its historical name',()=>{
+ assert.deepEqual(activityChanges({operation:'role.delete',roleName:null,delta:'{"deleted":{"before":false,"after":true},"permissions":{"before":["fictional"],"after":[]}}'},[{id:'fictional',code:'news.create'}]),[{field:'Role',before:'Existed',after:'Deleted'},{field:'Permissions',before:'Write news',after:'None'}]);
+});

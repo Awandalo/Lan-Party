@@ -28,7 +28,7 @@ const entries:{sequence:string;operationId:string;occurredAt:number;actorId:stri
  {sequence:'2',operationId:'40000000-0000-4000-8000-000000000002',occurredAt:1793361600,actorId:actor,operation:'membership.add',roleId:roles[1].id,accountId:target,delta:JSON.stringify({assigned:{before:false,after:true}})},
  {sequence:'1',operationId:'40000000-0000-4000-8000-000000000001',occurredAt:1793300000,actorId:actor,operation:'role.update',roleId:roles[2].id,accountId:null,delta:JSON.stringify({fields:['description'],active:{before:1,after:1},protected:{before:0,after:0},permissions:{before:[],after:[permissions[0].id]}})}
 ];
-const catalogue=()=>({roles:roles.map((role,index)=>({...role,...(mode==='delegated'?{}:{assignedMemberCount:[1,8,3][index]??0})})),permissions,mappings,revision,administrator:!['delegated','member','guest'].includes(mode)});
+const catalogue=()=>({deletionAvailable:params.get('deletion')!=='unavailable',roles:roles.map((role,index)=>({...role,...(mode==='delegated'?{}:{assignedMemberCount:[1,8,3][index]??0})})),permissions,mappings,revision,administrator:!['delegated','member','guest'].includes(mode)});
 if(params.get('log')==='multi')for(let n=25;n>2;n--)entries.push({...entries[0],sequence:String(n)});
 if(params.get('log')==='empty')entries.length=0;
 window.fetch=async(input,init)=>{
@@ -46,6 +46,7 @@ window.fetch=async(input,init)=>{
  if(url.pathname==='/api/auth/logout'){if(params.get('logout')==='fail')return Response.json({},{status:503});signedOut=true;return Response.json({ok:true});}
  if(url.pathname==='/api/auth/session')return signedOut||mode==='guest'?Response.json({},{status:401}):Response.json({account:{userId:actor,nickname:mode==='member'?'Fictional Member':'Fictional Administrator',memberNumber:'1'},csrfToken:'a'.repeat(64),emailVerified:true});
  if(url.pathname==='/api/manage/capabilities')return Response.json({sections:signedOut||revoked||mode==='member'||mode==='guest'?[]:mode==='delegated'?['roles']:['users','roles','activity','userActivity','events'],authorization:'a'.repeat(64)});
+ if(params.get('security')==='visual'&&['/api/auth/mfa/manage/start','/api/auth/mfa/recovery/from-session'].includes(url.pathname))return Response.json({code:'reauth_required',primaryRequired:true,error:'Confirm your sign-in method.'},{status:428});
  if(url.pathname==='/api/auth/security/methods')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({password:true});
  if(url.pathname==='/api/auth/lifecycle/status')return Response.json({available:true,administrator:mode==='admin',memberCommands:mode==='admin',deletionAvailable:false});
  if(url.pathname==='/api/auth/mfa/status')return params.get('security')==='error'?Response.json({},{status:503}):Response.json({enabled:params.get('mfa')!=='disabled',enrollmentAvailable:true});
@@ -83,10 +84,11 @@ window.fetch=async(input,init)=>{
    if(mode==='conflict')return Response.json({},{status:409});
    const body=JSON.parse(String(init.body));mutations++;revision++;
    if(body.action==='create'){const id=crypto.randomUUID();roles.push({id,code:body.code,name:body.name,description:body.description,isActive:Number(body.active),isProtected:Number(body.protected)});mappings.push(...body.permissionIds.map((p:string)=>({roleId:id,permissionId:p,grantedAt:0})));}
+   else if(body.action==='delete'){if(params.get('deletion')==='assigned')return Response.json({code:'role_assigned'},{status:409});roles.splice(roles.findIndex(r=>r.id===body.roleId),1);mappings=mappings.filter(m=>m.roleId!==body.roleId);}
    else if(body.action==='update'){Object.assign(roles.find(r=>r.id===body.roleId)!,{name:body.name,description:body.description,isActive:Number(body.active),isProtected:Number(body.protected)});mappings=mappings.filter(m=>m.roleId!==body.roleId);mappings.push(...body.permissionIds.map((p:string)=>({roleId:body.roleId,permissionId:p,grantedAt:0})));}
    else if(body.action==='assign')assignments.push({roleId:body.roleId,assignedAt:0});
    else if(body.action==='remove'){const index=assignments.findIndex(a=>a.roleId===body.roleId);if(index>=0)assignments.splice(index,1);}
-   entries.unshift({sequence:String(entries.length+1),operationId:body.operationId,occurredAt:Math.floor(Date.now()/1000),actorId:actor,operation:({create:'role.create',update:'role.update',assign:'membership.add',remove:'membership.remove'} as Record<string,string>)[body.action],roleId:body.roleId??roles.at(-1)!.id,accountId:body.accountId??null,delta:JSON.stringify(body.action==='assign'||body.action==='remove'?{assigned:{before:body.action==='remove',after:body.action==='assign'}}:{fields:['name','description']})});
+   entries.unshift({sequence:String(entries.length+1),operationId:body.operationId,occurredAt:Math.floor(Date.now()/1000),actorId:actor,operation:({create:'role.create',update:'role.update',delete:'role.delete',assign:'membership.add',remove:'membership.remove'} as Record<string,string>)[body.action],roleId:body.roleId??roles.at(-1)!.id,accountId:body.accountId??null,delta:JSON.stringify(body.action==='assign'||body.action==='remove'?{assigned:{before:body.action==='remove',after:body.action==='assign'}}:{fields:['name','description']})});
    return Response.json({revision});
   }
   return Response.json({...catalogue(),...(url.pathname.includes('/users/')?{assignments,effectivePermissions:['news.create']}: {})});

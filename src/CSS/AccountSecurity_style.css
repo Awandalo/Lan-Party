@@ -51,7 +51,7 @@ button.mfa-summary:focus-visible { outline: 2px solid var(--accent); outline-off
 .account-security-card > section { margin:0; padding:1.5rem; border:1px solid var(--border); border-radius:.9rem; background:var(--surface); }
 .account-security-card > .connected-accounts,.account-security-card > .mfa-enrollment { grid-column:auto; min-height:12rem; }
 
-.security-detail-panel.account-lifecycle:has(.lifecycle-confirmation) { border-color:var(--warning); }
+/* Destructive confirmations keep neutral framing and explicit action wording. */
 @media(max-width:1050px) { .account-security-page .account-security-card { grid-template-columns:minmax(0,1fr); }.main-content:has(.account-security-page) { width:calc(100% - 2rem); }.account-security-card > section { padding:1.2rem; } }
 
 .security-details-region:empty { display:none; }
@@ -65,3 +65,11 @@ button.mfa-summary:focus-visible { outline: 2px solid var(--accent); outline-off
 .security-details-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1rem; }
 .security-details-heading h2 { margin:0; }
 .security-details-heading .button { margin:0; }
+
+.security-actions,.security-detail-panel .mfa-actions,.security-detail-panel .lifecycle-actions { display:flex; justify-content:flex-start; align-items:center; flex-wrap:wrap; gap:.75rem; margin-top:1rem; }
+.security-actions > .button,.security-detail-panel .mfa-actions > .button,.security-detail-panel .lifecycle-actions > .button { width:auto; flex:0 1 auto; margin:0; }
+.security-details-heading { flex-wrap:nowrap; align-items:flex-start; }
+.security-details-heading h2 { min-width:0; }
+.security-details-heading h2 { overflow-wrap:anywhere; }
+.security-details-heading > .button { flex-shrink:0; }
+.security-detail-panel .lifecycle-actions > .button:last-child:not(:first-child) { margin-left:0; }

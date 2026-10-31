@@ -5,6 +5,11 @@ export const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 export class RoleDenied extends Error {}
 export class RoleConflict extends Error {}
 export class RoleInvalid extends Error {}
+export class RoleAssigned extends RoleConflict {}
+export async function roleDeletionReady(db:D1Database){
+ const schema=await db.prepare("SELECT sql FROM sqlite_schema WHERE type='table' AND name='role_activity'").first<string>('sql');
+ return !!schema?.includes("'role.delete'");
+}
 export async function roleSchemaReady(db:D1Database) {
  const row=await db.prepare("SELECT count(*) n FROM sqlite_schema WHERE type='table' AND name IN ('rbac_state','role_activity')").first<number>('n');
  if(row===0)return false;
@@ -52,7 +57,7 @@ export async function roleCatalogue(db:D1Database,userId:string,includeMemberCou
  const revision=(snapshot[0].results[0] as {revision?:unknown}|undefined)?.revision;
  const memberCounts=includeMemberCounts?snapshot[5].results as unknown as {roleId:string;count:number}[]:[];
  if(typeof revision!=='number'||!Number.isSafeInteger(revision))throw Error('Role revision unavailable');
- return {revision,administrator:snapshot[4].results.length===1,
+ return {revision,administrator:snapshot[4].results.length===1,deletionAvailable:await roleDeletionReady(db),
   roles:includeMemberCounts?roles.map(role=>({...role,assignedMemberCount:Number(memberCounts.find(row=>row.roleId===role.id)?.count??0)})):roles,
   mappings:snapshot[3].results as unknown as {roleId:string;permissionId:string;grantedAt:number}[],permissions:permissions.map(p=>({...p,protected:PROTECTED_PERMISSIONS.includes(p.code as typeof PROTECTED_PERMISSIONS[number])}))};
 }
@@ -60,7 +65,7 @@ export async function roleActivity(db:D1Database,before:string|null,filters:{dat
  if(before!==null && (!/^[1-9][0-9]{0,18}$/.test(before)||BigInt(before)>9223372036854775807n))throw new RoleInvalid();
  const date=filters.date??'',operation=filters.operation??'',search=filters.search??'';
  if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date))throw new RoleInvalid();
- if(operation&&!['role.create','role.update','membership.add','membership.remove'].includes(operation)||search.length>80||/[\u0000-\u001f\u007f]/.test(search))throw new RoleInvalid();
+ if(operation&&!['role.create','role.update','role.delete','membership.add','membership.remove'].includes(operation)||search.length>80||/[\u0000-\u001f\u007f]/.test(search))throw new RoleInvalid();
  const start=date?Math.floor(Date.parse(date+'T00:00:00Z')/1000):0;
  const names=filters.includeNames===true;
  const rows=(await db.prepare(`SELECT CAST(a.sequence AS TEXT) AS sequence,a.operation_id AS operationId,a.occurred_at AS occurredAt,
@@ -88,8 +93,8 @@ function text(value:unknown,max:number,empty=false) {
 }
 export async function mutateRole(db:D1Database,userId:string,digest:string,raw:unknown) {
  const body=input(raw),action=body.action;
- if(!['create','update','assign','remove'].includes(String(action)) || !Number.isSafeInteger(body.revision) || Number(body.revision)<0 || !UUID.test(String(body.operationId)))throw new RoleInvalid();
- const allowed=['action','revision','operationId','roleId',...(['assign','remove'].includes(String(action))?['accountId']:['code','name','description','active','protected','permissionIds'])];
+ if(!['create','update','delete','assign','remove'].includes(String(action)) || !Number.isSafeInteger(body.revision) || Number(body.revision)<0 || !UUID.test(String(body.operationId)))throw new RoleInvalid();
+ const allowed=['action','revision','operationId','roleId',...(action==='delete'?['confirmed']:['assign','remove'].includes(String(action))?['accountId']:['code','name','description','active','protected','permissionIds'])];
  if(Object.keys(body).some(k=>!allowed.includes(k)))throw new RoleInvalid();
  const admin=await isAdministrator(db,userId),id=action==='create'?crypto.randomUUID():String(body.roleId);
  if(!UUID.test(id))throw new RoleInvalid();
@@ -104,7 +109,17 @@ export async function mutateRole(db:D1Database,userId:string,digest:string,raw:u
  if(!admin && privileged)throw new RoleDenied();
  const statements:D1PreparedStatement[]=[];
  let delta:object={},accountId:string|null=null,operation:string;
- if(action==='assign'||action==='remove') {
+ if(action==='delete') {
+  if(body.confirmed!==true)throw new RoleInvalid();
+  if(!catalogue.deletionAvailable)throw new RoleConflict();
+  if(id===USER_ROLE_ID||privileged)throw new RoleDenied();
+  if(await db.prepare('SELECT 1 FROM user_roles WHERE role_id=? LIMIT 1').bind(id).first())throw new RoleAssigned();
+  // Count every assignment, not just effective active members. The final DELETE
+  // repeats this predicate inside the revision/session/audit transaction.
+  statements.push(db.prepare('DELETE FROM role_permissions WHERE role_id=?').bind(id),
+   db.prepare('DELETE FROM roles WHERE id=? AND is_protected=0 AND NOT EXISTS(SELECT 1 FROM user_roles WHERE role_id=roles.id)').bind(id),assertOne(db));
+  delta={deleted:{before:false,after:true},permissions:{before:previous,after:[]}};operation='role.delete';
+ } else if(action==='assign'||action==='remove') {
   accountId=String(body.accountId);
   if(!UUID.test(accountId))throw new RoleInvalid();
   // No self-role changes, including ordinary roles; no reactivation via roles.

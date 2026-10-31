@@ -37,7 +37,12 @@ test('password-only Worker supports retained schema and reviewed migrations with
   for(const [table,expected] of Object.entries(snapshots)){
    const actual=(await db.prepare('SELECT * FROM '+table).all()).results;
    if(table==='member_numbers'){assert.ok(actual.every(row=>row.retired===0));assert.deepEqual(actual.map(({retired,...row})=>row),expected,table);}
-   else assert.deepEqual(actual,expected,table);
+   else if(table==='sqlite_sequence'){
+    // 0022's empty audit-table copy allocates its own zero sequence. Existing
+    // sequence namespaces must still match exactly; no account counter changes.
+    assert.deepEqual(actual.filter(row=>row.name!=='role_activity'),expected,table);
+    assert.deepEqual(actual.filter(row=>row.name==='role_activity'),[{name:'role_activity',seq:0}]);
+   }else assert.deepEqual(actual,expected,table);
   }
   assert.equal(await db.prepare('SELECT count(*) n FROM auth_totp_factors').first('n'),0);
   const login=await request('login',{email:profile.email,password:profile.password});assert.equal(login.status,200);

@@ -1,7 +1,7 @@
 import {useEffect,useState,useSyncExternalStore} from 'react';
 import {useAuth} from './auth';
 export interface Role {id:string;code:string;name:string;description:string|null;isActive:number;isProtected:number;assignedMemberCount?:number}
-export interface Catalogue {revision:number;administrator:boolean;roles:Role[];permissions:{id:string;code:string;description:string;protected:boolean}[];mappings:{roleId:string;permissionId:string;grantedAt:number}[];assignments?:{roleId:string;assignedAt:number}[];effectivePermissions?:string[]}
+export interface Catalogue {revision:number;administrator:boolean;deletionAvailable?:boolean;roles:Role[];permissions:{id:string;code:string;description:string;protected:boolean}[];mappings:{roleId:string;permissionId:string;grantedAt:number}[];assignments?:{roleId:string;assignedAt:number}[];effectivePermissions?:string[]}
 export const builtIn=(role:Role)=>['1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7','193e06d9-4dfa-4ef9-80f2-9d457b6b7b5f'].includes(role.id);
 function validRead(value:unknown,activity:boolean):boolean {
  if(!value||typeof value!=='object')return false;
@@ -10,7 +10,7 @@ function validRead(value:unknown,activity:boolean):boolean {
   if(!entry||typeof entry!=='object')return false;const e=entry as Record<string,unknown>;
   return typeof e.sequence==='string'&&Number.isSafeInteger(e.occurredAt)&&['actorId','operation','roleId','delta','operationId'].every(k=>typeof e[k]==='string')&&(e.accountId===null||typeof e.accountId==='string')&&['actorName','accountName','roleName'].every(k=>e[k]===undefined||e[k]===null||typeof e[k]==='string');
  })&&(data.nextBefore===null||typeof data.nextBefore==='string')&&(data.permissions===undefined||Array.isArray(data.permissions)&&data.permissions.length<=100&&data.permissions.every(p=>p&&typeof p.id==='string'&&typeof p.code==='string'));
- return Number.isSafeInteger(data.revision)&&typeof data.administrator==='boolean'&&Array.isArray(data.roles)&&data.roles.length<=200
+ return Number.isSafeInteger(data.revision)&&typeof data.administrator==='boolean'&&(data.deletionAvailable===undefined||typeof data.deletionAvailable==='boolean')&&Array.isArray(data.roles)&&data.roles.length<=200
   &&data.roles.every(r=>r.assignedMemberCount===undefined||Number.isSafeInteger(r.assignedMemberCount)&&r.assignedMemberCount>=0)
   &&data.roles.every(r=>r&&['id','code','name'].every(k=>typeof r[k as 'id'|'code'|'name']==='string')&&(r.description===null||typeof r.description==='string')&&[0,1].includes(r.isActive)&&[0,1].includes(r.isProtected))
   &&Array.isArray(data.permissions)&&data.permissions.length<=100&&data.permissions.every(p=>p&&typeof p.id==='string'&&typeof p.code==='string'&&typeof p.description==='string'&&typeof p.protected==='boolean')
@@ -42,12 +42,12 @@ export function useRoleRead<T>(href:string,section:'roles'|'activity'='roles') {
 }
 export function useRoleMutation(){
  const auth=useAuth(),[pending,setPending]=useState(false),setMessage=auth.setRoleFeedback;
- async function save(href:string,body:object){
+ async function save(href:string,body:object,successMessage='Change saved.'){
   if(pending||!auth.session)return false;setPending(true);setMessage('');
   try{
    const response=await fetch(href,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-LAN-Request':'1','X-LAN-Session-Proof':auth.session.csrfToken,'X-CSRF-Token':auth.session.csrfToken},body:JSON.stringify({...body,operationId:crypto.randomUUID()}),signal:AbortSignal.timeout(15000)});
-   if(!response.ok){setMessage(response.status===409?'The state changed or this operation was processed. Reload and review before submitting again.':response.status===403?'This change is restricted.':'The change could not be confirmed. Reload and inspect the activity log before submitting again.');return false;}
-   setMessage('Change saved.');return true;
+   if(!response.ok){const result=await response.json().catch(()=>null);setMessage(response.status===409&&result?.code==='role_assigned'?'Unassign this role from every member before deleting it, including inactive accounts.':response.status===409?'The state changed or this operation was processed. Reload and review before submitting again.':response.status===403?'This change is restricted.':'The change could not be confirmed. Reload and inspect the activity log before submitting again.');return false;}
+   setMessage(successMessage);return true;
   }catch{setMessage('The outcome is unknown. Reload and inspect the activity log before submitting again.');return false;}
   finally{setPending(false);await auth.invalidateAdministration();}
  }

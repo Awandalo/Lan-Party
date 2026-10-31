@@ -38,11 +38,11 @@ export default function MfaReplacement({csrf,open,disabled,methods,onOpen,onBusy
    <p>This uses fresh sign-in proof once and signs this session out into restricted replacement. Spent recovery codes are never reused. Cancellation or expiry may require administrator assistance if no usable method remains.</p>
    {mfaExpired?<ReplacementProof csrf={currentCsrf.current} onBusy={v=>{setBusy(v);onBusy(v);}} onCancel={close} onConfirmed={async next=>{currentCsrf.current=next;setMfaExpired(false);await start(next,true);}}/>:primary?<><p>Confirm your sign-in method. Fresh MFA proof from your current session is also required.</p>
     {methods.password&&<form onSubmit={confirm}><fieldset disabled={busy||uncertain}><label htmlFor="replacement-password">Current password</label><PasswordInput id="replacement-password" name="password" required autoComplete="current-password"/>
-     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}<button className="button" disabled={!!siteKey&&!proof}>Confirm</button></fieldset></form>}
+     {siteKey&&<LoginChallenge key={attempt} siteKey={siteKey} onToken={setProof}/>}</fieldset><div className="security-actions"><button className="button" disabled={busy||uncertain||!!siteKey&&!proof}>Confirm</button><button type="button" className="button button-secondary" disabled={busy} onClick={close}>Cancel</button></div></form>}
     </>:
-    <button className="button" disabled={busy||uncertain} onClick={()=>void start()}>{busy?'Starting…':'Start replacement'}</button>}
+    <div className="security-actions"><button className="button" disabled={busy||uncertain} onClick={()=>void start()}>{busy?'Starting…':'Start replacement'}</button><button type="button" className="button button-secondary" disabled={busy} onClick={close}>Cancel</button></div>}
    {uncertain&&<a className="button button-secondary" href="/account/security?recovery=1">Check restricted recovery</a>}
-   <p className="mfa-latest-action" role="status">{message}</p><button className="button button-secondary" disabled={busy} onClick={close}>Cancel</button>
+   <p className="mfa-latest-action" role="status">{message}</p>{(mfaExpired||primary&&!methods.password)&&<div className="security-actions"><button type="button" className="button button-secondary" disabled={busy} onClick={close}>Cancel</button></div>}
   </section>}
   {!active&&message&&<p className="mfa-latest-action" role="status">{message}</p>}
  </div>;

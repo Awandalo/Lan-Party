@@ -1,0 +1,7 @@
+import {useEffect,useRef,useState} from 'react';
+import type {Role} from '../lib/roles';
+export default function DeleteRoleDialog({role,pending,onDelete,onClose}:{role:Role;pending:boolean;onDelete:()=>Promise<void>;onClose:()=>void}){
+ const dialog=useRef<HTMLDialogElement>(null),cancel=useRef<HTMLButtonElement>(null),[confirmed,setConfirmed]=useState(false);
+ useEffect(()=>{dialog.current?.showModal();cancel.current?.focus();},[]);
+ return <dialog ref={dialog} className="role-wizard role-review-dialog" aria-labelledby="delete-role-title" onCancel={event=>{if(pending)event.preventDefault();}} onClose={onClose}><h2 id="delete-role-title">Delete {role.name}?</h2><p>This permanently removes the custom role and its permissions. Its private activity history remains.</p><p>Unassign it from every member first, including inactive accounts. Assignment status is checked again when you confirm.</p><label className="role-check"><input type="checkbox" checked={confirmed} disabled={pending} onChange={e=>setConfirmed(e.target.checked)}/>I understand this role will be permanently deleted</label><div className="wizard-actions"><button ref={cancel} type="button" className="button button-secondary" disabled={pending} onClick={()=>dialog.current?.close()}>Cancel</button><button type="button" className="button role-danger" disabled={!confirmed||pending} onClick={()=>void onDelete()}>{pending?'Deleting…':'Confirm delete role'}</button></div></dialog>;
+}

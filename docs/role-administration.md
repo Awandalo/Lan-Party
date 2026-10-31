@@ -17,7 +17,8 @@ Only another genuine Administrator can grant/remove Administrator membership.
 All self-membership changes are rejected. Security edits to any held role are
 rejected, including future assignments; harmless name/description edits preserve
 grant timestamps. Built-in User and Administrator definitions are immutable;
-Administrator is permanently protected. There is no role hard-delete API.
+Administrator is permanently protected. Phase 4.3 shipped without role deletion;
+Phase 4.5's bounded custom-role deletion is documented below.
 
 Delegated `roles.manage` holders manage ordinary, unprotected custom roles.
 Protected roles and roles containing protected grants require genuine Administrator
@@ -44,6 +45,40 @@ Password, MFA and lifecycle security flows keep their existing fresh-proof rules
 reactivation is unchanged. Optional MFA remains optional.
 
 ## Atomic writes and stale editors
+
+### Phase 4.5 — Delete an unassigned custom role
+
+`POST /api/manage/roles` accepts `action: "delete"`, the role ID, reviewed revision,
+unique operation ID and `confirmed: true`. The UI places Delete role beside Edit
+and requires an explicit modal acknowledgement. Cancel receives initial focus.
+Existing `roles.manage`/intrinsic Administrator authority, full-session assurance,
+CSRF, origin and revision gates apply; no new grant or fresh-proof policy is added.
+
+Built-in roles, protected roles and roles carrying protected grants are never
+deletable, including by Administrators. Any `user_roles` row blocks deletion,
+including inactive/unverified members and future/held assignments. Effective member
+counts do not establish eligibility. The final role DELETE repeats the no-assignment
+and unprotected-role predicates in the guarded revision transaction; FK RESTRICT
+also prevents orphan assignments. Only that role's mappings are removed, atomically
+with the role and audit event. Audit failure rolls everything back. Missing/stale
+roles and replay/conflicts return 409; assigned roles return actionable unassignment
+guidance. Authorization/invalid input remain 403/400.
+
+Migration 0022 enables the `role.delete` audit operation. Until present, the
+catalogue reports deletion unavailable and direct deletion refuses the request.
+The event retains the stable role/actor/operation IDs, deleted flag and removed
+permission IDs, with no name/description snapshot. The deleted role's historical
+current-label projection becomes unavailable; the deletion action remains readable
+and filterable. Existing indefinite private audit retention is unchanged.
+
+After separate owner approval, DEV-only migration 0022 was applied on 2026-10-31
+with SHA-256 `8b6bfca989c64c9f81efc0326e1660c7b33a45b01441dacd47f8cf1bc806ca6d`.
+Preflight verified exact history through 0021, identity, guards, integrity/FKs and
+a private recovery bookmark. Postflight verified 0022, the new constraint, clean
+integrity/FKs and unchanged accounts, roles, assignments, mappings, audit aggregates,
+sequence and RBAC revision. No hosted role/account deletion was performed.
+
+### Existing transaction contract
 
 Migration 0020 adds protection flags, a global RBAC revision and append-only audit.
 It preserves the exact existing owner-bootstrap exception while reconciling reserved

@@ -9,19 +9,23 @@ import RolePermissions from './RolePermissions';
 import RoleReviewDialog from './RoleReviewDialog';
 import {useUnsavedRole} from '../lib/use-unsaved-role';
 import CreateRoleWizard from './CreateRoleWizard';
+import DeleteRoleDialog from './DeleteRoleDialog';
 export function RoleWorkspaceLoading(){return <><p className="roles-progress" role="status">Loading roles…</p><div className="role-workspace role-workspace-loading" aria-busy="true"><div className="panel"><h2>Roles</h2>{[1,2,3].map(i=><div key={i} className="role-list-placeholder"/>)}</div><div className="panel"><h2>Role permissions</h2><div className="role-editor-placeholder"/></div><div className="panel"><h2>Role details</h2><div className="role-list-placeholder"/></div></div></>;}
 function SelectedRole({catalogue,role,onDirtyChange}:{catalogue:Catalogue;role:Role;onDirtyChange:(dirty:boolean)=>void}){
  const {setRoleFeedback}=useAuth();
  const [editing,setEditing]=useState(false),[draft,setDraft]=useState(()=>roleDraft(catalogue,role)),[review,setReview]=useState(false),mutation=useRoleMutation();
  const [reviewOpen,setReviewOpen]=useState(false);
+ const [deleteOpen,setDeleteOpen]=useState(false);
  const dirty=editing&&!sameRoleDraft(draft,roleDraft(catalogue,role));
  useUnsavedRole(dirty&&!mutation.pending);
  useEffect(()=>{onDirtyChange(dirty);return()=>onDirtyChange(false);},[dirty,onDirtyChange]);
  function updateDraft(next:typeof draft){setDraft(next);setReview(false);setRoleFeedback('');}
  const assigned=assignedPermissions(catalogue,role),locked=builtIn(role)||!catalogue.administrator&&(!!role.isProtected||assigned.some(id=>catalogue.permissions.find(p=>p.id===id)?.protected));
  const full=role.id===administratorRole,ids=full?catalogue.permissions.map(p=>p.id):editing?draft.permissionIds:assigned,modules=enabledGroups(catalogue,ids);
+ const deletable=catalogue.deletionAvailable===true&&!builtIn(role)&&!role.isProtected&&!assigned.some(id=>catalogue.permissions.find(p=>p.id===id)?.protected);
  async function save(){if(locked||!dirty||!review||!draftValid(draft))return;await mutation.save('/api/manage/roles',{action:'update',roleId:role.id,revision:catalogue.revision,...draft});}
- return <><div className="role-main-column"><section className="panel selected-role-heading"><span className="role-icon role-icon-large"><Icon name={roleIcon(catalogue,role)}/></span><div><p className="eyebrow">{builtIn(role)?'Built-in role':role.isProtected?'Protected role':'Custom role'}</p><h2>{role.name}</h2><p>{role.description||'A role for your LAN Party crew.'}</p></div>{!locked&&<button className="button button-secondary" disabled={editing} onClick={()=>{setRoleFeedback('');setEditing(true);}}>Edit role</button>}</section>
+ return <><div className="role-main-column"><section className="panel selected-role-heading"><span className="role-icon role-icon-large"><Icon name={roleIcon(catalogue,role)}/></span><div><p className="eyebrow">{builtIn(role)?'Built-in role':role.isProtected?'Protected role':'Custom role'}</p><h2>{role.name}</h2><p>{role.description||'A role for your LAN Party crew.'}</p></div><div className="selected-role-actions">{!locked&&<button className="button button-secondary" disabled={editing||mutation.pending} onClick={()=>{setRoleFeedback('');setEditing(true);}}>Edit role</button>}{deletable&&<button className="button button-secondary role-danger" disabled={editing||mutation.pending} onClick={()=>{setRoleFeedback('');setDeleteOpen(true);}}>Delete role</button>}</div></section>
+  {deleteOpen&&<DeleteRoleDialog role={role} pending={mutation.pending} onClose={()=>{if(!mutation.pending)setDeleteOpen(false);}} onDelete={async()=>{await mutation.save('/api/manage/roles',{action:'delete',roleId:role.id,revision:catalogue.revision,confirmed:true},'Role deleted.');setDeleteOpen(false);}}/>}
   {full&&<div className="role-notice"><Icon name="shield"/><div><strong>Full administrative access</strong><p>Administrators have full authority through their built-in membership. The explicit grants below do not limit that access.</p></div></div>}
   {locked&&!full&&<p className="role-notice">{builtIn(role)?'This built-in role is read-only.':'Only an Administrator can edit this protected role.'}</p>}
   <section className="panel role-permission-panel">{editing&&<><h2>Edit role</h2><RoleFields draft={draft} onChange={updateDraft} administrator={catalogue.administrator} existing/></>}

@@ -616,3 +616,23 @@ read-only preflight and Time Travel bookmark. Both applied on DEV, integrity and
 foreign keys passed, accounts were preserved and audit/bootstrap tables remained
 empty. No account provisioning or PROD operation was performed. Other targets
 still require their own approval; application acceptance is separate.
+
+## 0022 — Custom-role deletion audit event
+
+Rebuilds only `role_activity` to add `role.delete` to its operation constraint.
+Copies all historical columns/rows without transformation, preserves AUTOINCREMENT
+allocation and recreates the three append-only triggers in the same migration.
+Built-in role guards, RBAC grants/assignments, accounts and lifecycle tables are
+unchanged. No roles are deleted by this migration. Isolated tests verify populated
+history, sequence continuity, guards and rollback after an injected final failure.
+
+Apply only through `wrangler d1 migrations apply lan-party-dev --remote --env dev`
+after separate exact-target approval, fresh history/integrity/guard checks and a
+Time Travel recovery bookmark. History must be exactly through 0021 and only 0022
+pending; stop on drift. Compare audit aggregates/sequence and account/assignment
+counts afterward. The existing Worker remains compatible; new deletion stays
+unavailable until the updated schema is present. No PROD execution or automatic
+rollback is authorized. Recovery/restore requires a separate reviewed decision.
+
+Cloudflare documents per-migration error rollback in its
+[D1 Wrangler commands](https://developers.cloudflare.com/d1/wrangler-commands/#d1-migrations-apply).

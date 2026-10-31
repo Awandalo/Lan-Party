@@ -114,6 +114,39 @@ alignment, category reset/manual expansion, Members cursors/filter reset, stable
 Security summaries and password/lifecycle keyboard focus. Hosted owner acceptance
 of the revised presentation remains pending; publication evidence is recorded in #30.
 
+## Iteration 4 — DEV feedback 6536111969
+
+Custom roles have an explicit confirmed deletion action, subject to the backend
+rules in [the role contract](role-administration.md#phase-45--delete-an-unassigned-custom-role).
+The owner separately approved local migration work and exact DEV migration 0022.
+No existing assignments, account data or audit facts were changed by that migration.
+Deletion and assignment races, immutable/protected roles, delegated authority,
+CSRF/revoked sessions, explicit confirmation, replay, unchanged unrelated memberships
+and audit rollback are covered by isolated fixtures.
+
+Password Save/Cancel and regeneration/replacement/lifecycle confirmation actions
+use compact left-aligned rows with responsive wrapping. Regeneration/replacement
+panels size to content rather than reserving 22–64rem of empty height. Lifecycle
+uses a neutral panel border; wording and explicit destructive confirmations remain.
+Close details stays at top right. Existing security request handlers, proof rules,
+session invalidation and code consumption are unchanged. The fixed summary layout
+from iteration 3 is retained; details may grow naturally as their content changes.
+
+The full local regression passed 548 tests; final changed-area contracts and the
+strict TypeScript/hosted-dev build also pass. The initial new test used an invalid
+overlong fictional code; it was corrected. The migration inventory was updated,
+and compatibility checks explicitly allow only the empty audit table's new zero
+AUTOINCREMENT namespace while preserving all existing account sequences exactly.
+The initial broad run's sole inventory failure passed after that correction.
+Desktop/390/320px checks cover all four Security flows without horizontal overflow,
+dialog confirmation/cancel and assigned-role refusal. Publication evidence and
+owner hosted acceptance remain recorded separately in #30.
+
+Wrangler initially returned authentication error 10000; the owner authorized a
+retry using the existing authentication, which succeeded. No reauthentication,
+credential or permission change was performed. Recovery and pre/postflight evidence
+remain in ignored local files. PROD and live destructive tests were not performed.
+
 ## Verification and hosted handover
 
 Local fixtures are fictional and intercept all transports. Check main/context route

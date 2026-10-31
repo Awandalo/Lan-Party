@@ -62,3 +62,6 @@ html:has(.role-sticky-actions) { scroll-padding-bottom:140px; }
 .role-list-item strong { font-size:.9rem; }.role-list-item small { font-size:.75rem; }
 @media(max-width:1550px) { .role-workspace { grid-template-columns:260px minmax(0,1fr); }.role-summary-column { grid-column:2; position:static; }.role-summary-note { display:none; } }
 @media(max-width:800px) { .role-workspace { grid-template-columns:minmax(0,1fr); }.role-list-column { min-height:0; border:0; padding:0; }.role-list { display:flex; overflow-x:auto; padding-bottom:.6rem; }.role-list-item { min-width:240px; max-width:280px; }.role-main-column,.role-summary-column { grid-column:1; } }
+
+.selected-role-heading > .selected-role-actions { flex:0 1 auto; display:flex; gap:.5rem; flex-wrap:wrap; }
+.role-danger { color:#ffe5e8; border-color:#b65b68; background:#4a242a; }

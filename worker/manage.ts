@@ -9,7 +9,7 @@ import { authOrigin, authRouteEnabled, hostedDev, loopback } from './auth/enviro
 import { readSessionCookie } from './auth/cookies';
 import { resolveSession } from './auth/sessions';
 import {validAuthMutation} from './auth/environment';
-import {isAdministrator,roleSchemaReady,roleCatalogue,roleActivity,mutateRole,RoleDenied,RoleInvalid,RoleConflict,UUID} from './role-administration';
+import {isAdministrator,roleSchemaReady,roleCatalogue,roleActivity,mutateRole,RoleDenied,RoleInvalid,RoleConflict,RoleAssigned,UUID} from './role-administration';
 
 const sectionPermissions = {
   users: ['users.view', 'users.manage'],
@@ -97,7 +97,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
       let body:Record<string,unknown>;try{body=JSON.parse(parts+decoder.decode());}catch{throw new RoleInvalid();}
       if(!body||typeof body!=='object'||Array.isArray(body))throw new RoleInvalid();
       if(membership) {if(body.accountId!==target||!['assign','remove'].includes(String(body.action)))throw new RoleInvalid();}
-      else if(!['create','update'].includes(String(body.action)))throw new RoleInvalid();
+      else if(!['create','update','delete'].includes(String(body.action)))throw new RoleInvalid();
       return reply(200,await mutateRole(env.DB,account.userId,digest,body));
     }
     if (members) {
@@ -113,6 +113,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     const authorization=toHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([admin,[...new Set(permissions)].sort()])))));
     return reply(200, {sections,authorization});
   } catch(error) {
+    if(error instanceof RoleAssigned)return reply(409,{code:'role_assigned',error:'Unassign this role from every member before deleting it, including inactive accounts.'});
     if(error instanceof RoleDenied)return reply(403,{error:'Role change is restricted'});
     if(error instanceof RoleInvalid)return reply(400,{error:'Invalid role request'});
     if(error instanceof RoleConflict)return reply(409,{error:'Role state changed or request was already processed. Reload before trying again.'});
