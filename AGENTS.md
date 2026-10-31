@@ -399,6 +399,21 @@ provider/account actions still need their applicable authorization. Keep issues
 open until acceptance. Report commit/push, checks, actual DEV status, limitations
 and staged/unstaged files. Recovery requires its own applicable authorization.
 
+## Cloudflare/Wrangler error 10000
+
+Owner-approved project troubleshooting directive, 2026-10-31. This bounded retry
+applies only to an already-authorized operation; existing target, approval,
+recovery and host checks still apply.
+
+- When error `10000` occurs, wait **60 seconds** and retry the identical command
+  **once**.
+- For write operations (including D1 migrations), first verify that no changes
+  were applied. If the operation's state is uncertain, **stop without retrying**.
+- If the retry succeeds, continue normally and record the transient failure.
+- If it fails again, stop and report the error to Q/Owner.
+- Do not automatically reauthenticate, modify credentials, change permissions or
+  attempt additional retries.
+
 ## Automatic Git Operations for Documentation-Only Changes
 
 Codex is authorized to automatically stage, commit, and push documentation-only
