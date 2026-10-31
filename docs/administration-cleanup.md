@@ -160,6 +160,33 @@ contract correction, not an HTTP or authorization policy change. An initial
 diagnostic harness using cross-request promises was rejected by Workerd and was
 replaced with request-local interleaving; no compatibility flag was weakened.
 
+## Owner follow-up after iteration 4
+
+The owner directly requested and authorized DEV publication of the deletion
+acknowledgement switch, preflight blocked-member warning, red Delete styling,
+selected-role Assigned members card and Account Access scroll correction. No new
+phase, schema/configuration change or permission grant is introduced.
+
+The role card loads only 20 members for the selected role and reuses the bounded,
+session-bound Members cache. Clickable nickname/member numbers lead to existing
+member details. All assignment states are included so inactive/future assignments
+can be found before deletion; only Members-view holders see the card. A separate
+fresh eligibility read keeps dialog controls disabled until assignment checks pass.
+The final deletion transaction remains authoritative if state changes afterward.
+
+Security's fallback region focus now uses `preventScroll`, so opening Account
+Access does not move the viewport once its trigger is visible. Explicit form-field
+autofocus and Close/Cancel focus return remain unchanged. Browser checks verify
+the same scroll offset before/after expansion and keyboard focus on the region.
+
+Changed-area tests cover assignment preflight/read authorization, inactive/future
+members, strict filters and role-bound pagination without duplicate members or
+private profile fields. Thirty final changed-area tests and strict TypeScript/
+hosted-dev build pass; earlier unaffected role/security evidence is reused. Browser
+checks cover blocked/available/failed dialog states, switch acknowledgement gating,
+member-detail links, pagination, restricted visibility and 320/390px layout. Hosted
+owner acceptance and final publication evidence remain in #30.
+
 ## Verification and hosted handover
 
 Local fixtures are fictional and intercept all transports. Check main/context route

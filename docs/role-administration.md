@@ -54,6 +54,23 @@ and requires an explicit modal acknowledgement. Cancel receives initial focus.
 Existing `roles.manage`/intrinsic Administrator authority, full-session assurance,
 CSRF, origin and revision gates apply; no new grant or fresh-proof policy is added.
 
+The acknowledgement uses the shared switch style. Opening the dialog performs a
+fresh, no-store `GET /api/manage/roles/:uuid/deletion` under the same role-management
+and session-correlation checks. It returns only an eligibility state, never member
+identities/counts. Assigned roles show “Role can't be deleted yet. Please check the
+current members.” with the switch and confirmation disabled. Loading, unavailable,
+protected and failed checks also disable confirmation. This read does not replace
+the transactional assignment check when a deletion is submitted.
+
+Members-view holders see an Assigned members card beneath Permissions, with member
+detail links and 20-row cursor pages. It reuses the Members read/cache contract via
+`roleId=:uuid&status=all`; all persisted assignments are included, even inactive,
+unverified or future ones. The all-state view requires an explicit role filter;
+role-filtered cursors bind that role and all other criteria. Existing unfiltered
+cursors retain their prior fingerprint. The card exposes the normal approved member
+summary fields and requires `users.view` on every server read. It neither fetches
+the whole directory nor grants member access to roles-only managers.
+
 Built-in roles, protected roles and roles carrying protected grants are never
 deletable, including by Administrators. Any `user_roles` row blocks deletion,
 including inactive/unverified members and future/held assignments. Effective member

@@ -74,6 +74,7 @@ window.fetch=async(input,init)=>{
   else {invitationId=body.operationId;if(params.get('delivery')==='unconfirmed'){outcome='unconfirmed';invitationId=null;}}
   commandResults.set(body.operationId,outcome);return Response.json({outcome});
  }
+ if(/^\/api\/manage\/roles\/[^/]+\/deletion$/.test(url.pathname)){if(params.get('deletion')==='error')return Response.json({},{status:503});const roleId=url.pathname.split('/')[4],assigned=params.get('deletion')==='assigned'||[roles[0]?.id,roles[1]?.id,roles[2]?.id].includes(roleId);return Response.json({state:params.get('deletion')==='unavailable'?'unavailable':assigned?'assigned':'available'});}
  if(url.pathname==='/api/manage/role-activity'){
   const start=url.searchParams.get('date')?Date.parse(url.searchParams.get('date')+'T00:00:00Z')/1000:null,action=url.searchParams.get('operation'),search=(url.searchParams.get('search')??'').toLowerCase(),before=BigInt(url.searchParams.get('before')??'9223372036854775807');
   const projected=entries.map(entry=>({...entry,actorName:'Fictional Administrator',accountName:entry.accountId?'Fictional Participant':null,roleName:roles.find(role=>role.id===entry.roleId)?.name??null})).filter(entry=>BigInt(entry.sequence)<before&&(!action||entry.operation===action)&&(start===null||entry.occurredAt>=start&&entry.occurredAt<start+86400)&&JSON.stringify(entry).toLowerCase().includes(search)).sort((a,b)=>Number(BigInt(b.sequence)-BigInt(a.sequence)));
@@ -94,7 +95,10 @@ window.fetch=async(input,init)=>{
   return Response.json({...catalogue(),...(url.pathname.includes('/users/')?{assignments,effectivePermissions:['news.create']}: {})});
  }
  if(url.pathname==='/api/manage/users/'+target)return Response.json({member:{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:memberState,roles:assignments.map(a=>roles.find(r=>r.id===a.roleId)!).map(r=>({code:r.code,name:r.name,active:!!r.isActive})),email:'fictional@example.test',firstName:memberState==='deactivated'?null:'Fictional',lastName:memberState==='deactivated'?null:'Tester',prefix:null,verified:true,createdAt:1790000000}});
- if(url.pathname==='/api/manage/users')return Response.json({members:params.get('members')==='empty'?[]:[{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[]}],nextCursor:params.get('members')==='multi'&&!url.searchParams.has('cursor')?'fictional-next':null});
+ if(url.pathname==='/api/manage/users'){
+  const empty=params.get('members')==='empty'||url.searchParams.get('roleId')===roles[3]?.id&&params.get('deletion')!=='assigned';
+  return Response.json({members:empty?[]:[{userId:target,nickname:'Fictional Participant',memberNumber:'11',status:'active',roles:[]}],nextCursor:!empty&&params.get('members')==='multi'&&!url.searchParams.has('cursor')?'fictional-next':null});
+ }
  throw Error('Unexpected fixture request');
 };
 const preview=document.createElement('div');preview.className='layout-preview-toolbar';preview.innerHTML='<span>Local layout preview · fictional data</span><a href="/after.html?mode=guest&route=/">Public</a><a href="/after.html?mode=member&route=/account">Member</a><a href="/after.html?mode=admin&route=/manage/roles">Administrator</a><a href="/after.html?mode=delegated&route=/manage/roles">Role manager</a>';document.body.append(preview);

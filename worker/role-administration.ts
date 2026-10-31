@@ -10,6 +10,17 @@ export async function roleDeletionReady(db:D1Database){
  const schema=await db.prepare("SELECT sql FROM sqlite_schema WHERE type='table' AND name='role_activity'").first<string>('sql');
  return !!schema?.includes("'role.delete'");
 }
+export async function roleDeletionState(db:D1Database,id:string){
+ const row=await db.prepare(`SELECT is_protected AS protected,
+  EXISTS(SELECT 1 FROM user_roles WHERE role_id=roles.id) AS assigned,
+  EXISTS(SELECT 1 FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id
+   WHERE rp.role_id=roles.id AND p.code IN (${PROTECTED_PERMISSIONS.map(()=>'?').join(',')})) AS privileged
+  FROM roles WHERE id=?`).bind(...PROTECTED_PERMISSIONS,id).first<{protected:number;assigned:number;privileged:number}>();
+ if(!row)return null;
+ if(id===ADMIN_ROLE_ID||id===USER_ROLE_ID||row.protected||row.privileged)return 'protected';
+ if(!await roleDeletionReady(db))return 'unavailable';
+ return row.assigned?'assigned':'available';
+}
 export async function roleSchemaReady(db:D1Database) {
  const row=await db.prepare("SELECT count(*) n FROM sqlite_schema WHERE type='table' AND name IN ('rbac_state','role_activity')").first<number>('n');
  if(row===0)return false;

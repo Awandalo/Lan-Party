@@ -16,7 +16,7 @@ export default function SecurityDetails({children,open,title,className='',onClos
   if(!open||!host)return;
   const frame=requestAnimationFrame(()=>{
    // Existing action-specific autofocus takes precedence over this region focus.
-   if(panel.current&&!panel.current.contains(document.activeElement))panel.current.focus();
+   if(panel.current&&!panel.current.contains(document.activeElement))panel.current.focus({preventScroll:true});
   });
   return()=>cancelAnimationFrame(frame);
  },[open,host]);

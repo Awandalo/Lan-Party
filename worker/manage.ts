@@ -9,7 +9,7 @@ import { authOrigin, authRouteEnabled, hostedDev, loopback } from './auth/enviro
 import { readSessionCookie } from './auth/cookies';
 import { resolveSession } from './auth/sessions';
 import {validAuthMutation} from './auth/environment';
-import {isAdministrator,roleSchemaReady,roleCatalogue,roleActivity,mutateRole,RoleDenied,RoleInvalid,RoleConflict,RoleAssigned,UUID} from './role-administration';
+import {isAdministrator,roleSchemaReady,roleCatalogue,roleActivity,roleDeletionState,mutateRole,RoleDenied,RoleInvalid,RoleConflict,RoleAssigned,UUID} from './role-administration';
 
 const sectionPermissions = {
   users: ['users.view', 'users.manage'],
@@ -38,11 +38,13 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
   const url = new URL(request.url);
   const members = url.pathname === '/api/manage/users' || url.pathname.startsWith('/api/manage/users/');
   const userLog=url.pathname==='/api/manage/user-activity';
-  const roleEndpoint=url.pathname==='/api/manage/roles'||url.pathname==='/api/manage/role-activity'||/^\/api\/manage\/users\/[^/]+\/roles$/.test(url.pathname);
+  const deletion=/^\/api\/manage\/roles\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/deletion$/.exec(url.pathname);
+  const roleEndpoint=!!deletion||url.pathname==='/api/manage/roles'||url.pathname==='/api/manage/role-activity'||/^\/api\/manage\/users\/[^/]+\/roles$/.test(url.pathname);
   // This first iteration is DEV/local only; PROD activation requires separate approval.
   if (!(loopback(url) || hostedDev(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
     || (!members && !roleEndpoint && !userLog && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
   if (request.method !== 'GET' && !(roleEndpoint && request.method==='POST' && !url.pathname.endsWith('role-activity'))) return reply(405, {error: 'Method not allowed'});
+  if(deletion&&request.method!=='GET')return reply(405,{error:'Method not allowed'});
   try {
     const origin = authOrigin(request, env);
     if ((!members && !roleEndpoint && !userLog && url.search) || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
@@ -71,6 +73,11 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     if(roleEndpoint) {
       if(!await roleSchemaReady(env.DB))return reply(503,{error:'Role administration requires its approved database migration'});
       if(!permissions.includes('roles.manage'))return reply(403,{error:'Role access is restricted'});
+      if(deletion){
+        if(url.search)throw new RoleInvalid();
+        const state=await roleDeletionState(env.DB,deletion[1]);
+        return state?reply(200,{state}):reply(404,{error:'Role not found'});
+      }
       const membership=url.pathname.startsWith('/api/manage/users/');
       if(membership && !permissions.includes('users.view'))return reply(403,{error:'Member access is restricted'});
       if(url.pathname==='/api/manage/role-activity') {

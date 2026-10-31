@@ -480,7 +480,8 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Implement iteration 2 bounded Members alignment, neutral idle lifecycle styling, shared log toolbar/pagination and background-focus refresh correction (#30 comment 6535348451).
 - [x] Apply iteration 3 shared Administration origin, collapsed permission categories, stable Security details, shortcut removal and single-page Members pagination corrections; verify last-admin safety in isolated tests (#30 comment 6535820652).
 - [x] Implement iteration 4 confirmed unassigned custom-role deletion and compact Security action rows; separately approve/apply/verify DEV migration 0022 (#30 comment 6536111969).
-- [ ] Owner retest the iteration 4 DEV handover; keep #30 open for acceptance.
+- [x] Implement owner follow-up: deletion switch/blocked-member preflight, selected-role member card with bounded pages, matching destructive red and Account Access expansion without a forced scroll.
+- [ ] Owner retest the latest Phase 4.5 DEV handover; keep #30 open for acceptance.
 - [ ] Record approved disposable-account hosted acceptance and Phase 4 sign-off; keep #30 open until owner acceptance.
 
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.

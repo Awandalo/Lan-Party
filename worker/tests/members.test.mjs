@@ -117,6 +117,30 @@ test('stable bounded cursor pages bind query criteria, exclude duplicates from m
  assert.deepEqual((await body(f,'',admin)).members.map(r=>r.userId),first.members.map(r=>r.userId));
  const removed=first.members.at(-1).userId;await f.sql('DELETE FROM user_nicknames WHERE user_id=?',removed).run();await f.sql('DELETE FROM auth_sessions WHERE user_id=?',removed).run();await f.sql('DELETE FROM users WHERE id=?',removed).run();assert.deepEqual((await body(f,'?cursor='+encodeURIComponent(first.nextCursor),admin)).members.map(r=>r.userId),next.members.map(r=>r.userId));
 }));
+
+test('role-filtered member pages include inactive/future assignments, stay bounded and bind cursors to the selected role',()=>local(async f=>{
+ const admin=await f.user({admin:true}),role=randomUUID(),other=randomUUID(),rows=[];
+ for(const [id,code] of [[role,'role_filter_a'],[other,'role_filter_b']])await f.sql('INSERT INTO roles(id,code,name,is_active,created_at,updated_at) VALUES (?,?,?,1,0,0)',id,code,code).run();
+ for(let i=0;i<23;i++){
+  const u=await target(f,{nickname:'RoleFilter '+String(i).padStart(2,'0'),state:i===21?'disabled':'active',verified:i!==22});rows.push(u);
+  await f.sql('INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES (?,?,unixepoch()+?)',u.id,role,i===22?3600:0).run();
+ }
+ await target(f,{nickname:'Not assigned'});
+ await f.sql('INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES (?,?,0)',rows[0].id,other).run();
+ const query='?roleId='+role+'&status=all',first=await body(f,query,admin);
+ assert.equal(first.members.length,20);assert.ok(first.nextCursor);
+ const second=await body(f,query+'&cursor='+encodeURIComponent(first.nextCursor),admin);
+ assert.equal(second.members.length,3);assert.equal(second.nextCursor,null);
+ const result=[...first.members,...second.members];assert.equal(new Set(result.map(r=>r.userId)).size,23);
+ assert.deepEqual(result.map(r=>r.userId),rows.map(r=>r.id));
+ assert.equal(result.find(r=>r.userId===rows[21].id).status,'disabled');
+ assert.ok(result.some(r=>r.userId===rows[22].id));
+ assert.ok(result.every(r=>r.roles.some(role=>role.code==='role_filter_a')));
+ assert.ok(result.every(r=>!('email'in r)&&!('firstName'in r)));
+ assert.equal((await body(f,query+'&search=RoleFilter%2022',admin)).members[0].userId,rows[22].id);
+ for(const q of ['?status=all','?roleId=bad','?roleId='+role+'&roleId='+other,'?roleId='+other+'&status=all&cursor='+encodeURIComponent(first.nextCursor),'?roleId='+role+'&status=active&cursor='+encodeURIComponent(first.nextCursor)])assert.equal((await get(f,q,admin)).status,400,q);
+ await grant(f,admin,'roles.manage');assert.equal((await get(f,query,admin)).status,403);
+}));
 test('revocation, disabled sessions, context mismatch, request boundaries and database failures clear access',()=>local(async f=>{
  const admin=await f.user({admin:true}),other=await f.user({admin:true}),t=await target(f);
  assert.equal((await f.request('manage/users',admin)).status,403);assert.equal((await get(f,'/not-a-uuid',admin)).status,400);

@@ -12,6 +12,27 @@ async function create(f,u,patch={}){
 }
 async function deletion(f,u,id,patch={}){return call(f,u,{action:'delete',roleId:id,revision:(await catalogue(f,u)).revision,operationId:randomUUID(),confirmed:true,...patch});}
 
+test('deletion preflight reports all assignments without member identities and preserves role read/write boundaries',()=>local(async f=>{
+ const a=await f.user({genuine:true}),d=await f.user({admin:true}),u=await f.user(),id=await create(f,a);
+ const path='manage/roles/'+id+'/deletion';
+ const revision=(await catalogue(f,a)).revision;
+ for(const actor of [a,d]){const r=await call(f,actor,undefined,path);assert.equal(r.status,200);assert.equal(r.headers.get('Cache-Control'),'no-store');assert.deepEqual(await r.json(),{state:'available'});}
+ assert.equal((await call(f,u,undefined,path)).status,403);
+ assert.equal((await f.request(path,a)).status,403);
+ assert.equal((await call(f,a,{},path)).status,405);
+ assert.equal((await call(f,a,undefined,path+'?unexpected=1')).status,400);
+ assert.equal((await call(f,a,undefined,'manage/roles/'+randomUUID()+'/deletion')).status,404);
+ await f.sql("UPDATE users SET status='disabled',email_verified_at=NULL WHERE id=?",u.id).run();
+ await f.sql('INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES (?,?,unixepoch()+3600)',u.id,id).run();
+ assert.deepEqual(await(await call(f,a,undefined,path)).json(),{state:'assigned'});
+ assert.deepEqual(await(await call(f,d,undefined,path)).json(),{state:'assigned'});
+ for(const roleId of builtin)assert.deepEqual(await(await call(f,a,undefined,'manage/roles/'+roleId+'/deletion')).json(),{state:'protected'});
+ assert.equal((await catalogue(f,a)).revision,revision);
+ assert.equal(await f.sql('SELECT count(*) n FROM user_roles WHERE role_id=?',id).first('n'),1);
+ await f.sql('UPDATE auth_sessions SET revoked_at=created_at WHERE user_id=?',a.id).run();
+ assert.equal((await call(f,a,undefined,path)).status,401);
+}));
+
 test('0022 preserves populated audit bytes, sequence, constraints and append-only guards; old schema refuses deletion',()=>local(async f=>{
  const a=await f.user({genuine:true}),id=await create(f,a);
  assert.equal((await catalogue(f,a)).deletionAvailable,false);
