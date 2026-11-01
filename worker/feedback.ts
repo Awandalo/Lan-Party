@@ -1,5 +1,5 @@
 import type {AuthenticationEnvironment} from './auth/http';
-import {authOrigin,authRouteEnabled,hostedDev,loopback,validAuthMutation,authClientIP} from './auth/environment';
+import {authOrigin,authRouteEnabled,hosted,loopback,validAuthMutation,authClientIP} from './auth/environment';
 import {resolveSession} from './auth/sessions';
 import {readSessionCookie} from './auth/cookies';
 import {digestToken} from './auth/tokens';
@@ -12,7 +12,7 @@ import {feedbackWrite} from './feedback-write';
 export async function feedback(request:Request,env:AuthenticationEnvironment,ctx:ExecutionContext){
  const reply=(status:number,data:object)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
  const url=new URL(request.url),admin=url.pathname.startsWith('/api/manage/');
- if(!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
+ if(!(loopback(url)||hosted(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
  const prefix=admin?'/api/manage/feedback':'/api/feedback/requests',tail=url.pathname.slice(prefix.length),parts=tail.split('/').filter(Boolean);
  const unread=!admin&&url.pathname==='/api/feedback/unread';
  if(!unread&&(!url.pathname.startsWith(prefix)||parts.length>2||parts[0]&&!feedbackUUID.test(parts[0])||parts[1]&&!['replies','read','triage','github-link'].includes(parts[1])))return reply(404,{error:'Not found'});

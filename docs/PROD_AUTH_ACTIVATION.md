@@ -1,5 +1,60 @@
 # Production account activation — local preparation
 
+## Phase 4 activation candidate — 2026-11-01
+
+The owner explicitly authorized Phase 4 PROD activation, bounded configuration,
+deployment and small in-scope fixes in trusted conversation. Migrations 0020–0023
+were separately applied and verified; do not reapply them. This subsection records
+the activation candidate; older preparation receipts below retain their historical
+scope. Deployment and hosted acceptance are not yet completed for this candidate.
+
+Base: MAIN `9c9dbe0ea18a529c3a1b8a4edc3bdee49047a7b9`, Worker `lan-party`,
+D1 `lan-party-prod` (`9fbe3402-c26b-45fd-be67-71775e5e6a3e`), canonical
+https://www.lan-party.club. Build from this MAIN-only candidate, not current DEV,
+which contains excluded Locations work. Do not apply 0024, change account roles,
+introduce features, cut over event registration or replace Jotform.
+
+Required source activation is limited to:
+
+- Use the existing strict hosted authentication gate for Administration/Feedback,
+  which requires the trusted PROD build, exact canonical origin and production
+  authentication configuration. Keep all authorization, session proof, CSRF,
+  schema, privacy and MFA checks intact.
+- Use existing frontend authentication/origin eligibility for Administration routes,
+  capability validation and Feedback presentation, including hosted-prod.
+- Include the existing Feedback retention task on the trusted PROD scheduled path.
+- Set `AUTH_LIFECYCLE_ADMIN_MODE=enabled` and the existing daily `0 3 * * *` UTC
+  maintenance schedule in the explicit PROD profile. Existing authentication and
+  registration settings/secrets are preserved through the current approved build
+  command and deploy command with `--env prod --keep-vars` and explicit hosted-prod
+  mode overrides. Do not use hosted-dev configuration on PROD.
+
+These gates are hard-coded in the old source; dashboard variables alone cannot
+activate them. A new source head requires exact-head owner review/merge approval
+under the project workflow. Prepare the patch and validation before that decision;
+do not bypass the MAIN review boundary by deploying an unreviewed artifact directly.
+
+After approved publication/merge, confirm the exact MAIN deployment, bindings,
+lifecycle flag and cron. Reuse the existing migration/recovery receipts and refresh
+read-only integrity/history and a private post-migration recovery checkpoint. A
+database restore is not an activation rollback and remains separately approved.
+For a failed activation, preserve the evidence and select the previous compatible
+Worker version `51d0855f-7872-469d-b2ab-cb0cd2fe1a42` with schema 0023 retained;
+execute rollback only under applicable owner authority, preserving all MFA keys,
+accounts and authentication controls. Do not run a down migration or reset accounts.
+
+Hosted checks: anonymous/authenticated session behavior; Administrator capabilities,
+Members, Roles, Logs and Feedback reads; denied anonymous/cross-origin/wrong-proof
+requests; ordinary-member permission and private-feedback isolation where an
+approved fictional hosted account is available. Prefer existing authenticated
+owner sessions for read-only checks. Do not fabricate sessions or grant privileges
+for testing. Provider emails, lifecycle mutations and fictional hosted writes need
+their bounded account/data scope; reuse local/DEV evidence for those until covered.
+Confirm Locations routes remain unavailable and account/role/registration counts
+are preserved. Report hosted evidence separately from local regression results.
+
+## Historical account-authentication preparation
+
 Owner authorized local implementation/tests and a local commit on 2026-10-27.
 No push, PR, deployment, migration, secret provisioning, account creation or public
 activation is authorized. Cloudflare traffic/bot-policy review remains deferred.

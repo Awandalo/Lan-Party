@@ -23,6 +23,7 @@ test('explicit PROD deployment profile retains disabled modes and default/DEV id
  assert.equal(c.define?.__LAN_MFA_TARGET__,undefined);assert.equal(c.vars?.REGISTRATION_MODE,undefined);
  assert.equal(p.name,'lan-party');assert.equal(p.d1_databases[0].database_id,target.split(':')[1]);assert.equal(JSON.parse(p.define.__LAN_MFA_TARGET__),target);
  assert.equal(p.vars.REGISTRATION_MODE,'disabled');assert.equal(p.vars.AUTH_SESSION_MODE,'disabled');assert.equal(p.vars.AUTH_PUBLIC_ORIGIN,origin);
+ assert.equal(p.vars.AUTH_LIFECYCLE_ADMIN_MODE,'enabled');assert.deepEqual(p.triggers.crons,['0 3 * * *']);
  for(const name of ['PASSWORD_PEPPER','AUTH_RATE_LIMIT_SECRET','RESEND_API_KEY','TURNSTILE_SECRET_KEY','MFA_ENCRYPTION_KEYS','MFA_ACTIVE_KEY_ID','AUTH_PROD_EMAIL_DAILY_LIMIT','AUTH_PROD_EMAIL_MONTHLY_LIMIT'])assert.equal(p.vars[name],undefined);
  assert.equal(c.env.dev.name,'lan-party-dev');assert.equal(c.env.dev.vars.AUTH_ENVIRONMENT,undefined);assert.notEqual(p.d1_databases[0].database_id,c.env.dev.d1_databases[0].database_id);
 });

@@ -2,8 +2,9 @@ import {createContext,useContext,useCallback,useEffect,useRef,useState,useSyncEx
 import type {ReactNode} from 'react';
 import {useLocation} from 'react-router';
 import {useAuth} from './auth';
+import {AUTH_UI_AVAILABLE,authUIEnabled} from './auth-mode';
 import type {FeedbackReadCache} from './feedback-read-cache';
-export const FEEDBACK_UI_AVAILABLE=import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev';
+export const FEEDBACK_UI_AVAILABLE=AUTH_UI_AVAILABLE&&authUIEnabled();
 export const decisions=['pending','yes','no','maybe'] as const;
 export const progressStates=['new','under_review','planned','in_progress','completed','closed'] as const;
 export const feedbackLabel=(v:string)=>v.replaceAll('_',' ').replace(/^./,s=>s.toUpperCase());
