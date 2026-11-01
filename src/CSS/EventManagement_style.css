@@ -3,6 +3,8 @@
 .event-search label,.event-fields label{display:grid;gap:.5rem;flex:1 1 14rem;min-width:0}
 .event-layout{display:grid;grid-template-columns:minmax(14rem,1fr) minmax(20rem,1.5fr);gap:1.5rem;align-items:start}
 .event-list{display:grid;gap:1rem}.event-card{display:grid;gap:.75rem;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;overflow-wrap:anywhere}.event-card.selected{border-color:var(--accent)}
+.event-card{transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease}.event-card:hover,.event-card:focus-visible{background:var(--surface-raised);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.event-list{border-right:1px solid var(--border);padding-right:1.5rem}
+.event-description table{border-collapse:collapse;width:100%;table-layout:fixed}.event-description td,.event-description th{border:1px solid var(--border);padding:.5rem;vertical-align:top}.event-description th{background:var(--surface-raised)}.event-table-scroll{overflow-x:auto}
 .event-preview{min-width:0;overflow-wrap:anywhere}.event-default-cover{width:100%;height:12rem;object-fit:cover;border-radius:.5rem}
 .event-actions{justify-content:end;border-top:1px solid var(--border);padding-top:1rem;margin-top:1rem}
 .event-dialog{width:min(60rem,calc(100vw - 2rem));max-height:90dvh;overflow:auto;padding:1rem}.event-dialog fieldset{border:0;min-width:0;margin:0;padding:1.5rem}.event-description-input{display:grid;gap:.5rem}
@@ -10,4 +12,6 @@
 .event-dialog input[type=checkbox]{min-height:auto;width:auto}.event-instructions{white-space:pre-wrap}.event-description{overflow-wrap:anywhere}.event-description p:empty{display:none}
 .event-snapshot{margin:1rem 0;padding:1rem;border:1px solid var(--border);border-radius:.5rem;overflow-wrap:anywhere}.event-snapshot h4{margin-top:0}.event-days-summary{overflow-wrap:anywhere}
 @media(max-width:720px){.event-layout{grid-template-columns:minmax(0,1fr)}.event-dialog fieldset{padding:1rem}.event-fields{display:grid;grid-template-columns:minmax(0,1fr)}.event-fields label{display:grid}.event-default-cover{height:9rem}.event-dialog .wizard-steps{font-size:.8rem;gap:.5rem}}
+@media(max-width:720px){.event-list{border-right:0;padding-right:0;border-bottom:1px solid var(--border);padding-bottom:1.5rem}}
+@media(prefers-reduced-motion:reduce){.event-card{transition:none}}
 @media(max-width:480px){.event-dialog .wizard-actions,.event-dialog .wizard-actions>div{flex-wrap:wrap}.event-dialog .wizard-steps{flex-direction:row}.event-dialog .wizard-steps li{flex:1}.event-dialog .wizard-actions>div{margin-left:auto}}

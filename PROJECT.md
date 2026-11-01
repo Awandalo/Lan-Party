@@ -53,17 +53,15 @@ venue information/action layout, central-only log navigation and Administration
 document-title correction. This is DEV UI work; schema, permissions, snapshots,
 storage and PROD activation remain unchanged. See the contract's iteration-2 receipt.
 
-Phase 5.2 Increment A (#37) adds private Draft management and central Events Logs.
-The owner approved the 2026-11-01 repass: choose a completed Location, enter event
-name/start/end in Netherlands time and event description, then review/Create.
-The server copies immutable venue text, rental and one common capacity and derives
-every calendar date inclusively from start to end. This supersedes manual day
-selection, individual-day capacity and editable event venue/rental fields.
-Template changes do not resync existing events; changing the calendar range needs
-a new event. The guest switch is removed by trusted owner decision; accountless
-guests remain invited by a logged-in responsible member with the existing guest
-limit. B/C stay paused until hosted acceptance of this corrected A. See
-[the Events contract](docs/events.md) for scope, cleanup and verification.
+Phase 5.2 Increment A (#37) implements private Draft management. The owner revised
+A again on 2026-11-01: completed-Location immutable snapshots and automatically
+derived inclusive Netherlands dates remain; dates can be corrected before the
+first registration and lock on any registration history. Administrators can delete
+never-registered events with confirmation and retained audit. Finance enablement
+is removed; eventual price calculation follows explicit organizer closure and
+Paid/Unpaid tracking stays manual in the attendee workflow. The wizard has three
+pages: details/toolbar editor, guest limit/minimum event headcount, review/create.
+Other B/C work stays paused for acceptance. See [the Events contract](docs/events.md).
 
 ## Agreed technology
 

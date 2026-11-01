@@ -1,13 +1,29 @@
-import {Fragment} from 'react';
-import {eventLines,eventLink} from '../lib/event-content';
-function inline(text:string){return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^\s)]+\))/g).map((part,i)=>{
- if(part.startsWith('**')&&part.endsWith('**'))return <strong key={i}>{part.slice(2,-2)}</strong>;
- if(part.startsWith('*')&&part.endsWith('*'))return <em key={i}>{part.slice(1,-1)}</em>;
- const link=/^\[([^\]]+)\]\(([^\s)]+)\)$/.exec(part),href=link?eventLink(link[2]):null;
- return link&&href?<a key={i} href={href} target="_blank" rel="noreferrer">{link[1]}</a>:<Fragment key={i}>{part}</Fragment>;
-});}
+import {createElement,Fragment} from 'react';
+import type {ReactNode} from 'react';
+import {eventDocument} from '../lib/event-document';
+import type {EventNode} from '../lib/event-document';
 export default function EventDescription({source}:{source:string}){
- const lines=eventLines(source),groups:{kind:string;texts:string[];level?:number}[]=[];
- for(const line of lines){const last=groups.at(-1);if((line.kind==='bullet'||line.kind==='number')&&last?.kind===line.kind)last.texts.push(line.text);else groups.push({kind:line.kind,texts:[line.text],...'level'in line?{level:line.level}:{}});}
- return <div className="event-description">{groups.map((g,i)=>g.kind==='bullet'?<ul key={i}>{g.texts.map((t,j)=><li key={j}>{inline(t)}</li>)}</ul>:g.kind==='number'?<ol key={i}>{g.texts.map((t,j)=><li key={j}>{inline(t)}</li>)}</ol>:g.kind==='heading'?(g.level===1?<h3 key={i}>{inline(g.texts[0])}</h3>:g.level===2?<h4 key={i}>{inline(g.texts[0])}</h4>:<h5 key={i}>{inline(g.texts[0])}</h5>):<p key={i}>{inline(g.texts[0])}</p>)}</div>;
+ function render(node:EventNode,key:string):ReactNode{
+  if(node.type==='text'){
+   let text:ReactNode=node.text;
+   for(const mark of [...node.marks??[]].reverse())text=mark.type==='link'?<a href={mark.attrs!.href} target="_blank" rel="noreferrer" key={key+mark.type}>{text}</a>:createElement(({bold:'strong',italic:'em',underline:'u',strike:'s'} as const)[mark.type as 'bold'],{key:key+mark.type},text);
+   return <Fragment key={key}>{text}</Fragment>;
+  }
+  const content=node.content?.map((child,i)=>render(child,key+'.'+i));
+  switch(node.type){
+   case 'doc':return <Fragment key={key}>{content}</Fragment>;
+   case 'paragraph':return <p key={key}>{content}</p>;
+   case 'heading':return createElement('h'+node.attrs!.level,{key},content);
+   case 'hardBreak':return <br key={key}/>;
+   case 'bulletList':return <ul key={key}>{content}</ul>;
+   case 'orderedList':return <ol key={key} start={Number(node.attrs?.start??1)}>{content}</ol>;
+   case 'listItem':return <li key={key}>{content}</li>;
+   case 'table':return <div className="event-table-scroll" key={key}><table><tbody>{content}</tbody></table></div>;
+   case 'tableRow':return <tr key={key}>{content}</tr>;
+   case 'tableHeader':return <th key={key} scope="col">{content}</th>;
+   case 'tableCell':return <td key={key}>{content}</td>;
+   default:return null;
+  }
+ }
+ return <div className="event-description">{render(eventDocument(source),'document')}</div>;
 }

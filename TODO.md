@@ -18,16 +18,17 @@ production migrations still require separate explicit owner approval.
 Keep additional feature ideas in the unnumbered backlog below until separately
 approved. Plan their database needs now; implement migrations with their functionality.
 
-## Phase 5.2 Events — Increment A repass
+## Phase 5.2 Events — current A correction
 
-Owner requested the simplified Location-first correction to #37 and removal of
-superseded database structures. Copy immutable venue/rental/common capacity from
-completed templates and derive inclusive Netherlands calendar days. Remove manual
-day/capacity/venue/rental controls and the guest switch; retain member-invited
-accountless guests and positive guest limits. Migration 0026 removes per-day
-capacity and the guest-toggle column while preserving applied history/data.
-B/C remain paused until corrected hosted DEV acceptance; keep #37 open. See
-[the Events contract](docs/events.md). Jotform remains active.
+Owner explicitly requested pre-registration date correction and guarded permanent
+Administrator deletion, removal of Finance enablement, a three-page wizard with
+guest/minimum-headcount settings on page 2, and a basic Word-like formatting/table
+editor. Migration 0027 preserves the owner event while removing the retired flag,
+adding durable registration-history protection and retaining deleted-event audit.
+The event headcount is a manual organizer target, with no automatic cancellation.
+Record future closure-triggered price calculation and manual Paid/Unpaid member
+switch in #40 planning; no automated payment/provider workflow. Other B/C work and
+hosted acceptance remain pending. See [the Events contract](docs/events.md).
 
 ## Phase 2 Database Foundation — complete on DEV and PROD
 

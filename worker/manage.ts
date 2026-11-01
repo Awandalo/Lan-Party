@@ -80,17 +80,17 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     if(eventEndpoint){
       if(!sectionPermissions.events.some(p=>permissions.includes(p)))return reply(403,{error:'Event access is restricted'});
       if(!await eventsReady(env.DB))return reply(503,{error:'Events requires its approved database migration'});
-      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update')}:{}});
+      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update'),canDelete:admin}:{}});
       const digest=await digestToken(token!,'session');
       if(!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
       if(url.search||request.headers.get('Content-Type')!=='application/json')throw new EventError(400,'Invalid request');
       const reader=request.body?.getReader();if(!reader)throw new EventError(400,'Invalid request');
       let size=0,body='';const decoder=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false});
-      for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>32768){await reader.cancel();throw new EventError(413,'Request too large');}body+=decoder.decode(value,{stream:true});}
+      for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>65536){await reader.cancel();throw new EventError(413,'Request too large');}body+=decoder.decode(value,{stream:true});}
       let raw:unknown;try{raw=JSON.parse(body+decoder.decode());}catch{throw new EventError(400,'Invalid request');}
       if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new EventError(400,'Invalid request');
       const action=(raw as Record<string,unknown>).action,required=action==='update'?'events.update':'events.create';
-      if(!permissions.includes(required))return reply(403,{error:'Event change is restricted'});
+      if(action==='delete'?!admin:!permissions.includes(required))return reply(403,{error:'Event change is restricted'});
       return reply(200,await writeEvent(env.DB,account.userId,digest,raw as Record<string,unknown>));
     }
     if(locationEndpoint){

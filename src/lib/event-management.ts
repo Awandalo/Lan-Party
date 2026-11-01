@@ -2,8 +2,8 @@ import {useEffect,useState,useSyncExternalStore} from 'react';
 import {useAuth} from './auth';
 import type {LocationRow} from './locations';
 export type EventVenue=Pick<LocationRow,'name'|'addressLine'|'postalCode'|'city'|'countryCode'|'instructions'|'directionsUrl'>;
-export interface ManagedEvent {id:string;title:string;description:string;locationId:string;status:string;registrationStatus:string;startsAt:number|null;endsAt:number|null;venue:EventVenue|null;days:{date:string}[];revision:number|null;financeEnabled:number;rentalCents:number;capacity:number|null;maxGuests:number}
-export interface EventCatalogue {events:ManagedEvent[];templates:LocationRow[];canCreate:boolean;canUpdate:boolean}
+export interface ManagedEvent {id:string;title:string;description:string;locationId:string;status:string;registrationStatus:string;startsAt:number|null;endsAt:number|null;venue:EventVenue|null;days:{date:string}[];revision:number|null;minimumParticipants:number;registrationHistory:0|1;rentalCents:number;capacity:number|null;maxGuests:number}
+export interface EventCatalogue {events:ManagedEvent[];templates:LocationRow[];canCreate:boolean;canUpdate:boolean;canDelete:boolean}
 export interface EventLog {sequence:string;occurredAt:number;operation:string;title:string;actorName:string|null;fields:string}
 export async function loadEventRead(href:string,proof:string,signal:AbortSignal){
  try{
@@ -11,7 +11,7 @@ export async function loadEventRead(href:string,proof:string,signal:AbortSignal)
   if(!response.ok)return {data:null,message:response.status===503?'Events is unavailable. Its database migration may still be awaiting activation.':response.status===403||response.status===401?'Event access is restricted.':'Events could not be loaded. Reload to check again.'};
   const data=await response.json();
   if(href.startsWith('/api/manage/event-activity')){
-   if(!Array.isArray(data.entries)||data.entries.length>20||!data.entries.every((e:EventLog)=>e&&/^\d+$/.test(e.sequence)&&Number.isSafeInteger(e.occurredAt)&&typeof e.title==='string'&&['event.create','event.update','event.duplicate'].includes(e.operation)&&(e.actorName===null||typeof e.actorName==='string')&&Array.isArray(JSON.parse(e.fields)))||!(data.nextBefore===null||typeof data.nextBefore==='string'))throw Error('Invalid log');
+   if(!Array.isArray(data.entries)||data.entries.length>20||!data.entries.every((e:EventLog)=>e&&/^\d+$/.test(e.sequence)&&Number.isSafeInteger(e.occurredAt)&&typeof e.title==='string'&&['event.create','event.update','event.duplicate','event.delete'].includes(e.operation)&&(e.actorName===null||typeof e.actorName==='string')&&Array.isArray(JSON.parse(e.fields)))||!(data.nextBefore===null||typeof data.nextBefore==='string'))throw Error('Invalid log');
   }else if(!Array.isArray(data.events)||data.events.length>200||!Array.isArray(data.templates)||typeof data.canCreate!=='boolean'||typeof data.canUpdate!=='boolean'||!data.events.every((e:ManagedEvent)=>e&&typeof e.id==='string'&&typeof e.title==='string'&&typeof e.description==='string'&&Array.isArray(e.days)&&e.days.every(d=>typeof d.date==='string')&&(e.revision===null||Number.isInteger(e.revision))))throw Error('Invalid events');
   return {data,message:''};
  }catch{return {data:null,message:'Events could not be loaded. Reload to check again.'};}

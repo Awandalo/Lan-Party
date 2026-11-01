@@ -1,5 +1,20 @@
 # D1 migrations
 
+## Phase 5.2A correction — 0027
+
+`0027_correct_unregistered_events.sql` removes Finance enablement, adds minimum
+participant headcount, preserves registration history permanently and retains audit
+when an eligible Administrator deletes an event. Date guards now lock only after
+any registration history. Existing IDs, event text/snapshot and audit sequence are
+preserved. No existing events/registrations are deleted and descriptions are not
+bulk converted. See [the Events contract](../docs/events.md).
+
+The current owner-authorized DEV correction includes these necessary schema changes.
+Require fresh private recovery evidence, history exactly through 0026 and only 0027
+pending. Publish the schema-gated Worker first. Compare existing rows/sequence and
+integrity after migration, excluding the intentionally dropped flag/new fields.
+No PROD execution or unapproved restore. Applied migrations stay unchanged.
+
 ## Phase 5.2A simplification — 0026
 
 `0026_simplify_event_snapshots.sql` adds a common copied capacity to event
