@@ -32,7 +32,7 @@ export default function EventEditor({row,duplicate,templates,pending,message,onS
  const venuePreview=snapshot&&<section className="event-snapshot" aria-label="Copied venue preview"><h4>{snapshot.name}</h4><p>{[snapshot.addressLine,snapshot.postalCode,snapshot.city,snapshot.countryCode].filter(Boolean).join(', ')}</p><p>{capacity??'Not set'} places each day · Venue rental €{((rental??0)/100).toFixed(2)}</p>{snapshot.instructions&&<p className="event-instructions">{snapshot.instructions}</p>}<p>{snapshot.directionsUrl||'Directions use the copied venue address.'}</p></section>;
  const steps=['Event details','Attendance & guests','Review & '+(creating?'Create':'Save')];
  return <dialog ref={dialog} className="event-dialog role-wizard" aria-labelledby={heading} onCancel={e=>{if(pending)e.preventDefault();}} onClose={onCancel}>
-  <div className="wizard-heading"><h2 id={heading}>{duplicate?'Duplicate event':creating?'Create Draft':'Edit Draft'}</h2><button type="button" disabled={pending} className="text-action" aria-label="Close event editor" onClick={onCancel}>✕</button></div>
+  <div className="wizard-heading"><h2 id={heading}>{duplicate?'Duplicate event':creating?'Create Draft':row?.status==='published'?'Edit event':'Edit Draft'}</h2><button type="button" disabled={pending} className="text-action" aria-label="Close event editor" onClick={onCancel}>✕</button></div>
   <ol className="wizard-steps" aria-label="Event progress">{steps.map((label,i)=><li key={label} aria-current={step===i?'step':undefined}><span>{i+1}</span>{label}</li>)}</ol>
   <form ref={form} onSubmit={e=>void submit(e)}><fieldset disabled={pending}><legend className="visually-hidden">Event details</legend><h3 ref={stepHeading} tabIndex={-1}>{steps[step]}</h3>
    {step===0&&<>

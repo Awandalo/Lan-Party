@@ -20,4 +20,5 @@ export const expectedHistory = [
  '0025_create_event_management.sql',
  '0026_simplify_event_snapshots.sql',
  '0027_correct_unregistered_events.sql',
+ '0028_enable_event_publication.sql',
 ];

@@ -76,7 +76,7 @@ async function local(run,count){
  };
  const request=(path,u,input,headers={})=>simulator.dispatchFetch(origin+'/api/'+path,{method:input===undefined?'GET':'POST',headers:{'X-LAN-Request':'1',...(u?{Cookie:'__Host-lan_session='+u.token}:{}),...(input===undefined?{}:{'Content-Type':'application/json',Origin:origin}),...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
  const drain=()=>simulator.dispatchFetch(origin+'/fixture-drain');
- await run({db,sql,user,value,request,migrate,drain});
+ await run({db,sql,user,value,request,migrate,drain,fetch:(url,options)=>simulator.dispatchFetch(url,options)});
  assert.equal(await sql('PRAGMA quick_check').first('quick_check'),'ok');assert.deepEqual((await sql('PRAGMA foreign_key_check').all()).results,[]);
  }finally{await simulator.dispose();}
 }

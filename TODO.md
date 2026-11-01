@@ -18,7 +18,7 @@ production migrations still require separate explicit owner approval.
 Keep additional feature ideas in the unnumbered backlog below until separately
 approved. Plan their database needs now; implement migrations with their functionality.
 
-## Phase 5.2 Events — current A correction
+## Phase 5.2 Events — Increment B
 
 Owner explicitly requested pre-registration date correction and guarded permanent
 Administrator deletion, removal of Finance enablement, a three-page wizard with
@@ -27,8 +27,15 @@ editor. Migration 0027 preserves the owner event while removing the retired flag
 adding durable registration-history protection and retaining deleted-event audit.
 The event headcount is a manual organizer target, with no automatic cancellation.
 Record future closure-triggered price calculation and manual Paid/Unpaid member
-switch in #40 planning; no automated payment/provider workflow. Other B/C work and
-hosted acceptance remain pending. See [the Events contract](docs/events.md).
+switch in #40 planning; no automated payment/provider workflow.
+
+A is owner-accepted at `aabf376`. B adds DEV publish/unpublish, published detail
+edits, public upcoming/past/detail pages and homepage Up Next, preserving the
+existing action layout, mint focus/hover and dividers. Migration 0028 has separate
+DEV approval; existing events remain hidden until deliberately published.
+Registration controls, attendees, participant-bearing cancellation notifications,
+settlement, uploads and PROD remain later work. B requires exact CI/deployment,
+integrity evidence and hosted owner acceptance. See [the Events contract](docs/events.md).
 
 ## Phase 2 Database Foundation — complete on DEV and PROD
 

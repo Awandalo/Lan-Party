@@ -1,4 +1,5 @@
 import {feedback} from './feedback';
+import {publicEvents} from './public-events';
 import {purgeFeedback,feedbackReady} from './feedback-data';
 import { manage } from './manage';
 import { lifecycleHttp } from './auth/lifecycle-http';
@@ -23,6 +24,7 @@ export default {
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname==='/api/events'||pathname.startsWith('/api/events/'))return publicEvents(request,env);
     if(pathname.startsWith('/api/feedback/')||pathname==='/api/manage/feedback'||pathname.startsWith('/api/manage/feedback/'))return feedback(request,env,ctx);
     if(pathname.startsWith('/api/manage/'))return manage(request,env);
     if(pathname.startsWith('/api/auth/lifecycle/'))return lifecycleHttp(request,env);

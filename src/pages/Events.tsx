@@ -1,14 +1,14 @@
 import {Link} from 'react-router';
 import {useAdministration} from '../lib/administration';
 import { useState } from 'react';
-import { publishedEvents } from '../lib/content';
-import type { PublicEvent } from '../lib/content';
+import {usePublicEvents} from '../lib/public-events';
+import PublicEventCard from '../components/PublicEventCard';
 import '../CSS/Events_style.css';
 
 export default function Events() {
   const access = useAdministration();
-  const [period, setPeriod] = useState<PublicEvent['period']>('upcoming');
-  const events = publishedEvents.filter((event) => event.period === period);
+  const [period, setPeriod] = useState<'upcoming'|'past'>('upcoming');
+  const {events,message,loading,reload}=usePublicEvents(period);
 
   return (
     <section className="page-section events-page">
@@ -22,7 +22,7 @@ export default function Events() {
         <button type="button" aria-pressed={period === 'past'} onClick={() => setPeriod('past')}>Past events</button>
       </div>
       <div aria-live="polite" aria-atomic="true">
-        {events.length === 0 ? (
+        {loading?<p>Loading events…</p>:message?<div><p role="status">{message}</p><button className="button" onClick={reload}>Check again</button></div>:events.length === 0 ? (
           <div className="panel events-empty">
             <span className="status-label">Coming soon</span>
             <h2>{period === 'upcoming' ? 'No upcoming events published yet' : 'No past events to show yet'}</h2>
@@ -33,7 +33,7 @@ export default function Events() {
         ) : (
           <div className="events-list">
             {events.map((event) => (
-              <article className="panel" key={event.id}><h2>{event.title}</h2><p>{event.summary}</p></article>
+              <PublicEventCard key={event.id} event={event}/>
             ))}
           </div>
         )}

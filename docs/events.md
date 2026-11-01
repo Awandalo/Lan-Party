@@ -1,10 +1,10 @@
-# Events — Phase 5.2 Increment A repass
+# Events — Phase 5.2 A and B
 
 The owner requested the #37 repass and scoped DEV cleanup, then explicitly revised
 A again on 2026-11-01: allow correcting dates before any registration, expose guarded
 Administrator deletion, remove Finance enablement, add a minimum event headcount
 and a Word-like editor, and restore three wizard pages. These trusted instructions
-supersede earlier date/deletion locks. Other B/C work stays paused for acceptance.
+supersede earlier date/deletion locks. A was then accepted and B authorized below.
 No Jotform cutover, real email, uploads, R2 or PROD operation.
 
 ## Current creation/editing contract
@@ -113,9 +113,7 @@ removed fields, history/audit guards and integrity. Applied history is immutable
 old-Worker rollback alone does not restore schema compatibility. Recovery requires
 its applicable authority. No owner event is deleted during migration or acceptance.
 
-Publishing/public pages (#38), registration (#39), participant cancellation/notices
-(#39/#41) and settlement (#40) remain paused. Only the explicitly requested date
-correction and guarded deletion slice is included now.
+A was accepted at `aabf376` on 2026-11-01. The owner then authorized B below.
 
 ## Verification and historical evidence
 
@@ -130,3 +128,63 @@ Historical first A: `6c4fea3`, 0025 SHA-256
 611 regression + 40 policy/public-UI checks, verified DEV migration/deployment.
 This receipt records the superseded iteration, not repass acceptance. See #37 for
 current exact-revision checks and handover. Recovery evidence stays private/ignored.
+
+## Increment B — approved DEV publication and public view
+
+Publish and unpublish require events.publish; ordinary Draft/published edits require
+events.update; cancellation requires events.cancel. Existing session proof, CSRF,
+origin, live account/MFA/role authority, revision, replay and atomic audit fences
+apply. Lifecycle actions require exact-name confirmation. Archived source templates
+require explicit saved-venue review before publication. Immutable snapshots and
+permanent registration-history date/deletion rules remain in force.
+
+Migration 0028 adds is_listed default 0 and extends retained audit operations.
+Existing events stay private. Unpublish preserves publication_status=published,
+closes registration and hides collection/direct detail URLs; republish is explicit.
+Cancellation is terminal, hides the event and closes registration. Any registration
+history prevents cancellation until #39/#41 can deliver participant notices; it
+also continues to prevent permanent deletion. No restore is implemented.
+
+Public /api/events and /api/events/:id are enabled only locally/canonical DEV.
+Only listed, managed, Published events appear. Upcoming includes ongoing events;
+past events remain public archives until hidden. The homepage requests exactly
+one next upcoming event. Public responses contain allowlisted event fields and
+aggregate remaining capacity per date; no participant identities, contacts, rental,
+creator, audit or role data. Registered foundation rows count; cancelled rows do
+not. #39 must extend counts atomically for its future guest/waitlist model.
+
+Anonymous projections omit authenticated-only venues, even with a cookie. Detail
+venue access requires a valid verified session and matching session proof. Reads
+are no-store, have no side effects, and use a single SQL projection to avoid a
+visibility change between event and attendance reads. Frontend detail responses
+are fenced by event/account/session context; anonymous collection reads omit
+credentials. Description rendering uses A's safe allowlisted document renderer.
+
+Public detail uses default LAN artwork, Netherlands dates, remaining places,
+venue/directions, prepared WhatsApp sharing and Copy Link. No message is sent.
+Reference: [WhatsApp click-to-chat](https://faq.whatsapp.com/5913398998672934).
+No registration control or attendee list is exposed; registration stays closed.
+Public and management buttons retain the existing hierarchy, mint hover/focus,
+lighter surfaces and responsive dividers. No new dependencies or services.
+
+Apply only approved 0028 on DEV after recovery export/Time Travel checkpoint,
+exact pending migration/history and integrity preflight. Compare every existing
+event/day/management/audit/registration row and allocated sequence afterwards;
+only is_listed=0 and migration ledger advancement are expected. Preserve private
+recovery evidence. No actual owner event is published as a test. Worker rollback
+alone does not undo schema; recovery requires its own applicable authorization.
+
+Verification covers lifecycle/permission/proof/replay/revision/audit rollback,
+private venue fencing, public identity exclusion, cancelled-row counts, hidden
+URLs, past/upcoming selection and populated migration rollback/preservation.
+Fictional browser checks are separate from actual hosted owner acceptance.
+Registration #39, notices #41, settlement #40, uploads, Jotform cutover and PROD
+remain excluded. Keep #37 open for owner acceptance and subsequent increments.
+
+DEV migration receipt (2026-11-01): approved 0028 applied after a fresh checkpoint,
+export and unchanged preservation preflight. SHA-256:
+`33d921163a0f0d40f0e9ce3ba57a0c7f5455d7d849d6a2140e44bd3c568252d8`.
+Both existing events and all five days were preserved, together with management
+snapshots, audit rows/sequence, zero registrations, accounts/roles/location counts.
+All managed events remain hidden. Integrity/foreign keys passed; no temporary
+tables remain. See #37 for exact publication/deployment and owner acceptance.

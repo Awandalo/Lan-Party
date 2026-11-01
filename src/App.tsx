@@ -8,6 +8,8 @@ import Footer from './components/Footer';
 import RouteFocus from './components/RouteFocus';
 import Home from './pages/Home';
 import Events from './pages/Events';
+import EventDetails from './pages/EventDetails';
+import {PUBLIC_EVENTS_AVAILABLE} from './lib/public-events';
 import Privacy from './pages/Privacy';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
@@ -39,6 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
+          {PUBLIC_EVENTS_AVAILABLE&&<Route path="/events/:eventId" element={<EventDetails/>}/> }
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage" element={<Administration />} />}
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/users/:userId" element={<Administration />} />}
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/:section" element={<Administration />} />}

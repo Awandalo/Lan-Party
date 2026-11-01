@@ -31,7 +31,7 @@ export default function RouteFocus() {
     // allowlist. Unknown or disabled routes keep their actual not-found heading.
     const heading=document.querySelector('#main-content h1')?.textContent?.trim();
     const administrationTitle=administrationDocumentTitle(pathname,heading);
-    document.title = `LAN Party | ${administrationTitle ?? feedbackTitle ?? titles[pathname] ?? 'Page not found'}`;
+    document.title = `LAN Party | ${administrationTitle ?? (/^\/events\/[^/]+$/.test(pathname)?heading:null) ?? feedbackTitle ?? titles[pathname] ?? 'Page not found'}`;
     if (previousPath.current !== pathname) {
       document.getElementById('main-content')?.focus({ preventScroll: true });
       window.scrollTo(0, 0);

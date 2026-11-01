@@ -80,7 +80,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     if(eventEndpoint){
       if(!sectionPermissions.events.some(p=>permissions.includes(p)))return reply(403,{error:'Event access is restricted'});
       if(!await eventsReady(env.DB))return reply(503,{error:'Events requires its approved database migration'});
-      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update'),canDelete:admin}:{}});
+      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update'),canDelete:admin,canPublish:permissions.includes('events.publish'),canCancel:permissions.includes('events.cancel')}:{}});
       const digest=await digestToken(token!,'session');
       if(!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
       if(url.search||request.headers.get('Content-Type')!=='application/json')throw new EventError(400,'Invalid request');
@@ -89,7 +89,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
       for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>65536){await reader.cancel();throw new EventError(413,'Request too large');}body+=decoder.decode(value,{stream:true});}
       let raw:unknown;try{raw=JSON.parse(body+decoder.decode());}catch{throw new EventError(400,'Invalid request');}
       if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new EventError(400,'Invalid request');
-      const action=(raw as Record<string,unknown>).action,required=action==='update'?'events.update':'events.create';
+      const action=(raw as Record<string,unknown>).action,required=action==='update'?'events.update':action==='publish'||action==='unpublish'?'events.publish':action==='cancel'?'events.cancel':'events.create';
       if(action==='delete'?!admin:!permissions.includes(required))return reply(403,{error:'Event change is restricted'});
       return reply(200,await writeEvent(env.DB,account.userId,digest,raw as Record<string,unknown>));
     }

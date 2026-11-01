@@ -61,7 +61,12 @@ never-registered events with confirmation and retained audit. Finance enablement
 is removed; eventual price calculation follows explicit organizer closure and
 Paid/Unpaid tracking stays manual in the attendee workflow. The wizard has three
 pages: details/toolbar editor, guest limit/minimum event headcount, review/create.
-Other B/C work stays paused for acceptance. See [the Events contract](docs/events.md).
+A was accepted at `aabf376` on 2026-11-01. The owner authorized Increment B:
+DEV-only audited publish/unpublish, ordinary published edits, public detail/list
+pages and homepage Up Next. Registration stays closed; cancellation with any
+registration history awaits #39/#41 notifications. No PROD activation or Jotform
+cutover is included. Migration 0028 has separate DEV approval and preserves
+existing private events. See [the Events contract](docs/events.md).
 
 ## Agreed technology
 
