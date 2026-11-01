@@ -495,9 +495,17 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Cover ownership, full sessions, transactional replay/races, closure/purge, actual account deletion, responsive layout and sign-out cleanup locally.
 - [x] Optimize private-page loading, including both Logs tabs, with request-local query reuse, background feedback cleanup, session-bound result reuse and navigation-intent prefetch; preserve security checks. See [loading behavior and verification limits](docs/private-page-loading.md).
 - [x] Refine Feedback with the native New Request dialog and a responsive three-column Administrator workspace; preserve errors/replay, read state and manual GitHub controls. Hosted acceptance and actual browser-zoom checks remain with the owner.
-- [ ] Verify CI and DEV deployment, then owner two-account acceptance; keep #44 open. No Phase 5 implementation until acceptance/closure.
+- [x] Owner accepted Phase 4.6 on DEV and #44 is closed; [acceptance](https://github.com/Awandalo/Lan-Party/issues/44#issuecomment-6550151355). Phase 5 follows its own approval gates.
 
 ## Phase 5 — Events
+
+### Phase 5.1 — Locations (#36), Increment A
+
+- [x] Prepare location metadata CRUD, name-only creation, explicit Save/Cancel, archive/restore, Active/Archived/All search and locations.manage authorization/navigation locally.
+- [x] Add atomic revision/audit writes and Locations under central Administration Logs; prepare forward migration 0024 with populated-data preservation/rollback tests.
+- [ ] Publish the verified candidate to DEV, separately approve/apply 0024 with recovery preflight, and record hosted owner acceptance.
+- [ ] Increment B: separately approve storage/R2/files and quota lifecycle; R2 billing is not approved.
+- [ ] Integrate independent event snapshots/publication checks with #37. Keep #36 open; see [Locations scope and verification](docs/locations.md).
 
 - [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.
 

@@ -1,5 +1,15 @@
 # D1 migrations
 
+## Phase 5.1 Locations candidate — 0024
+
+`0024_create_location_management.sql` is locally prepared, not remotely applied.
+It rebuilds locations to allow name-only templates while retaining IDs and current
+event foreign keys; adds capacity/rental/directions/revision and location activity.
+Populated migration and rollback tests live in `worker/tests/locations.test.mjs`.
+See [Locations migration/acceptance](../docs/locations.md) for exact DEV preflight,
+recovery and schema-gated publication. Separate approval is required before remote
+application. No attachment storage, snapshots, grants or PROD migration is included.
+
 ## Current release boundary — Phase 3 closeout (2026-10-27)
 
 DEV migration history 0001–0018 was verified during the separately approved #10/#16

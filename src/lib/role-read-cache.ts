@@ -20,15 +20,15 @@ export class RoleReadCache {
  private cancel() {this.generation++;for(const abort of this.pending.values())abort.abort();this.pending.clear();this.completed.clear();}
  private clear() {this.cancel();this.entries.clear();this.completed.clear();}
  synchronize({session,status,access}:ValidationState) {
-  const sections=access.sections.filter(s=>['roles','users','activity','userActivity'].includes(s)).sort();
-  const context=session && status==='ready' && access.status==='ready' && sections.some(s=>s==='roles'||s==='activity'||s==='userActivity')
+  const sections=access.sections.filter(s=>['roles','users','activity','userActivity','locations'].includes(s)).sort();
+  const context=session && status==='ready' && access.status==='ready' && sections.some(s=>s==='roles'||s==='activity'||s==='userActivity'||s==='locations')
    ? session.account.userId+':'+session.csrfToken+':'+sections.join(',')+':'+(access.authorization??'') : '';
   this.sections=context?sections:[];
   if(context!==this.context || !context && this.entries.size) {this.context=context;this.clear();this.publish();}
   else if(context && this.revision!==(access.revision??0)) this.cancel();
   this.revision=access.revision??0;
  }
- read(href:string,section:'roles'|'activity'|'userActivity',load:(signal:AbortSignal)=>Promise<Omit<RoleReadResult,'loading'>>,maxAge=0) {
+ read(href:string,section:'roles'|'activity'|'userActivity'|'locations',load:(signal:AbortSignal)=>Promise<Omit<RoleReadResult,'loading'>>,maxAge=0) {
   if(!this.context || !this.sections.includes(section) || href.startsWith('/api/manage/users/')&&!this.sections.includes('users') || this.pending.has(href))return;
   if(maxAge>0 && this.entries.get(href)?.data && this.clock()-(this.completed.get(href)??-Infinity)<maxAge)return;
   const generation=this.generation,abort=new AbortController();

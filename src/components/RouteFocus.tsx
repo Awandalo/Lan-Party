@@ -6,6 +6,7 @@ import { useLocation } from 'react-router';
 const titles: Record<string, string> = {
   '/': 'Home',
   '/events': 'Events',
+  ...(import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' ? {'/manage/locations':'Locations','/manage/location-activity':'Locations Log'} : {}),
   ...(import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' ? {'/manage':'Administration','/manage/users':'Members','/manage/roles':'Roles & Permissions','/manage/events':'Event management'} : {}),
   '/privacy': 'Privacy Policy',
   ...(import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'?{'/manage/activity':'Role Activity Log','/manage/logs':'Logs','/manage/user-activity':'User Log'}:{}),

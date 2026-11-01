@@ -32,13 +32,20 @@ owner-accepted on DEV at bba6ff5. Phase 4.5 (#30) adds contextual navigation,
 the User Log viewer and final Administration polish. The owner accepted it on
 2026-10-31 and authorized #30 closure after the final switch consistency deployment
 and verification. Phase 4.6 (#44) adds private member feedback and Administrator
-triage with manual GitHub handoff; implementation/DEV handover is in progress,
-with hosted owner acceptance pending. See [the feedback contract](docs/member-feedback.md) and
+triage with manual GitHub handoff; owner accepted Phase 4.6 on DEV and #44 is
+closed ([acceptance](https://github.com/Awandalo/Lan-Party/issues/44#issuecomment-6550151355)). See [the feedback contract](docs/member-feedback.md) and
 [the administration contract](docs/administration-foundation.md#phase-42--read-only-members-administration).
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
 decisions, or future ideas require review and are not immediate requirements.
+
+Phase 5.1 Increment A (#36) is an owner-approved local/DEV candidate for Locations
+metadata, name-only creation, explicit editing, archive/restore, locations.manage
+navigation and Locations under Administration Logs. Migration 0024 is prepared
+locally; remote application needs separate approval. Attachments/R2 and event
+snapshots are deferred to their increments; R2 billing is not approved. See
+[the Locations contract](docs/locations.md) for scope and acceptance.
 
 ## Agreed technology
 

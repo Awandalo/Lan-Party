@@ -1,0 +1,26 @@
+import {useState} from 'react';
+import {Link} from 'react-router';
+import LocationEditor from '../components/LocationEditor';
+import Icon from '../components/Icon';
+import {useLocationRead,useLocationMutation,locationDirections,locationComplete} from '../lib/locations';
+import type {LocationRow} from '../lib/locations';
+import '../CSS/Roles_style.css';
+import '../CSS/Locations_style.css';
+const blank:LocationRow={id:'',name:'',addressLine:null,postalCode:null,city:null,countryCode:null,instructions:null,capacity:null,rentalCents:0,directionsUrl:null,active:1,revision:0};
+export default function Locations(){
+ const [search,setSearch]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState('active'),[editing,setEditing]=useState<LocationRow|null>(null),[selected,setSelected]=useState<string|null>(null);
+ const params=new URLSearchParams({status,...(query?{search:query}:{})});
+ const read=useLocationRead<{locations:LocationRow[]}>('/api/manage/locations?'+params),mutation=useLocationMutation();
+ const row=read.data?.locations.find(r=>r.id===selected),directions=row?locationDirections(row):null;
+ async function save(body:object){if(await mutation.save(body)){setEditing(null);read.reload();}}
+ async function archive(r:LocationRow){if(await mutation.save({action:r.active?'archive':'restore',id:r.id,revision:r.revision})){setSelected(null);read.reload();}}
+ return <div className="locations-page"><div className="locations-heading"><p>Reusable venues for future events. Changes here leave event snapshots unchanged.</p><button className="button" onClick={()=>setEditing({...blank})}><Icon name="plus"/>Add location</button></div>
+ <form className="panel locations-search" onSubmit={e=>{e.preventDefault();setQuery(search.trim());setSelected(null);read.reload();}}><label>Search locations<input maxLength={80} placeholder="Location name or city" value={search} onChange={e=>setSearch(e.target.value)}/></label><label>Status<select value={status} onChange={e=>{setStatus(e.target.value);setSelected(null);}}><option value="active">Active</option><option value="archived">Archived</option><option value="all">All locations</option></select></label><button className="button">Search</button><button type="button" className="button button-secondary" onClick={()=>{setSearch('');setQuery('');setStatus('active');setSelected(null);read.reload();}}>Clear</button></form>
+ <p role="status">{read.loading?'Loading locations…':read.message||mutation.message||`${read.data?.locations.length??0} locations`}</p>{read.message&&<button className="button button-secondary" onClick={read.reload}>Check again</button>}
+ {read.data&&<div className="locations-layout"><div className="locations-list">{read.data.locations.map(r=><button className={'panel location-card'+(selected===r.id?' selected':'')} key={r.id} aria-pressed={selected===r.id} onClick={()=>setSelected(r.id)}><span className="location-card-heading"><strong>{r.name}</strong><span className="status-label">{r.active?'Active':'Archived'}</span></span><span>{r.city??'Address to be completed'}</span><span>{r.capacity===null?'Capacity to be set':`${r.capacity} people`} · {locationComplete(r)?'Venue details complete':'More details needed'}</span></button>)}{!read.data.locations.length&&<div className="panel"><h2>No locations found</h2><p>Create a venue or adjust your search and status filter.</p></div>}</div>
+ {row?<article className="panel location-preview"><div className="locations-heading"><h2>{row.name}</h2><span className="status-label">{row.active?'Active':'Archived'}</span></div><dl><dt>Address</dt><dd>{[row.addressLine,row.postalCode,row.city,row.countryCode].filter(Boolean).join(', ')||'Not set'}</dd><dt>Capacity</dt><dd>{row.capacity??'Not set'}</dd><dt>Default venue rental</dt><dd>{new Intl.NumberFormat('en-NL',{style:'currency',currency:'EUR'}).format(row.rentalCents/100)}</dd></dl><h3>Practical instructions</h3><p className="location-instructions">{row.instructions||'No instructions yet.'}</p>{directions&&<p><a href={directions} rel="noreferrer" target="_blank">Directions in Google Maps ↗</a></p>}
+ {!locationComplete(row)&&<p>Complete the structured address and positive capacity before publishing an event with this venue.</p>}{!row.active&&<p>This template is archived. Existing event snapshots are preserved.</p>}
+ <div className="location-actions"><button className="button" disabled={mutation.pending} onClick={()=>setEditing({...row})}>Edit location</button><button className="button button-secondary" disabled={mutation.pending} onClick={()=>void archive(row)}>{row.active?'Archive':'Restore'}</button></div><p><Link to="/manage/location-activity">View Locations logs</Link></p></article>:<div className="panel location-preview"><h2>Location overview</h2><p>Select a location to view its details.</p></div>}</div>}
+ {editing&&<LocationEditor key={editing.id||'new'} row={editing} creating={!editing.id} pending={mutation.pending} message={mutation.message} onSave={save} onCancel={()=>setEditing(null)}/>}
+ </div>;
+}

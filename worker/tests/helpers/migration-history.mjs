@@ -16,4 +16,5 @@ export const expectedHistory = [
   '0021_create_user_lifecycle_log.sql',
  '0022_allow_role_deletion_activity.sql',
  '0023_create_member_feedback.sql',
+ '0024_create_location_management.sql',
 ];
