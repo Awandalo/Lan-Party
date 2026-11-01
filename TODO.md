@@ -505,6 +505,8 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Add atomic revision/audit writes and Locations under central Administration Logs; prepare forward migration 0024 with populated-data preservation/rollback tests.
 - [x] Publish candidate 1bbc703 to DEV; CI/deployment pass. Apply separately approved 0024 after fresh recovery preflight; verify schema, foreign keys and unchanged empty event/registration tables on 2026-11-01.
 - [ ] Owner hosted functional acceptance: create/edit/cancel, filters, archive/restore, permissions and Locations logs. Code and schema deployment are not functional acceptance.
+- [x] Implement iteration 2: three-step Add Location, name-only/optional fields, second-column pin/directions link, distinct action footer and central-only log navigation; correct Administration titles without changing access/routes.
+- [ ] Owner iteration-2 DEV walkthrough: mobile/desktop wizard, Back/Enter/Cancel, edit/archive/restore, Maps links, central Logs and route titles on deep link/refresh/Back/Forward. Local fictional browser/changed-area checks pass; hosted owner acceptance remains pending.
 - [ ] Increment B: separately approve storage/R2/files and quota lifecycle; R2 billing is not approved.
 - [ ] Integrate independent event snapshots/publication checks with #37. Keep #36 open; see [Locations scope and verification](docs/locations.md).
 

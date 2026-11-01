@@ -15,5 +15,12 @@
 .location-fields{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.25rem 0}
 .location-fields label{display:grid;gap:.5rem;min-width:0}.location-fields input,.location-fields textarea{width:100%;min-width:0}
 .locations-page input,.locations-page select,.location-dialog input,.location-dialog textarea{font:inherit;color:var(--text);background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;padding:.75rem;min-height:44px}
-.location-wide{grid-column:1/-1}.location-actions{justify-content:flex-start;margin-top:1.5rem}
+.location-wide{grid-column:1/-1}.location-actions{justify-content:flex-end;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.location-info-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.5rem;margin-top:1.5rem}
+.location-info-columns dl{margin:0;grid-template-columns:1fr;align-content:start;gap:.4rem}.location-info-columns dd{margin-bottom:.8rem}
+.location-info-columns h3{margin-top:0}.location-map-link{display:inline-flex;align-items:center;gap:.5rem}.location-map-link svg{flex-shrink:0}
+.location-review dl{display:grid;grid-template-columns:minmax(8rem,1fr) minmax(0,2fr);gap:.75rem}.location-review dd{margin:0;overflow-wrap:anywhere}
+.location-dialog .wizard-actions{margin-top:1rem;flex-wrap:wrap}.location-dialog .wizard-actions>div{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:1100px){.location-info-columns{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){.locations-layout,.location-fields{grid-template-columns:1fr}.location-dialog fieldset{padding:1rem}.location-preview dl{grid-template-columns:1fr}.location-preview dd{margin-bottom:.6rem}}
+@media(max-width:450px){.location-dialog .wizard-actions{flex-direction:column-reverse}.location-dialog .wizard-actions>div{display:flex}.location-dialog .wizard-actions .button{flex:1}.location-review dl{grid-template-columns:1fr}.location-review dd{margin-bottom:.5rem}}

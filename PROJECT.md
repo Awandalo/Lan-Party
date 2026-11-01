@@ -48,6 +48,11 @@ functional acceptance remains pending. Attachments/R2 and event
 snapshots are deferred to their increments; R2 billing is not approved. See
 [the Locations contract](docs/locations.md) for scope and acceptance.
 
+Locations iteration 2 (#36) adds a three-step name-only creation wizard, responsive
+venue information/action layout, central-only log navigation and Administration
+document-title correction. This is DEV UI work; schema, permissions, snapshots,
+storage and PROD activation remain unchanged. See the contract's iteration-2 receipt.
+
 ## Agreed technology
 
 | Area | Decision |

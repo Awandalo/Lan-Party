@@ -34,6 +34,45 @@ the user to reload/check logs, without retries. Private reads are no-store and
 provider-owned caches clear/fence late replies on session/authorization changes.
 Increment A remains local/canonical DEV only.
 
+## Iteration 2 — UI and route titles
+
+Owner authorized implementing [#36](https://github.com/Awandalo/Lan-Party/issues/36)'s
+iteration-2 scope and publishing to DEV on 2026-11-01. Add Location now uses three
+steps: Location details, Additional information, Review & Create. Name alone is
+required; empty optional rental defaults to zero. Back preserves the draft; Next
+and Enter advance without saving; only explicit Create commits it. Editing keeps
+the existing single-form Save/Cancel flow. No autosave or unsaved-change warning.
+
+The selected venue has responsive information columns, a generic pin/directions
+link in the second column, and a separated right-aligned Edit/Archive-or-Restore
+footer. The redundant detail-card log shortcut is removed; Administration → Logs
+→ Locations remains the audit destination. URL generation/override validation,
+server authorization, API contracts, audit, schema and snapshot behavior are unchanged.
+
+Administration document titles now follow the actual rendered, access-checked page
+heading instead of a separate PROD-excluding title map. Members, member details,
+Locations and Logs keep appropriate titles after navigation/refresh. Restricted,
+disabled or unknown routes retain their real restricted/not-found view and title;
+this does not enable routes or bypass permission checks. The correction is prepared
+on DEV; production requires its normal separately approved source promotion.
+
+Changed-area verification: 23 tests covering Locations HTTP/D1 behavior,
+presentation/title contracts, session validation and frontend environment boundaries;
+strict TypeScript and default/hosted-dev builds pass. The first new presentation
+test counted only HTML list elements having attributes; corrected the test to count
+all three steps, preserving its three-step assertion. No security assertion weakened.
+The existing hosted-dev bundle-size warning remains.
+
+Fictional local browser checks cover name-only and populated creation, Enter/Back,
+review, optional rental, invalid Maps/negative rental, explicit edit Save, Escape
+cancellation/focus return, archive/filter/restore, central Logs, permission loss and
+320px/390px layouts without horizontal overflow. Direct Members/member-detail links,
+refresh, Back/Forward, valid Locations/Logs, unknown-route and restricted titles were
+checked. The member detail fixture supplies only the data needed for route/title
+checks; its unimplemented auxiliary role transport is not claimed as full member
+functional acceptance. No hosted fixture mutation, database/provider/storage or
+PROD operation was performed. Owner hosted acceptance remains pending.
+
 ## Migration and publication
 
 ### DEV execution receipt — 2026-11-01
