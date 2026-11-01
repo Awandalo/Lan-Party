@@ -1,5 +1,26 @@
 # D1 migrations
 
+## Phase 5.2A simplification — 0026
+
+`0026_simplify_event_snapshots.sql` adds a common copied capacity to event
+management, physically drops `event_days.capacity` and
+`event_management.guests_enabled`, and enforces immutable venue/capacity/rental.
+The consistent member-invited guest rule uses a positive limit; previously disabled
+zero limits become 1. No guest registration functionality is removed. Historical
+0025 is unchanged. The temporary conversion guard is dropped in the same batch.
+
+Never silently flatten mixed daily capacities: migration aborts for missing/unequal
+managed capacities or nonempty unmanaged capacity data. Preserve dates, IDs,
+registration links and audit. Previously noncontiguous dates are not regenerated;
+such historical events need explicit review/recreation rather than date rewriting.
+
+The current owner request explicitly includes the scoped DEV database cleanup.
+Apply only to `lan-party-dev` after fresh recovery and 0001–0025/only-0026-pending
+preflight. Publish the new Worker first: it fails safely with 503 until 0026 exists,
+so the old mutable API cannot operate after cleanup. Stop on changed event data,
+failed prerequisites or schema drift; never edit applied history or reset the DB.
+See [the current Events contract](../docs/events.md). No PROD operation authorized.
+
 ## Phase 5.2 Events Increment A — 0025
 
 `0025_create_event_management.sql` is additive over 0024. It adds event-owned

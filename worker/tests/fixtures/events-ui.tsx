@@ -2,6 +2,7 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {BrowserRouter} from 'react-router';
 import App from '../../../src/App';
+import {eventDates} from '../../../src/lib/event-time';
 import '../../../src/CSS/main.css';
 // Fictional browser fixture: intercept all API transport; never reach providers/D1.
 const template={id:'10000000-0000-4000-8000-000000000001',name:'Fictional LAN Hall',addressLine:'Example Street 1',postalCode:'0000 AA',city:'Example Town',countryCode:'NL',instructions:'Parking at side entrance',directionsUrl:'',capacity:32,rentalCents:15000,revision:0,active:1};
@@ -14,7 +15,7 @@ window.fetch=async(input,options)=>{
  if(url.pathname==='/api/manage/events'){
   if(options?.method==='POST'){
    const body=JSON.parse(String(options.body)),id=body.id??crypto.randomUUID(),old=rows.find(e=>e.id===id);
-   if(old)Object.assign(old,body,{revision:Number(old.revision)+1});else rows.push({...body,id,status:'draft',registrationStatus:'closed',revision:0});
+   if(old)Object.assign(old,body,{revision:Number(old.revision)+1});else {const source=body.sourceId?rows.find(e=>e.id===body.sourceId):null;const venue=Object.fromEntries(['name','addressLine','postalCode','city','countryCode','instructions','directionsUrl'].map(k=>[k,template[k as keyof typeof template]]));rows.push({...body,id,status:'draft',registrationStatus:'closed',revision:0,locationId:source?.locationId??template.id,venue:source?.venue??venue,capacity:source?.capacity??template.capacity,rentalCents:source?.rentalCents??template.rentalCents,days:eventDates(body.startsAt,body.endsAt).map(date=>({date}))});}
    entries.unshift({sequence:String(entries.length+1),occurredAt:1793500000,operation:'event.'+body.action,fields:'["details"]',title:body.title,actorName:null});return Response.json({id});
   }
   const search=url.searchParams.get('search')??'',status=url.searchParams.get('status')??'all';return Response.json({events:rows.filter(r=>String(r.title).toLowerCase().includes(search.toLowerCase())&&(status==='all'||r.status===status)),templates:[template],canCreate:true,canUpdate:true});

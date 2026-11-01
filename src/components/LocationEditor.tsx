@@ -37,7 +37,7 @@ export default function LocationEditor({row,creating,pending,message,onSave,onCa
  {creating&&<ol className="wizard-steps" aria-label="Create location progress">{steps.map((label,index)=><li key={label} aria-current={step===index?'step':undefined}><span>{index+1}</span>{label}</li>)}</ol>}
  <form ref={form} onSubmit={e=>void submit(e)}><fieldset disabled={pending}><legend className="visually-hidden">Location details</legend>
  {creating&&<h3 ref={stepHeading} tabIndex={-1}>{steps[step]}</h3>}
- {(!creating||step===0)&&<><p>Only the name is required. Complete the address and capacity before using this venue in a published event.</p>
+ {(!creating||step===0)&&<><p>Only the name is required. Complete the address and capacity before using this venue in an event.</p>
  <div className="location-fields">{stringField('name','Location name',120,true)}{stringField('addressLine','Street and number',200)}{stringField('postalCode','Postal code',30)}{stringField('city','City',100)}{stringField('countryCode','Country code (for example NL)',2)}
  <label>Capacity<input type="number" min="1" max="100000" step="1" value={draft.capacity} onChange={e=>setDraft({...draft,capacity:e.target.value})}/></label></div></>}
  {(!creating||step===1)&&<div className="location-fields"><label>Default venue rental (€)<input inputMode="decimal" value={draft.rental} onChange={e=>setDraft({...draft,rental:e.target.value})}/></label>

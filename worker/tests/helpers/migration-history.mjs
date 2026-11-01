@@ -18,4 +18,5 @@ export const expectedHistory = [
  '0023_create_member_feedback.sql',
  '0024_create_location_management.sql',
  '0025_create_event_management.sql',
+ '0026_simplify_event_snapshots.sql',
 ];
