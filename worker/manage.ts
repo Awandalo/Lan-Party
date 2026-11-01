@@ -1,4 +1,5 @@
 import {feedbackReady} from './feedback-data';
+import {eventsReady,readEvents,writeEvent,EventError} from './event-data';
 import {locationsReady,readLocations,writeLocation,LocationError} from './location-data';
 import {memberRead} from './members';
 import {readUserActivity} from './user-activity-read';
@@ -47,16 +48,18 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
   const userLog=url.pathname==='/api/manage/user-activity';
   const locationEndpoint=['/api/manage/locations','/api/manage/location-activity'].includes(url.pathname);
   const locationLog=url.pathname==='/api/manage/location-activity';
+  const eventEndpoint=['/api/manage/events','/api/manage/event-activity'].includes(url.pathname);
+  const eventLog=url.pathname==='/api/manage/event-activity';
   const deletion=/^\/api\/manage\/roles\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/deletion$/.exec(url.pathname);
   const roleEndpoint=!!deletion||url.pathname==='/api/manage/roles'||url.pathname==='/api/manage/role-activity'||/^\/api\/manage\/users\/[^/]+\/roles$/.test(url.pathname);
   // This first iteration is DEV/local only; PROD activation requires separate approval.
   if (!(loopback(url) || hostedDev(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
-    || (!members && !roleEndpoint && !userLog && !locationEndpoint && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
-  if (request.method !== 'GET' && !((roleEndpoint&&!url.pathname.endsWith('role-activity')||locationEndpoint&&!locationLog)&&request.method==='POST')) return reply(405, {error: 'Method not allowed'});
+    || (!members && !roleEndpoint && !userLog && !locationEndpoint && !eventEndpoint && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
+  if (request.method !== 'GET' && !((roleEndpoint&&!url.pathname.endsWith('role-activity')||locationEndpoint&&!locationLog||eventEndpoint&&!eventLog)&&request.method==='POST')) return reply(405, {error: 'Method not allowed'});
   if(deletion&&request.method!=='GET')return reply(405,{error:'Method not allowed'});
   try {
     const origin = authOrigin(request, env);
-    if ((!members && !roleEndpoint && !userLog && !locationEndpoint && url.search) || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
+    if ((!members && !roleEndpoint && !userLog && !locationEndpoint && !eventEndpoint && url.search) || request.headers.has('Content-Encoding') || request.headers.get('X-LAN-Request') !== '1'
       || request.headers.has('Origin') && request.headers.get('Origin') !== origin.origin
       || request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin') {
       return reply(403, {error: 'Request rejected'});
@@ -67,13 +70,29 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     // Optional correlation proof prevents applying user B's grants to user A's
     // session snapshot if another tab changes cookies between the two reads.
     const submitted = request.headers.get('X-LAN-Session-Proof');
-    if ((members||roleEndpoint||userLog||locationEndpoint) && submitted === null) return reply(403, {error: 'Session proof required'});
+    if ((members||roleEndpoint||userLog||locationEndpoint||eventEndpoint) && submitted === null) return reply(403, {error: 'Session proof required'});
     if (submitted !== null) {
       const bytes = fromHex(submitted, 32);
       const expected = fromHex(await sessionCsrfToken(await digestToken(token!, 'session'), env.AUTH_RATE_LIMIT_SECRET!), 32)!;
       if (!bytes || !crypto.subtle.timingSafeEqual(bytes, expected)) return reply(409, {error: 'Session context changed'});
     }
     const {permissions,rolesReady,admin} = await administrationAuthority(env.DB, account.userId, now);
+    if(eventEndpoint){
+      if(!sectionPermissions.events.some(p=>permissions.includes(p)))return reply(403,{error:'Event access is restricted'});
+      if(!await eventsReady(env.DB))return reply(503,{error:'Events requires its approved database migration'});
+      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update')}:{}});
+      const digest=await digestToken(token!,'session');
+      if(!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
+      if(url.search||request.headers.get('Content-Type')!=='application/json')throw new EventError(400,'Invalid request');
+      const reader=request.body?.getReader();if(!reader)throw new EventError(400,'Invalid request');
+      let size=0,body='';const decoder=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false});
+      for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>32768){await reader.cancel();throw new EventError(413,'Request too large');}body+=decoder.decode(value,{stream:true});}
+      let raw:unknown;try{raw=JSON.parse(body+decoder.decode());}catch{throw new EventError(400,'Invalid request');}
+      if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new EventError(400,'Invalid request');
+      const action=(raw as Record<string,unknown>).action,required=action==='update'?'events.update':'events.create';
+      if(!permissions.includes(required))return reply(403,{error:'Event change is restricted'});
+      return reply(200,await writeEvent(env.DB,account.userId,digest,raw as Record<string,unknown>));
+    }
     if(locationEndpoint){
       if(!permissions.includes('locations.manage'))return reply(403,{error:'Location access is restricted'});
       if(!await locationsReady(env.DB))return reply(503,{error:'Locations requires its approved database migration'});
@@ -144,6 +163,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     const authorization=toHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([admin,[...new Set(permissions)].sort()])))));
     return reply(200, {sections,authorization});
   } catch(error) {
+    if(error instanceof EventError)return reply(error.status,{error:error.message});
     if(error instanceof LocationError)return reply(error.status,{error:error.message});
     if(error instanceof RoleAssigned)return reply(409,{code:'role_assigned',error:'Unassign this role from every member before deleting it, including inactive accounts.'});
     if(error instanceof RoleDenied)return reply(403,{error:'Role change is restricted'});

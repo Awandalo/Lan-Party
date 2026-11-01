@@ -18,6 +18,15 @@ production migrations still require separate explicit owner approval.
 Keep additional feature ideas in the unnumbered backlog below until separately
 approved. Plan their database needs now; implement migrations with their functionality.
 
+## Phase 5.2 Events — Increment A
+
+Owner approved private Draft list/create/edit/duplicate and Events Logs in #37's
+plan, with independent venue text snapshots and locked selected dates/per-day
+capacities, plus DEV publication on 2026-11-01. DEV migration 0025 was separately
+approved. See [the Events contract](docs/events.md). Hosted acceptance remains
+pending; keep #37 open. Publishing/public pages, participant cancellation/notices,
+registration and final settlement remain following increments. Keep Jotform active.
+
 ## Phase 2 Database Foundation — complete on DEV and PROD
 
 The owner confirms that migrations `0001` through `0007` have been successfully

@@ -53,6 +53,15 @@ venue information/action layout, central-only log navigation and Administration
 document-title correction. This is DEV UI work; schema, permissions, snapshots,
 storage and PROD activation remain unchanged. See the contract's iteration-2 receipt.
 
+Phase 5.2 Increment A (#37) adds private Draft creation/editing/duplication,
+independent text-only venue snapshots, explicitly selected immutable attendance
+dates, per-day capacities and central Events Logs. The owner approved implementation
+and DEV publication on 2026-11-01. Creation requires a complete structured venue
+address and capacities, superseding the older incomplete-Draft proposal below for
+newly managed events. Legacy foundation records remain read-only. Publishing,
+cancellation, registration and settlement follow in later increments. See
+[the Events contract](docs/events.md) for scope, rollout, limits and verification.
+
 ## Agreed technology
 
 | Area | Decision |
@@ -86,7 +95,9 @@ paid dependencies, and verify relevant platform limits before production deploym
 
 - Public visitors can view published events and register for events open to registration.
 - Public event registration must not require an organizer account or organizer login.
-- Every participant must have a user account. Email/password and
+- The responsible registering member must have a user account. Approved Phase 5
+  guests may be accountless under that member; this supersedes older universal
+  participant-account wording for guests only. Email/password and
   optional TOTP MFA protect one central profile. Google OAuth is discontinued.
 - Organizers require secure authentication and server-side authorization.
 - Contact information and other private registration details must not appear in public

@@ -1,5 +1,16 @@
 # D1 migrations
 
+## Phase 5.2 Events Increment A — 0025
+
+`0025_create_event_management.sql` is additive over 0024. It adds event-owned
+venue/timing/settings/revision records, Events audit, per-day capacity and immutable
+selected-date guards. Existing events/day/registration IDs and values remain intact;
+legacy management fields are not invented. See [the Events contract](../docs/events.md).
+The owner separately approved applying only 0025 to `lan-party-dev`, after fresh
+recovery/history/integrity preflight. Verify 0001–0024 applied and only 0025 pending;
+compare existing record counts and foreign-key/quick checks afterward. No PROD
+migration, automatic rollback or unrelated schema/data changes are authorized.
+
 ## Phase 5.1 Locations candidate — 0024
 
 `0024_create_location_management.sql` was separately approved, applied and verified

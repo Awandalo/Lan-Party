@@ -15,7 +15,14 @@ const credentials = { email: profile.email, password: profile.password };
 const origin = 'http://127.0.0.1:5173', base = 'http://127.0.0.1:8787/api/auth/';
 let script, migrations;
 before(async () => {
-  script = (await build({ entryPoints: [fileURLToPath(new URL('../index.ts', import.meta.url))],
+  // Worker clock control is scoped to this fictional fixture, never deployed.
+  script = (await build({ stdin: {resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
+    import app from './worker/index';
+    export default {async fetch(request,env,ctx){
+      const clock=request.headers.get('X-Fixture-Clock'),original=Date.now;
+      if(clock!==null)Date.now=()=>Number(clock);
+      try{return await app.fetch(request,env,ctx);}finally{Date.now=original;}
+    }};`},
     bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
   migrations = [];
   for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
@@ -184,8 +191,10 @@ test('distinct unknown emails sharing one IP do not receive a blanket five-reque
 }));
 
 test('shared malformed-request volume triggers a generic challenge and hosted aliases stay disabled', () => local(async ({ request, instance }) => {
-  for (let i = 0; i < 60; i++) assert.equal((await request('login', null)).status, 400);
-  const challenge = await request('login', credentials); assert.equal(challenge.status, 403);
+  // All 61 observations belong to one volume window, even across wall-clock rollover.
+  const headers={'X-Fixture-Clock':String(Math.floor(Date.now()/60000)*60000+10000)};
+  for (let i = 0; i < 60; i++) assert.equal((await request('login', null,headers)).status, 400);
+  const challenge = await request('login', credentials,headers); assert.equal(challenge.status, 403);
   assert.equal((await challenge.json()).code, 'challenge_required');
   for (const action of ['login', 'session', 'logout']) {
     assert.equal((await instance.dispatchFetch(`https://lan-party-dev.servok.workers.dev/api/auth/${action}`)).status, 404);

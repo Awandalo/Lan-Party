@@ -1,3 +1,5 @@
+import EventManagement from './EventManagement';
+import EventActivityLog from '../components/EventActivityLog';
 import Members from './Members';
 import Locations from './Locations';
 import LocationActivityLog from '../components/LocationActivityLog';
@@ -14,9 +16,9 @@ const sections={feedback:'Feedback',users:'Members',roles:'Roles & Permissions',
 export default function Administration() {
   const {section:routeSection,userId} = useParams(), {session, status} = useAuth(), access = useAdministration();
   const prefetch=useNavigationPrefetch();
-  const locationLog=routeSection==='location-activity';
-  const section = userId ? 'users' : routeSection==='user-activity'?'userActivity':locationLog?'locations':routeSection;
-  const logs=section==='logs'||section==='activity'||section==='userActivity'||locationLog;
+  const locationLog=routeSection==='location-activity',eventLog=routeSection==='event-activity';
+  const section = userId ? 'users' : routeSection==='user-activity'?'userActivity':locationLog?'locations':eventLog?'events':routeSection;
+  const logs=section==='logs'||section==='activity'||section==='userActivity'||locationLog||eventLog;
   const pageClass='page-section administration-page'+(section==='users'?' members-workspace':'');
   const loading = status === 'loading' || access.status === 'loading';
   if (loading) return <section className={pageClass} aria-busy="true"><h1>{section === 'feedback' ? 'Feedback' : section === 'users' ? 'Members' : section === 'roles' ? 'Roles & Permissions' : section === 'events' ? 'Events' : section === 'activity' ? 'Role Activity Log' : section==='userActivity'?'User Log':section==='logs'?'Logs':'Administration'}</h1><div className="administration-nav administration-skeleton-nav" aria-hidden="true"><span>Overview</span><span>Members</span><span>Roles & Permissions</span><span>Events</span></div>{section==='roles'?<RolesLoading/>:<><p role="status">Checking access…</p><div className="panel administration-panel administration-skeleton" aria-hidden="true"/></>}</section>;
@@ -27,13 +29,13 @@ export default function Administration() {
   if (section && !Object.hasOwn(sections, section)) return <section className="page-section"><h1>Page not found</h1><Link to="/manage">Administration</Link></section>;
   if (!access.sections.length || section && !access.sections.includes(key)) return <section className="page-section"><h1>Access restricted</h1><p>You do not have permission to open this administration area.</p><Link to="/account">My account</Link></section>;
   return <section className={pageClass}>
-    <h1>{locationLog?'Locations Log':section ? sections[key] : 'Administration'}</h1>
-    {logs&&<nav className="logs-navigation" aria-label="Logs">{access.sections.includes('activity')&&<NavLink to="/manage/activity" onPointerEnter={()=>prefetch('/manage/activity')} onFocus={()=>prefetch('/manage/activity')}>Role Activity Log</NavLink>}{access.sections.includes('userActivity')&&<NavLink to="/manage/user-activity" onPointerEnter={()=>prefetch('/manage/user-activity')} onFocus={()=>prefetch('/manage/user-activity')}>User Log</NavLink>}{access.sections.includes('locations')&&<NavLink to="/manage/location-activity" onPointerEnter={()=>prefetch('/manage/location-activity')} onFocus={()=>prefetch('/manage/location-activity')}>Locations</NavLink>}</nav>}
-    {locationLog?<LocationActivityLog/>:section==='locations'?<Locations/>:section === 'feedback' ? <Link to="/manage/feedback">Open Feedback inbox</Link> : section === 'users' ? <Members/> : section==='roles'?<Roles/>:section==='activity'?<RoleActivity/>:section==='userActivity'?<UserActivityLog/>:section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>Event management will be added here in a later iteration.</p>
+    <h1>{eventLog?'Events Log':locationLog?'Locations Log':section ? sections[key] : 'Administration'}</h1>
+    {logs&&<nav className="logs-navigation" aria-label="Logs">{access.sections.includes('activity')&&<NavLink to="/manage/activity" onPointerEnter={()=>prefetch('/manage/activity')} onFocus={()=>prefetch('/manage/activity')}>Role Activity Log</NavLink>}{access.sections.includes('userActivity')&&<NavLink to="/manage/user-activity" onPointerEnter={()=>prefetch('/manage/user-activity')} onFocus={()=>prefetch('/manage/user-activity')}>User Log</NavLink>}{access.sections.includes('locations')&&<NavLink to="/manage/location-activity" onPointerEnter={()=>prefetch('/manage/location-activity')} onFocus={()=>prefetch('/manage/location-activity')}>Locations</NavLink>}{access.sections.includes('events')&&<NavLink to="/manage/event-activity" onPointerEnter={()=>prefetch('/manage/event-activity')} onFocus={()=>prefetch('/manage/event-activity')}>Events</NavLink>}</nav>}
+    {eventLog?<EventActivityLog/>:section==='events'?<EventManagement/>:locationLog?<LocationActivityLog/>:section==='locations'?<Locations/>:section === 'feedback' ? <Link to="/manage/feedback">Open Feedback inbox</Link> : section === 'users' ? <Members/> : section==='roles'?<Roles/>:section==='activity'?<RoleActivity/>:section==='userActivity'?<UserActivityLog/>:section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>Event management will be added here in a later iteration.</p>
 
     </div> : <><p>Choose an area to get started. Only areas available to your account are shown.</p><div className="administration-grid">
       {access.sections.filter(s=>s!=='activity'&&s!=='userActivity').map(s => <Link className="panel administration-panel" key={s} to={'/manage/'+s}><h2>{sections[s]}</h2></Link>)}
-      {(access.sections.includes('activity')||access.sections.includes('userActivity')||access.sections.includes('locations'))&&<Link className="panel administration-panel" to="/manage/logs" onPointerEnter={()=>prefetch('/manage/logs')} onFocus={()=>prefetch('/manage/logs')}><h2>Logs</h2></Link>}
+      {(access.sections.includes('activity')||access.sections.includes('userActivity')||access.sections.includes('locations')||access.sections.includes('events'))&&<Link className="panel administration-panel" to="/manage/logs" onPointerEnter={()=>prefetch('/manage/logs')} onFocus={()=>prefetch('/manage/logs')}><h2>Logs</h2></Link>}
     </div></>}
   </section>;
 }

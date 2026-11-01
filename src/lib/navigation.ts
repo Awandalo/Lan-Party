@@ -11,20 +11,21 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
 ];
 export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
 export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account\/feedback(?:\/|$)/.test(path)?null:/^\/account(?:\/|$)/.test(path)?'account':null;}
-export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity','/manage/location-activity'].includes(path);}
+export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity','/manage/location-activity','/manage/event-activity'].includes(path);}
 // Match the Logs landing redirect, including accounts allowed only User Log.
 export function logDestination(path:string,sections:Section[]){
- if(path==='/manage/logs')path=sections.includes('activity')?'/manage/activity':sections.includes('userActivity')?'/manage/user-activity':'/manage/location-activity';
+ if(path==='/manage/logs')path=sections.includes('activity')?'/manage/activity':sections.includes('userActivity')?'/manage/user-activity':sections.includes('locations')?'/manage/location-activity':'/manage/event-activity';
  if(path==='/manage/activity'&&sections.includes('activity'))return {path,api:'/api/manage/role-activity',section:'activity' as const};
  if(path==='/manage/user-activity'&&sections.includes('userActivity'))return {path,api:'/api/manage/user-activity',section:'userActivity' as const};
  if(path==='/manage/location-activity'&&sections.includes('locations'))return {path,api:'/api/manage/location-activity',section:'locations' as const};
+ if(path==='/manage/event-activity'&&sections.includes('events'))return {path,api:'/api/manage/event-activity',section:'events' as const};
  return null;
 }
 export function contextualNavigation(path:string,sections:Section[],signedIn:boolean){
  if(!signedIn)return [];
  if(mainArea(path)==='account')return signedIn?accountNavigation:[];
  if(mainArea(path)!=='administration'||!sections.length)return [];
- return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')));
+ return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')||sections.includes('events')));
 }
 export function routeLabel(path:string){
  if(path.startsWith('/account/feedback'))return 'Feedback';
@@ -33,6 +34,7 @@ export function routeLabel(path:string){
  if(path.startsWith('/manage/users/'))return 'Member details';
  if(path==='/manage/activity')return 'Role Activity Log';
  if(path==='/manage/user-activity')return 'User Log';
+ if(path==='/manage/event-activity')return 'Events Log';
  if(path==='/manage/location-activity')return 'Locations Log';
  return [...publicNavigation,...administrationNavigation,{href:'/account',label:'My account'},{href:'/account/security',label:'Account security'},{href:'/privacy',label:'Privacy Policy'},{href:'/login',label:'Login'},{href:'/register',label:'Create account'}].find(item=>item.href===path)?.label??'LAN Party';
 }
