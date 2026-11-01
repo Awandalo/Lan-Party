@@ -36,7 +36,10 @@ test('verification and recovery share branded HTML and explicit plain text witho
     assert.doesNotMatch(result.html, /<img|<script|<link|<iframe|@import|url\(/i);
     assert.equal((result.html.match(/href=/g) ?? []).length, 2);
     assert.ok(result.html.includes(`${action} securely</a>`));
-    assert.doesNotMatch(result.html.replace(/<[^>]*>/g, ''), /https:\/\//);
+    // Inspect generated text segments for this assertion; never model tag
+    // removal as an HTML sanitizer. Production output uses escapeHTML instead.
+    const visibleText=[...result.html.matchAll(/>([^<]*)</g)].map(match=>match[1]).join('');
+    assert.doesNotMatch(visibleText, /https:\/\//);
     for (const body of [result.text, result.html]) assert.ok(body.includes('Contact the LAN Party organizers'));
   }
 });
