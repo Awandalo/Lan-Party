@@ -6,7 +6,7 @@ import {sessionCsrfToken} from './auth/csrf';
 import {digestToken} from './auth/tokens';
 import {fromHex,toHex} from './auth/encoding';
 import type { AuthenticationEnvironment } from './auth/http';
-import { authOrigin, authRouteEnabled, hostedDev, loopback } from './auth/environment';
+import { authOrigin, authRouteEnabled, hosted, loopback } from './auth/environment';
 import { readSessionCookie } from './auth/cookies';
 import { resolveSession } from './auth/sessions';
 import {validAuthMutation} from './auth/environment';
@@ -46,8 +46,8 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
   const userLog=url.pathname==='/api/manage/user-activity';
   const deletion=/^\/api\/manage\/roles\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/deletion$/.exec(url.pathname);
   const roleEndpoint=!!deletion||url.pathname==='/api/manage/roles'||url.pathname==='/api/manage/role-activity'||/^\/api\/manage\/users\/[^/]+\/roles$/.test(url.pathname);
-  // This first iteration is DEV/local only; PROD activation requires separate approval.
-  if (!(loopback(url) || hostedDev(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
+  // Hosted PROD uses the existing trusted-build and exact-origin authentication gate.
+  if (!(loopback(url) || hosted(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
     || (!members && !roleEndpoint && !userLog && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
   if (request.method !== 'GET' && !(roleEndpoint && request.method==='POST' && !url.pathname.endsWith('role-activity'))) return reply(405, {error: 'Method not allowed'});
   if(deletion&&request.method!=='GET')return reply(405,{error:'Method not allowed'});

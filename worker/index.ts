@@ -1,4 +1,5 @@
 import {feedback} from './feedback';
+import {productionBuild} from './auth/production';
 import {purgeFeedback,feedbackReady} from './feedback-data';
 import { manage } from './manage';
 import { lifecycleHttp } from './auth/lifecycle-http';
@@ -18,7 +19,7 @@ interface Env extends AuthenticationEnvironment {
 
 export default {
   async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext) {
-    if(env.AUTH_ENVIRONMENT==='dev'&&await feedbackReady(env.DB))ctx.waitUntil(purgeFeedback(env.DB,20));
+    if((env.AUTH_ENVIRONMENT==='dev'||env.AUTH_ENVIRONMENT==='prod'&&productionBuild())&&await feedbackReady(env.DB))ctx.waitUntil(purgeFeedback(env.DB,20));
     if(['dev','prod'].includes(env.AUTH_ENVIRONMENT??'')&&env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled')ctx.waitUntil(purgeUserActivity(env.DB));
   },
   async fetch(request, env, ctx): Promise<Response> {
