@@ -59,7 +59,9 @@ scope and evidence in the relevant existing document or PR; no new registry is n
 Preserve dev/main roles and all existing Git rules. Main changes require explicit
 owner approval through a reviewed PR. Record approval for the exact reviewed head;
 if it changes, recheck affected evidence and obtain approval for the revised head
-before merging. Review acceptance does not authorize a merge. Verify the actual
+before merging. Review acceptance outside the explicit
+[Investigate and Deploy](../../RELEASE.md#investigate-and-deploy) step-0 operation
+does not authorize a merge. Verify the actual
 repository protections rather than assuming enforcement; procedural safeguards
 do not constitute technical branch protection. Tags/releases, deployments,
 production operations and migrations retain their separate authorization boundaries.
@@ -194,3 +196,27 @@ check Markdown links/whitespace, and preserve unrelated staging. No runtime test
 can establish future authorization; actual publication still requires live identity,
 remote-state and compatibility checks. A later change/reversal needs owner authority;
 this record supplies no history-rewrite or deployment-recovery permission.
+
+## Project Investigate and Deploy decision — 2026-11-01
+
+The LAN Party owner explicitly requested adapting the supplied ten-stage workflow
+into a LAN Party project directive, with merge acceptance as step 0 and hands-off
+production execution where possible. RELEASE.md's
+[Investigate and Deploy](../../RELEASE.md#investigate-and-deploy) is authoritative.
+One trusted owner acceptance can explicitly incorporate the exact reviewed PR's
+disclosed production scope: merge, named migrations, settings, activation, bounded
+operational corrections and hosted checks. Distinct permission categories remain;
+they can be approved together instead of requiring repeated conversational rounds.
+
+This is an execution/approval-by-reference clarification within FW-GOV-001,
+FW-REL-001, FW-TST-001, FW-SEC-001 and FW-DIR-001, not a new framework directive,
+version, automatic adoption or unlimited production delegation. Exact-head review,
+explicit environment/database/action scope, recovery and security/host gates remain.
+Changed code, unlisted operations, failed integrity and destructive recovery retain
+their boundaries. Existing source-only approvals, including #46, are not expanded
+retroactively. This documentation task executes no production operation.
+
+Review the complete documentation diff, links and success/small-fix/stop scenarios
+in RELEASE.md. Reversing the directive requires an owner-approved documentation
+change; reversing an actual deployment/database effect needs its own applicable
+recovery authorization. Historical receipts retain their original scope.

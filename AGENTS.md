@@ -114,6 +114,9 @@ Use these locations when implementation begins:
   naming/versioning conventions and never reuse migration numbers.
 - Never modify production data or production schemas, or execute production
   migrations, without explicit approval.
+  That approval may be bundled into a reviewed production operation under
+  [Investigate and Deploy](RELEASE.md#investigate-and-deploy), covering its exact
+  database, migrations and actions; do not request it again for covered steps.
 - Use parameterized queries, never SQL constructed from untrusted input.
 - Maintain a clear separation between development and production databases,
   configuration, and migration execution.
@@ -328,6 +331,13 @@ When completing development tasks:
   authorizes creating or updating the `dev` to `main` PR after all pre-flight checks
   pass; it does not authorize commits, pushes, merging, production deployment, or
   production migrations. All existing protections remain in effect.
+- **Investigate and Deploy:** the owner-approved project directive in
+  [RELEASE.md](RELEASE.md#investigate-and-deploy) defines a separate execution
+  operation. Step 0 accepts the exact reviewed PR and its disclosed production
+  scope, including explicitly listed migrations, activation and bounded repairs.
+  Continue through its authorized stages without intermediate approval/reporting
+  stops. Preparation-only requests and ordinary PR review acceptance outside that
+  procedure retain their existing limits. Never infer unlisted production scope.
 - Codex may stage completed changes using `git add`, but must never create
   commits, push, pull, merge, rebase, reset, or deploy unless explicitly instructed.
   Normal development push and the existing documentation policies define scoped

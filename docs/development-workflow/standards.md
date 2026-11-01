@@ -156,6 +156,10 @@ Record meaningful release scope/revision, environment, evidence, limits, authori
 actual outcome and recovery reference in existing PR/release/project records. No
 duplicate approval/evidence database is required. Keep DEV build/deploy, PR creation,
 main merge, PROD deployment, migrations and recovery as distinct permission scopes.
+They may be explicitly approved together through the exact reviewed operation in
+[Investigate and Deploy](../../RELEASE.md#investigate-and-deploy); do not request
+another conversational approval for its already-covered stages. Changed source
+heads and effects outside that scope retain the approval boundaries above.
 Existing automatic triggers need their documented safeguards; no new automation is
 activated by these instructions.
 

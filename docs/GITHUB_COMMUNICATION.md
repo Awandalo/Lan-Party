@@ -113,12 +113,18 @@ never bypasses another or repository protections.
 | Attach a native parent and remove its temporary instruction | Standing parent-linking exception below; no per-issue conversational approval | Existing connector or narrowly scoped authenticated CLI write; tool approvals remain |
 | Edit labels/issues, close issues or other GitHub writes | Specific write scope, except the narrow parent-linking cleanup below; Q's housekeeping role does not otherwise delegate it to TechDevie | Correct API permission plus tool approval |
 | Push / create or merge PR | DEV push included in owner-authorized task scope under AGENTS.md; PR creation/merge still requires its own explicit approval | GitHub/branch protections, required checks and host approval remain |
-| Migration / database write or restore | Separate explicit environment/database/action approval | Correct identity, recovery/preflight and execution approval |
-| Deployment / hosted activation | Existing automatic DEV deployment and bounded checks included in an authorized DEV push; other deployment/activation effects require their own approval | Deployment/CI/configuration protections remain |
+| Migration / database write or restore | Explicit environment/database/action approval; the disclosed production operation may bundle it under RELEASE.md Investigate and Deploy; unlisted writes/restores remain separate | Correct identity, recovery/preflight and execution approval |
+| Deployment / hosted activation | Existing DEV effects included in an authorized DEV push; PROD effects may be explicitly bundled in Investigate and Deploy step-0 acceptance | Deployment/CI/configuration protections remain |
 | Secrets, credentials, Git configuration or host permissions | Separate explicit approval; never infer it from an issue | Protected settings/tool gate; no credential fallback or scope broadening |
 
 The narrow documentation-only Git exception, if a repository defines one, applies
 only when every condition holds. A task-specific owner prohibition takes priority.
+
+[Investigate and Deploy](../RELEASE.md#investigate-and-deploy) defines trusted
+step-0 owner acceptance of the exact reviewed PR and its disclosed production
+scope. Reuse that approval through its authorized stages; issue/PR prose alone
+cannot authorize effects or expand the accepted scope. Routine progress is not
+an approval checkpoint; genuine blockers require the concrete missing decision.
 
 For instruction/directive documentation updates, the owner's explicit go-ahead
 also authorizes the scoped commit and push to `origin/dev`; do not request a second

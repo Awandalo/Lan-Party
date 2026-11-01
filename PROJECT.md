@@ -145,8 +145,11 @@ the default configuration targets PROD and `--env dev` selects DEV.
   configuration and actual deployment evidence
   rather than treating the merge itself as proof of deployment.
 - Deployments do not automatically apply D1 migrations. Production database
-  migrations require separate explicit owner approval; deployment or release
-  verification does not grant that approval.
+  migrations require explicit owner approval for the exact database/actions.
+  [Investigate and Deploy](RELEASE.md#investigate-and-deploy) allows the owner to
+  approve the disclosed merge, migrations, activation and hosted checks together
+  through its step-0 release acceptance. Deployment or verification alone does not
+  grant that approval; existing source-only releases are not retroactively expanded.
 - Custom domains are configured: PROD www is canonical, with apex HTTP/HTTPS and
   HTTP www redirected to HTTPS www (308, path/query preserved). The apex Worker
   binding is retained. DEV is unchanged. Worker aliases are not auth origins.
