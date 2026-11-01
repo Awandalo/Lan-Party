@@ -40,10 +40,11 @@ closed ([acceptance](https://github.com/Awandalo/Lan-Party/issues/44#issuecommen
 rules. Requirements below are mandatory. Items labeled as proposals, open
 decisions, or future ideas require review and are not immediate requirements.
 
-Phase 5.1 Increment A (#36) is an owner-approved local/DEV candidate for Locations
+Phase 5.1 Increment A (#36) is an owner-approved DEV candidate for Locations
 metadata, name-only creation, explicit editing, archive/restore, locations.manage
-navigation and Locations under Administration Logs. Migration 0024 is prepared
-locally; remote application needs separate approval. Attachments/R2 and event
+navigation and Locations under Administration Logs. Migration 0024 was separately
+approved, applied and integrity-verified on DEV on 2026-11-01; hosted owner
+functional acceptance remains pending. Attachments/R2 and event
 snapshots are deferred to their increments; R2 billing is not approved. See
 [the Locations contract](docs/locations.md) for scope and acceptance.
 

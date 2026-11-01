@@ -503,7 +503,8 @@ remote database changes are not implemented or authorized by Phase 3.1.
 
 - [x] Prepare location metadata CRUD, name-only creation, explicit Save/Cancel, archive/restore, Active/Archived/All search and locations.manage authorization/navigation locally.
 - [x] Add atomic revision/audit writes and Locations under central Administration Logs; prepare forward migration 0024 with populated-data preservation/rollback tests.
-- [ ] Publish the verified candidate to DEV, separately approve/apply 0024 with recovery preflight, and record hosted owner acceptance.
+- [x] Publish candidate 1bbc703 to DEV; CI/deployment pass. Apply separately approved 0024 after fresh recovery preflight; verify schema, foreign keys and unchanged empty event/registration tables on 2026-11-01.
+- [ ] Owner hosted functional acceptance: create/edit/cancel, filters, archive/restore, permissions and Locations logs. Code and schema deployment are not functional acceptance.
 - [ ] Increment B: separately approve storage/R2/files and quota lifecycle; R2 billing is not approved.
 - [ ] Integrate independent event snapshots/publication checks with #37. Keep #36 open; see [Locations scope and verification](docs/locations.md).
 

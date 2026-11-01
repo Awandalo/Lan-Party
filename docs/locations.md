@@ -36,6 +36,38 @@ Increment A remains local/canonical DEV only.
 
 ## Migration and publication
 
+### DEV execution receipt — 2026-11-01
+
+The owner separately approved applying only 0024 to DEV with recovery preflight and
+schema/integrity verification. Source: `1bbc703b54b4ae583788b219e8f07eae0b4b5a17`.
+SHA-256: `ae9d640f93d5d3ed3deafcb29626ef954d70cff2cd60155e9243c51a93f1de43`.
+Verified the existing Cloudflare identity and exact DEV database binding; 0001–0023
+were recorded and only 0024 was pending. A fresh Time Travel bookmark is kept in
+ignored local evidence, not the public repository. The migration succeeded once;
+no error-10000 retry was needed. Postflight: 0024 recorded, no pending migrations,
+four metadata columns, nullable address fields, log/replay guard and original
+event/location foreign key present; quick_check ok and foreign_key_check empty.
+Locations/events/days/registrations/selections remain zero, matching preflight.
+No hosted account/grant/venue mutation or PROD operation was performed.
+
+Read-only postflight initially hit Windows multiline argument truncation; SQL-file
+mode returned only an execution summary. Single-line query mode then returned all
+nine actual result sets. No migration was retried. These tooling diagnostics do
+not substitute for the successful schema/integrity results above.
+
+Application CI/deployment succeeded for 1bbc703; anonymous Locations/log APIs deny
+with 401/no-store, home/asset/health return 200 and the asset contains that build.
+Local coverage: 588 regression cases passed initially; the explicit reviewed
+migration-history list then gained 0024 and all 12 blocked cases passed. Its 14
+owner-bootstrap dependents also passed. TypeScript, default/DEV builds, 37 policy
+and three public UI checks passed. Fictional browser checks cover creation/edit,
+decimal rental, generated Maps link, archive/restore, Logs-only navigation, access
+revocation, 320px editor and 390px log layout, plus Escape cancelling without save.
+No external Maps navigation was needed. Hosted authenticated CRUD/persistence and
+owner acceptance remain pending. The existing DEV bundle-size warning remains.
+
+### Procedure and compatibility
+
 `0024_create_location_management.sql` rebuilds `locations` to permit null address
 fields, preserving existing IDs and values. It adds capacity, rental cents,
 directions URL, revision and a separate activity table. Event, event-day and

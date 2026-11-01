@@ -2,13 +2,16 @@
 
 ## Phase 5.1 Locations candidate — 0024
 
-`0024_create_location_management.sql` is locally prepared, not remotely applied.
+`0024_create_location_management.sql` was separately approved, applied and verified
+on DEV on 2026-11-01. PROD is unchanged. SHA-256:
+`ae9d640f93d5d3ed3deafcb29626ef954d70cff2cd60155e9243c51a93f1de43`.
 It rebuilds locations to allow name-only templates while retaining IDs and current
 event foreign keys; adds capacity/rental/directions/revision and location activity.
 Populated migration and rollback tests live in `worker/tests/locations.test.mjs`.
 See [Locations migration/acceptance](../docs/locations.md) for exact DEV preflight,
-recovery and schema-gated publication. Separate approval is required before remote
-application. No attachment storage, snapshots, grants or PROD migration is included.
+recovery and schema-gated publication. A fresh Time Travel bookmark was captured;
+quick_check passed, foreign-key checks were empty and existing event/registration
+tables remained empty. No attachment storage, snapshots, grants or PROD migration.
 
 ## Current release boundary — Phase 3 closeout (2026-10-27)
 
