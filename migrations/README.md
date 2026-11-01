@@ -591,3 +591,48 @@ while retaining only the consumed marker/timestamps. See
 Apply only after separate exact-target/history/integrity/recovery approval. Default
 disabled application routes remain compatible without 0019; setup enabled without
 0019 fails closed. Do not use direct ledger updates or fabricated sessions.
+
+## 0020 — Roles & Permissions administration
+
+Adds roles.is_protected, reserved roles.protect_admin, the singleton RBAC revision
+and role_activity successful-change history. Built-in definitions are immutable
+through UPDATE/DELETE/REPLACE; the audit is append-only including REPLACE protection.
+No accounts, assignments or privilege bootstrap are seeded. The reserved-number
+guard uses genuine built-in Administrator identity while preserving 0019's existing
+one-time owner-bootstrap exception unchanged.
+
+Audit references intentionally have no account foreign keys. Indefinite, potentially
+linkable IDs survive deletion; no names/email/secrets/body values are stored. See
+[the approved Phase 4.3 contract](../docs/role-administration.md) for privacy,
+permission protection, ordinary-session assurance, atomicity and acceptance.
+
+Apply after 0019 only under separate exact DEV approval and fresh recovery/integrity
+preflight. Old code does not read the new tables/column. New role endpoints fail
+closed without the complete migration. No remote migration is performed by code
+deployment; no down migration or audit-deletion routine is provided.
+
+DEV checkpoint 2026-10-29: owner explicitly approved 0019 then 0020 after a fresh
+read-only preflight and Time Travel bookmark. Both applied on DEV, integrity and
+foreign keys passed, accounts were preserved and audit/bootstrap tables remained
+empty. No account provisioning or PROD operation was performed. Other targets
+still require their own approval; application acceptance is separate.
+
+## 0022 — Custom-role deletion audit event
+
+Rebuilds only `role_activity` to add `role.delete` to its operation constraint.
+Copies all historical columns/rows without transformation, preserves AUTOINCREMENT
+allocation and recreates the three append-only triggers in the same migration.
+Built-in role guards, RBAC grants/assignments, accounts and lifecycle tables are
+unchanged. No roles are deleted by this migration. Isolated tests verify populated
+history, sequence continuity, guards and rollback after an injected final failure.
+
+Apply only through `wrangler d1 migrations apply lan-party-dev --remote --env dev`
+after separate exact-target approval, fresh history/integrity/guard checks and a
+Time Travel recovery bookmark. History must be exactly through 0021 and only 0022
+pending; stop on drift. Compare audit aggregates/sequence and account/assignment
+counts afterward. The existing Worker remains compatible; new deletion stays
+unavailable until the updated schema is present. No PROD execution or automatic
+rollback is authorized. Recovery/restore requires a separate reviewed decision.
+
+Cloudflare documents per-migration error rollback in its
+[D1 Wrangler commands](https://developers.cloudflare.com/d1/wrangler-commands/#d1-migrations-apply).

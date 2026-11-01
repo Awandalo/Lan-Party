@@ -1,3 +1,4 @@
+import SwitchInput from './SwitchInput';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import {flushSync} from 'react-dom';
@@ -105,7 +106,7 @@ export default function MfaRegeneration(props:Props){
  const totpControls=<form onSubmit={verify}><fieldset disabled={busy}>
   <label htmlFor="regeneration-code">Six-digit authenticator code</label>
   <input id="regeneration-code" name="code" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required/>
-  <button className="button" disabled={!!siteKey&&!challenge}>{busy?'Checking…':'Confirm authenticator'}</button>
+  <div className="mfa-actions"><button className="button" disabled={!!siteKey&&!challenge}>{busy?'Checking…':'Confirm authenticator'}</button><button type="button" className="button button-secondary" onClick={cancel}>Cancel</button></div>
  </fieldset></form>;
  return <div className="mfa-regeneration">
   {!engaged&&<button className="button button-secondary" disabled={props.disabled||busy} onClick={begin}>Regenerate recovery codes</button>}
@@ -125,14 +126,14 @@ export default function MfaRegeneration(props:Props){
    {codes.length>0&&<><p><strong>Not active yet.</strong> Save these ten codes privately. They are shown once, with no countdown. Leaving or refreshing this view loses the display.</p>
     <ul className="mfa-regeneration-codes" aria-label="New recovery codes">{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
     <p className="mfa-clipboard-guidance">Clipboard contents are sensitive. Paste into a secure password manager and clear the clipboard when finished.</p><button className="button button-secondary" disabled={busy} onClick={()=>void copy()}>Copy all codes</button>
-    <label className="mfa-saved"><input type="checkbox" checked={saved} disabled={busy} onChange={event=>setSaved(event.target.checked)}/>I have saved the new recovery codes</label>
+    <label className="mfa-saved"><SwitchInput checked={saved} disabled={busy} onChange={event=>setSaved(event.target.checked)}/>I have saved the new recovery codes</label>
     {primaryRequired&&primaryControls}{!primaryRequired&&mfaRequired&&totpControls}
     <div className="mfa-actions">
-    <button className="button" disabled={busy||!saved||uncertain||primaryRequired||mfaRequired} onClick={()=>void run('finish',{acknowledgment:operation?.acknowledgment,confirmed:true})}>{busy&&pending.current==='finish'?'Activating…':'Activate'}</button>{!primaryRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}</div>
+    <button className="button" disabled={busy||!saved||uncertain||primaryRequired||mfaRequired} onClick={()=>void run('finish',{acknowledgment:operation?.acknowledgment,confirmed:true})}>{busy&&pending.current==='finish'?'Activating…':'Activate'}</button>{!primaryRequired&&!mfaRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}</div>
    </>}
    {operation&&codes.length>0&&uncertain&&<button className="button button-secondary" disabled={busy} onClick={()=>void run('check')}>Check activation result</button>}
    <p role="status" aria-live="polite">{busy&&!operation?'Checking your session and sign-in freshness. No recovery codes have been activated…':busy?'Checking securely…':feedback}</p>
-   {!codes.length&&!primaryRequired&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}
+   {!codes.length&&!primaryRequired&&!(operation&&mfaRequired)&&<button className="button button-secondary" disabled={busy} onClick={cancel}>Cancel</button>}
    </div>
   </section>}
   {!engaged&&<p role="status" aria-live="polite">{feedback}</p>}

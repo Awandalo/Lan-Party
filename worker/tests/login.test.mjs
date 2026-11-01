@@ -15,7 +15,17 @@ const credentials = { email: profile.email, password: profile.password };
 const origin = 'http://127.0.0.1:5173', base = 'http://127.0.0.1:8787/api/auth/';
 let script, migrations;
 before(async () => {
-  script = (await build({ entryPoints: [fileURLToPath(new URL('../index.ts', import.meta.url))],
+  script = (await build({ stdin: {resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
+    import app from './index';
+    export default {async fetch(request,env,ctx){
+      const header=request.headers.get('X-Fixture-Login-Time');
+      if(header===null)return app.fetch(request,env,ctx);
+      const second=Number(header);if(!Number.isSafeInteger(second)||second<0)throw Error('Invalid fixture clock');
+      // This wrapper exists only in the local test bundle. A Node mock would
+      // not control the Worker's clock; SQLite keeps its real database clock.
+      const original=Date.now;Date.now=()=>second*1000;
+      try{return await app.fetch(request,env,ctx);}finally{Date.now=original;}
+    }};`},
     bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' })).outputFiles[0].text;
   migrations = [];
   for (const name of (await readdir(new URL('../../migrations/', import.meta.url))).filter(x => /^\d{4}_.*\.sql$/.test(x)).sort()) {
@@ -38,11 +48,12 @@ async function local(run, overrides = {}, omitLimits = false) {
   try {
     const db = await instance.getD1Database('DB');
     for (const statements of omitLimits ? migrations.filter((_, index) => index !== 8) : migrations) await db.batch(statements.map(s => db.prepare(s)));
-    let ip = 0;
+    let ip = 0, fixtureClock = null;
+    const setClock=second=>{assert.ok(Number.isSafeInteger(second)&&second>=0);fixtureClock=second;};
     const request = (action, input, headers = {}, options = {}) => instance.dispatchFetch(base + action, {
       method: input === undefined ? 'GET' : 'POST', ...(input === undefined ? {} : { body: JSON.stringify(input) }),
       ...options, headers: { Origin: origin, 'X-LAN-Request': '1', 'Content-Type': 'application/json',
-        'CF-Connecting-IP': `203.0.113.${++ip}`, ...headers } });
+        'CF-Connecting-IP': `203.0.113.${++ip}`, ...(fixtureClock===null?{}:{'X-Fixture-Login-Time':String(fixtureClock)}), ...headers } });
     // Session tests start with a verified fictional account; verification has dedicated HTTP tests.
     const register = async () => { assert.equal((await request('register', profile)).status, 202);
       await db.prepare('UPDATE users SET email_verified_at=unixepoch(),updated_at=unixepoch()').run(); };
@@ -50,7 +61,7 @@ async function local(run, overrides = {}, omitLimits = false) {
       const response = await request('login', credentials); assert.equal(response.status, 200);
       return response.headers.get('set-cookie').split(';')[0];
     };
-    await run({ db, instance, request, register, login });
+    await run({ db, instance, request, register, login, setClock });
   } finally { await instance.dispose(); }
 }
 
@@ -183,13 +194,27 @@ test('distinct unknown emails sharing one IP do not receive a blanket five-reque
   assert.equal(responses.filter(r => r.status === 429).length, 0);
 }));
 
-test('shared malformed-request volume triggers a generic challenge and hosted aliases stay disabled', () => local(async ({ request, instance }) => {
+test('shared malformed-request volume triggers a generic challenge and hosted aliases stay disabled', () => local(async ({ request, instance, db, setClock }) => {
+  const second=await db.prepare('SELECT unixepoch() AS second').first('second');
+  setClock(Math.floor(second/60)*60+10);
   for (let i = 0; i < 60; i++) assert.equal((await request('login', null)).status, 400);
   const challenge = await request('login', credentials); assert.equal(challenge.status, 403);
   assert.equal((await challenge.json()).code, 'challenge_required');
   for (const action of ['login', 'session', 'logout']) {
     assert.equal((await instance.dispatchFetch(`https://lan-party-dev.servok.workers.dev/api/auth/${action}`)).status, 404);
   }
+}));
+
+test('shared malformed-request volume resets only at the next fixed minute boundary', () => local(async ({ request, db, setClock }) => {
+  const second=await db.prepare('SELECT unixepoch() AS second').first('second'),minute=Math.floor(second/60)*60;
+  setClock(minute+59);
+  for(let i=0;i<60;i++)assert.equal((await request('login',null)).status,400);
+  const challenge=await request('login',credentials);
+  assert.equal(challenge.status,403);assert.equal((await challenge.json()).code,'challenge_required');
+  setClock(minute+60);
+  // The account does not exist. Fresh volume allowance permits normal generic
+  // credential denial; the old window must not impose a challenge or lockout.
+  assert.equal((await request('login',credentials)).status,401);
 }));
 
 test('authentication is disabled by default and malformed/shared configuration fails closed', async () => {

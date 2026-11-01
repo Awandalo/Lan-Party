@@ -6,27 +6,26 @@
 .mfa-regeneration-panel fieldset label { font-weight: 600; }
 .mfa-regeneration-panel fieldset input { width: 100%; min-width: 0; min-height: 48px; padding: .8rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); color: var(--text); font: inherit; }
 .mfa-regeneration-panel fieldset .password-input input { padding-right: 3.5rem; }
-.mfa-regeneration-panel .button { width: 100%; margin: .35rem 0; white-space: normal; text-align: center; }
+.mfa-regeneration-panel .button { width: fit-content; max-width:100%; margin: .35rem 0; white-space: normal; text-align: center; }
 .mfa-regeneration-panel fieldset .button { margin: 0; }
 .mfa-regeneration-panel [role="status"] { margin-block: .75rem; }
 .mfa-regeneration-panel .mfa-regeneration-codes { margin-block: 1rem; padding: 0; list-style: none; }
 .mfa-regeneration-codes li { padding: .5rem; border: 1px solid var(--border); border-radius: .35rem; overflow-wrap: anywhere; }
 .mfa-regeneration-panel .mfa-actions { display: flex; gap: .65rem; flex-wrap: wrap; }
-.mfa-regeneration-panel .mfa-actions .button { flex: 1 1 7rem; width: auto; margin: 0; }
+.mfa-regeneration-panel .mfa-actions .button { flex: 0 1 auto; width: auto; margin: 0; }
 .account-security-card .button:disabled { background: var(--surface-raised); border-color: var(--border); color: var(--muted); opacity: .75; cursor: not-allowed; }
-@media (max-width: 480px) { .mfa-regeneration-panel .mfa-actions .button { flex-basis: 100%; } }
 
-/* Reserve the security-confirmation area before its authoritative response arrives. */
+
+/* Fit the active proof stage to its content; summaries stay fixed above. */
 .mfa-regeneration-panel { container-type: inline-size; }
-.mfa-regeneration-stage { min-block-size: 22rem; display: flex; flex-direction: column; }
+.mfa-regeneration-stage { min-block-size: 0; display: flex; flex-direction: column; }
 .mfa-regeneration-stage > [role="status"] { margin-top: auto; }
 .mfa-regeneration-loading-shape { display: grid; gap: .75rem; margin-block: 1rem; }
 .mfa-regeneration-loading-shape span { display: block; height: 3rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
 .mfa-regeneration-loading-shape span:first-child { width: 45%; height: 1.25rem; }
-@container (max-width: 26rem) { .mfa-regeneration-stage { min-block-size: 29rem; } .mfa-regeneration-panel .eyebrow { min-block-size: 2lh; } }
+@container (max-width: 26rem) { .mfa-regeneration-stage { min-block-size: 0; } .mfa-regeneration-panel .eyebrow { min-block-size: 2lh; } }
 
-/* Measured replacement proof is the largest pre-handoff step (~49rem). */
-.mfa-replacement-stage { min-block-size: 52rem; display: flex; flex-direction: column; }
-.mfa-replacement-stage > .mfa-latest-action { margin-top: auto; }
+/* Replacement grows with its current step rather than reserving an empty card. */
+.mfa-replacement-stage { min-block-size: 0; display: flex; flex-direction: column; }
+.mfa-replacement-stage > .mfa-latest-action { margin-top: .75rem; }
 .mfa-latest-action { min-block-size: 2lh; overflow-wrap: anywhere; }
-@container (max-width: 26rem) { .mfa-replacement-stage { min-block-size: 64rem; } }

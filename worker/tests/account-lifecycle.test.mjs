@@ -17,11 +17,17 @@ before(async()=>{
  import {hashPassword} from './worker/auth/passwords';import {digestToken,generateToken} from './worker/auth/tokens';
  import {sessionCsrfToken} from './worker/auth/csrf';import * as mfa from './worker/auth/mfa-crypto';
  import {LoginLimiter} from './worker/auth/login-limits';import {localMailbox} from './worker/auth/email';
+ import {purgeUserActivity} from './worker/auth/user-activity';
+ let mailMode='ok';const originalSend=localMailbox.send.bind(localMailbox);
  import {generate} from '@otplib/totp';import {crypto as otpCrypto} from '@otplib/plugin-crypto-web';import {base32} from '@otplib/plugin-base32-scure';
- export default{async fetch(request,env){
- if(new URL(request.url).pathname!='/fixture')return app.fetch(request,env);
+ export default{async fetch(request,env,ctx){
+ if(new URL(request.url).pathname!='/fixture')return app.fetch(request,env,ctx);
  const {action,args=[]}=await request.json();
  try{
+ if(action==='mailMode'){mailMode=args[0];return Response.json(true);}
+ if(action==='purge')return Response.json(await purgeUserActivity(env.DB));
+ if(action==='scheduled'){const tasks=[];await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev',AUTH_LIFECYCLE_ADMIN_MODE:args[0]??'enabled',AUTH_SESSION_MODE:args[1]??env.AUTH_SESSION_MODE},{waitUntil(task){tasks.push(task);}});await Promise.all(tasks);return Response.json(tasks.length);}
+ localMailbox.send=async mail=>{if(mailMode==='claim-fail'){await reactivate.claimReactivation(env.DB,new URL(mail.url).hash.slice(1));throw Error('Fictional uncertain delivery');}if(mailMode==='fail')throw Error('Fictional rejected delivery');await originalSend(mail);};
  if(action==='credential')return Response.json(await hashPassword(args[0],env.PASSWORD_PEPPER));
  if(action==='session'){const token=generateToken(),digest=await digestToken(token,'session');return Response.json({token,digest,csrf:await sessionCsrfToken(digest,env.AUTH_RATE_LIMIT_SECRET)});}
  if(action==='mail')return Response.json(localMailbox.take(args[0],Math.floor(Date.now()/1000),'account-reactivation'));
@@ -100,6 +106,19 @@ test('last active administrator cannot deactivate; two simultaneous administrato
  const results=await Promise.all([call('deactivateAccount',a.id,0,a.digest),call('deactivateAccount',b.id,0,b.digest)]);
  assert.equal(results.filter(r=>r.status===200).length,1);
  assert.equal(await sql("SELECT count(*) AS n FROM users WHERE status='active'").first('n'),1);
+}));
+
+test('concurrent administrator deletion and deactivation preserve one genuine active administrator',()=>local(async({user,call,sql})=>{
+ const a=await user({admin:true}),b=await user({admin:true});
+ const results=await Promise.all([call('deleteAccount',a.id,0,a.digest),call('deactivateAccount',b.id,0,b.digest)]);
+ assert.equal(results.filter(r=>r.status===200).length,1);
+ assert.equal(results.filter(r=>r.status===409).length,1);
+ const survivors=(await sql("SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.status='active' AND u.email_verified_at IS NOT NULL AND r.code='admin' AND r.is_active=1 AND NOT EXISTS (SELECT 1 FROM account_lifecycle l WHERE l.user_id=u.id)").all()).results;
+ assert.equal(survivors.length,1);
+ const survivor=survivors[0].id===a.id?a:b;
+ assert.equal((await call('deleteAccount',survivor.id,0,survivor.digest)).status,409);
+ assert.equal((await call('deactivateAccount',survivor.id,0,survivor.digest)).status,409);
+ assert.equal(await sql('SELECT status FROM users WHERE id=?',survivor.id).first('status'),'active');
 }));
 test('exact two-minute primary or MFA boundary refuses deactivation without touching identity',()=>local(async({user,call,sql})=>{
  for(const which of ['primary','mfa']){
@@ -412,3 +431,202 @@ test('final deletion rechecks MFA and cannot be enabled on production origin',()
  for(const action of ['delete','delete/prepare'])assert.equal((await simulator.dispatchFetch('https://lan-party.club/api/auth/lifecycle/'+action,{method:'POST',headers:{Origin:'https://lan-party.club','X-LAN-Request':'1','Content-Type':'application/json'},body:'{}'})).status,404);
  assert.equal(await sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
 }));
+
+async function memberCommand(f,admin,target,action='invite',overrides={}) {
+ const snapshot=await f.sql("SELECT auth_version version,unixepoch() issuedAt,(SELECT operation_id FROM account_reactivation WHERE user_id=users.id AND phase IN ('invited','claimed') AND expires_at>unixepoch()) invitationId FROM users WHERE id=?",target.id).first();
+ return {userId:target.id,action,operationId:randomUUID(),...snapshot,...overrides};
+}
+test('member commands need genuine authority and CSRF but no fresh primary or MFA step-up',()=>local(async f=>{
+ const admin=await f.user({admin:true,mfa:true}),u=await f.user(),ordinary=await f.user();
+ await f.value('deactivateAccount',u.id,0,u.digest);
+ await f.sql('DELETE FROM auth_recent_authentication WHERE user_id=?',admin.id).run();
+ await f.sql('DELETE FROM auth_session_mfa WHERE user_id=?',admin.id).run();
+ await f.sql("INSERT INTO auth_session_mfa VALUES (?,?,0,?,'totp',unixepoch()-300,'password',unixepoch()-300)",admin.digest,admin.id,admin.factor).run();
+ const c=await memberCommand(f,admin,u);
+ assert.equal((await f.request('command',ordinary,c)).status,403);
+ assert.equal((await f.request('command',admin,c,{'X-CSRF-Token':'a'.repeat(64)})).status,403);
+ const r=await f.request('command',admin,c);assert.equal(r.status,200,await r.clone().text());assert.equal((await r.json()).outcome,'accepted');
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'disabled');
+ assert.equal((await f.request('invite',admin,{userId:u.id})).status,409);
+ assert.equal((await f.request('command',admin,c)).status,200);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='invitation.prepared'").first('n'),1);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='invitation.accepted'").first('n'),1);
+ await f.sql('DELETE FROM auth_session_mfa WHERE user_id=?',admin.id).run();
+ assert.equal((await f.request('command',admin,c)).status,401);
+},21));
+test('admin disable preserves names and roles, revokes sessions, exposes distinct origin and can be securely invited',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user({admin:true});
+ const c=await memberCommand(f,a,u,'disable');const r=await f.request('command',a,c);assert.equal(r.status,200,await r.clone().text());
+ assert.deepEqual(await f.sql('SELECT first_name first,last_name last,status FROM users WHERE id=?',u.id).first(),{first:'Fictional',last:'Person',status:'disabled'});
+ assert.equal(await f.sql('SELECT origin FROM account_lifecycle WHERE user_id=?',u.id).first('origin'),'administrator');
+ assert.equal(await f.sql('SELECT count(*) n FROM user_roles WHERE user_id=?',u.id).first('n'),1);
+ assert.equal((await f.request('status',u)).status,401);
+ assert.equal((await f.request('command',a,{...c,operationId:randomUUID()})).status,409);
+ const invite=await memberCommand(f,a,u);assert.equal((await f.request('command',a,invite)).status,200);
+ const mail=await f.value('mail',u.id+'@example.test'),claim=await f.value('claimReactivation',new URL(mail.url).hash.slice(1));
+ assert.ok((await f.value('finish',claim.context,password,{firstName:'Restored',lastName:'Tester',code:'',method:'totp'})).token);
+ assert.equal(await f.sql('SELECT count(*) n FROM user_roles WHERE user_id=?',u.id).first('n'),1);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE target_id=? AND event='account.activated'",u.id).first('n'),1);
+ assert.equal((await (await f.request('command',a,invite)).json()).outcome,'completed');
+},21));
+test('only exact pending invitation is cancelled and stale commands cannot cancel a replacement',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ await f.request('command',a,await memberCommand(f,a,u));
+ const oldCancel=await memberCommand(f,a,u,'cancel');
+ await f.request('command',a,await memberCommand(f,a,u));
+ assert.equal((await f.request('command',a,oldCancel)).status,409);
+ const cancel=await memberCommand(f,a,u,'cancel');assert.equal((await f.request('command',a,cancel)).status,200);
+ assert.equal(await f.sql("SELECT count(*) n FROM account_reactivation WHERE user_id=? AND phase IN ('invited','claimed')",u.id).first('n'),0);
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'disabled');
+ assert.equal((await (await f.request('command',a,cancel)).json()).replayed,true);
+},21));
+test('uncertain send cancels claimed context, records outcome and never resends on replay',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);await f.value('mailMode','claim-fail');
+ const c=await memberCommand(f,a,u);let r=await f.request('command',a,c);assert.equal(r.status,200);assert.equal((await r.json()).outcome,'unconfirmed');
+ assert.equal(await f.sql("SELECT phase FROM account_reactivation WHERE user_id=?",u.id).first('phase'),'cancelled');
+ await f.value('mailMode','ok');r=await f.request('command',a,c);assert.equal((await r.json()).outcome,'unconfirmed');
+ assert.equal(await f.value('mail',u.id+'@example.test'),null);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='invitation.unconfirmed'").first('n'),1);
+},21));
+test('concurrent duplicate Save issues one invitation; changed replay payload is rejected',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);const c=await memberCommand(f,a,u);
+ const responses=await Promise.all([f.request('command',a,c),f.request('command',a,c)]);
+ assert.ok(responses.every(r=>r.status===200));
+ assert.equal(await f.sql('SELECT count(*) n FROM account_reactivation WHERE user_id=?',u.id).first('n'),1);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='invitation.prepared'").first('n'),1);
+ assert.equal((await f.request('command',a,{...c,version:c.version+1})).status,409);
+ assert.equal((await f.request('command',a,{...c,issuedAt:c.issuedAt-86400})).status,400);
+},21));
+test('audit failure rolls back state and receipt; missing migration blocks new commands',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();const c=await memberCommand(f,a,u,'disable');
+ await f.sql("CREATE TRIGGER fictional_audit_failure BEFORE INSERT ON user_activity BEGIN SELECT RAISE(ABORT,'fictional failure'); END").run();
+ assert.equal((await f.request('command',a,c)).status,409);
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
+ assert.equal(await f.sql('SELECT count(*) n FROM account_lifecycle WHERE user_id=?',u.id).first('n'),0);
+ assert.equal(await f.sql('SELECT count(*) n FROM lifecycle_commands').first('n'),0);
+ await f.sql('DROP TRIGGER fictional_audit_failure').run();await f.sql('DROP TRIGGER user_activity_created').run();
+ assert.equal((await f.request('command',a,c)).status,503);
+},21));
+test('deletion removes actor, target and operation links while retaining anonymous day-level facts',()=>local(async f=>{
+ const a=await f.user({admin:true}),other=await f.user({admin:true}),u=await f.user();
+ await f.value('deactivateAccount',u.id,0,u.digest);await f.request('command',a,await memberCommand(f,a,u));
+ // The audit must unlink outcome groups even after their short-lived receipts were purged.
+ await f.sql('DELETE FROM lifecycle_commands').run();
+ await f.value('deleteAccount',a.id,0,a.digest);
+ const events=(await f.sql("SELECT * FROM user_activity WHERE event LIKE 'invitation.%'").all()).results;
+ assert.ok(events.length>=2);for(const e of events){assert.equal(e.actor_id,null);assert.equal(e.target_id,null);assert.equal(e.operation_id,null);assert.equal(e.actor_kind,'anonymous');assert.equal(e.occurred_at%86400,0);}
+ assert.equal(await f.sql('SELECT count(*) n FROM lifecycle_commands WHERE actor_id=? OR target_id=?',a.id,a.id).first('n'),0);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='account.deleted'").first('n'),1);
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',other.id).first('status'),'active');
+},21));
+test('two-calendar-year maintenance purges history and expired receipts without changing live invitations',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);await f.request('command',a,await memberCommand(f,a,u));
+ await f.sql("INSERT INTO user_activity(event,actor_kind,occurred_at) VALUES ('account.created','anonymous',CAST(strftime('%s','now','-2 years') AS INTEGER))").run();
+ await f.sql("INSERT INTO user_activity(event,actor_kind,occurred_at) VALUES ('account.created','anonymous',CAST(strftime('%s','now','-2 years') AS INTEGER)+86400)").run();
+ assert.equal(await f.value('scheduled','disabled'),0);assert.equal(await f.value('scheduled'),1);assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE actor_kind='anonymous'").first('n'),1);
+ assert.equal(await f.sql("SELECT count(*) n FROM account_reactivation WHERE phase='invited'").first('n'),1);
+ assert.ok(!(JSON.stringify((await f.sql('SELECT * FROM user_activity').all()).results).includes('@example.test')));
+},21));
+
+test('opposing admin disables preserve one genuine administrator; self and revoked actor are denied',()=>local(async f=>{
+ const a=await f.user({admin:true}),b=await f.user({admin:true});
+ const ca=await memberCommand(f,a,b,'disable'),cb=await memberCommand(f,b,a,'disable');
+ const rr=await Promise.all([f.request('command',a,ca),f.request('command',b,cb)]);
+ assert.equal(rr.filter(r=>r.status===200).length,1);assert.ok(rr.every(r=>[200,401,403,409].includes(r.status)));
+ const survivor=await f.sql("SELECT id FROM users WHERE status='active'").first('id'),u=survivor===a.id?a:b;
+ assert.equal((await f.request('command',u,await memberCommand(f,u,u,'disable'))).status,403);
+ const target=await f.user();const c=await memberCommand(f,u,target,'disable');
+ await f.sql('DELETE FROM user_roles WHERE user_id=?',u.id).run();
+ assert.equal((await f.request('command',u,c)).status,403);
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',target.id).first('status'),'active');
+},21));
+test('issuer revocation does not invalidate invitation; recipient MFA and one-use recovery remain mandatory',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user({mfa:true});await f.value('deactivateAccount',u.id,0,u.digest);
+ const c=await memberCommand(f,a,u);assert.equal((await f.request('command',a,c)).status,200);
+ await f.sql('DELETE FROM user_roles WHERE user_id=?',a.id).run();const mail=await f.value('mail',u.id+'@example.test');
+ const claimed=await f.request('reactivation/claim',null,{token:new URL(mail.url).hash.slice(1)});assert.equal(claimed.status,200);
+ const cookie=claimed.headers.get('set-cookie').split(';')[0],csrf=(await claimed.json()).csrfToken;
+ const body={password,firstName:'Restored',lastName:'Fixture',method:'recovery',code:'invalid'};
+ assert.equal((await f.request('reactivation/complete',null,body,{Cookie:cookie,'X-CSRF-Token':csrf})).status,401);
+ const ok=await f.request('reactivation/complete',null,{...body,code:u.codes.codes[0]},{Cookie:cookie,'X-CSRF-Token':csrf});assert.equal(ok.status,200);
+ assert.equal((await f.request('reactivation/complete',null,{...body,code:u.codes.codes[0]},{Cookie:cookie,'X-CSRF-Token':csrf})).status,401);
+ assert.equal((await f.request('status',u)).status,401);
+},21));
+test('delivery cleanup does not cancel newer invitation or undo completed activation',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ const old=await f.value('initiateReactivation',a.id,0,a.digest,u.id),fresh=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ await f.value('cancelInvitation',old.digest);
+ const context=await f.value('claimReactivation',fresh.token);assert.ok(context);
+ assert.ok((await f.value('finish',context.context,password,{firstName:'New',lastName:'Fixture',code:'',method:'totp'})).token);
+ await f.value('cancelInvitation',fresh.digest);
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),'active');
+ assert.equal(await f.sql('SELECT outcome FROM lifecycle_commands WHERE operation_id=?',fresh.operationId).first('outcome'),'completed');
+},21));
+test('cancellation racing recipient completion has one winner and never leaves an active restricted context',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ await f.request('command',a,await memberCommand(f,a,u));const mail=await f.value('mail',u.id+'@example.test'),ctx=await f.value('claimReactivation',new URL(mail.url).hash.slice(1)),c=await memberCommand(f,a,u,'cancel');
+ const [cancel,finish]=await Promise.all([f.request('command',a,c),f.call('finish',ctx.context,password,{firstName:'New',lastName:'Fixture',code:'',method:'totp'})]);
+ const activated=!!finish.body?.token;assert.equal(Number(cancel.status===200)+Number(activated),1);
+ assert.equal(await f.value('reactivationContext',ctx.context),null);
+ assert.equal(await f.sql('SELECT status FROM users WHERE id=?',u.id).first('status'),activated?'active':'disabled');
+},21));
+
+test('passive invitation inspection reveals only eligibility/origin and does not claim or write audit state',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ const invite=await f.value('initiateReactivation',a.id,0,a.digest,u.id),before=await f.sql('SELECT count(*) n FROM user_activity').first('n');
+ for(let i=0;i<2;i++){const r=await f.request('reactivation/inspect',null,{token:invite.token});assert.equal(r.status,200);assert.equal(r.headers.get('set-cookie'),null);assert.deepEqual(await r.json(),{available:true,claimed:false,origin:'voluntary'});}
+ assert.equal(await f.sql('SELECT phase FROM account_reactivation WHERE invitation_digest=?',invite.digest).first('phase'),'invited');
+ assert.equal(await f.sql('SELECT count(*) n FROM user_activity').first('n'),before);
+ assert.equal((await f.request('reactivation/inspect',null,{token:invite.token},{Origin:'https://foreign.example'})).status,403);
+ assert.equal((await f.request('reactivation/inspect',null,{token:invite.token,extra:true})).status,400);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:'invalid'})).json(),{available:false});
+},21));
+test('inspection rejects cancelled/replaced/foreign claimed links and resumes only the matching browser context',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);
+ const old=await f.value('initiateReactivation',a.id,0,a.digest,u.id),fresh=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:old.token})).json(),{available:false});
+ const claim=await f.request('reactivation/claim',null,{token:fresh.token}),cookie=claim.headers.get('set-cookie').split(';')[0];
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:fresh.token})).json(),{available:false});
+ const same=await (await f.request('reactivation/inspect',null,{token:fresh.token},{Cookie:cookie})).json();assert.equal(same.available,true);assert.equal(same.claimed,true);assert.equal(same.origin,'voluntary');assert.match(same.csrfToken,/^[0-9a-f]{64}$/);
+ assert.deepEqual(Object.keys(same).sort(),['available','claimed','csrfToken','mfa','origin']);
+ await f.value('cancelInvitation',fresh.digest);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:fresh.token},{Cookie:cookie})).json(),{available:false});
+},21));
+test('admin-origin inspection/status preserves privacy and successful completion hands off to account overview',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();assert.equal((await f.request('command',a,await memberCommand(f,a,u,'disable'))).status,200);
+ const invite=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:true,claimed:false,origin:'administrator'});
+ const claim=await f.request('reactivation/claim',null,{token:invite.token}),cookie=claim.headers.get('set-cookie').split(';')[0],csrf=(await claim.json()).csrfToken;
+ const status=await(await f.request('reactivation/status',null,undefined,{Cookie:cookie})).json();assert.equal(status.origin,'administrator');assert.ok(!JSON.stringify(status).includes('@example.test'));
+ const done=await f.request('reactivation/complete',null,{password,firstName:'Fresh',lastName:'Fixture',code:'',method:'totp'},{Cookie:cookie,'X-CSRF-Token':csrf});assert.equal(done.status,200);assert.equal((await done.json()).next,'/account');
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:false});
+ const session=done.headers.getSetCookie().find(c=>c.startsWith('__Host-lan_session=')).split(';')[0];assert.equal((await f.simulator.dispatchFetch(origin+'/api/auth/session',{headers:{Cookie:session,'X-LAN-Request':'1'}})).status,200);
+ assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE event='account.activated' AND target_id=?",u.id).first('n'),1);
+},21));
+test('expired invitation inspection is unavailable without mutating the token',()=>local(async f=>{
+ const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);const invite=await f.value('initiateReactivation',a.id,0,a.digest,u.id);
+ await f.sql('DELETE FROM account_reactivation WHERE user_id=?',u.id).run();
+ await f.sql("INSERT INTO account_reactivation(invitation_digest,user_id,auth_version,email_normalized,phase,created_at,expires_at) SELECT ?,id,auth_version,email_normalized,'invited',unixepoch()-1800,unixepoch() FROM users WHERE id=?",invite.digest,u.id).run();
+ assert.deepEqual(await (await f.request('reactivation/inspect',null,{token:invite.token})).json(),{available:false});assert.equal(await f.sql('SELECT phase FROM account_reactivation WHERE invitation_digest=?',invite.digest).first('phase'),'invited');
+},21));
+
+test('Phase 4.6 feedback cascades inside real permanent account deletion and anonymizes an administrator in other threads',()=>local(async({user,value,sql})=>{
+ const member=await user({admin:true}),admin=await user({admin:true});await user({admin:true});
+ const own=randomUUID(),other=randomUUID();
+ for(const [id,owner] of [[own,member.id],[other,admin.id]])await sql('INSERT INTO feedback_requests(id,owner_id,creation_id,creation_hash,kind,title,description) VALUES (?,?,?,?,?,?,?)',id,owner,randomUUID(),'fixture','bug','Fictional feedback','Fictional private text').run();
+ await sql("INSERT INTO feedback_events(request_id,actor_id,actor_kind,kind,notification,body,operation_id,operation_hash) VALUES (?,?,'administrator','reply','member','Fictional reply',?,'fixture')",other,member.id,randomUUID()).run();
+ await sql("INSERT INTO feedback_reads VALUES (?,?,'member',0)",own,member.id).run();
+ await value('deleteAccount',member.id,0,member.digest);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',own).first('n'),0);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_reads WHERE request_id=?',own).first('n'),0);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_events WHERE request_id=? AND actor_id IS NULL',other).first('n'),1);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',other).first('n'),1);
+},23));
+
+test('existing DEV scheduler purges feedback past 30 days while preserving open, reopened and younger closures',()=>local(async({user,value,sql})=>{
+ const u=await user(),ids=[];
+ for(const days of [31,29,null]){const id=randomUUID();ids.push(id);await sql("INSERT INTO feedback_requests(id,owner_id,creation_id,creation_hash,kind,title,description,progress,closed_at) VALUES (?,?,?,?,?,?,?,CASE WHEN ? IS NULL THEN 'new' ELSE 'closed' END,CASE WHEN ? IS NULL THEN NULL ELSE unixepoch()-?*86400 END)",id,u.id,randomUUID(),'fixture','bug','Fictional retention','Fictional content',days,days,days).run();}
+ assert.equal(await value('scheduled','enabled','disabled'),2);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',ids[0]).first('n'),0);
+ for(const id of ids.slice(1))assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',id).first('n'),1);
+},23));

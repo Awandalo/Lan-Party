@@ -15,11 +15,12 @@ const result = await build({
       import Events from './src/pages/Events';
       import Footer from './src/components/Footer';
       export const home = () => renderToStaticMarkup(<MemoryRouter><Home/></MemoryRouter>);
-      export const events = () => renderToStaticMarkup(<Events/>);
+      export const events = () => renderToStaticMarkup(<MemoryRouter><Events/></MemoryRouter>);
       export const footer = () => renderToStaticMarkup(<MemoryRouter><Footer/></MemoryRouter>);
     `,
   },
   bundle: true, packages: 'external', write: false, platform: 'node',
+  define: {'import.meta.env': '{}'},
   format: 'cjs', jsx: 'automatic', loader: { '.css': 'empty' },
 });
 const compiled = new Module(import.meta.filename);
@@ -37,6 +38,7 @@ test('public events exposes both filters and a polite result region', () => {
   assert.match(html, /aria-pressed="true">Upcoming events/);
   assert.match(html, /aria-pressed="false">Past events/);
   assert.match(html, /aria-live="polite"/);
+  assert.doesNotMatch(html, /Manage events|href="\/manage/);
 });
 test('public footer renders site identity', () => {
   assert.match(ui.footer(), /<footer/);

@@ -1,3 +1,6 @@
+import {FeedbackProvider,FEEDBACK_UI_AVAILABLE} from './lib/feedback';
+import Administration from './pages/Administration';
+import {AdministrationProvider} from './lib/administration';
 import { AUTH_UI_AVAILABLE, authUIEnabled } from './lib/auth-mode';
 import { Route, Routes, Link } from 'react-router';
 import Header from './components/Header';
@@ -18,16 +21,28 @@ import ReactivateAccount from './pages/ReactivateAccount';
 import AccountSecurity from './pages/AccountSecurity';
 import MfaChallenge from './pages/MfaChallenge';
 import { AuthProvider } from './lib/auth';
+import {lazy,Suspense,useCallback,useState} from 'react';
+import SiteNavigation from './components/SiteNavigation';
+import './CSS/Workspace_style.css';
+
+const Feedback=lazy(()=>import('./pages/Feedback'));
+function feedbackPage(admin=false){return <Suspense fallback={<section className="page-section"><h1>Feedback</h1><p role="status">Loading feedback…</p></section>}><Feedback admin={admin}/></Suspense>;}
 
 export default function App() {
+  const [menuOpen,setMenuOpen]=useState(false),closeMenu=useCallback(()=>setMenuOpen(false),[]);
   return (
-    <AuthProvider><div className="site-shell">
+    <AuthProvider><FeedbackProvider><AdministrationProvider><div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to content</a>
-      <Header />
+      <SiteNavigation open={menuOpen} onClose={closeMenu}/>
+      <Header onMenu={()=>setMenuOpen(true)}/>
       <main id="main-content" className="container main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/events" element={<Events />} />
+          {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage" element={<Administration />} />}
+          {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/users/:userId" element={<Administration />} />}
+          {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/:section" element={<Administration />} />}
+          {FEEDBACK_UI_AVAILABLE&&<><Route path="/account/feedback/*" element={feedbackPage()}/><Route path="/manage/feedback/*" element={feedbackPage(true)}/></>}
           <Route path="/privacy" element={<Privacy />} />
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/reactivate" element={<ReactivateAccount />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/users" element={<UsersAdmin />} />}
@@ -52,6 +67,6 @@ export default function App() {
       </main>
       <Footer />
       <RouteFocus />
-    </div></AuthProvider>
+    </div></AdministrationProvider></FeedbackProvider></AuthProvider>
   );
 }

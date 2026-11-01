@@ -5,6 +5,7 @@ export interface AccountMail { to: string; url: string; expiresAt: number; idemp
   purpose?: 'email-verification' | 'password-reset' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' | 'account-reactivation' }
 export interface EmailTransport { send(mail: AccountMail): Promise<void> }
 export interface EmailEnvironment {
+  AUTH_LIFECYCLE_ADMIN_MODE?: string;
   AUTH_EMAIL_TRANSPORT?: string;
   AUTH_LOCAL_MAIL_SECRET?: string;
   // Hosted environment contract. These fields alone do not enable application routes.

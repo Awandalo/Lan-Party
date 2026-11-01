@@ -459,8 +459,43 @@ remote database changes are not implemented or authorized by Phase 3.1.
 
 ## Phase 4 — Administration
 
+### Phase 4.4 — administrator-assisted reactivation (#29)
+
+- [x] Implement reviewed local member Save coordination, no-extra-step-up genuine-admin commands, retained roles and administrator-origin disable with preserved names.
+- [x] Prepare additive 0021 User Log/command receipt foundation, deletion anonymization, two-year retention maintenance and attempt-specific delivery cleanup.
+- [x] Complete local security/browser verification; exact run history is recorded in the #29 handover.
+- [x] Obtain separate DEV migration/feature/retention schedule approval; apply and verify 0021 on DEV (2026-10-30).
+- [x] Publish/verify iteration 1 at 58819df, green CI and the installed daily schedule.
+- [x] Implement iteration 2 multi-action staging, stable Save placement, passive invitation checks, origin-specific copy and direct account handoff without a migration/configuration change.
+- [x] Owner accepted the final DEV corrections at bba6ff5 and authorized closing #29 (2026-10-30).
+- [ ] Owner performs the approved disposable-account/email reactivation acceptance; record results in #16 and #29.
+- [x] Implement User Log viewing/read API/navigation under #30, with Administrator-only access and retention filtering; not included in #29.
+
+### Phase 4.5 — final Administration cleanup (#30)
+
+- [x] Implement contextual navigation, User Settings and accessible sign-out power control; preserve separate Events placeholders.
+- [x] Group Role Activity and User Log with route links; preserve audit privacy and existing security behavior.
+- [x] Implement balanced Account Security cards and comfortable Roles/Members sizing.
+- [x] Verify iteration 1 DEV publication at e670ca1 and provide the owner testing handover.
+- [x] Implement iteration 2 bounded Members alignment, neutral idle lifecycle styling, shared log toolbar/pagination and background-focus refresh correction (#30 comment 6535348451).
+- [x] Apply iteration 3 shared Administration origin, collapsed permission categories, stable Security details, shortcut removal and single-page Members pagination corrections; verify last-admin safety in isolated tests (#30 comment 6535820652).
+- [x] Implement iteration 4 confirmed unassigned custom-role deletion and compact Security action rows; separately approve/apply/verify DEV migration 0022 (#30 comment 6536111969).
+- [x] Implement owner follow-up: deletion switch/blocked-member preflight, selected-role member card with bounded pages, matching destructive red and Account Access expansion without a forced scroll.
+- [x] Owner completed hosted review and accepted Phase 4.5 on 2026-10-31; authorized #30 closure after the final shared-switch consistency deployment and verification.
+- [x] Record owner acceptance and Phase 4.5 sign-off in #30; preserve the distinction between owner testing and Codex's bounded hosted checks.
+
 - [ ] Implement separately approved Users/Roles administration with backend permission checks.
 - [ ] At the end of Phase 4, test the existing reactivation invitation/password/optional MFA flow with two disposable accounts; record acceptance under #16.
+
+### Phase 4.6 — private member feedback (#44)
+
+- [x] Implement text-only private submissions/conversations, independent admin triage, per-viewer unread state and the signed-in header bug entry.
+- [x] Keep GitHub publication manual with an editable blank technical scaffold, explicit copy/open confirmation and audited validated issue links.
+- [x] Test additive 0023, obtain separate DEV preflight/migration/retention approval, and apply/verify the exact migration without account/grant changes.
+- [x] Cover ownership, full sessions, transactional replay/races, closure/purge, actual account deletion, responsive layout and sign-out cleanup locally.
+- [x] Optimize private-page loading, including both Logs tabs, with request-local query reuse, background feedback cleanup, session-bound result reuse and navigation-intent prefetch; preserve security checks. See [loading behavior and verification limits](docs/private-page-loading.md).
+- [x] Refine Feedback with the native New Request dialog and a responsive three-column Administrator workspace; preserve errors/replay, read state and manual GitHub controls. Hosted acceptance and actual browser-zoom checks remain with the owner.
+- [ ] Verify CI and DEV deployment, then owner two-account acceptance; keep #44 open. No Phase 5 implementation until acceptance/closure.
 
 ## Phase 5 — Events
 

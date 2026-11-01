@@ -1,0 +1,51 @@
+.members-search { padding:1.25rem; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:1rem; }
+.members-search > div { min-width:0; }
+.members-search-actions { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:.75rem; }
+.members-search label { display:block; margin-bottom:.4rem; font-weight:600; }
+.members-search input,.members-search select { width:100%; min-height:44px; padding:.6rem; background:var(--surface-raised); color:var(--text); border:1px solid var(--border); border-radius:.4rem; font:inherit; }
+.members-search small { display:block; color:var(--muted); margin-top:.4rem; }
+.members-results { min-height:12rem; margin-top:1.5rem; }
+.members-progress { min-height:1.5em; margin:0 0 .75rem; color:var(--muted); }
+.members-table-scroll { overflow-x:auto; }
+.members-page table { width:100%; border-collapse:collapse; text-align:left; }
+.members-page th,.members-page td { padding:.85rem .65rem; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.members-pagination { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-top:1.5rem; }
+.members-detail { margin-top:1rem; padding:1.5rem; overflow-wrap:anywhere; }
+.members-detail dl { display:grid; grid-template-columns:minmax(8rem,1fr) 2fr; gap:.75rem 1rem; }
+.members-detail dt { color:var(--muted); }.members-detail dd { margin:0; min-width:0; }
+@media(max-width:640px) { .members-search { grid-template-columns:1fr; }.members-page table { font-size:.85rem; }.members-page th,.members-page td { padding:.65rem .35rem; }.members-detail dl { grid-template-columns:1fr; gap:.35rem; }.members-detail dd { margin-bottom:.6rem; } }
+.members-pagination button[aria-disabled="true"] { opacity:.55; cursor:default; }
+.member-state { display:inline-block; padding:.2rem .55rem; border:1px solid; border-radius:1rem; font-size:.85rem; font-weight:600; }
+.member-state-active { color:var(--accent); background:var(--accent-dim); border-color:#467b64; }
+.member-state-inactive { color:#ffb9bd; background:#3c2229; border-color:#a85c69; }
+.member-roles { display:flex; flex-wrap:wrap; gap:.4rem; list-style:none; margin:0; padding:0; }
+.member-role { max-width:100%; padding:.2rem .55rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface-raised); color:var(--text); font-size:.8rem; overflow-wrap:anywhere; }
+.members-attendance { margin-top:1rem; padding:1.5rem; }
+.members-attendance-caption { text-align:left; color:var(--muted); margin-bottom:.75rem; }
+.member-role-editor { display:grid; gap:.6rem; }.member-role-editor .member-role { display:flex; align-items:center; gap:.5rem; }.member-role button { border:0; background:none; color:inherit; cursor:pointer; font-size:1.1rem; min-width:28px; min-height:28px; padding:0; }.member-role button:disabled { opacity:.35; cursor:default; }.member-role.membership-pending { border-color:var(--warning); background:var(--warning-dim); color:var(--warning); }.member-role-search { position:relative; max-width:28rem; }.member-role-search input { width:100%; background:var(--surface-raised); color:var(--text); border:1px solid var(--border); padding:.65rem; border-radius:.5rem; min-height:44px; font:inherit; font-size:.85rem; }.member-role-search ul { position:absolute; top:100%; width:100%; z-index:15; padding:.4rem; margin:.2rem 0; list-style:none; border:1px solid var(--border); background:var(--surface); border-radius:.5rem; box-shadow:0 8px 20px #0007; }.member-role-search li { padding:.7rem; cursor:pointer; font-size:.85rem; border-radius:.4rem; }.member-role-search li:hover,.member-role-search li[aria-selected=true] { color:var(--accent); background:var(--accent-dim); }.member-role-editor small,.membership-empty { color:var(--muted); font-size:.75rem; }.member-permissions { font-size:.75rem; color:var(--muted); }.member-permissions summary { cursor:pointer; padding:.4rem 0; }.member-permissions p { margin-top:.5rem; }.member-role-actions { margin-top:1rem; }.membership-feedback { margin-top:.6rem; font-size:.85rem; color:var(--accent); }
+
+.member-account-control { display:grid; gap:.65rem; margin-top:.8rem; max-width:40rem; }
+.member-account-control small { color:var(--muted); line-height:1.5; }
+
+.member-lifecycle-status { color:var(--muted); font-size:.85rem; line-height:1.5; margin:.5rem 0; }
+.member-lifecycle-status:empty { display:none; }
+.member-state-switch { display:flex; align-items:center; gap:.7rem; text-align:left; border:0; padding:.3rem 0; color:var(--text); background:none; font:inherit; cursor:pointer; }
+.member-state-switch > span:first-child { position:relative; flex:0 0 44px; height:26px; border:1px solid #758395; border-radius:20px; background:#566373; }
+.member-state-switch > span:first-child::after { content:''; position:absolute; width:20px; height:20px; left:2px; top:2px; border-radius:50%; background:var(--text); }
+.member-state-switch[aria-checked="true"] > span:first-child { background:var(--accent); border-color:var(--accent); }
+.member-state-switch[aria-checked="true"] > span:first-child::after { left:19px; background:var(--background); }
+.member-state-switch:focus-visible { outline:3px solid var(--accent); outline-offset:4px; border-radius:.3rem; }
+.member-state-switch:disabled { opacity:.65; cursor:default; }
+.member-edit-footer { display:contents; }
+.member-review > ul { max-height:40vh; overflow:auto; padding-left:1.3rem; line-height:1.7; }
+
+.member-state-switch { min-height:44px; }
+.member-review > .member-state-switch { margin-top:1.25rem; }
+.member-review > .wizard-actions { margin-top:1.25rem; padding-top:1.25rem; flex-wrap:wrap; }
+.members-workspace .members-page { max-width:75rem; }
+.members-page { min-width:0; }
+.members-workspace .members-results { margin-top:1rem; }
+.members-page .members-table-scroll td { padding:1.1rem .85rem; }
+.members-page .members-table-scroll th { padding:.85rem; }
+.members-search { grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
+@media(max-width:640px) { .members-search { grid-template-columns:minmax(0,1fr); }.members-page .members-table-scroll td,.members-page .members-table-scroll th { padding:.85rem .45rem; } }

@@ -108,13 +108,13 @@ never bypasses another or repository protections.
 | List/search/view issues and related metadata/comments | Standing read-only scope across repositories already accessible to the existing identity; no new conversational approval merely to read | Existing GitHub connector permissions; no CLI fallback; monitor retains its narrow query |
 | Inspect local files/diffs | Relevant project inspection; preserve unrelated work | Existing filesystem limits; protected paths remain protected |
 | Run local tests / edit local files | Within an explicitly authorized assignment; inspect scripts and side effects first | Sandbox/tool approval as needed; “test” never authorizes remote writes |
-| Create a local commit | Separate explicit approval, or an exact applicable standing repository exception | Git/index access and hooks still enforced; body convention remains required |
+| Create a local commit | Included in owner-authorized DEV task publication under AGENTS.md Normal development push, separate explicit approval, or an applicable documentation exception | Git/index access and hooks still enforced; body convention remains required |
 | Post an issue comment | Explicit reporting instruction, bounded codex-research findings, or the narrow parent-linking completion report below | Existing connector/tool approval rules still apply; no broad write permission |
 | Attach a native parent and remove its temporary instruction | Standing parent-linking exception below; no per-issue conversational approval | Existing connector or narrowly scoped authenticated CLI write; tool approvals remain |
 | Edit labels/issues, close issues or other GitHub writes | Specific write scope, except the narrow parent-linking cleanup below; Q's housekeeping role does not otherwise delegate it to TechDevie | Correct API permission plus tool approval |
-| Push / create or merge PR | Separate explicit operation approval or exact existing repository exception | GitHub/branch protections, required checks and host approval remain |
+| Push / create or merge PR | DEV push included in owner-authorized task scope under AGENTS.md; PR creation/merge still requires its own explicit approval | GitHub/branch protections, required checks and host approval remain |
 | Migration / database write or restore | Separate explicit environment/database/action approval | Correct identity, recovery/preflight and execution approval |
-| Deployment / hosted activation | Separate approval for target and automatic/manual effects | Deployment/CI/configuration protections remain |
+| Deployment / hosted activation | Existing automatic DEV deployment and bounded checks included in an authorized DEV push; other deployment/activation effects require their own approval | Deployment/CI/configuration protections remain |
 | Secrets, credentials, Git configuration or host permissions | Separate explicit approval; never infer it from an issue | Protected settings/tool gate; no credential fallback or scope broadening |
 
 The narrow documentation-only Git exception, if a repository defines one, applies

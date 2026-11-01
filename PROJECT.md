@@ -25,6 +25,17 @@ Phase 4 Administration precedes Phase 5 Events; actual event registration and re
 Jotform remain future milestones. PROD authentication is separately gated.
 Google OAuth is permanently discontinued.
 
+Phase 4.1 Administration navigation is owner-accepted in #26. Phase 4.2 (#27)
+adds read-only member browsing/detail behind explicit users.view grants and is
+owner-accepted. Phase 4.3 (#28) is accepted at 8e00e0d; Phase 4.4 (#29) is
+owner-accepted on DEV at bba6ff5. Phase 4.5 (#30) adds contextual navigation,
+the User Log viewer and final Administration polish. The owner accepted it on
+2026-10-31 and authorized #30 closure after the final switch consistency deployment
+and verification. Phase 4.6 (#44) adds private member feedback and Administrator
+triage with manual GitHub handoff; implementation/DEV handover is in progress,
+with hosted owner acceptance pending. See [the feedback contract](docs/member-feedback.md) and
+[the administration contract](docs/administration-foundation.md#phase-42--read-only-members-administration).
+
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
 decisions, or future ideas require review and are not immediate requirements.
@@ -272,8 +283,10 @@ separately approved physical cleanup.
   `user_roles` and `role_permissions` tables. It is applied and verified on Cloudflare DEV.
 - Roles group explicit permissions; users may hold multiple roles. Authorization
   must resolve user -> assigned active roles -> granted permission, defaulting to
-  deny when no active role grants the requested action. Role names (including
-  `admin`) confer no implicit privileges. Disabled users must always be denied.
+  deny when no active role grants the requested action. Phase 4.3 owner decision
+  (2026-10-29) adds intrinsic authority for a genuine active, verified built-in
+  Administrator membership identified by its immutable seeded UUID, never a role
+  name/code. Other roles remain explicit-grant only. Disabled users are denied.
 - Roles have text UUID IDs, unique stable lowercase codes, required display names,
   optional descriptions, boolean activity flags and ordered creation/update timestamps.
   Permission IDs are text UUIDs, codes are unique lowercase `resource.action`
@@ -302,6 +315,31 @@ separately approved physical cleanup.
   create seed files or authorize intervening migrations.
 - Local authorization tests apply 0001 through 0004 to fresh disposable D1 storage,
   preserving existing fictional data. No middleware, endpoints or interfaces are added.
+
+### Phase 4.3 — Roles & Permissions administration candidate
+
+Phase 4.3 (owner-reviewed 2026-10-29) builds on the RBAC foundation with protected
+custom roles, genuine intrinsic Administrator authority, delegated ordinary role
+management and a private indefinitely retained successful-change log. The new
+reserved catalogue code is `roles.protect_admin`; it is not Administrator identity.
+Migration 0020 and the [role-administration contract](docs/role-administration.md)
+record authority, retention, mutation/CSRF, last-admin and publication boundaries.
+Owner separately approved DEV 0019/0020 execution after a fresh preflight and
+recovery checkpoint; both are applied and verified on DEV. Hosted application
+acceptance and any PROD operations remain separate.
+
+### Phase 4.4 — administrator-assisted reactivation (DEV accepted)
+
+Owner authorized #29 implementation and DEV publication on 2026-10-30 after the
+consolidated review, and accepted/closed #29 after final DEV testing at bba6ff5.
+The final Phase 4 two-account acceptance and #16 evidence remain separate.
+The [member lifecycle contract](docs/member-lifecycle.md)
+records one reviewed Save, genuine-admin commands without fresh step-up, retained
+roles, administrator disable with preserved names, invitation/replay handling and
+the separate two-year User Log foundation. Recipient password/MFA and personal
+lifecycle proof requirements remain unchanged. Migration 0021, DEV feature/cron
+activation and hosted account/email acceptance retain their separate gates. Logs
+viewing/navigation is #30; no Events or PROD activation is included.
 
 ### Approved Phase 2 registration database foundation
 
@@ -360,7 +398,8 @@ separately approved physical cleanup.
   The first administrator account must be authenticated/verified and granted access
   through a separately approved controlled bootstrap process, not this migration.
 - Future trusted Worker permission resolution must use active users/roles and
-  explicit granted actions with default deny. Ordinary authenticated self-service
+  explicit granted actions with default deny, subject to the approved Phase 4.3
+  genuine built-in Administrator exception above. Ordinary authenticated self-service
   actions require ownership/eligibility checks; an empty administrative permission
   set is not a blanket denial of personal registration actions. No public role
   assignment or self-service privilege escalation is allowed.
@@ -1103,8 +1142,9 @@ are unchanged. This is not an account-deletion implementation; pseudonymous ledg
 retention must be covered by the eventual privacy/deletion policy before public use.
 
 `createOrganizationAccount` is an internal, unexposed provisioning adapter. It
-requires a current verified administrator session, an active admin role AND explicit
-`users.manage` permission, rechecked atomically while claiming an unused slot and
+requires a current verified administrator session and genuine built-in Administrator
+membership under Phase 4.3/0020 (legacy schemas retain their explicit users.manage
+check), rechecked atomically while claiming an unused slot and
 creating the normal profile/nickname/password credential. It assigns no roles,
 does not verify email and sends no mail. Only new accounts can receive a reserved
 number; existing issued numbers cannot be exchanged. A future HTTP wrapper must
@@ -1274,7 +1314,9 @@ work, not an automatic consequence of completing a phase. Verify deployed behavi
 and obtain owner approval before replacing Jotform.
 
 Production data/schema changes and Codex deployments require explicit approval.
-Do not commit or push automatically. Compilation and builds are necessary checks
+Commit/push only within AGENTS.md's Normal development push authorization or its
+existing documentation policies; otherwise obtain explicit approval. Compilation
+and builds are necessary checks
 but must be accompanied by relevant behavior tests and documented manual checks.
 
 ## Future ideas — possible enhancements only

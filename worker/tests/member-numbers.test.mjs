@@ -97,7 +97,7 @@ test('numbers survive nickname/role changes, cannot be edited/deleted and are ne
   await assert.rejects(user(db, { id }));
 }));
 
-test('reserved provisioning needs an active verified admin session AND explicit users.manage grant; grants no roles', () => local(async ({ db }) => {
+test('reserved provisioning needs genuine active verified Administrator membership, independent of explicit grants; grants no roles', () => local(async ({ db }) => {
   const ordinary = await user(db);
   await assert.rejects(db.prepare('UPDATE member_numbers SET user_id=?,reserved_by_user_id=? WHERE member_number=1').bind(randomUUID(), ordinary).run());
   await assert.rejects(provision(db, token, 1, profile('denied'), pepper, now));
@@ -109,7 +109,9 @@ test('reserved provisioning needs an active verified admin session AND explicit 
   await assert.rejects(db.prepare('UPDATE member_numbers SET member_number=2 WHERE user_id=?').bind(id).run());
   await assert.rejects(provision(db, token, 11, profile('outside'), pepper, now));
   await db.prepare(`DELETE FROM role_permissions WHERE permission_id=(SELECT id FROM permissions WHERE code='users.manage')`).run();
-  await assert.rejects(provision(db, token, 2, profile('no_permission'), pepper, now));
+  assert.ok(await provision(db, token, 2, profile('intrinsic'), pepper, now));
+  await db.prepare('DELETE FROM user_roles WHERE user_id=?').bind(actor).run();
+  await assert.rejects(provision(db, token, 3, profile('no_membership'), pepper, now));
   assert.equal(await number(db, actor), '12');
 }));
 

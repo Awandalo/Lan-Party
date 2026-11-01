@@ -5,28 +5,69 @@ import {mfaDigest,decryptTotpSecret,verifyTotp,recoveryVerifier} from './mfa-cry
 import type {MfaKeys} from './mfa-crypto';
 import {privateName} from './accounts';
 import {verifyPassword} from './passwords';
-import {assertChanged,requireLifecycleProof,LifecycleDenied} from './account-lifecycle';
+import {assertChanged,LifecycleDenied} from './account-lifecycle';
 import type {LoginReservation} from './login-limits';
+import {requireAdmin,commandReplay,commandReceipt,LifecycleConflict} from './lifecycle-admin';
+import type {LifecycleCommand} from './lifecycle-admin';
+import {userActivityReady,userEvent} from './user-activity';
 
-export async function initiateReactivation(db:D1Database,actor:string,version:number,session:string,userId:string){
- const guard=await requireLifecycleProof(db,actor,version,session,true);
+export async function initiateReactivation(db:D1Database,actor:string,version:number,session:string,userId:string,command?:LifecycleCommand){
+ const guard=await requireAdmin(db,actor,version,session);
+ const audited=await userActivityReady(db);
+ const snapshot=await db.prepare(`SELECT auth_version version,unixepoch() issuedAt${audited?",(SELECT operation_id FROM account_reactivation WHERE user_id=users.id AND phase IN ('invited','claimed') AND expires_at>unixepoch()) invitationId":''} FROM users WHERE id=?`).bind(userId).first<{version:number;issuedAt:number;invitationId?:string|null}>();
+ if(!snapshot)throw new LifecycleConflict();
+ const c=command??{operationId:crypto.randomUUID(),userId,action:'invite',version:snapshot.version,issuedAt:snapshot.issuedAt,invitationId:snapshot.invitationId??null};
+ if(audited){const replay=await commandReplay(db,actor,c);if(replay)return replay;}
  const token=generateToken(),digest=await mfaDigest('reactivation-invitation',token);
  // Recheck actor and target in each mutation. A failed replacement cannot revoke a valid invite.
  const eligible=`EXISTS(SELECT 1 FROM users u JOIN account_lifecycle l ON l.user_id=u.id
  WHERE u.id=? AND u.status='disabled' AND l.state='deactivated' AND u.email_verified_at IS NOT NULL
+ AND u.auth_version=? AND ?<=unixepoch() AND ?>unixepoch()-86400
  AND EXISTS(SELECT 1 FROM user_password_credentials c WHERE c.user_id=u.id)) AND ${guard.sql}`;
  const results=await db.batch([
- db.prepare(`UPDATE account_reactivation SET phase='cancelled' WHERE user_id=? AND phase IN ('invited','claimed') AND ${eligible}`).bind(userId,userId,...guard.values),
- db.prepare(`INSERT INTO account_reactivation(invitation_digest,user_id,auth_version,email_normalized,phase,created_at,expires_at)
- SELECT ?,u.id,u.auth_version,u.email_normalized,'invited',unixepoch(),unixepoch()+1800 FROM users u WHERE u.id=? AND ${eligible}
- RETURNING email_normalized,expires_at`).bind(digest,userId,userId,...guard.values),assertChanged(db),
+ ...(audited?[
+ db.prepare(`UPDATE users SET updated_at=updated_at WHERE id=? AND ${eligible} AND COALESCE((SELECT operation_id FROM account_reactivation WHERE user_id=? AND phase IN ('invited','claimed') AND expires_at>unixepoch()),'')=COALESCE(?,'')`).bind(userId,userId,c.version,c.issuedAt,c.issuedAt,...guard.values,userId,c.invitationId),assertChanged(db),
+ ]:[]),
+ db.prepare(`UPDATE account_reactivation SET phase='cancelled' WHERE user_id=? AND phase IN ('invited','claimed') AND ${eligible}`).bind(userId,userId,c.version,c.issuedAt,c.issuedAt,...guard.values),
+ ...(audited?[db.prepare("UPDATE lifecycle_commands SET outcome='superseded' WHERE operation_id=? AND outcome IN ('pending','accepted')").bind(c.invitationId)]:[]),
+ db.prepare(`INSERT INTO account_reactivation(invitation_digest,user_id,auth_version,email_normalized,phase,created_at,expires_at${audited?',operation_id':''})
+ SELECT ?,u.id,u.auth_version,u.email_normalized,'invited',unixepoch(),unixepoch()+1800${audited?',?':''} FROM users u WHERE u.id=? AND ${eligible}
+ RETURNING email_normalized,expires_at`).bind(digest,...(audited?[c.operationId]:[]),userId,userId,c.version,c.issuedAt,c.issuedAt,...guard.values),assertChanged(db),
+ ...(audited?[commandReceipt(db,actor,c,'pending'),userEvent(db,'invitation.prepared',actor,userId,c.operationId)]:[]),
  ]);
- const row=results[1].results[0] as {email_normalized:string;expires_at:number}|undefined;
+ const row=results.flatMap(r=>r.results as {email_normalized?:string;expires_at?:number}[]).find(r=>typeof r.email_normalized==='string') as {email_normalized:string;expires_at:number}|undefined;
  if(!row)throw new LifecycleDenied();
- return {token,digest,email:row.email_normalized,expiresAt:row.expires_at};
+ return {token,digest,email:row.email_normalized,expiresAt:row.expires_at,operationId:c.operationId};
 }
 export async function cancelInvitation(db:D1Database,digest:string){
- await db.prepare("UPDATE account_reactivation SET phase='cancelled' WHERE invitation_digest=? AND phase='invited'").bind(digest).run();
+ const audited=await userActivityReady(db);
+ await db.batch([
+ db.prepare("UPDATE account_reactivation SET phase='cancelled' WHERE invitation_digest=? AND phase IN ('invited','claimed')").bind(digest),
+ ...(audited?[
+ db.prepare("UPDATE lifecycle_commands SET outcome='unconfirmed' WHERE operation_id IN (SELECT operation_id FROM account_reactivation WHERE invitation_digest=? AND phase='cancelled') AND outcome='pending'").bind(digest),
+ db.prepare("INSERT INTO user_activity(event,actor_kind,target_id,operation_id) SELECT 'invitation.unconfirmed','system',user_id,operation_id FROM account_reactivation WHERE invitation_digest=? AND phase='cancelled' AND NOT EXISTS(SELECT 1 FROM user_activity a WHERE a.operation_id=account_reactivation.operation_id AND a.event='invitation.unconfirmed')").bind(digest),
+ ]:[]),
+ ]);
+}
+export async function acceptInvitationDelivery(db:D1Database,operationId:string){
+ await db.batch([
+ db.prepare("UPDATE lifecycle_commands SET outcome='accepted' WHERE operation_id=? AND outcome='pending'").bind(operationId),
+ db.prepare("INSERT INTO user_activity(event,actor_kind,target_id,operation_id) SELECT 'invitation.accepted','system',target_id,operation_id FROM lifecycle_commands WHERE operation_id=? AND NOT EXISTS(SELECT 1 FROM user_activity WHERE operation_id=? AND event='invitation.accepted')").bind(operationId,operationId),
+ ]);
+}
+// Passive landing check: never consumes an invitation or creates a context.
+export async function inspectReactivation(db:D1Database,token:string,context:string){
+ if(!isValidToken(token))return null;
+ const digest=await mfaDigest('reactivation-invitation',token);
+ if(context){
+  const claimed=await reactivationContext(db,context);
+  if(claimed&&await db.prepare("SELECT 1 FROM account_reactivation WHERE invitation_digest=? AND context_digest=? AND phase='claimed'").bind(digest,claimed.context_digest).first())return {claimed:true,origin:claimed.origin,mfa:!!claimed.factor_id,contextDigest:claimed.context_digest};
+ }
+ const audited=await userActivityReady(db);
+ const row=await db.prepare(`SELECT ${audited?'l.origin':"'voluntary'"} AS origin FROM account_reactivation r JOIN users u ON u.id=r.user_id JOIN account_lifecycle l ON l.user_id=u.id JOIN user_password_credentials c ON c.user_id=u.id
+ WHERE r.invitation_digest=? AND r.phase='invited' AND r.created_at<=unixepoch() AND r.expires_at>unixepoch()
+ AND u.status='disabled' AND u.email_verified_at IS NOT NULL AND u.auth_version=r.auth_version AND u.email_normalized=r.email_normalized AND l.state='deactivated'`).bind(digest).first<{origin:'voluntary'|'administrator'}>();
+ return row?{claimed:false,origin:row.origin}:null;
 }
 export async function claimReactivation(db:D1Database,token:string){
  if(!isValidToken(token))return null;
@@ -45,12 +86,13 @@ export const liveReactivation=`r.phase='claimed' AND r.created_at<=unixepoch() A
  AND u.email_normalized=r.email_normalized AND l.state='deactivated'`;
 export async function reactivationContext(db:D1Database,context:string){
  if(!isValidToken(context))return null;
- return db.prepare(`SELECT r.user_id,r.auth_version,r.context_digest,r.email_normalized,
+ const audited=await userActivityReady(db);
+ return db.prepare(`SELECT r.user_id,r.auth_version,r.context_digest,r.email_normalized,${audited?'l.origin':"'voluntary'"} AS origin,
  c.password_hash,f.factor_id,f.secret_ciphertext,f.secret_nonce,f.key_id,f.last_step,f.recovery_set_id
  FROM account_reactivation r JOIN users u ON u.id=r.user_id JOIN account_lifecycle l ON l.user_id=u.id
  JOIN user_password_credentials c ON c.user_id=u.id LEFT JOIN auth_totp_factors f ON f.user_id=u.id
  WHERE r.context_digest=? AND ${liveReactivation}`).bind(await mfaDigest('reactivation-context',context)).first<{
- user_id:string;auth_version:number;context_digest:string;email_normalized:string;password_hash:string;
+ user_id:string;auth_version:number;context_digest:string;email_normalized:string;password_hash:string;origin:'voluntary'|'administrator';
  factor_id:string|null;secret_ciphertext:string;secret_nonce:string;key_id:string;last_step:number;recovery_set_id:string}>();
 }
 export async function verifyReactivationPassword(row:NonNullable<Awaited<ReturnType<typeof reactivationContext>>>,password:string,pepper?:string){

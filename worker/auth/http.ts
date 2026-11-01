@@ -16,7 +16,7 @@ import { clearSessionCookie, readSessionCookie } from './cookies';
 import { digestToken } from './tokens';
 import { sessionCsrfToken } from './csrf';
 
-export interface AuthenticationEnvironment extends RegistrationEnvironment, TurnstileEnvironment { AUTH_SESSION_MODE?: string }
+export interface AuthenticationEnvironment extends RegistrationEnvironment, TurnstileEnvironment { AUTH_SESSION_MODE?: string; AUTH_LIFECYCLE_ADMIN_MODE?: string }
 const invalid = { error: 'Email or password is incorrect.' };
 // A public, synthetic, deliberately nonmatching record performs the same native
 // 20k verification work for missing/disabled accounts. It is never persisted.

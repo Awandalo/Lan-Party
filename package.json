@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit && tsc --project tsconfig.node.json --noEmit && tsc --project tsconfig.worker.json --noEmit",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "preview:layout": "node scripts/preview-layout.mjs",
     "dev:worker": "wrangler dev --env dev --local --ip 127.0.0.1"
   },
   "dependencies": {

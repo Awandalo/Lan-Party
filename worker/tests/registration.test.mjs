@@ -177,7 +177,8 @@ test('0009 preserves prior schemas and enforces strict bounded digest-only count
     ['b'.repeat(64), 31, 1], ['c'.repeat(64), 1.5, 1], ['d'.repeat(64), 1, -1]]) {
     await assert.rejects(db.prepare('INSERT INTO registration_rate_limits VALUES (?,?,?)').bind(key, hits, expiry).run());
   }
-  assert.equal(await count(db, 'roles'), 2); assert.equal(await count(db, 'permissions'), 13);
+  assert.equal(await count(db, 'roles'), 2); assert.equal(await count(db, 'permissions'), 14);
+  assert.equal(await db.prepare("SELECT count(*) n FROM permissions WHERE code='roles.protect_admin'").first('n'),1);
   assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results, []);
   assert.equal(await db.prepare('PRAGMA quick_check').first('quick_check'), 'ok');
 }));

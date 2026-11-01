@@ -47,8 +47,9 @@ window.fetch=async(url,init={})=>{
  }
  if(path==='/api/auth/lifecycle/users')return Response.json({users:[{userId:'00000000-0000-4000-8000-000000000002',nickname:'Deactivated Fixture',email:'fixture@example.test',memberNumber:12}]});
  if(path==='/api/auth/lifecycle/invite'){invites++;count();return Response.json({message:'Fictional invitation requested.'});}
+ if(path==='/api/auth/lifecycle/reactivation/inspect')return Response.json({available:scenario!=='expired',claimed,origin:'voluntary'});
  if(path==='/api/auth/lifecycle/reactivation/claim'){claims++;count();if(scenario==='expired')return Response.json({error:'Invitation expired. Ask your administrator for a new invitation.'},{status:409});claimed=true;return Response.json({csrfToken:'d'.repeat(64)});}
- if(path==='/api/auth/lifecycle/reactivation/status')return claimed?Response.json({available:true,mfa:true,csrfToken:'d'.repeat(64)}):Response.json({error:'No context'},{status:401});
+ if(path==='/api/auth/lifecycle/reactivation/status')return claimed?Response.json({available:true,mfa:true,origin:'voluntary',csrfToken:'d'.repeat(64)}):Response.json({error:'No context'},{status:401});
  if(path==='/api/auth/lifecycle/reactivation/complete'){completions++;count();return Response.json({next:'/account/security',message:'Account reactivated. Your password and two-factor protection have been verified.'});}
  throw Error('Unexpected/external request blocked in fictional lifecycle fixture');
 };

@@ -1,5 +1,6 @@
 import {mfaMutationGuard} from './mfa-assurance';
 import {mfaSchemaReady} from './mfa-session';
+import {administratorPredicate} from '../rbac-authority';
 
 export class LifecycleDenied extends Error {}
 export class LifecycleProofRequired extends Error {}
@@ -16,12 +17,9 @@ export async function lifecycleReady(db:D1Database){
  if(guards!==3||!await mfaSchemaReady(db))throw new LifecycleDenied();
  return true;
 }
-export const administratorSql=`EXISTS(SELECT 1 FROM users a JOIN user_roles ur ON ur.user_id=a.id
- JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id
- WHERE a.id=u.id AND a.status='active' AND a.email_verified_at IS NOT NULL
- AND r.code='admin' AND r.is_active=1 AND p.code='users.manage')`;
+export const administratorSql=`(${administratorPredicate()})`;
 export const lastAdministratorSql=`NOT (${administratorSql} AND NOT EXISTS(
- SELECT 1 FROM users other WHERE other.id<>u.id AND ${administratorSql.replaceAll('u.id','other.id')}))`;
+ SELECT 1 FROM users other WHERE other.id<>u.id AND ${administratorPredicate('other')}))`;
 export const assertChanged=(db:D1Database)=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('lifecycle guard failed') END");
 export async function lifecycleGuard(db:D1Database,userId:string,version:number,digest:string,admin=false){
  const mfa=await mfaMutationGuard(db,{userId,status:'active',authVersion:version,emailVerifiedAt:0},digest);

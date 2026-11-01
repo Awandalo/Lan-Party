@@ -1,8 +1,10 @@
+import SwitchInput from './SwitchInput';
 import {useEffect,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import QRCode from 'qrcode';
 import PasswordInput from './PasswordInput';
 import SecurityActionIcon from './SecurityActionIcon';
+import SecurityDetails from './SecurityDetails';
 import LoginChallenge from './LoginChallenge';
 import {securityRequest} from '../lib/account-security';
 import {MFA_ENROLLMENT_AVAILABLE} from '../lib/mfa-mode';
@@ -114,8 +116,8 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
   function verify(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,code=String(new FormData(form).get('code')??'');form.reset();void run('verify',code);}
   return <section className="mfa-enrollment" aria-labelledby="mfa-enrollment-heading"><h2 id="mfa-enrollment-heading">Two-factor authentication</h2>
     <dl className="connected-methods"><div><dt>Authenticator app</dt><dd className="security-method-status">{enabled?'Enabled':'Not enabled'}
-      {!enabled&&<button type="button" className="security-icon-action" ref={trigger} aria-label="Set up MFA" title="Set up MFA" aria-expanded={open&&!!(enrollment||noticeOpen)} disabled={busy||disabled} onClick={()=>{if(onToggle&&open&&(enrollment||noticeOpen))onToggle();else begin();}}><SecurityActionIcon action="shield"/></button>}</dd></div></dl>
-    {open&&(enrollment||noticeOpen)&&<div ref={panel} className="account-confirmation mfa-enrollment-flow" tabIndex={-1} aria-busy={busy}>
+      {!enabled&&<button type="button" className="security-icon-action" ref={trigger} aria-label="Set up MFA" title="Set up MFA" aria-controls="mfa-enrollment-options" aria-expanded={open&&!!(enrollment||noticeOpen)} disabled={busy||disabled} onClick={()=>{if(onToggle&&open&&(enrollment||noticeOpen))onToggle();else begin();}}><SecurityActionIcon action="shield"/></button>}</dd></div></dl>
+    <SecurityDetails open={open&&!!(enrollment||noticeOpen)} title="Set up two-factor authentication" controlsId="mfa-enrollment-options" disabled={busy||disabled} onClose={onToggle} className="mfa-enrollment">{open&&(enrollment||noticeOpen)&&<div id="mfa-enrollment-options" ref={panel} className="account-confirmation mfa-enrollment-flow" tabIndex={-1} aria-busy={busy}>
     {!enabled&&<p>An authenticator adds a second sign-in check to protect your LAN Party account.</p>}
     {open&&noticeOpen&&!enrollment&&<div>
       {reauth&&<><p>Confirm your sign-in method. The two-minute security requirement still applies.</p>
@@ -141,14 +143,14 @@ export default function MfaEnrollment({csrf,request:fixture,open=true,disabled=f
           <><p>Save these ten recovery codes somewhere private. Each works once. They cannot be displayed again.</p>
             <ul aria-label="Recovery codes">{codes.codes.map(code=><li key={code}><code>{code}</code></li>)}</ul>
             <p className="mfa-clipboard-guidance">Clipboard contents are sensitive. Paste into a secure password manager and clear the clipboard when finished.</p><button type="button" className="button button-secondary" disabled={busy} onClick={()=>void copyCodes()}>{copied?'Copied':'Copy all codes'}</button>
-            <label className="mfa-saved"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved my recovery codes</label>
+            <label className="mfa-saved"><SwitchInput checked={saved} onChange={e=>setSaved(e.target.checked)}/>I have saved my recovery codes</label>
             <button className="button" disabled={!MFA_ENROLLMENT_AVAILABLE||!saved||busy} onClick={()=>void run('activate')}>{busy?'Enabling…':'Enable MFA'}</button>
             <p>MFA remains disabled until you acknowledge the codes and enable it.</p></>}
 
       </div>}
     <p role="status" aria-live="polite">{feedback}</p>
     <footer className="mfa-enrollment-footer"><button type="button" className="button button-secondary" disabled={busy} onClick={()=>enrollment?void run('cancel'):dismiss()}>{uncertainStart&&!enrollment?'Close':'Cancel setup'}</button></footer>
-    </div>}
+    </div>}</SecurityDetails>
     {!(open&&(enrollment||noticeOpen))&&<p role="status" aria-live="polite">{feedback}</p>}
   </section>;
 }
