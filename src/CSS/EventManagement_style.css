@@ -7,6 +7,11 @@
 .event-description table{border-collapse:collapse;width:100%;table-layout:fixed}.event-description td,.event-description th{border:1px solid var(--border);padding:.5rem;vertical-align:top}.event-description th{background:var(--surface-raised)}.event-table-scroll{overflow-x:auto}
 .event-preview{min-width:0;overflow-wrap:anywhere}.event-default-cover{width:100%;height:12rem;object-fit:cover;border-radius:.5rem}
 .event-actions{justify-content:end;border-top:1px solid var(--border);padding-top:1rem;margin-top:1rem}
+.event-primary-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.75rem;margin-left:auto;min-width:0}
+.event-sections{display:flex;flex-wrap:wrap;gap:.5rem;border-bottom:1px solid var(--border);padding-bottom:.75rem;margin:1.5rem 0}
+.event-sections>span,.event-sections>button{display:flex;align-items:center;gap:.5rem;min-height:44px;padding:.65rem .8rem;border:1px solid var(--border);border-radius:.5rem;font:inherit;background:var(--surface);color:var(--muted)}
+.event-sections .event-section-current{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.event-sections button:disabled{cursor:default;opacity:.75}.event-sections small{font-size:.7rem;white-space:nowrap}
 .event-dialog{width:min(60rem,calc(100vw - 2rem));max-height:90dvh;overflow:auto;padding:1rem}.event-dialog fieldset{border:0;min-width:0;margin:0;padding:1.5rem}.event-description-input{display:grid;gap:.5rem}
 .event-management input,.event-management select,.event-dialog input,.event-dialog select,.event-dialog textarea{min-width:0;max-width:100%;font:inherit;color:var(--text);background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;padding:.75rem;min-height:44px}
 .event-dialog input[type=checkbox]{min-height:auto;width:auto}.event-instructions{white-space:pre-wrap}.event-description{overflow-wrap:anywhere}.event-description p:empty{display:none}

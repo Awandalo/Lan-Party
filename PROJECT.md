@@ -84,6 +84,13 @@ attendance aggregates also count as history, including older rows predating the
 history bit. No migration or hosted deletion is needed. Event closure/final bills
 remain #40; registration/participant notices and PROD remain separate.
 
+Final #37 GUI pass (2026-11-02): after accepting C functionality, the owner
+authorized an Actions dropdown in Overview, retaining public-view/Edit controls
+on the right and every existing confirmation/guard. Overview is the current
+section; Participants and Finance are disabled Coming later placeholders with no
+routes or functionality. Keyboard, mobile positioning and reduced-motion support
+are required. No backend/schema/PROD changes; #37 stays open until owner acceptance.
+
 ## Agreed technology
 
 | Area | Decision |

@@ -52,6 +52,13 @@ anonymous event/day totals in history eligibility and live transaction guards;
 never erase those totals to make an event deletable. No new schema/Finance gate.
 Hosted C acceptance remains separate; no real event deletion during verification.
 
+Owner accepted C functionality and authorized the final #37 GUI pass on 2026-11-02:
+left Actions dropdown for existing secondary operations, right public-view/Edit
+controls, and Overview / disabled Participants / disabled Finance section styling.
+Retain confirmations/permissions, keyboard/outside dismissal, adaptive positioning
+and reduced motion. Publish to DEV for visual/functional testing; keep #37 open
+until the owner accepts this final pass. No registration/Finance implementation.
+
 ## Phase 2 Database Foundation — complete on DEV and PROD
 
 The owner confirms that migrations `0001` through `0007` have been successfully

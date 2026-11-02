@@ -1,0 +1,18 @@
+import {Link} from 'react-router';
+import EventActionsMenu from './EventActionsMenu';
+import type {EventMenuAction} from './EventActionsMenu';
+import type {EventCatalogue,ManagedEvent} from '../lib/event-management';
+type Access=Pick<EventCatalogue,'canCreate'|'canUpdate'|'canDelete'|'canPublish'|'canCancel'>;
+interface Props {row:ManagedEvent;access:Access;onDelete:()=>void;onDuplicate:()=>void;onEdit:()=>void;onLifecycle:(action:'publish'|'unpublish'|'cancel')=>void}
+export default function EventOverviewActions({row,access,onDelete,onDuplicate,onEdit,onLifecycle}:Props){
+ const editable=['draft','published'].includes(row.status),reason=row.registrationHistory?'Unavailable: this event has registration history.':undefined;
+ const actions:EventMenuAction[]=[];
+ if(access.canDelete)actions.push({id:'delete',label:'Delete event',danger:true,reason,onSelect:onDelete});
+ if(access.canCreate)actions.push({id:'duplicate',label:'Duplicate',onSelect:onDuplicate});
+ if(access.canCancel&&editable)actions.push({id:'cancel',label:'Cancel event',reason,onSelect:()=>onLifecycle('cancel')});
+ if(access.canPublish&&editable)actions.push({id:'publish',label:row.listed?'Unpublish':'Publish',onSelect:()=>onLifecycle(row.listed?'unpublish':'publish')});
+ return <div className="event-actions"><EventActionsMenu key={row.id} actions={actions}/><div className="event-primary-actions">
+  {row.status==='published'&&row.listed===1&&<Link className="button button-secondary" to={'/events/'+row.id}>View public page</Link>}
+  {access.canUpdate&&editable&&<button className="button" onClick={onEdit}>{row.status==='draft'?'Edit Draft':'Edit event'}</button>}
+ </div></div>;
+}

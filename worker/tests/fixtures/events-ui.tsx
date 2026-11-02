@@ -10,6 +10,8 @@ const sampleVenue=Object.fromEntries(['name','addressLine','postalCode','city','
 let rows:Record<string,unknown>[]=[{id:'20000000-0000-4000-8000-000000000001',title:'Fictional weekend LAN',description:JSON.stringify({type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Bring your setup and join a weekend of games.'}]}]}),startsAt:Date.parse('2030-11-01T17:00:00Z')/1000,endsAt:Date.parse('2030-11-03T19:00:00Z')/1000,days:[{date:'2030-11-01'},{date:'2030-11-02'},{date:'2030-11-03'}],status:'draft',registrationStatus:'closed',listed:0,templateActive:1,revision:0,registrationHistory:0,venue:sampleVenue,capacity:32,rentalCents:15000,minimumParticipants:8,maxGuests:1,locationId:template.id}],entries:Record<string,unknown>[]=[],denied=false;
 const homePreview=new URLSearchParams(location.search).get('home');
 if(new URLSearchParams(location.search).get('history')==='anonymous')rows[0].registrationHistory=1;
+if(new URLSearchParams(location.search).get('event')==='published')Object.assign(rows[0],{status:'published',listed:1});
+if(new URLSearchParams(location.search).get('event')==='cancelled')Object.assign(rows[0],{status:'cancelled',listed:0});
 if(homePreview==='published')Object.assign(rows[0],{status:'published',listed:1});
 if(homePreview==='empty')rows=[];
 window.fetch=async(input,options)=>{

@@ -275,3 +275,43 @@ all Phase 5 integrations. Organizer event closure, day pricing and final bills
 remain #40, separate from registration closure and publication. Registration #39,
 participant-bearing cancellation/notices #41, uploads, Jotform cutover and PROD
 remain outside this task. Keep #37 open for acceptance/dependency follow-up.
+
+## Final Overview GUI pass — 2026-11-02
+
+The owner accepted C's hosted functionality and authorized #37's final GUI cleanup
+and DEV handover. One left-aligned Actions button replaces standalone Delete,
+Duplicate, Cancel and Publish/Unpublish controls. Current permissions/state still
+determine entries; history-blocked deletion/cancellation show disabled explanations.
+View public page and the mint Edit button remain visible at the right. Selection
+opens the same existing exact-name/destructive/publication/cancellation dialogs;
+no API, backend, database, permission or confirmation logic changes.
+
+The compact dark menu uses mint hover/keyboard focus, subtle elevation and a short
+opacity/transform reveal. It opens below the trigger when space permits, above
+when needed, and constrains height/width on narrow screens. Closed content is
+inert and hidden from the accessibility tree. Enter/Space click activation,
+ArrowDown/ArrowUp opening/navigation, Home/End, Escape, Tab and outside dismissal
+are supported. Escape and dialog cancellation return focus to Actions; choosing
+an operation restores the trigger before the original dialog takes focus. Stable
+event identity preserves the trigger across revisions. Reduced-motion CSS removes
+menu and chevron transitions/transforms. No new dependency or portal service.
+Reference: [WAI menu-button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/).
+
+Overview / Participants / Finance is a restrained section preview in event details.
+Overview alone contains existing content and the action footer. Participants and
+Finance are disabled, labelled Coming later; there are no fake panels, member
+lists, payment controls, routes, APIs or grants. They remain #39/#40 work.
+
+Focused UI contracts cover Draft/published/terminal states, current permissions,
+disabled history actions, public-view/Edit hierarchy and unavailable future
+sections. Existing event mutation/security checks remain valid. Fictional browser
+checks cover arrow wrapping, Home/End, Escape and confirmation focus return,
+outside dismissal, history explanations and 390px/320px menu bounds. Served
+reduced-motion rules are inspected; actual OS reduced-motion and authenticated
+hosted visual/functional acceptance remain owner checks. Normal exact-head CI,
+build and read-only hosted deployment evidence precede handover.
+
+Keep #37 open. Its closure gate is the owner's acceptance of this final DEV pass,
+followed by a completion note; neither this implementation nor passing CI closes
+the issue or authorizes PROD. No migrations, hosted data writes, provider actions,
+registration/Finance implementation, new storage or infrastructure are included.
