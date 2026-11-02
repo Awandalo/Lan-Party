@@ -188,3 +188,47 @@ Both existing events and all five days were preserved, together with management
 snapshots, audit rows/sequence, zero registrations, accounts/roles/location counts.
 All managed events remain hidden. Integrity/foreign keys passed; no temporary
 tables remain. See #37 for exact publication/deployment and owner acceptance.
+
+## Increment B touch-ups — 2026-11-02
+
+Trusted owner instruction covers the three #37 corrections as one DEV handover.
+When Up Next contains an event, Home omits the hero Explore Events CTA, uses a
+prominent View event button and retains Browse all events. No-event/error states
+retain useful full-list navigation. Home, list, detail and share metadata use one
+shared reference to the existing public LAN artwork with descriptive alt text.
+The dark/mint layout, hover/focus behavior and responsive stacking remain.
+
+The existing Worker uses HTMLRewriter on event detail GET/HEAD responses, leaving
+the SPA shell and scripts intact. Initial HTML contains an escaped title,
+description, canonical link, Open Graph and Twitter tags with absolute canonical
+event/image URLs. Description is bounded plain text from the safe event document;
+no venue, account, participant or management data is queried for metadata. Only a
+managed, listed Published event receives event-specific metadata. Cookies, session
+proof and user agent never upgrade the projection. Draft, unpublished, cancelled,
+archived and unknown IDs return identical generic metadata with 404/noindex;
+unavailable schema/database returns a generic 503. Query strings are excluded from
+canonical URLs. HEAD has no body, and all transformed responses are no-store with
+static validators removed so publication changes cannot reuse a shell 304.
+
+The owner separately approved adding only `/events/*` to
+`env.dev.assets.run_worker_first` in wrangler.jsonc. This ensures navigations and
+crawlers reach the Worker before SPA asset fallback; default/PROD routing stays
+unchanged. No new resource, permission, service, migration or upload is introduced.
+See [Cloudflare SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/),
+[HTMLRewriter](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/)
+and [Open Graph](https://ogp.me/) for the supported mechanisms.
+
+Focused integration checks cover anonymous initial HTML, escaping, one title/meta
+description, preserved app shell, query/trailing-slash canonicals, private/unknown
+fallback (including owner cookies), publication visibility changes, conditional
+requests, HEAD, representative WhatsApp/Facebook/Twitter/browser user agents,
+description bounds, image reference and PROD/alias exclusion. Frontend checks cover
+both Home states and shared artwork; browser checks cover desktop/mobile layout.
+Hosted checks must inspect initial HTML without JavaScript, redirect behavior and
+anonymous image access. No actual share or external preview-debugger submission
+is needed: WhatsApp owns rendering and cached cards, so preview appearance and
+cache refresh cannot be guaranteed. The share link stays user-initiated.
+
+No publication/data write is performed during hosted verification. Reuse prior B
+lifecycle/auth evidence and normal exact-head CI; owner hosted acceptance remains
+separate. C, registration, email, Jotform cutover, storage and PROD stay excluded.

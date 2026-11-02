@@ -37,6 +37,13 @@ Registration controls, attendees, participant-bearing cancellation notifications
 settlement, uploads and PROD remain later work. B requires exact CI/deployment,
 integrity evidence and hosted owner acceptance. See [the Events contract](docs/events.md).
 
+B touch-ups requested 2026-11-02: conditional hero CTA, shared artwork on Up Next,
+and server-visible event Open Graph/Twitter metadata with private-event fallback.
+DEV event-page Worker-first routing has separate owner approval; no migrations,
+uploads, new infrastructure or PROD scope. Verify initial anonymous HTML, crawler
+headers, canonical URLs, image access and responsive Home layout before handover.
+Actual WhatsApp preview appearance/cache is an owner check; C awaits B acceptance.
+
 ## Phase 2 Database Foundation — complete on DEV and PROD
 
 The owner confirms that migrations `0001` through `0007` have been successfully

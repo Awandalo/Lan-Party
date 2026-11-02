@@ -9,10 +9,12 @@ const {Miniflare,convertV4MiniflareOptions}=wr('miniflare'),{build}=wr('esbuild'
 const origin='http://127.0.0.1:5173';
 let script,migrations;
 before(async()=>{
+ const pageShell=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
  const background=new Set();
  export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
+ if(path.startsWith('/events/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
  const runtime=ctx;ctx={waitUntil(task){background.add(task);runtime.waitUntil(task.finally(()=>background.delete(task)));}};
  if(path!='/fixture'){

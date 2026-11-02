@@ -68,6 +68,13 @@ registration history awaits #39/#41 notifications. No PROD activation or Jotform
 cutover is included. Migration 0028 has separate DEV approval and preserves
 existing private events. See [the Events contract](docs/events.md).
 
+Increment B touch-ups (2026-11-02): remove the redundant Home hero CTA when Up Next
+has an event, reuse the existing public event artwork there, and serve anonymous
+event-specific initial HTML share metadata on DEV. The owner separately approved
+the narrow DEV `/events/*` Worker-first asset routing change. No migration or new
+resource is needed. B acceptance still precedes C; WhatsApp preview/cache behavior
+remains external to the site. See the Events contract for verification boundaries.
+
 ## Agreed technology
 
 | Area | Decision |
