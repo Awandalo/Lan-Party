@@ -340,3 +340,34 @@ open Actions by mouse/keyboard and confirm no jump. Try both date calendars and
 DD/MM/YYYY entry in Create/Edit; check quarter-hour options and unchanged legacy
 time preservation. Repeat on mobile and with OS reduced motion. Keep #37 open
 until owner acceptance; no PROD or registration/Finance changes are included.
+
+### Local GUI preview follow-up (2026-11-02; not published)
+
+Owner confirmed the Actions jump fixed and requested local iteration before the
+next DEV publication. Date typing/paste now inserts DD/MM/YYYY separators from
+up to eight digits, retaining the existing 2000–2099 validation. A compact inline
+rich-text area offers Expand description, opening a near-full-screen dialog with
+the same editor document, formatting and undo history. Return to event or Escape
+collapses it without saving the event or closing the event wizard. Existing safe
+rich-text validation and explicit event Save/Cancel are unchanged.
+
+Local handover uses the fictional Events browser fixture on localhost:5175;
+fixture changes reset on reload and never contact hosted D1/providers. The Vite
+process remains running for owner GUI testing. Full hosted acceptance and DEV
+publication remain pending; this local preview makes no remote changes.
+
+Local validation follow-up: date, hour and minute now track their own errors and
+interaction state. Correcting an invalid date clears its border immediately even
+when time controls are unfinished; an invalid date no longer marks valid times red.
+The regression covers an invalid 0989 year corrected to 2027, incomplete times and
+legacy non-quarter values. Browser reinspection was unavailable in this follow-up;
+local TypeScript/build and nine focused presentation/validation tests pass.
+
+Local compact-layout follow-up: remove the repeated copied-venue note from
+Edit/Duplicate details, tighten Events-only heading/step/form spacing and omit the
+empty alert row. Move Expand description into the formatting toolbar and use a
+smaller inline editing area; full-screen editing remains available. Browser
+inspection recovered after resetting the tool connection. At the current
+1371×1191 viewport the normal Edit details form is 888px high with equal content
+and visible heights (no dialog scrollbar), and expansion/Escape still work.
+Small windows, longer content and validation messages retain natural scrolling.

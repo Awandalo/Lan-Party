@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {createRequire,Module} from 'node:module';
 import {test} from 'node:test';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import EventDescription from './src/components/EventDescription';import EventEditor from './src/components/EventEditor';export {eventInputFromInstant,eventInputDate,resolveEventInput} from './src/lib/event-date-input';export {eventInstant,eventLocalTime,eventDates} from './src/lib/event-time';export {validateEventDocument,eventDocument} from './src/lib/event-document';export {eventLink} from './src/lib/event-content';export {RoleReadCache} from './src/lib/role-read-cache';export {logDestination,contextualNavigation} from './src/lib/navigation';export const editor=()=>renderToStaticMarkup(<EventEditor row={null} duplicate={false} templates={[]} pending={false} message="" onSave={async()=>{}} onCancel={()=>{}}/>);export const render=source=>renderToStaticMarkup(<EventDescription source={source}/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'},define:{'import.meta.env.DEV':'false','import.meta.env.VITE_AUTH_MODE':'"hosted-dev"'}});
-const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(result.outputFiles[0].text,import.meta.filename);const {eventInputFromInstant,eventInputDate,resolveEventInput,render,editor,validateEventDocument,eventDocument,eventLink,eventInstant,eventLocalTime,eventDates,RoleReadCache,logDestination,contextualNavigation}=mod.exports;
+const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import EventDescription from './src/components/EventDescription';import EventEditor from './src/components/EventEditor';export {eventInputErrors,formatEventDateEntry,eventInputFromInstant,eventInputDate,resolveEventInput} from './src/lib/event-date-input';export {eventInstant,eventLocalTime,eventDates} from './src/lib/event-time';export {validateEventDocument,eventDocument} from './src/lib/event-document';export {eventLink} from './src/lib/event-content';export {RoleReadCache} from './src/lib/role-read-cache';export {logDestination,contextualNavigation} from './src/lib/navigation';export const editor=()=>renderToStaticMarkup(<EventEditor row={null} duplicate={false} templates={[]} pending={false} message="" onSave={async()=>{}} onCancel={()=>{}}/>);export const render=source=>renderToStaticMarkup(<EventDescription source={source}/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'},define:{'import.meta.env.DEV':'false','import.meta.env.VITE_AUTH_MODE':'"hosted-dev"'}});
+const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(result.outputFiles[0].text,import.meta.filename);const {eventInputErrors,formatEventDateEntry,eventInputFromInstant,eventInputDate,resolveEventInput,render,editor,validateEventDocument,eventDocument,eventLink,eventInstant,eventLocalTime,eventDates,RoleReadCache,logDestination,contextualNavigation}=mod.exports;
 test('description supports safe headings, emphasis, actual lists and links; untrusted HTML remains escaped text',()=>{
  const html=render('# Welcome\n**Games** and *friends*\n- cables\n- chairs\n1. setup\n2. play\n[Venue](https://example.test/maps)\n<script>alert(1)</script>\n<img src=x onerror=alert(1)>');
  for(const fragment of ['<h2>Welcome</h2>','<strong>Games</strong>','<em>friends</em>','<ul><li><p>cables</p></li><li><p>chairs</p></li></ul>','<li><p>setup</p></li><li><p>play</p></li>','href="https://example.test/maps"','&lt;script&gt;alert(1)&lt;/script&gt;','&lt;img src=x onerror=alert(1)&gt;'])assert.ok(html.includes(fragment),fragment);
@@ -52,4 +52,19 @@ test('date entry rejects malformed years/calendar dates and preserves exact lega
  for(const value of [{date:'31/03/2030',hour:'02',minute:'30'},{date:'27/10/2030',hour:'02',minute:'30'}])assert.throws(()=>resolveEventInput(value),/daylight saving/);
  const fold=Date.parse('2030-10-27T01:30:17Z')/1000;assert.equal(resolveEventInput(eventInputFromInstant(fold),fold),fold);
  for(const hour of ['24','-1','9'])assert.throws(()=>resolveEventInput({...input,hour}),/24-hour/);
+});
+
+test('continuous and pasted date entry inserts predictable separators without changing the calendar value',()=>{
+ for(const [input,expected] of [['',''],['2','2'],['22','22'],['221','22/1'],['2210','22/10'],['22102027','22/10/2027'],['22/10/2027','22/10/2027'],['22.10.2027','22/10/2027'],['22101984','22/10/1984'],['2210202712','22/10/2027']])assert.equal(formatEventDateEntry(input),expected);
+ assert.equal(eventInputDate(formatEventDateEntry('22101984')),null);
+ assert.equal(eventInputDate(formatEventDateEntry('22102027')),'2027-10-22');
+});
+
+test('correcting a date clears its error independently from unfinished time controls',()=>{
+ const bad={date:'01/01/0989',hour:'',minute:''};assert.ok(eventInputErrors(bad).date);
+ const corrected={...bad,date:'01/01/2027'},errors=eventInputErrors(corrected);assert.equal(errors.date,'');assert.ok(errors.hour);assert.ok(errors.minute);
+ assert.deepEqual(eventInputErrors({...corrected,hour:'12',minute:'15'}),{date:'',hour:'',minute:''});
+ const invalidDay=eventInputErrors({date:'31/02/2027',hour:'12',minute:'15'});assert.ok(invalidDay.date);assert.equal(invalidDay.hour,'');assert.equal(invalidDay.minute,'');
+ const legacy=Date.parse('2030-11-03T19:32:17Z')/1000,input=eventInputFromInstant(legacy);assert.deepEqual(eventInputErrors(input,legacy),{date:'',hour:'',minute:''});
+ const changed=eventInputErrors({...input,date:'04/11/2030'},legacy);assert.equal(changed.date,'');assert.equal(changed.hour,'');assert.ok(changed.minute);
 });

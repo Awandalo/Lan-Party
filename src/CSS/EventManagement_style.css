@@ -20,3 +20,13 @@
 @media(max-width:720px){.event-list{border-right:0;padding-right:0;border-bottom:1px solid var(--border);padding-bottom:1.5rem}}
 @media(prefers-reduced-motion:reduce){.event-card{transition:none}}
 @media(max-width:480px){.event-dialog .wizard-actions,.event-dialog .wizard-actions>div{flex-wrap:wrap}.event-dialog .wizard-steps{flex-direction:row}.event-dialog .wizard-steps li{flex:1}.event-dialog .wizard-actions>div{margin-left:auto}}
+
+/* Keep the Events wizard compact; retain natural scrolling on smaller screens. */
+.event-dialog{max-height:calc(100dvh - 2rem)}
+.event-dialog>.wizard-heading h2{margin:.25rem 0 .5rem}
+.event-dialog>.wizard-steps{margin:.5rem 0;padding:.65rem 0}
+.event-dialog>form>fieldset{padding:.5rem 1rem}
+.event-dialog>form>fieldset>h3{margin:.5rem 0}
+.event-dialog .event-fields{margin:.75rem 0}
+.event-dialog>form>fieldset>h4{margin:.75rem 0 .5rem}
+.event-dialog .wizard-actions{margin-top:.75rem;padding-top:.75rem}

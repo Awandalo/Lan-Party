@@ -1,5 +1,9 @@
 import {eventInstant,eventLocalTime} from './event-time';
 export interface EventDateInput {date:string;hour:string;minute:string}
+export function formatEventDateEntry(raw:string){
+ const digits=raw.replace(/\D/g,'').slice(0,8);
+ return [digits.slice(0,2),digits.slice(2,4),digits.slice(4)].filter(Boolean).join('/');
+}
 export function eventInputFromInstant(value?:number):EventDateInput {
  if(value===undefined)return {date:'',hour:'',minute:''};
  const [date,time]=eventLocalTime(value).split('T'),[year,month,day]=date.split('-');
@@ -22,4 +26,17 @@ export function resolveEventInput(value:EventDateInput,original?:number){
  const instant=eventInstant(local);
  if(instant===null)throw Error('This Netherlands time is ambiguous or nonexistent due to daylight saving. Choose another time.');
  return instant;
+}
+export function eventInputErrors(value:EventDateInput,original?:number){
+ const errors={date:'',hour:'',minute:''};
+ if(!eventInputDate(value.date))errors.date='Use a real date in DD/MM/YYYY format, between 2000 and 2099.';
+ if(!/^(?:[01]\d|2[0-3])$/.test(value.hour))errors.hour='Choose an hour from 00 to 23.';
+ if(!/^\d{2}$/.test(value.minute)||Number(value.minute)>59)errors.minute='Choose minutes 00, 15, 30 or 45.';
+ if(!Object.values(errors).some(Boolean)){
+  try{resolveEventInput(value,original);}catch(e){
+   if(!['00','15','30','45'].includes(value.minute))errors.minute=(e as Error).message;
+   else errors.hour=errors.minute=(e as Error).message;
+  }
+ }
+ return errors;
 }
