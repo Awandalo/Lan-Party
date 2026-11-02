@@ -2,6 +2,11 @@ import {useEffect,useId,useRef,useState} from 'react';
 import type {KeyboardEvent} from 'react';
 import '../CSS/EventActionsMenu_style.css';
 export interface EventMenuAction {id:string;label:string;reason?:string;danger?:boolean;onSelect:()=>void}
+export function eventMenuPosition(rect:{top:number;bottom:number;left:number},space:{width:number;height:number;headerBottom:number;menuWidth:number;menuHeight:number;gap:number}){
+ const above=Math.max(0,rect.top-space.gap-Math.max(0,space.headerBottom)-12),below=Math.max(0,space.height-rect.bottom-space.gap-12);
+ const flip=below<Math.min(space.menuHeight,240)&&above>below;
+ return {above:flip,height:flip?above:below,left:Math.max(12-rect.left,Math.min(0,space.width-12-rect.left-space.menuWidth))};
+}
 
 export default function EventActionsMenu({actions}:{actions:EventMenuAction[]}){
  const id=useId(),root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),menu=useRef<HTMLDivElement>(null),initial=useRef(0);
@@ -9,9 +14,8 @@ export default function EventActionsMenu({actions}:{actions:EventMenuAction[]}){
  const enabled=()=>Array.from(menu.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
  function place(){
   if(!trigger.current||!menu.current)return;
-  const rect=trigger.current.getBoundingClientRect(),below=innerHeight-rect.bottom-12,above=rect.top-12;
-  const flip=below<Math.min(menu.current.scrollHeight,240)&&above>below;
-  setPosition({above:flip,height:Math.max(72,flip?above:below),left:Math.max(12-rect.left,Math.min(0,innerWidth-12-rect.left-menu.current.offsetWidth))});
+  // Reserve the sticky header and the CSS half-rem gap when flipping upward.
+  setPosition(eventMenuPosition(trigger.current.getBoundingClientRect(),{width:document.documentElement.clientWidth,height:innerHeight,headerBottom:document.querySelector('.site-header')?.getBoundingClientRect().bottom??0,menuWidth:menu.current.offsetWidth,menuHeight:menu.current.scrollHeight,gap:parseFloat(getComputedStyle(document.documentElement).fontSize)/2}));
  }
  function show(last=false){initial.current=last?-1:0;place();setOpen(true);}
  function close(restore=false){setOpen(false);if(restore)trigger.current?.focus();}

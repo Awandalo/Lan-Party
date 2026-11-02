@@ -288,7 +288,9 @@ no API, backend, database, permission or confirmation logic changes.
 
 The compact dark menu uses mint hover/keyboard focus, subtle elevation and a short
 opacity/transform reveal. It opens below the trigger when space permits, above
-when needed, and constrains height/width on narrow screens. Closed content is
+when needed, and constrains height/width on narrow screens. Short-viewport placement
+reserves the sticky header, CSS gap and outer margin; the bordered menu scrolls
+internally instead of overlapping the header. Closed content is
 inert and hidden from the accessibility tree. Enter/Space click activation,
 ArrowDown/ArrowUp opening/navigation, Home/End, Escape, Tab and outside dismissal
 are supported. Escape and dialog cancellation return focus to Actions; choosing
@@ -306,7 +308,8 @@ Focused UI contracts cover Draft/published/terminal states, current permissions,
 disabled history actions, public-view/Edit hierarchy and unavailable future
 sections. Existing event mutation/security checks remain valid. Fictional browser
 checks cover arrow wrapping, Home/End, Escape and confirmation focus return,
-outside dismissal, history explanations and 390px/320px menu bounds. Served
+outside dismissal, history explanations, 390px/320px menu bounds and a 568×320
+landscape scroll case. A geometry regression covers the sticky-header boundary. Served
 reduced-motion rules are inspected; actual OS reduced-motion and authenticated
 hosted visual/functional acceptance remain owner checks. Normal exact-head CI,
 build and read-only hosted deployment evidence precede handover.
