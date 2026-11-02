@@ -75,6 +75,15 @@ the narrow DEV `/events/*` Worker-first asset routing change. No migration or ne
 resource is needed. B acceptance still precedes C; WhatsApp preview/cache behavior
 remains external to the site. See the Events contract for verification boundaries.
 
+The owner proceeded to Stage C on 2026-11-02, accepting the current B layout and
+share-preview limitation. Browse all events becomes a secondary button aligned
+to the right of Up Next; View event stays in place. C closes the destructive
+boundary already delivered in A: genuine Administrator, exact-name confirmation,
+no registration history, atomic deletion and retained audit. Retained anonymous
+attendance aggregates also count as history, including older rows predating the
+history bit. No migration or hosted deletion is needed. Event closure/final bills
+remain #40; registration/participant notices and PROD remain separate.
+
 ## Agreed technology
 
 | Area | Decision |

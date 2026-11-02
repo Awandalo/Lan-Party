@@ -23,7 +23,11 @@ function venue(raw:unknown){
  if(values.slice(0,5).some(v=>!v))throw new EventError(400,'Complete the venue address');
  return Object.fromEntries(keys.map((key,i)=>[key,values[[0,1,2,3,4,5,8][i]]??'']));
 }
-const columns=`e.id,e.title,e.description,e.location_id AS locationId,e.publication_status AS status,e.registration_status AS registrationStatus,m.starts_at AS startsAt,m.ends_at AS endsAt,m.venue,m.minimum_participants AS minimumParticipants,e.registration_recorded AS registrationHistory,m.rental_cents AS rentalCents,m.capacity,m.max_guests AS maxGuests,m.revision,m.is_listed AS listed,(SELECT is_active FROM locations WHERE id=e.location_id) AS templateActive`;
+// Retained pre-0027 anonymous totals are also registration history. Their rows
+// remain after account deletion; an empty identifying registration table is not proof.
+const history=`(e.registration_recorded=1 OR EXISTS(SELECT 1 FROM registrations r WHERE r.event_id=e.id) OR EXISTS(SELECT 1 FROM anonymous_event_registrations a WHERE a.event_id=e.id) OR EXISTS(SELECT 1 FROM anonymous_day_registrations a WHERE a.event_id=e.id))`;
+const noHistory=`EXISTS(SELECT 1 FROM events e WHERE e.id=event_management.event_id AND NOT ${history})`;
+const columns=`e.id,e.title,e.description,e.location_id AS locationId,e.publication_status AS status,e.registration_status AS registrationStatus,m.starts_at AS startsAt,m.ends_at AS endsAt,m.venue,m.minimum_participants AS minimumParticipants,CAST(${history} AS INTEGER) AS registrationHistory,m.rental_cents AS rentalCents,m.capacity,m.max_guests AS maxGuests,m.revision,m.is_listed AS listed,(SELECT is_active FROM locations WHERE id=e.location_id) AS templateActive`;
 export async function readEvents(db:D1Database,url:URL,logs=false,includeNames=false){
  const allowed=logs?['search','before']:['search','status'];
  if([...url.searchParams.keys()].some(k=>!allowed.includes(k)||url.searchParams.getAll(k).length!==1))throw new EventError(400,'Invalid query');
@@ -74,7 +78,7 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
  const assertChanged=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Event conflict') END");
  const fields=update?['title','description',...current?.startsAt!==starts||current?.endsAt!==ends?['times']:[],...current?.minimumParticipants!==minimumParticipants?['minimumParticipants']:[],...current?.maxGuests!==maxGuests?['guestLimit']:[]]:['created'];
  if(update){
-  statements.push(db.prepare(`UPDATE event_management SET starts_at=?,ends_at=?,minimum_participants=?,max_guests=?,revision=revision+1 WHERE event_id=? AND revision=? AND ${guard} AND EXISTS(SELECT 1 FROM events WHERE id=? AND publication_status IN ('draft','published')) ${datesChanged?"AND EXISTS(SELECT 1 FROM events WHERE id=event_management.event_id AND registration_recorded=0) AND NOT EXISTS(SELECT 1 FROM registrations WHERE event_id=event_management.event_id)":''}`).bind(starts,ends,minimumParticipants,maxGuests,id,revision,userId,digest,id),assertChanged());
+  statements.push(db.prepare(`UPDATE event_management SET starts_at=?,ends_at=?,minimum_participants=?,max_guests=?,revision=revision+1 WHERE event_id=? AND revision=? AND ${guard} AND EXISTS(SELECT 1 FROM events WHERE id=? AND publication_status IN ('draft','published')) ${datesChanged?`AND ${noHistory}`:''}`).bind(starts,ends,minimumParticipants,maxGuests,id,revision,userId,digest,id),assertChanged());
   statements.push(db.prepare('UPDATE events SET title=?,description=?,updated_at=unixepoch() WHERE id=?').bind(title,description,id));
   if(datesChanged){
    const payload=JSON.stringify(dayRows(dates));
@@ -99,11 +103,11 @@ function dayRows(dates:string[]){return dates.map(date=>{const next=new Date(Dat
 function dayInsert(db:D1Database,id:string,payload:string){return db.prepare(`INSERT INTO event_days(id,event_id,attendance_date,starts_at,ends_at,sort_order,created_at,updated_at) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.date'),json_extract(value,'$.start'),json_extract(value,'$.end'),CAST(key AS INTEGER),unixepoch(),unixepoch() FROM json_each(?) j WHERE NOT EXISTS(SELECT 1 FROM event_days WHERE event_id=? AND attendance_date=json_extract(j.value,'$.date'))`).bind(id,payload,id);}
 async function deleteEvent(db:D1Database,userId:string,digest:string,raw:Record<string,unknown>){
  if(Object.keys(raw).some(k=>!['action','id','revision','operationId','confirmation'].includes(k))||!UUID.test(String(raw.id))||!UUID.test(String(raw.operationId)))throw new EventError(400,'Invalid deletion request');
- const id=String(raw.id),revision=integer(raw.revision,0,Number.MAX_SAFE_INTEGER),row=await db.prepare('SELECT title,registration_recorded FROM events WHERE id=?').bind(id).first<{title:string;registration_recorded:number}>();
+ const id=String(raw.id),revision=integer(raw.revision,0,Number.MAX_SAFE_INTEGER),row=await db.prepare(`SELECT e.title,CAST(${history} AS INTEGER) AS registrationHistory FROM events e WHERE e.id=?`).bind(id).first<{title:string;registrationHistory:number}>();
  if(!row)throw new EventError(409,'Event no longer exists. Reload.');if(raw.confirmation!==row.title)throw new EventError(400,'Type the event name to confirm permanent deletion');
- if(row.registration_recorded)throw new EventError(409,'An event with registration history cannot be permanently deleted');
+ if(row.registrationHistory)throw new EventError(409,'An event with registration history cannot be permanently deleted');
  try{await db.batch([
-  db.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${actor(null)} AND EXISTS(SELECT 1 FROM events WHERE id=? AND registration_recorded=0) AND NOT EXISTS(SELECT 1 FROM registrations WHERE event_id=?)`).bind(id,revision,userId,digest,id,id),
+  db.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${actor(null)} AND ${noHistory}`).bind(id,revision,userId,digest),
   db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Event conflict') END"),
   db.prepare("INSERT INTO event_activity(operation_id,occurred_at,actor_id,event_id,event_reference,event_title,operation,fields) VALUES (?,unixepoch(),?,?,?,?,'event.delete',?)").bind(raw.operationId,userId,id,id,row.title,JSON.stringify(['deleted'])),
   db.prepare('DELETE FROM event_days WHERE event_id=?').bind(id),db.prepare('DELETE FROM event_management WHERE event_id=?').bind(id),db.prepare('DELETE FROM events WHERE id=?').bind(id)
@@ -131,7 +135,7 @@ async function lifecycleEvent(db:D1Database,userId:string,digest:string,raw:Reco
  }else if(action==='unpublish'&&(row.status!=='published'||row.listed!==1))throw new EventError(409,'Event is not publicly listed');
  if(action==='cancel'&&row.registrationHistory===1)throw new EventError(409,'Cancellation with registration history awaits participant notification support');
  const next=action==='cancel'?'cancelled':'published',listed=action==='publish'?1:0;
- const guard=action==='cancel'?"AND EXISTS(SELECT 1 FROM events WHERE id=event_management.event_id AND registration_recorded=0) AND NOT EXISTS(SELECT 1 FROM registrations WHERE event_id=event_management.event_id)":action==='publish'&&raw.acknowledgeArchivedTemplate!==true?'AND EXISTS(SELECT 1 FROM locations WHERE id=? AND is_active=1)':'';
+ const guard=action==='cancel'?`AND ${noHistory}`:action==='publish'&&raw.acknowledgeArchivedTemplate!==true?'AND EXISTS(SELECT 1 FROM locations WHERE id=? AND is_active=1)':'';
  const bindings:(string|number)[]=[listed,id,revision,userId,digest,String(row.status),Number(row.listed)];
  if(action==='publish'&&raw.acknowledgeArchivedTemplate!==true)bindings.push(String(row.locationId));
  try{await db.batch([

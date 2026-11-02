@@ -32,6 +32,12 @@ before(async()=>{
   }
   // Test-only interleaving: invoke the real RBAC endpoint after lifecycle
   // prechecks, before its transaction. Never included in the deployed Worker.
+  // Test-only retained-history interleaving after preflight, before the batch.
+  const historyEvent=request.headers.get('X-Fixture-Event-History');
+  if(historyEvent){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{await env.DB.prepare('INSERT INTO anonymous_event_registrations(event_id,total) VALUES (?,1)').bind(historyEvent).run();return target.batch(statements);};const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
   const member=request.headers.get('X-Fixture-Rbac-Remove');
   if(!member)return app.fetch(request,env,ctx);
   let removalStatus=0;

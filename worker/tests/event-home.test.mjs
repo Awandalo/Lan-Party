@@ -8,6 +8,7 @@ const event={id:'20000000-0000-4000-8000-000000000001',title:'Fictional weekend 
 test('Home removes the redundant hero CTA only when an event exists and retains full-list navigation',()=>{
  const html=home([event]);assert.equal(html.includes('Explore events'),false);assert.ok(html.includes('View event'));assert.ok(html.includes('Browse all events'));assert.ok(html.includes('href="/events/'+event.id+'"'));assert.ok(html.includes('href="/events"'));
  assert.ok(html.includes('class="home-event-artwork" src="/lan-hall.png" alt="Rows of gaming setups at a LAN party"'));assert.ok(card(event).includes('src="/lan-hall.png" alt="Rows of gaming setups at a LAN party"'));
+ assert.ok(html.includes('class="button button-secondary home-browse-events" href="/events"'));
 });
 test('Home keeps a useful Events CTA when no upcoming event is available',()=>{
  const html=home([]);assert.ok(html.includes('Explore events'));assert.ok(html.includes('Visit the events page'));assert.equal(html.includes('class="home-event-artwork"'),false);

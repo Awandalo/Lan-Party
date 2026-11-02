@@ -1,4 +1,4 @@
-# Events — Phase 5.2 A and B
+# Events — Phase 5.2 A, B and C
 
 The owner requested the #37 repass and scoped DEV cleanup, then explicitly revised
 A again on 2026-11-01: allow correcting dates before any registration, expose guarded
@@ -232,3 +232,46 @@ cache refresh cannot be guaranteed. The share link stays user-initiated.
 No publication/data write is performed during hosted verification. Reuse prior B
 lifecycle/auth evidence and normal exact-head CI; owner hosted acceptance remains
 separate. C, registration, email, Jotform cutover, storage and PROD stay excluded.
+
+## Stage C — destructive boundary closeout, 2026-11-02
+
+The owner proceeded to C in trusted conversation, accepted the existing B layout
+and WhatsApp-preview limitation, and requested one accompanying Home adjustment:
+Browse all events becomes the existing secondary button style, with only that
+button pushed to the right of the action row. View event retains its position.
+Mobile wrapping, mint hover/focus, artwork and metadata remain as delivered in B.
+
+C's planned Administrator-only deletion was brought forward into the A correction
+at aabf376. Do not duplicate it or invent a new settlement feature. C verifies the
+existing exact-name confirmation, live genuine-Administrator authority, operation
+dedupe, revision fence, atomic delete/audit and no-registration-history business
+gate across Draft, published and cancelled events. Deleting an eligible published
+event removes it from public API/HTML views immediately; old URLs become generic
+404 responses. Source Locations and durable audit identity/title remain intact.
+The confirmation explains that public links stop working. Administrators see an
+explicit reason when registration history makes deletion unavailable.
+
+Compatibility correction: a retained anonymous_event_registrations or
+anonymous_day_registrations row is evidence of past registration even when no
+identifying registration remains and an older event's registration_recorded bit
+is zero. Account deletion retains these aggregate rows. Use one internal history
+predicate for catalogue eligibility and the date-change, deletion and cancellation
+preflight/live transaction guards. Do not delete anonymous history, infer no past
+registrations from an active count of zero, or add an independent Finance gate.
+The existing permanent bit, registration triggers and foreign keys remain intact;
+no schema migration, backfill or hosted data mutation is introduced.
+
+New D1 integration coverage checks all eligible lifecycle states, public API/HTML
+removal, source-location/audit retention, either anonymous aggregate independently,
+date/cancellation rejection and real registration-vs-deletion ordering. Existing
+tests retain genuine-vs-delegated authority, CSRF, exact confirmation, past-history
+permanence, stale revisions and audit-failure rollback. Account-lifecycle tests
+cover the retention source. Browser checks use fictional data and do not authorize
+deleting real hosted events. Normal CI and read-only hosted DEV checks precede
+handover; owner functional acceptance remains separate.
+
+This completes the currently implementable C deletion boundary for review, not
+all Phase 5 integrations. Organizer event closure, day pricing and final bills
+remain #40, separate from registration closure and publication. Registration #39,
+participant-bearing cancellation/notices #41, uploads, Jotform cutover and PROD
+remain outside this task. Keep #37 open for acceptance/dependency follow-up.

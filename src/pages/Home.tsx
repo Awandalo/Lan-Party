@@ -22,7 +22,7 @@ export default function Home() {
         {next&&<img className="home-event-artwork" src={EVENT_ARTWORK} alt={EVENT_ARTWORK_ALT}/>}
         <div><p className="eyebrow">Up next</p><h2 id="upcoming-title">{next?.title??'The next session is taking shape.'}</h2>
           {next?<><p>{eventTime(next.startsAt)} — {eventTime(next.endsAt)} (Netherlands time)</p><p>Registration {next.registrationStatus}</p><ul>{next.days.map(day=><li key={day.date}>{day.date}: {day.remaining} places remaining</li>)}</ul></>:<p role="status">{upcoming.loading?'Loading the next event…':upcoming.message||'Upcoming LAN events will appear here once published.'}</p>}</div>
-        <div className="home-upcoming-actions"><Link className={next?'button':'text-link'} to={next?'/events/'+next.id:'/events'}>{next?'View event':'Visit the events page'} <span aria-hidden="true">→</span></Link>{next&&<Link className="text-link" to="/events">Browse all events →</Link>}</div>
+        <div className="home-upcoming-actions"><Link className={next?'button':'text-link'} to={next?'/events/'+next.id:'/events'}>{next?'View event':'Visit the events page'} <span aria-hidden="true">→</span></Link>{next&&<Link className="button button-secondary home-browse-events" to="/events">Browse all events →</Link>}</div>
       </section>
       <section className="home-news" aria-labelledby="news-title">
         <p className="eyebrow">From the crew</p>

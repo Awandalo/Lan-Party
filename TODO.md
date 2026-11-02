@@ -44,6 +44,14 @@ uploads, new infrastructure or PROD scope. Verify initial anonymous HTML, crawle
 headers, canonical URLs, image access and responsive Home layout before handover.
 Actual WhatsApp preview appearance/cache is an owner check; C awaits B acceptance.
 
+Owner authorized Stage C and DEV handover on 2026-11-02, accepting the current B
+layout/preview limitation. Make only Browse all events a right-aligned secondary
+button. Verify existing deletion across lifecycle states/public URLs, retained
+audit, genuine Administrator authority and registration races. Include retained
+anonymous event/day totals in history eligibility and live transaction guards;
+never erase those totals to make an event deletable. No new schema/Finance gate.
+Hosted C acceptance remains separate; no real event deletion during verification.
+
 ## Phase 2 Database Foundation — complete on DEV and PROD
 
 The owner confirms that migrations `0001` through `0007` have been successfully
