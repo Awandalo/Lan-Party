@@ -9,6 +9,7 @@ const template={id:'10000000-0000-4000-8000-000000000001',name:'Fictional LAN Ha
 const sampleVenue=Object.fromEntries(['name','addressLine','postalCode','city','countryCode','instructions','directionsUrl'].map(k=>[k,template[k as keyof typeof template]]));
 let rows:Record<string,unknown>[]=[{id:'20000000-0000-4000-8000-000000000001',title:'Fictional weekend LAN',description:JSON.stringify({type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Bring your setup and join a weekend of games.'}]}]}),startsAt:Date.parse('2030-11-01T17:00:00Z')/1000,endsAt:Date.parse('2030-11-03T19:00:00Z')/1000,days:[{date:'2030-11-01'},{date:'2030-11-02'},{date:'2030-11-03'}],status:'draft',registrationStatus:'closed',listed:0,templateActive:1,revision:0,registrationHistory:0,venue:sampleVenue,capacity:32,rentalCents:15000,minimumParticipants:8,maxGuests:1,locationId:template.id}],entries:Record<string,unknown>[]=[],denied=false;
 const homePreview=new URLSearchParams(location.search).get('home');
+if(new URLSearchParams(location.search).get('legacy')==='1')rows[0].endsAt=Date.parse('2030-11-03T19:32:17Z')/1000;
 if(new URLSearchParams(location.search).get('history')==='anonymous')rows[0].registrationHistory=1;
 if(new URLSearchParams(location.search).get('event')==='published')Object.assign(rows[0],{status:'published',listed:1});
 if(new URLSearchParams(location.search).get('event')==='cancelled')Object.assign(rows[0],{status:'cancelled',listed:0});
@@ -17,8 +18,9 @@ if(homePreview==='empty')rows=[];
 window.fetch=async(input,options)=>{
  const url=new URL(String(input),location.origin);
  if(url.pathname==='/api/auth/session')return Response.json({account:{userId:'fictional-viewer',nickname:'Fictional planner',memberNumber:'11'},csrfToken:'a'.repeat(64),emailVerified:true});
- if(url.pathname==='/api/manage/capabilities')return Response.json({sections:denied?[]:['events'],authorization:(denied?'c':'b').repeat(64)});
+ if(url.pathname==='/api/manage/capabilities')return Response.json({sections:denied?[]:['events','locations'],authorization:(denied?'c':'b').repeat(64)});
  if(denied)return Response.json({},{status:403});
+ if(url.pathname==='/api/manage/locations')return Response.json({locations:[template]});
  if(url.pathname==='/api/events'||url.pathname.startsWith('/api/events/')){
   const published=rows.filter(r=>r.status==='published'&&r.listed===1).map(r=>({id:r.id,title:r.title,description:r.description,startsAt:r.startsAt,endsAt:r.endsAt,registrationStatus:r.registrationStatus,venue:r.venue,days:(r.days as {date:string}[]).map(d=>({...d,remaining:32}))}));
   const event=published.find(r=>url.pathname.endsWith(String(r.id)));
@@ -36,4 +38,4 @@ window.fetch=async(input,options)=>{
  throw Error('Unexpected transport blocked in Events fixture');
 };
 const revoke=document.createElement('button');revoke.textContent='Fixture: revoke event access';revoke.style.cssText='position:fixed;right:0;bottom:0;z-index:999';revoke.onclick=()=>{denied=true;new BroadcastChannel('lan-auth-invalidation').postMessage('invalidate');};document.body.append(revoke);
-history.replaceState(null,'',homePreview?'/':'/manage/events');createRoot(document.getElementById('root')!).render(<BrowserRouter><App/></BrowserRouter>);
+history.replaceState(null,'',homePreview?'/':location.pathname.startsWith('/manage/')?location.pathname:'/manage/events');createRoot(document.getElementById('root')!).render(<BrowserRouter><App/></BrowserRouter>);

@@ -91,6 +91,13 @@ section; Participants and Finance are disabled Coming later placeholders with no
 routes or functionality. Keyboard, mobile positioning and reduced-motion support
 are required. No backend/schema/PROD changes; #37 stays open until owner acceptance.
 
+Final regression follow-up (#37, 2026-11-02): fix the reproduced Actions scroll
+jump with a viewport overlay; replace segmented date/year entry with DD/MM/YYYY,
+calendar selection and 24-hour quarter-hour controls. Apply quarter-hour validation
+in UI/API to new or changed timestamps, preserving unchanged legacy instants exactly.
+Existing DST, chronology, derived-day/history, permissions and confirmations remain.
+No migration or PROD change; owner hosted retest remains the acceptance gate.
+
 ## Agreed technology
 
 | Area | Decision |

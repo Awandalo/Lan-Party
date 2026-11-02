@@ -318,3 +318,25 @@ Keep #37 open. Its closure gate is the owner's acceptance of this final DEV pass
 followed by a completion note; neither this implementation nor passing CI closes
 the issue or authorizes PROD. No migrations, hosted data writes, provider actions,
 registration/Finance implementation, new storage or infrastructure are included.
+
+### Final regression pass: Actions and date entry (#37)
+
+Actions uses a fixed viewport overlay. The prior hidden absolute menu added 55px
+of document overflow; opening/flipping it shrank the document and clamped scroll.
+Opening, keyboard movement and closing now preserve document scroll; only the
+menu scrolls to reveal its focused item. Placement still reserves the sticky header.
+
+Create/Edit use DD/MM/YYYY text plus a native calendar picker and separate 24-hour
+hour/minute controls. New/changed timestamps require minutes 00, 15, 30 or 45 and
+seconds 00 in both UI and API. Real calendar dates, 2000–2099, Netherlands DST,
+chronology, the 31-day range and registration-history restrictions remain enforced.
+Unchanged legacy instants retain their exact seconds and offset; non-quarter saved
+minutes are shown as a disabled saved option, with an explicit preservation hint.
+Changing such a field requires an explicit supported minute choice. No migration
+or data cleanup is needed, and saved event timestamps are never silently rounded.
+
+Owner acceptance: reload Events and repeat Locations → Events, select an event,
+open Actions by mouse/keyboard and confirm no jump. Try both date calendars and
+DD/MM/YYYY entry in Create/Edit; check quarter-hour options and unchanged legacy
+time preservation. Repeat on mobile and with OS reduced motion. Keep #37 open
+until owner acceptance; no PROD or registration/Finance changes are included.

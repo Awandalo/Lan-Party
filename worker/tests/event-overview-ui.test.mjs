@@ -26,6 +26,6 @@ test('future sections are explicitly unavailable and introduce no navigation or 
 
 test('short-viewport placement keeps a flipped menu below the sticky header and inside horizontal bounds',()=>{
  const rect={top:201.5,bottom:245.5,left:37},space={width:553,height:320,headerBottom:69,menuWidth:288,menuHeight:196,gap:8};
- const position=eventMenuPosition(rect,space);assert.equal(position.above,true);assert.equal(rect.top-space.gap-position.height,81);assert.ok(rect.top-space.gap-position.height>=space.headerBottom+12);
- const narrow={...space,width:305,height:844,menuWidth:241},below=eventMenuPosition({top:100,bottom:144,left:250},narrow);assert.equal(below.above,false);assert.ok(250+below.left+narrow.menuWidth<=305-12);assert.ok(250+below.left>=12);
+ const position=eventMenuPosition(rect,space);assert.equal(position.above,true);assert.equal(position.top,81);assert.equal(rect.top-space.gap-position.height,81);assert.ok(rect.top-space.gap-position.height>=space.headerBottom+12);
+ const narrow={...space,width:305,height:844,menuWidth:241},below=eventMenuPosition({top:100,bottom:144,left:250},narrow);assert.equal(below.above,false);assert.ok(below.left+narrow.menuWidth<=305-12);assert.ok(below.left>=12);assert.equal(below.top,152);
 });

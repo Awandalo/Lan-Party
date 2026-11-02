@@ -20,6 +20,11 @@ approved. Plan their database needs now; implement migrations with their functio
 
 ## Phase 5.2 Events — Increment B
 
+Final #37 regression follow-up: Actions overlay avoids document-height scroll
+clamping after reload/client navigation. Start/End use DD/MM/YYYY plus calendar,
+24-hour hours and quarter-hour minutes; UI/API preserve unchanged legacy seconds
+and non-quarter times. No migration/PROD. Owner hosted retest remains pending.
+
 Owner explicitly requested pre-registration date correction and guarded permanent
 Administrator deletion, removal of Finance enablement, a three-page wizard with
 guest/minimum-headcount settings on page 2, and a basic Word-like formatting/table

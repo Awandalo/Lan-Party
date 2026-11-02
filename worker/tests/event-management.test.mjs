@@ -108,3 +108,17 @@ test('0027 preserves populated records/audit sequence and seeds permanent regist
  assert.equal(await f.sql('SELECT registration_recorded FROM events WHERE id=?',id).first('registration_recorded'),1);assert.equal(await f.sql('SELECT minimum_participants FROM event_management WHERE event_id=?',id).first('minimum_participants'),1);assert.equal(await f.sql("SELECT count(*) n FROM pragma_table_info('event_management') WHERE name='finance_enabled'").first('n'),0);assert.equal(await f.sql('SELECT description FROM events WHERE id=?',id).first('description'),'Plain old description');
  const audit=await f.sql('SELECT event_reference,event_title FROM event_activity').first();assert.deepEqual(audit,{event_reference:id,event_title:'Fictional historical event'});await f.sql("INSERT INTO event_activity(operation_id,occurred_at,event_id,event_reference,event_title,operation,fields) VALUES (?,0,?,?,?,'event.update','[]')",randomUUID(),id,id,'Fictional historical event').run();assert.equal(await f.sql('SELECT max(sequence) n FROM event_activity').first('n'),121);
 },26));
+
+test('new and changed times require quarter hours; unchanged legacy timestamps survive exact saves',()=>local(async f=>{
+ const u=await f.user({genuine:true}),l=await venue(f),base=draft(l);
+ for(const patch of [{startsAt:base.startsAt+60},{endsAt:base.endsAt+1}])assert.equal((await call(f,u,draft(l,patch))).status,400);
+ const fold=Date.parse('2030-10-27T01:30:00Z')/1000;
+ assert.equal((await call(f,u,draft(l,{startsAt:fold,endsAt:fold+3600}))).status,400);
+ const id=await create(f,u,l),legacy=base.endsAt+32*60+17;await f.sql('UPDATE event_management SET ends_at=? WHERE event_id=?',legacy,id).run();
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,endsAt:legacy,title:'Unchanged legacy time'}))).status,200);
+ assert.equal(await f.sql('SELECT ends_at FROM event_management WHERE event_id=?',id).first('ends_at'),legacy);
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:1,endsAt:legacy+60}))).status,400);
+ assert.equal((await call(f,u,draft(l,{action:'duplicate',sourceId:id,sourceRevision:1,endsAt:legacy}))).status,400);
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:1,endsAt:base.endsAt+45*60}))).status,200);
+ assert.equal(await f.sql('SELECT ends_at FROM event_management WHERE event_id=?',id).first('ends_at'),base.endsAt+45*60);
+}));

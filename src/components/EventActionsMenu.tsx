@@ -5,23 +5,29 @@ export interface EventMenuAction {id:string;label:string;reason?:string;danger?:
 export function eventMenuPosition(rect:{top:number;bottom:number;left:number},space:{width:number;height:number;headerBottom:number;menuWidth:number;menuHeight:number;gap:number}){
  const above=Math.max(0,rect.top-space.gap-Math.max(0,space.headerBottom)-12),below=Math.max(0,space.height-rect.bottom-space.gap-12);
  const flip=below<Math.min(space.menuHeight,240)&&above>below;
- return {above:flip,height:flip?above:below,left:Math.max(12-rect.left,Math.min(0,space.width-12-rect.left-space.menuWidth))};
+ const height=flip?above:below;
+ return {above:flip,height,left:Math.max(12,Math.min(rect.left,space.width-12-space.menuWidth)),top:flip?rect.top-space.gap-Math.min(height,space.menuHeight):rect.bottom+space.gap};
 }
 
 export default function EventActionsMenu({actions}:{actions:EventMenuAction[]}){
  const id=useId(),root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),menu=useRef<HTMLDivElement>(null),initial=useRef(0);
- const [open,setOpen]=useState(false),[position,setPosition]=useState({above:false,height:320,left:0});
+ const [open,setOpen]=useState(false),[position,setPosition]=useState({above:false,height:320,left:0,top:0});
  const enabled=()=>Array.from(menu.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
  function place(){
   if(!trigger.current||!menu.current)return;
   // Reserve the sticky header and the CSS half-rem gap when flipping upward.
-  setPosition(eventMenuPosition(trigger.current.getBoundingClientRect(),{width:document.documentElement.clientWidth,height:innerHeight,headerBottom:document.querySelector('.site-header')?.getBoundingClientRect().bottom??0,menuWidth:menu.current.offsetWidth,menuHeight:menu.current.scrollHeight,gap:parseFloat(getComputedStyle(document.documentElement).fontSize)/2}));
+  setPosition(eventMenuPosition(trigger.current.getBoundingClientRect(),{width:document.documentElement.clientWidth,height:innerHeight,headerBottom:document.querySelector('.site-header')?.getBoundingClientRect().bottom??0,menuWidth:menu.current.offsetWidth,menuHeight:menu.current.scrollHeight+menu.current.offsetHeight-menu.current.clientHeight,gap:parseFloat(getComputedStyle(document.documentElement).fontSize)/2}));
  }
  function show(last=false){initial.current=last?-1:0;place();setOpen(true);}
- function close(restore=false){setOpen(false);if(restore)trigger.current?.focus();}
+ function close(restore=false){setOpen(false);if(restore)trigger.current?.focus({preventScroll:true});}
+ function focusItem(item:HTMLElement|undefined){
+  if(!item)return;item.focus({preventScroll:true});
+  // Scroll only the menu, never the document or its sticky header.
+  if(menu.current&&item!==menu.current){const top=item.offsetTop,bottom=top+item.offsetHeight;if(top<menu.current.scrollTop)menu.current.scrollTop=top;else if(bottom>menu.current.scrollTop+menu.current.clientHeight)menu.current.scrollTop=bottom-menu.current.clientHeight;}
+ }
  useEffect(()=>{
   if(!open)return;
-  const items=enabled();(items[initial.current===-1?items.length-1:0]??menu.current)?.focus({preventScroll:true});
+  const items=enabled();focusItem(items[initial.current===-1?items.length-1:0]??menu.current??undefined);
   const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!root.current?.contains(event.target))close(true);};
   document.addEventListener('pointerdown',outside);window.addEventListener('resize',place);window.addEventListener('scroll',place,true);
   return()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);};
@@ -34,12 +40,12 @@ export default function EventActionsMenu({actions}:{actions:EventMenuAction[]}){
   if(event.key==='ArrowDown')next=(current+1)%items.length;
   if(event.key==='ArrowUp')next=(current-1+items.length)%items.length;
   if(event.key==='Home')next=0;if(event.key==='End')next=items.length-1;
-  if(next!==undefined){event.preventDefault();items[next]?.focus();}
+  if(next!==undefined){event.preventDefault();focusItem(items[next]);}
  }
  if(!actions.length)return null;
  return <div ref={root} className="event-action-menu" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))close();}}>
   <button ref={trigger} type="button" className="button button-secondary" aria-haspopup="menu" aria-expanded={open} aria-controls={id} onClick={()=>open?close():show()} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}if(event.key==='Escape')close(true);}}>Actions <span className={'event-menu-chevron'+(open?' expanded':'')} aria-hidden="true">⌄</span></button>
-  <div ref={menu} id={id} role="menu" tabIndex={-1} aria-label="Event actions" aria-hidden={!open} inert={!open} className={'event-menu-panel'+(open?' open':'')+(position.above?' above':'')} style={{maxHeight:position.height,left:position.left}} onKeyDown={navigate}>
+  <div ref={menu} id={id} role="menu" tabIndex={-1} aria-label="Event actions" aria-hidden={!open} inert={!open} className={'event-menu-panel'+(open?' open':'')+(position.above?' above':'')} style={{maxHeight:position.height,left:position.left,top:position.top}} onKeyDown={navigate}>
    {actions.map(action=><button key={action.id} role="menuitem" type="button" tabIndex={-1} disabled={!!action.reason} className={action.danger?'event-menu-danger':''} onClick={()=>{close(true);action.onSelect();}}><span>{action.label}</span>{action.reason&&<small>{action.reason}</small>}</button>)}
   </div>
  </div>;

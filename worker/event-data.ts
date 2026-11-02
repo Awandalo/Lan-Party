@@ -4,7 +4,7 @@ import {UUID} from './role-administration';
 import {locationDraft,locationColumns} from './location-data';
 import {validateEventDocument} from '../src/lib/event-document';
 import type {EventNode} from '../src/lib/event-document';
-import {eventDates,eventInstant} from '../src/lib/event-time';
+import {eventDates,eventInstant,eventLocalTime} from '../src/lib/event-time';
 
 export class EventError extends Error {constructor(public status:number,message:string){super(message);}}
 export async function eventsReady(db:D1Database){
@@ -73,6 +73,12 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
   if(!template)throw new EventError(409,'The location changed or was archived. Reload before creating.');
   snapshot=venue(Object.fromEntries(['name','addressLine','postalCode','city','countryCode','instructions','directionsUrl'].map(k=>[k,template[k]??''])));
   capacity=integer(template.capacity,1,100000);rental=integer(template.rentalCents,0,100000000);
+ }
+ // Existing timestamps remain exact; new or changed values use quarter hours.
+ for(const [value,original] of [[starts,current?.startsAt],[ends,current?.endsAt]]){
+  if(update&&value===original)continue;
+  if(Number(value)%900!==0)throw new EventError(400,'Choose quarter-hour start and end times (minutes 00, 15, 30 or 45; seconds 00).');
+  if(eventInstant(eventLocalTime(Number(value)))!==value)throw new EventError(400,'Choose an unambiguous Netherlands time outside the daylight-saving clock change.');
  }
  const guard=actor(update?'events.update':'events.create'),statements:D1PreparedStatement[]=[];
  const assertChanged=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Event conflict') END");
