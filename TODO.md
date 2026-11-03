@@ -955,3 +955,18 @@ See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote chang
 - [ ] Verify exact-head CI/deployment and record the DEV handover in #38.
 - [ ] Owner public-page acceptance; keep #38 open for #39/#40 dependencies.
 - Gallery/uploads/storage excluded from initial launch; no Gallery placeholders.
+
+## Phase 5.4 — local registration review first
+
+- [x] Prepare local-only three-step member/guest wizard and fictional multi-member simulator.
+- [x] Exercise per-day group waits/promotion, edits/cancel, closed/end states and capacity rejection.
+- [x] Verify ten model tests, ten existing presentation tests, strict types/build and browser flow.
+- [x] Owner accepts the local preview iterations and authorizes hosted DEV preview publication.
+- [ ] Verify exact-head CI, deployment and the separate /preview/registration DEV surface.
+- [ ] Design schema extension preserving existing registrations/history and retention.
+- [ ] Implement real Worker/D1 self-service authorization, atomic queue/capacity and replay safety.
+- [ ] Integrate private/member projections and audited registration/event lifecycle controls.
+- [ ] Integrate durable confirmation/promotion notifications with local mailbox first.
+- [ ] Run real D1 concurrency, security/privacy, delivery-failure and hosted acceptance checks.
+
+See [registration contract](docs/event-registration.md); this preview does not complete #39.

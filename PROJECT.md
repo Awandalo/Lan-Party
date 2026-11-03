@@ -105,6 +105,16 @@ for #39; reviewed actual attendance waits for #40. A local breadcrumb correction
 and targeted acceptance evidence are recorded in the Events contract. #38 remains
 open; no PROD or Jotform cutover is included.
 
+Phase 5.4 (#39) first increment is a local-only registration UI/rules preview
+for owner review, using fictional in-memory members/guests and waiting groups.
+It adds no hosted registration capability, migration or email delivery; real
+Worker/D1 authorization/concurrency and notifications remain to implement after
+flow review. See [local registration scope](docs/event-registration.md).
+On 2026-11-03 the owner additionally authorized publishing the reviewed fictional
+preview to DEV. The separate /preview/registration surface is gated to canonical
+DEV or loopback development and excluded from PROD builds; it still grants no
+real registration, persistence, email, migration or production authority.
+
 ## Agreed technology
 
 | Area | Decision |

@@ -28,6 +28,7 @@ export function contextualNavigation(path:string,sections:Section[],signedIn:boo
  return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')||sections.includes('events')));
 }
 export function routeLabel(path:string){
+ if((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')&&path==='/preview/registration')return 'Registration preview';
  if(/^\/events\/[^/]+$/.test(path))return 'Event details';
  if(path.startsWith('/account/feedback'))return 'Feedback';
  if(path.startsWith('/manage/feedback'))return 'Feedback';

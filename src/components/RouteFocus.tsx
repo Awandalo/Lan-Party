@@ -7,6 +7,7 @@ import {useAuth} from '../lib/auth';
 const titles: Record<string, string> = {
   '/': 'Home',
   '/events': 'Events',
+  ...((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?{'/preview/registration':'Registration preview'}:{}),
   '/privacy': 'Privacy Policy',
   '/login': 'Login',
   ...((AUTH_UI_AVAILABLE && authUIEnabled()) ? { '/register': 'Create account', '/account': 'Account',

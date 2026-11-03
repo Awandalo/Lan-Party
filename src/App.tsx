@@ -27,6 +27,7 @@ import {lazy,Suspense,useCallback,useState} from 'react';
 import SiteNavigation from './components/SiteNavigation';
 import './CSS/Workspace_style.css';
 
+const RegistrationPreview=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?lazy(()=>import('./pages/RegistrationPreview')):null;
 const Feedback=lazy(()=>import('./pages/Feedback'));
 function feedbackPage(admin=false){return <Suspense fallback={<section className="page-section"><h1>Feedback</h1><p role="status">Loading feedback…</p></section>}><Feedback admin={admin}/></Suspense>;}
 
@@ -40,6 +41,7 @@ export default function App() {
       <main id="main-content" className="container main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />
+          {RegistrationPreview&&<Route path="/preview/registration" element={<Suspense fallback={<p role="status">Loading registration preview…</p>}><RegistrationPreview/></Suspense>}/>}
           <Route path="/events" element={<Events />} />
           {PUBLIC_EVENTS_AVAILABLE&&<Route path="/events/:eventId" element={<EventDetails/>}/> }
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage" element={<Administration />} />}
