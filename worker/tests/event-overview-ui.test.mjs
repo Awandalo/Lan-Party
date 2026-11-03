@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createRequire,Module} from 'node:module';
 import {test} from 'node:test';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';import EventOverviewActions from './src/components/EventOverviewActions';import EventSections from './src/components/EventSections';export {eventMenuPosition} from './src/components/EventActionsMenu';export const render=(row,access)=>renderToStaticMarkup(<MemoryRouter><EventOverviewActions row={row} access={access} onDelete={()=>{}} onDuplicate={()=>{}} onEdit={()=>{}} onLifecycle={()=>{}}/></MemoryRouter>);export const sections=()=>renderToStaticMarkup(<EventSections/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'}});
+const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';import EventOverviewActions from './src/components/EventOverviewActions';import EventSections from './src/components/EventSections';export {eventMenuPosition} from './src/components/EventActionsMenu';export const render=(row,access,pending=false)=>renderToStaticMarkup(<MemoryRouter><EventOverviewActions row={row} access={access} onDelete={()=>{}} onDuplicate={()=>{}} onEdit={()=>{}} onLifecycle={()=>{}} onRegistration={()=>{}} pending={pending}/></MemoryRouter>);export const sections=()=>renderToStaticMarkup(<EventSections/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'}});
 const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(bundle.outputFiles[0].text,import.meta.filename);const {render,sections,eventMenuPosition}=mod.exports;
 const row={id:'20000000-0000-4000-8000-000000000001',revision:0,status:'draft',listed:0,registrationHistory:0},all={canCreate:true,canUpdate:true,canDelete:true,canPublish:true,canCancel:true},none=Object.fromEntries(Object.keys(all).map(k=>[k,false]));
 test('Overview groups secondary actions in a closed accessible menu and retains the primary edit control',()=>{
@@ -13,6 +13,14 @@ test('Overview groups secondary actions in a closed accessible menu and retains 
 test('published/terminal states retain the correct public/edit hierarchy and lifecycle actions',()=>{
  const html=render({...row,status:'published',listed:1},all);assert.ok(html.includes('Unpublish'));assert.ok(html.includes('href="/events/'+row.id+'"'));assert.ok(html.includes('View public page'));assert.ok(html.includes('>Edit event</button>'));
  const terminal=render({...row,status:'cancelled'},all);assert.equal((terminal.match(/role="menuitem"/g)??[]).length,2);for(const label of ['Cancel event','Publish','Edit event','View public page'])assert.equal(terminal.includes(label),false,label);
+});
+test('registration menu follows current status, explicit permission, event lifecycle and pending state',()=>{
+ const published={...row,status:'published',registrationStatus:'closed',endsAt:Date.now()/1000+86400},access={...none,canManageRegistrations:true};
+ assert.ok(render(published,access).includes('<span>Reopen registration</span>'));assert.equal((render(published,access).match(/role="menuitem"/g)??[]).length,1);
+ assert.ok(render({...published,registrationStatus:'open'},access).includes('<span>Close registration</span>'));
+ assert.ok(render(published,access,true).includes('A change is being saved.'));
+ for(const event of [{...published,status:'draft'},{...published,status:'cancelled'},{...published,status:'archived'},{...published,endsAt:1},{...published,revision:null}])assert.equal(render(event,access).includes('Reopen registration'),false);
+ assert.equal(render(published,none).includes('Reopen registration'),false);
 });
 test('history and current permissions control menu availability without bypassing disabled actions',()=>{
  const history=render({...row,registrationHistory:1},all);assert.equal((history.match(/ disabled=""/g)??[]).length,1);assert.equal((history.match(/Unavailable: this event has registration history./g)??[]).length,1);

@@ -1,4 +1,10 @@
 .event-details { max-width: 66rem; }
+.event-member-navigation{display:flex;flex-wrap:wrap;gap:.75rem;padding-block:1rem;margin-bottom:1rem;border-block:1px solid var(--border)}
+.event-member-navigation .selected{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+.event-member-navigation .button:hover{border-color:var(--accent);background:var(--surface-raised)}
+.registration-entry{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.25rem;margin-top:1.25rem;border:1px solid var(--border);border-radius:.8rem;background:var(--surface)}
+.registration-entry p{margin:0;max-width:40rem;color:var(--muted)}
+.event-details .registration-availability{margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
 .event-details-cover { width:100%; max-height:24rem; object-fit:cover; border-radius:1rem; }
 .event-details-section { margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border); }
 .event-details-instructions { white-space:pre-wrap; }

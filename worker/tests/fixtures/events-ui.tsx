@@ -21,6 +21,12 @@ window.fetch=async(input,options)=>{
  if(url.pathname==='/api/manage/capabilities')return Response.json({sections:denied?[]:['events','locations'],authorization:(denied?'c':'b').repeat(64)});
  if(denied)return Response.json({},{status:403});
  if(url.pathname==='/api/manage/locations')return Response.json({locations:[template]});
+ if(url.pathname.startsWith('/api/event-participants/')){
+  const body=JSON.parse(String(options?.body)),event=rows.find(r=>url.pathname.endsWith(String(r.id)));
+  if(!event||options?.method!=='POST'||!['open','close'].includes(body.action)||event.status!=='published'||body.revision!==event.revision||Number(event.endsAt)<=Date.now()/1000)return Response.json({error:'Event changed. Reload before trying again.'},{status:409});
+  Object.assign(event,{registrationStatus:body.action==='open'?'open':'closed',revision:Number(event.revision)+1});
+  entries.unshift({sequence:String(entries.length+1),occurredAt:1793500000,operation:'event.update',fields:'["registration"]',title:event.title,actorName:null});return Response.json({revision:event.revision});
+ }
  if(url.pathname==='/api/events'||url.pathname.startsWith('/api/events/')){
   const published=rows.filter(r=>r.status==='published'&&r.listed===1).map(r=>({id:r.id,title:r.title,description:r.description,startsAt:r.startsAt,endsAt:r.endsAt,registrationStatus:r.registrationStatus,venue:r.venue,days:(r.days as {date:string}[]).map(d=>({...d,remaining:32}))}));
   const event=published.find(r=>url.pathname.endsWith(String(r.id)));
@@ -32,7 +38,7 @@ window.fetch=async(input,options)=>{
    if(['publish','unpublish','cancel'].includes(body.action)&&old)Object.assign(old,{listed:body.action==='publish'?1:0,status:body.action==='cancel'?'cancelled':'published',revision:Number(old.revision)+1});else if(body.action==='delete')rows=rows.filter(e=>e.id!==id);else if(old)Object.assign(old,body,{description:JSON.stringify(body.description),days:eventDates(body.startsAt,body.endsAt).map(date=>({date})),revision:Number(old.revision)+1});else {const source=body.sourceId?rows.find(e=>e.id===body.sourceId):null;const venue=Object.fromEntries(['name','addressLine','postalCode','city','countryCode','instructions','directionsUrl'].map(k=>[k,template[k as keyof typeof template]]));rows.push({...body,description:JSON.stringify(body.description),registrationHistory:0,listed:0,templateActive:1,id,status:'draft',registrationStatus:'closed',revision:0,locationId:source?.locationId??template.id,venue:source?.venue??venue,capacity:source?.capacity??template.capacity,rentalCents:source?.rentalCents??template.rentalCents,days:eventDates(body.startsAt,body.endsAt).map(date=>({date}))});}
    entries.unshift({sequence:String(entries.length+1),occurredAt:1793500000,operation:'event.'+body.action,fields:'["details"]',title:body.title??old?.title,actorName:null});return Response.json({id});
   }
-  const search=url.searchParams.get('search')??'',status=url.searchParams.get('status')??'all';return Response.json({events:rows.filter(r=>String(r.title).toLowerCase().includes(search.toLowerCase())&&(status==='all'||(r.status==='published'&&!r.listed?'unpublished':r.status)===status)),templates:[template],canCreate:true,canUpdate:true,canDelete:true,canPublish:true,canCancel:true});
+  const search=url.searchParams.get('search')??'',status=url.searchParams.get('status')??'all';return Response.json({events:rows.filter(r=>String(r.title).toLowerCase().includes(search.toLowerCase())&&(status==='all'||(r.status==='published'&&!r.listed?'unpublished':r.status)===status)),templates:[template],canCreate:true,canUpdate:true,canDelete:true,canPublish:true,canCancel:true,canManageRegistrations:true});
  }
  if(url.pathname==='/api/manage/event-activity')return Response.json({entries,nextBefore:null});
  throw Error('Unexpected transport blocked in Events fixture');

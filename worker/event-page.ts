@@ -19,7 +19,7 @@ function description(source:string){
 export async function eventPage(request:Request,env:AuthenticationEnvironment&{ASSETS:Fetcher}):Promise<Response|null>{
  const url=new URL(request.url);
  if(!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE)||!['GET','HEAD'].includes(request.method))return null;
- const id=/^\/events\/([^/]+)\/?$/.exec(url.pathname)?.[1];
+ const id=/^\/events\/([^/]+)(?:\/registration)?\/?$/.exec(url.pathname)?.[1];
  let event:{title:string;description:string}|null=null,status=404;
  if(id&&UUID.test(id)){
   try{

@@ -26,6 +26,7 @@ test('anonymous initial HTML carries escaped event metadata, canonical/image URL
  }
  const head=await get(f,id,{method:'HEAD'});assert.equal(head.status,200);assert.equal(await head.text(),'');assert.equal(head.headers.get('Cache-Control'),'no-store');
  const trailing=await get(f,id+'/');assert.equal(trailing.status,200);assert.equal(meta(await trailing.text(),'og:url'),origin+'/events/'+id);
+ const registration=await get(f,id+'/registration?day=2026-11-13');assert.equal(registration.status,200);assert.equal(meta(await registration.text(),'og:url'),origin+'/events/'+id);
 }));
 test('Draft, unpublished, cancelled and unknown pages share a generic no-store fallback even with an owner session',()=>local(async f=>{
  const owner=await f.user({genuine:true}),ids=[];
@@ -38,6 +39,7 @@ test('Draft, unpublished, cancelled and unknown pages share a generic no-store f
   const tags=html.slice(html.indexOf('<head>'),html.indexOf('</head>'));if(reference)assert.equal(tags,reference);else reference=tags;
  }
  const id=await event(f);assert.equal((await get(f,id)).status,200);await f.sql('UPDATE event_management SET is_listed=0 WHERE event_id=?',id).run();assert.equal((await get(f,id,{headers:{'If-None-Match':'"fixture-shell"'}})).status,404);
+ assert.equal((await get(f,id+'/registration')).status,404);
 }));
 test('metadata omits management/venue data, bounds plain descriptions and does not activate on PROD or aliases',()=>local(async f=>{
  const id=await event(f,{text:'A'.repeat(300)});await f.sql("UPDATE events SET location_visibility='authenticated' WHERE id=?",id).run();

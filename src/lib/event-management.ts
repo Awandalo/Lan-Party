@@ -26,10 +26,10 @@ export function useEventRead<T>(href:string){
 export function useEventMutation(){
  const auth=useAuth(),[pending,setPending]=useState(false),[message,setMessage]=useState('');
  const context=auth.session?.account.userId+':'+auth.session?.csrfToken,[owner,setOwner]=useState(context);
- async function save(body:object){
+ async function save(body:object,registrationEventId?:string){
   if(pending||!auth.session)return false;setPending(true);setOwner(context);setMessage('');
   try{
-   const response=await fetch('/api/manage/events',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-LAN-Request':'1','X-LAN-Session-Proof':auth.session.csrfToken,'X-CSRF-Token':auth.session.csrfToken},body:JSON.stringify({...body,operationId:crypto.randomUUID()}),signal:AbortSignal.timeout(15000)});
+   const response=await fetch(registrationEventId?'/api/event-participants/'+encodeURIComponent(registrationEventId):'/api/manage/events',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-LAN-Request':'1','X-LAN-Session-Proof':auth.session.csrfToken,'X-CSRF-Token':auth.session.csrfToken},body:JSON.stringify({...body,operationId:crypto.randomUUID()}),signal:AbortSignal.timeout(15000)});
    if(response.ok)return true;
    setMessage([400,409].includes(response.status)?String((await response.json()).error):'The change could not be confirmed. Reload and check Events Logs before trying again.');return false;
   }catch{setMessage('Outcome unknown. Reload and check Events Logs before trying again.');return false;}finally{setPending(false);}

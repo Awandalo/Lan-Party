@@ -13,7 +13,6 @@
 .registration-preview{max-width:70rem;margin:auto;padding:1.5rem}
 .registration-preview-controls{display:flex;gap:1rem;align-items:end;flex-wrap:wrap;padding:1rem;margin-block:1rem;border:1px dashed var(--accent);border-radius:.6rem}
 .registration-preview-controls label{display:grid;gap:.4rem}
-.registration-summary{display:grid;gap:.75rem}.registration-summary section{padding:.75rem;border:1px solid var(--border);border-radius:.5rem}.registration-summary h3{margin-top:0}
 .registration-result{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.registration-result strong{color:var(--accent)}
 @media(max-width:600px){.registration-fields{grid-template-columns:minmax(0,1fr)}.registration-preview{padding:1rem}.registration-wizard{padding:1rem}.registration-days{display:grid;grid-template-columns:minmax(0,1fr)}}
 .registration-result strong.waitlisted{color:var(--muted)}
@@ -52,4 +51,11 @@
 .registration-day-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--surface-raised)}
 .registration-roster-status{color:var(--accent);font-size:.85rem}
 .registration-show-all{margin-top:1rem}
+.registration-crew-pagination{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:1rem}.registration-crew-pagination p{color:var(--muted);font-size:.85rem}
 .registration-show-all[aria-disabled=true]{opacity:.55;cursor:default}
+
+.registration-saved-banner{margin-top:1.5rem;padding:1.25rem;border:1px solid var(--accent);border-radius:.9rem;background:var(--accent-dim)}
+.registration-saved-banner h2{margin-top:0;color:var(--accent)}
+.registration-saved-banner .button{margin-right:.5rem}
+.registration-crew-filters{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;margin-block:1rem}
+.registration-crew-filters [aria-pressed=true]{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}

@@ -70,3 +70,9 @@ test('correcting a date clears its error independently from unfinished time cont
 });
 
 test('public event detail breadcrumbs identify the event area instead of repeating the site name',()=>{assert.equal(routeLabel('/events'),'Events');assert.equal(routeLabel('/events/20000000-0000-4000-8000-000000000001'),'Event details');assert.equal(routeLabel('/events/id/unknown'),'LAN Party');});
+test('member event context separates details and registration without requiring organizer permissions',()=>{
+ const path='/events/10000000-0000-4000-8000-000000000001',items=contextualNavigation(path,[],true);
+ assert.deepEqual(items.map(i=>[i.href,i.label]),[[path,'Event details'],[path+'/registration','Your registration & crew']]);
+ assert.deepEqual(contextualNavigation(path+'/registration',[],true),items);assert.deepEqual(contextualNavigation(path,[],false),[]);assert.equal(routeLabel(path+'/registration'),'Your registration & crew');
+ const unselected=contextualNavigation('/events',[],true);assert.equal(unselected.length,2);assert.ok(unselected.every(item=>item.disabled===true));assert.ok(items.every(item=>!item.disabled));
+});

@@ -21,13 +21,18 @@ export function logDestination(path:string,sections:Section[]){
  if(path==='/manage/event-activity'&&sections.includes('events'))return {path,api:'/api/manage/event-activity',section:'events' as const};
  return null;
 }
-export function contextualNavigation(path:string,sections:Section[],signedIn:boolean){
+export interface ContextNavigationItem {href:string;label:string;icon:string;section?:Section;disabled?:boolean}
+export function contextualNavigation(path:string,sections:Section[],signedIn:boolean):ContextNavigationItem[]{
  if(!signedIn)return [];
+ if(path==='/events')return [{href:'/events',label:'Event details',icon:'calendar',disabled:true},{href:'/events',label:'Your registration & crew',icon:'users',disabled:true}];
+ const event=/^(\/events\/[^/]+)(?:\/registration)?$/.exec(path);
+ if(event)return [{href:event[1],label:'Event details',icon:'calendar'},{href:event[1]+'/registration',label:'Your registration & crew',icon:'users'}];
  if(mainArea(path)==='account')return signedIn?accountNavigation:[];
  if(mainArea(path)!=='administration'||!sections.length)return [];
  return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')||sections.includes('events')));
 }
 export function routeLabel(path:string){
+ if(/^\/events\/[^/]+\/registration$/.test(path))return 'Your registration & crew';
  if((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')&&path==='/preview/registration')return 'Registration preview';
  if(/^\/events\/[^/]+$/.test(path))return 'Event details';
  if(path.startsWith('/account/feedback'))return 'Feedback';

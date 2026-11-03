@@ -220,3 +220,86 @@ days, manager counters/cards and day/reset filtering using isolated fictional
 accounts. Exact-head CI, deployment and hosted acceptance follow publication.
 Keep #39 open for the owner's real DEV review; do not treat the demo acceptance
 as server-backed acceptance.
+
+Local follow-up: owner requested a second registration control in Overview's
+Actions menu. Reopen registration / Close registration uses the same existing
+Participants endpoint, session/CSRF proof and revision checks; the Participants
+button remains. Hide it without events.manage_registrations or for Drafts,
+terminal/ended/legacy events; disable it during saving and surface failures.
+Keep this follow-up local and uncommitted for review; no hosted event changes.
+Verification: 16 focused menu/presentation checks and strict types/build pass.
+The new test initially assumed a plain-text button instead of the menu's existing
+label span; that test defect was corrected without changing menu behavior.
+Fictional local browser checks verify open → close → reopen labels, status refresh,
+and keyboard reachability. Existing server guards retain their verified behavior;
+no backend/schema changes or broad regression rerun is needed for this UI follow-up.
+
+Further local owner requests: add space between the own-registration panel and
+Edit/Cancel controls; replace plain results with a shared visual summary in the
+real event view and fictional preview. Each person has an independent selected-day
+confirmation percentage/progress, status heading, day-count pill and day cards.
+Confirmed, mixed and waitlisted states stay distinct; retain full DD-MM-YYYY dates
+and waiting-group positions. Percentage means confirmed selected days, never
+actual attendance or the proportion of the full event selected by the member.
+
+Split the real member event into Event details (/events/ID) and Your registration
+& crew (/events/ID/registration), with event context links and page navigation.
+The first contains description, venue, availability and the registration entry;
+successful registration transitions to the second with own status and the crew.
+The crew page carries a validated day filter; Show all days clears it. Browser
+navigation/reload preserve the view. The crew initially renders 24 cards with
+Show more members, avoiding an initially unbounded list for a large membership.
+The Worker serves the new view's shell with the existing anonymous event metadata
+and canonical base-event URL; unpublished events remain hidden. No new API,
+migration, account permission, configuration or remote effect is introduced.
+
+Verification: 58 focused rendering/navigation/metadata/menu/model checks and strict
+types/default/DEV builds pass; the new summary test's case-sensitive HTML attribute assumption
+was corrected to the case-insensitive HTML contract. Isolated fictional local
+Worker/D1 browser checks cover register-from-details, transition to confirmation,
+context navigation, browser Back/Forward, day filter/reset and reload persistence. Measured 20px above
+the Edit/Cancel buttons and no horizontal overflow at the tested desktop width.
+Real-device/mobile review remains an owner check. All follow-ups remain local,
+unstaged/uncommitted and unpublished alongside the earlier Actions-menu change.
+Local alignment follow-up: keep the same cover image on both event views. Browser
+measurement confirms identical 352px image height and navigation document position
+(696px) at the tested viewport; TypeScript passes. No new tests or broader rerun
+for this conditional-image removal. Preserve the owner's open local form and keep
+all work unpublished.
+Local coherence follow-up: add the standard separator above Choose your LAN days
+after venue directions. Keep the Event submenu visible on the signed-in Events
+catalogue as two disabled, non-navigable items with an Open an event hint; opening
+an event enables the corresponding links. Events stays active throughout its
+detail/registration routes, while Home remains an exact match. Browser confirms
+disabled items have no href, become enabled after opening the event, and the
+availability separator is 1px with 24px inner spacing. Twenty-seven focused
+navigation/presentation/privacy tests plus TypeScript/build pass. No full security
+suite repeated for these frontend-only changes. All edits remain local/unstaged.
+
+Local selection follow-up: unregistered members can toggle day-card borders on
+Event details. These temporary choices prefill step 1, remain editable there and
+are discarded on reload or successful save. Registering without picking cards
+starts with empty day choices. The existing three-step flow and server allocation
+rules remain unchanged, including selectable full days for waitlisting.
+Saved registrations show a status banner on Event details instead of selected
+borders. Edit registration opens saved days for explicit changes; card clicks
+never silently remove existing places. Banner wording distinguishes confirmed,
+partly confirmed and waitlisted member places. Crew filtering now lives only on
+Your registration & crew, with date buttons and All days / Show all days reset.
+Verification: strict TypeScript/build and five focused crew/summary rendering
+checks pass. Actual local Worker/D1 browser walkthrough verified card prefill,
+changing preselected days, all three steps, save, saved-day editing, crew filter
+and reset, empty direct registration and reload clearing. The fictional test
+registration was cancelled afterward; hosted DEV/PROD and real email were untouched.
+No full regression rerun for these frontend-only changes. All local edits remain
+unstaged, uncommitted and unpublished for owner review.
+
+Final owner review approved DEV publication of these follow-ups on 2026-11-03.
+The crew filter now sits directly below Who is coming, without the extra
+Who is coming on heading or bottom reset; All days is the single reset.
+Forty-four changed-area checks and strict types/default/DEV builds pass. Local
+browser verified the relocated filter/reset and no duplicate controls. Reuse the
+earlier real Worker/D1 flow evidence; exact-head CI and hosted verification follow
+publication. No migrations, infrastructure, permissions, PROD or provider actions
+are included. Temporary local review servers/assets will be cleaned after DEV
+verification, preserving private recovery evidence. Keep #39 open for DEV review.

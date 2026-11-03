@@ -44,6 +44,7 @@ export default function App() {
           {RegistrationPreview&&<Route path="/preview/registration" element={<Suspense fallback={<p role="status">Loading registration preview…</p>}><RegistrationPreview/></Suspense>}/>}
           <Route path="/events" element={<Events />} />
           {PUBLIC_EVENTS_AVAILABLE&&<Route path="/events/:eventId" element={<EventDetails/>}/> }
+          {PUBLIC_EVENTS_AVAILABLE&&<Route path="/events/:eventId/registration" element={<EventDetails/>}/> }
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage" element={<Administration />} />}
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/users/:userId" element={<Administration />} />}
           {import.meta.env.VITE_AUTH_MODE !== 'hosted-prod' && <Route path="/manage/:section" element={<Administration />} />}

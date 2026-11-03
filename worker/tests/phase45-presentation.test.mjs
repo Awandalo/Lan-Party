@@ -7,7 +7,8 @@ const nav=await load('src/lib/navigation.ts'),dto=await load('src/lib/user-activ
 const {MemberReadCache}=await load('src/lib/member-read-cache.ts');
 test('context menus derive from routes, omit empty areas and retain authorized order',()=>{
  const all=['users','roles','events','activity','userActivity'];
- for(const route of ['/','/events','/privacy','/reactivate'])assert.deepEqual(nav.contextualNavigation(route,all,true),[]);
+ for(const route of ['/','/privacy','/reactivate'])assert.deepEqual(nav.contextualNavigation(route,all,true),[]);
+ assert.deepEqual(nav.contextualNavigation('/events',all,true).map(x=>[x.label,x.disabled]),[['Event details',true],['Your registration & crew',true]]);
  assert.deepEqual(nav.contextualNavigation('/manage/users/fictional',all,true).map(x=>x.label),['Overview','Events','Members','Roles & Permissions','Logs']);
  assert.deepEqual(nav.contextualNavigation('/account/security',[],true).map(x=>x.href),['/account','/account/security']);
  assert.deepEqual(nav.contextualNavigation('/account/security',[],false),[]);
