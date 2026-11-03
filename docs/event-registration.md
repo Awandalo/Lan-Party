@@ -144,3 +144,79 @@ Twenty-five focused tests pass (thirteen simulator, ten presentation, one previe
 gate and one existing auth-mode test), plus strict TypeScript and default/DEV/PROD
 builds. Reuse unchanged prior fictional browser flow/layout evidence. Normal
 exact-head CI and bounded hosted tests follow publication; #39 remains open.
+
+## Connected registration — owner-authorized DEV implementation, 2026-11-03
+
+The owner accepted the hosted simulator, requested real event integration and
+authorized DEV publication/activation in this conversation. The separate demo
+remains fictional. Real registration now belongs on each published event's page;
+organizers use Administration → Events → select event → Participants to open or
+close registration and review the shared member-card presentation. No registrations
+on behalf of members, actual attendance, Finance, PROD or Jotform cutover.
+
+The existing three-step wizard calls /api/event-registration/EVENT_ID for the
+signed-in member only. /api/event-participants/EVENT_ID requires the existing
+events.manage_registrations permission (genuine Administrator follows existing
+RBAC). Cancellation through Overview retains events.cancel and typed confirmation.
+Participants counters show confirmed members plus guests for each date; Total
+counts unique confirmed people and separately shows participant-days. Counters
+filter the cards; Show all days resets. Guest email is absent from the organizer
+projection; guest identity and waiting details never enter the member roster.
+Ordinary members receive only their own private party plus confirmed member names
+and dates. Deactivated member names are masked. Anonymous users retain public
+availability but receive no registration/roster projection.
+
+Migration 0029 adds a private draft per durable foundation registration, normalized
+person/day places and group sequence, operation receipts and notification outbox.
+Existing registrations/days backfill without identity changes. Pure allocation
+policy is shared with the accepted simulator; the Worker validates shapes, bounds,
+UUIDs, normalized email, days and guest limits independently of the browser.
+Every mutation fences the event revision, current publication/open/end state,
+live verified session/MFA and effective permission within its D1 batch. The batch
+also writes places, member-day compatibility projection, audit and notices. Stale
+or replayed requests fail without partial writes. Requests are bounded at 32 KiB;
+successful mutations are limited to 20 per actor per ten minutes, separate from
+authentication counters. At 1,000 durable member parties, new parties require
+organizer review rather than an untested large-event expansion.
+
+Account deletion uses the same allocator inside its existing guarded transaction:
+private guest data cascades; released places promote fitting groups while open.
+Completed member and guest totals survive only as anonymous aggregates. Managed
+event completion uses its actual end time, retaining legacy completion behavior
+for the older schema. Dates/deletion remain permanently locked by registration
+history, including after account removal. No existing account role/grant changes.
+
+Create/edit/cancel/promotion enqueue one notice per responsible member per
+operation. Existing local/DEV transport, canonical URLs, recipient allowlist and
+shared provider budget remain authoritative. A notice links to the event and asks
+the member to review current status; it contains no guest identities or contacts.
+Delivery starts only after commit. State moves pending → attempting → sent/failed;
+failure never reverses places. Already attempted/uncertain sends are not retried
+automatically. The existing daily DEV maintenance may claim at most ten pending
+operations missed before the request task started; no new schedule is created.
+No real-recipient provider test was authorized/performed for this handover.
+
+Owner separately approved migration 0029 and connected DEV activation. It applied
+only 0029 to lan-party-dev (a3c4cea6-ceb7-43b8-b9b7-b374726b35b4) after a fresh
+Time Travel bookmark and ignored local recovery export. History was exactly
+0001–0028 before, exactly 0001–0029 after. Sixteen preservation comparisons of
+non-secret state/credential counts were unchanged; quick_check is ok and foreign
+key checks empty. Three controls were seeded; registrations, places, operations
+and notifications remain empty. Recovery evidence is private under .wrangler.
+The previous Worker remains compatible. Restore requires its own authorization;
+rolling back code alone does not undo schema. No PROD operation occurred.
+
+Verification includes real local D1 concurrency/replay, session/generation/closure/
+RBAC commit-window races, MFA, first-fitting groups, protected confirmations,
+independent guests, duplicate-email privacy, audit rollback, migration preservation,
+notification failure and real account deletion/promotion/anonymous retention.
+The broad run passed 672/673; its one legacy publication fixture was corrected to
+explicitly run against pre-0029 schema, then all five publication tests passed.
+Subsequent changed-area tests include shared-card rendering and retention; reuse
+unchanged successful security evidence. Strict types and default/DEV builds pass;
+DEV has the existing advisory main-chunk warning. Default build omits the ten LAN
+images. Local browser verified actual Worker/D1 create/reload, independent guest
+days, manager counters/cards and day/reset filtering using isolated fictional
+accounts. Exact-head CI, deployment and hosted acceptance follow publication.
+Keep #39 open for the owner's real DEV review; do not treat the demo acceptance
+as server-backed acceptance.

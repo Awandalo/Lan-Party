@@ -1,5 +1,6 @@
 import {feedbackReady} from './feedback-data';
 import {eventsReady,readEvents,writeEvent,EventError} from './event-data';
+import {deliverRegistrationNotifications} from './event-registration-mail';
 import {locationsReady,readLocations,writeLocation,LocationError} from './location-data';
 import {memberRead} from './members';
 import {readUserActivity} from './user-activity-read';
@@ -39,7 +40,7 @@ async function administrationAuthority(db:D1Database,userId:string,now:number) {
   return {rolesReady,admin,permissions:rows.results.map(row => row.code)};
 }
 
-export async function manage(request: Request, env: AuthenticationEnvironment): Promise<Response> {
+export async function manage(request: Request, env: AuthenticationEnvironment,ctx?:ExecutionContext): Promise<Response> {
   const reply = (status: number, data: object) => Response.json(data, {
     status, headers: {'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer'},
   });
@@ -80,7 +81,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
     if(eventEndpoint){
       if(!sectionPermissions.events.some(p=>permissions.includes(p)))return reply(403,{error:'Event access is restricted'});
       if(!await eventsReady(env.DB))return reply(503,{error:'Events requires its approved database migration'});
-      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update'),canDelete:admin,canPublish:permissions.includes('events.publish'),canCancel:permissions.includes('events.cancel')}:{}});
+      if(request.method==='GET')return reply(200,{...await readEvents(env.DB,url,eventLog,permissions.includes('users.view')),...!eventLog?{templates:(await readLocations(env.DB,new URL('https://local.test/?status=active'))).locations,canCreate:permissions.includes('events.create'),canUpdate:permissions.includes('events.update'),canDelete:admin,canPublish:permissions.includes('events.publish'),canCancel:permissions.includes('events.cancel'),canManageRegistrations:permissions.includes('events.manage_registrations')}:{}});
       const digest=await digestToken(token!,'session');
       if(!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
       if(url.search||request.headers.get('Content-Type')!=='application/json')throw new EventError(400,'Invalid request');
@@ -91,7 +92,9 @@ export async function manage(request: Request, env: AuthenticationEnvironment): 
       if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new EventError(400,'Invalid request');
       const action=(raw as Record<string,unknown>).action,required=action==='update'?'events.update':action==='publish'||action==='unpublish'?'events.publish':action==='cancel'?'events.cancel':'events.create';
       if(action==='delete'?!admin:!permissions.includes(required))return reply(403,{error:'Event change is restricted'});
-      return reply(200,await writeEvent(env.DB,account.userId,digest,raw as Record<string,unknown>));
+      const result=await writeEvent(env.DB,account.userId,digest,raw as Record<string,unknown>);
+      if(action==='cancel'&&'revision' in result)ctx?.waitUntil(deliverRegistrationNotifications(request,env,String((raw as Record<string,unknown>).operationId)));
+      return reply(200,result);
     }
     if(locationEndpoint){
       if(!permissions.includes('locations.manage'))return reply(403,{error:'Location access is restricted'});

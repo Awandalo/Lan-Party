@@ -1,4 +1,4 @@
-type MailPurpose = 'email-verification' | 'password-reset' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' | 'account-reactivation';
+type MailPurpose = 'email-verification' | 'password-reset' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' | 'account-reactivation' | 'event-registration';
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
@@ -6,6 +6,12 @@ function escapeHTML(value: string): string {
 }
 
 export function authenticationEmail(link: string, purpose: MailPurpose = 'email-verification') {
+  if(purpose==='event-registration'){
+    const url=new URL(link);
+    if(url.origin!=='https://dev.lan-party.club'||url.username||url.password||url.search||url.hash||!/^\/events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(url.pathname)||/[\s\u0000-\u001f\u007f]/.test(link))throw Error('Invalid event notification URL');
+    const text='Your LAN Party event registration has changed. This may be a confirmation, edit, cancellation or waitlist promotion. Sign in to review your current status and your guests’ days. If the event was cancelled or is no longer listed, contact the organizer.\n\n'+url.href;
+    return {subject:'Your LAN Party registration update',text,html:'<p>Your LAN Party event registration has changed.</p><p>Sign in to review your current status and your guests’ days. If the event was cancelled or is no longer listed, contact the organizer.</p><p><a href="'+escapeHTML(url.href)+'">Review your event registration</a></p>'};
+  }
   if (!['email-verification', 'password-reset', 'password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced','account-reactivation'].includes(purpose)) throw new Error('Invalid email purpose');
   const url = new URL(link);
   const reset = purpose === 'password-reset';

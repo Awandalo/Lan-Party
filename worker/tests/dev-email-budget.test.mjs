@@ -58,6 +58,13 @@ test('security notifications use guarded Security URLs and the same shared budge
  assert.equal(sent.length,5);assert.equal(await count(db),5);
  for(const item of sent)assert.deepEqual(item.to,['recipient@example.test']);
 }));
+test('event notices share the DEV recipient policy and budget and deny unsafe event links',()=>local(async db=>{
+ const sent=[],transport=new policy.DevResendEmailTransport(db,env,async(_input,init)=>{sent.push(JSON.parse(init.body));return new Response('{}');},()=>day);
+ const notification={...message,purpose:'event-registration',url:'https://dev.lan-party.club/events/10000000-0000-4000-8000-000000000001'};
+ await transport.send(notification);assert.equal(sent.length,1);assert.equal(await count(db),1);assert.match(sent[0].text,/registration has changed/);assert.deepEqual(sent[0].to,['recipient@example.test']);
+ for(const url of ['https://www.lan-party.club/events/10000000-0000-4000-8000-000000000001','https://dev.lan-party.club/events/not-an-id','https://dev.lan-party.club/events/10000000-0000-4000-8000-000000000001?token=bad','https://dev.lan-party.club/account/security'])await assert.rejects(transport.send({...notification,url}));
+ await assert.rejects(transport.send({...notification,to:'denied@example.test'}));assert.equal(sent.length,1);
+}));
 
 test('migration discovery rejects missing, unexpected and renamed SQL files', () => {
   assertMigrationHistory([...expectedHistory]);

@@ -95,7 +95,7 @@ test('past registration permanently blocks deletion/date changes even after regi
  const u=await f.user({genuine:true}),l=await venue(f),id=await create(f,u,l),registration=randomUUID();await f.sql('INSERT INTO registrations(id,user_id,event_id,registered_at,created_at,updated_at) VALUES (?,?,?,0,0,0)',registration,u.id,id).run();
  await f.sql("UPDATE registrations SET status='cancelled',cancelled_at=0 WHERE id=?",registration).run();const row=(await list(f,u))[0];assert.equal(row.registrationHistory,1);assert.equal((await call(f,u,deletion(row))).status,409);
  await f.sql('DELETE FROM registrations WHERE id=?',registration).run();assert.equal((await call(f,u,deletion(row))).status,409);await assert.rejects(f.sql('UPDATE events SET registration_recorded=0 WHERE id=?',id).run(),/cannot be cleared/);await assert.rejects(f.sql('DELETE FROM events WHERE id=?',id).run(),/Registration history/);
- assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,endsAt:draft(l).endsAt+86400}))).status,400);
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:(await list(f,u))[0].revision,endsAt:draft(l).endsAt+86400}))).status,400);
 }));
 test('deletion and edits fence revisions; an audit failure rolls back every deletion effect',()=>local(async f=>{
  const u=await f.user({genuine:true}),l=await venue(f),id=await create(f,u,l),row=(await list(f,u))[0];

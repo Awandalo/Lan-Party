@@ -1,11 +1,12 @@
 import {EVENT_ARTWORK,EVENT_ARTWORK_ALT} from '../lib/event-artwork';
-import {useEffect,useState} from 'react';
+import {lazy,Suspense,useEffect,useState} from 'react';
 import {Link,useParams} from 'react-router';
 import {useAuth} from '../lib/auth';
 import {eventTime,loadPublicEvents} from '../lib/public-events';
 import type {PublicEvent} from '../lib/public-events';
 import {locationDirections} from '../lib/locations';
 import EventDescription from '../components/EventDescription';
+const EventRegistration=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?lazy(()=>import('../components/EventRegistration')):null;
 import '../CSS/EventDetails_style.css';
 export default function EventDetails(){
  const {eventId}=useParams(),auth=useAuth(),proof=auth.status==='ready'?auth.session?.csrfToken:undefined;
@@ -16,7 +17,8 @@ export default function EventDetails(){
  if(!event)return <section className="page-section"><h1>{current?.message==='Event not found'?'Page not found':'Event'}</h1><p role="status">{current?.message??'Loading event…'}</p>{current?.message&&<button className="button" onClick={()=>setRetry(n=>n+1)}>Check again</button>}<p><Link to="/events">All events</Link></p></section>;
  const directions=event.venue?locationDirections(event.venue):null,href=window.location.origin+'/events/'+event.id;
  return <article className="page-section event-details"><p><Link to="/events">← All events</Link></p><img className="event-details-cover" src={EVENT_ARTWORK} alt={EVENT_ARTWORK_ALT}/><h1>{event.title}</h1><p>{eventTime(event.startsAt)} — {eventTime(event.endsAt)} (Netherlands time)</p><EventDescription source={event.description??''}/>
-  <section className="event-details-section"><h2>Attendance days</h2><ul>{event.days.map(day=><li key={day.date}>{day.date}: {day.remaining} places remaining</li>)}</ul><p>Registration {event.registrationStatus}. Online registration is not available yet.</p></section>
+  {!proof&&<section className="event-details-section"><h2>Attendance days</h2><ul>{event.days.map(d=><li key={d.date}>{d.date.split('-').reverse().join('-')}: {d.remaining} places remaining</li>)}</ul></section>}
+  {EventRegistration&&<Suspense fallback={<p>Loading registration…</p>}><EventRegistration key={key} id={event.id} onChange={()=>setRetry(n=>n+1)}/></Suspense>}
   <section className="event-details-section"><h2>Venue</h2>{event.venue?<><h3>{event.venue.name}</h3><p>{[event.venue.addressLine,event.venue.postalCode,event.venue.city,event.venue.countryCode].join(', ')}</p><p className="event-details-instructions">{event.venue.instructions}</p>{directions&&<a href={directions} target="_blank" rel="noreferrer">Directions in Google Maps ↗</a>}</>:<p>Venue details are available to signed-in members. <Link to="/login">Log in</Link></p>}</section>
   <div className="event-details-actions"><p role="status">{copied}</p><button className="button button-secondary" onClick={async()=>{try{await navigator.clipboard.writeText(href);setCopied('Event link copied');}catch{setCopied('Copy this event’s address from your browser.');}}}>Copy link</button><a className="button button-secondary" href={'https://wa.me/?text='+encodeURIComponent(event.title+' · '+eventTime(event.startsAt)+' — '+eventTime(event.endsAt)+' (Netherlands time)\n'+href)} target="_blank" rel="noreferrer">Share on WhatsApp ↗</a></div>
  </article>;

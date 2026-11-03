@@ -7,6 +7,7 @@ import {sessionCsrfToken} from './auth/csrf';
 import {fromHex} from './auth/encoding';
 import {eventsReady} from './event-data';
 import {UUID} from './role-administration';
+import {registrationReady} from './event-registration-data';
 
 const reply=(status:number,data:unknown)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, X-LAN-Session-Proof','X-Content-Type-Options':'nosniff'}});
 export async function publicEvents(request:Request,env:AuthenticationEnvironment){
@@ -30,7 +31,8 @@ export async function publicEvents(request:Request,env:AuthenticationEnvironment
    member=true;
   }
   const where=detail?'e.id=?':period==='past'?'m.ends_at<unixepoch()':'m.ends_at>=unixepoch()';
-  const statement=env.DB.prepare(`SELECT e.id,e.title,${detail?'e.description,':''}m.starts_at AS startsAt,m.ends_at AS endsAt,e.registration_status AS registrationStatus,CASE WHEN e.location_visibility='public' OR ?=1 THEN m.venue ELSE NULL END AS venue,(SELECT json_group_array(json_object('date',daily.date,'remaining',daily.remaining)) FROM (SELECT d.attendance_date AS date,max(0,m.capacity-(SELECT count(*) FROM registration_days rd JOIN registrations r ON r.id=rd.registration_id AND r.event_id=rd.event_id WHERE rd.event_day_id=d.id AND rd.event_id=e.id AND r.status='registered')) AS remaining FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled' ORDER BY d.attendance_date) daily) AS days FROM events e JOIN event_management m ON m.event_id=e.id WHERE e.publication_status='published' AND m.is_listed=1 AND ${where} ORDER BY m.starts_at ${period==='past'?'DESC':'ASC'},e.id LIMIT ${detail||limit==='1'?1:200}`);
+  const count=await registrationReady(env.DB)?`(SELECT count(*) FROM event_registration_places p JOIN registrations r ON r.id=p.registration_id WHERE p.event_day_id=d.id AND p.event_id=e.id AND p.state='confirmed' AND r.status='registered')+(SELECT count(*) FROM registration_days rd JOIN registrations r ON r.id=rd.registration_id WHERE rd.event_day_id=d.id AND r.status='registered' AND NOT EXISTS(SELECT 1 FROM event_registration_parties p WHERE p.registration_id=r.id))+coalesce((SELECT total FROM anonymous_day_registrations WHERE event_day_id=d.id),0)`:`(SELECT count(*) FROM registration_days rd JOIN registrations r ON r.id=rd.registration_id AND r.event_id=rd.event_id WHERE rd.event_day_id=d.id AND rd.event_id=e.id AND r.status='registered')`;
+  const statement=env.DB.prepare(`SELECT e.id,e.title,${detail?'e.description,':''}m.starts_at AS startsAt,m.ends_at AS endsAt,e.registration_status AS registrationStatus,CASE WHEN e.location_visibility='public' OR ?=1 THEN m.venue ELSE NULL END AS venue,(SELECT json_group_array(json_object('date',daily.date,'remaining',daily.remaining)) FROM (SELECT d.attendance_date AS date,max(0,m.capacity-(${count})) AS remaining FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled' ORDER BY d.attendance_date) daily) AS days FROM events e JOIN event_management m ON m.event_id=e.id WHERE e.publication_status='published' AND m.is_listed=1 AND ${where} ORDER BY m.starts_at ${period==='past'?'DESC':'ASC'},e.id LIMIT ${detail||limit==='1'?1:200}`);
   const rows=(await statement.bind(member?1:0,...detail?[id]:[]).all()).results;
   if(detail&&!rows.length)return reply(404,{error:'Not found'});
   const result=rows.map(row=>({...row,venue:row.venue?JSON.parse(String(row.venue)):null,days:JSON.parse(String(row.days))}));

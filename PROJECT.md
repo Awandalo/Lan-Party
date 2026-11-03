@@ -115,6 +115,18 @@ preview to DEV. The separate /preview/registration surface is gated to canonical
 DEV or loopback development and excluded from PROD builds; it still grants no
 real registration, persistence, email, migration or production authority.
 
+After accepting the hosted preview, the owner authorized connecting #39 to real
+events on DEV, including a Participants tab using the Who is coming card style
+and daily/overall counters. Local implementation uses migration 0029, authenticated
+self-service Worker APIs, atomic revision-fenced allocation, manual lifecycle
+controls, and durable responsible-member notifications through the existing
+guarded email transport. Daily counters include confirmed members and guests;
+overall total counts distinct confirmed people, with participant-days separately.
+This supersedes the preview-only implementation scope, not remote migration,
+PROD or Jotform boundaries. The owner separately approved 0029 and connected DEV
+activation; 0029 is applied with preservation/integrity verified. Publication and
+hosted acceptance are separate evidence; #39 remains open for that review.
+
 ## Agreed technology
 
 | Area | Decision |

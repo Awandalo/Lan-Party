@@ -30,7 +30,7 @@ test('publication exposes only approved public fields; unpublish and cancellatio
  assert.equal((await call(f,u,action('publish',5,{confirmation:'Updated public title'}))).status,409);
  assert.deepEqual((await f.sql('SELECT operation FROM event_activity ORDER BY sequence').all()).results.map(r=>r.operation),['event.create','event.publish','event.update','event.unpublish','event.publish','event.cancel']);
 }));
-test('public counts exclude cancelled registrations and all identities; venue proof fences account changes',()=>local(async f=>{
+test('legacy public counts exclude cancelled registrations and identities; venue proof fences account changes',()=>local(async f=>{
  const {u,id,action}=await setup(f),other=await f.user(),day=await f.sql('SELECT id FROM event_days WHERE event_id=? ORDER BY attendance_date',id).first('id');
  for(const [who,status] of [[u,'registered'],[other,'cancelled']]){const r=randomUUID();await f.sql('INSERT INTO registrations(id,user_id,event_id,status,cancelled_at,registered_at,created_at,updated_at) VALUES (?,?,?,?,?,0,0,0)',r,who.id,id,status,status==='cancelled'?0:null).run();await f.sql('INSERT INTO registration_days(registration_id,event_id,event_day_id,selected_at) VALUES (?,?,?,0)',r,id,day).run();}
  await f.sql("UPDATE events SET location_visibility='authenticated' WHERE id=?",id).run();assert.equal((await call(f,u,action('publish',0))).status,200);
@@ -40,7 +40,7 @@ test('public counts exclude cancelled registrations and all identities; venue pr
  await f.sql('UPDATE auth_sessions SET revoked_at=unixepoch() WHERE user_id=?',u.id).run();assert.equal((await call(f,u,undefined,'events/'+id)).status,401);
  assert.equal((await call(f,other,action('cancel',1))).status,403);
  const admin=await f.user({genuine:true});assert.equal((await call(f,admin,action('cancel',1))).status,409);
-}));
+},28));
 test('archived source confirmation, live permissions, stale revisions and audit failure guard lifecycle writes',()=>local(async f=>{
  const {u,l,id,action}=await setup(f),planner=await f.user({admin:true});
  await f.sql("DELETE FROM role_permissions WHERE role_id='30000000-0000-4000-8000-000000000001'").run();

@@ -15,13 +15,13 @@ test('published/terminal states retain the correct public/edit hierarchy and lif
  const terminal=render({...row,status:'cancelled'},all);assert.equal((terminal.match(/role="menuitem"/g)??[]).length,2);for(const label of ['Cancel event','Publish','Edit event','View public page'])assert.equal(terminal.includes(label),false,label);
 });
 test('history and current permissions control menu availability without bypassing disabled actions',()=>{
- const history=render({...row,registrationHistory:1},all);assert.equal((history.match(/ disabled=""/g)??[]).length,2);assert.equal((history.match(/Unavailable: this event has registration history./g)??[]).length,2);
+ const history=render({...row,registrationHistory:1},all);assert.equal((history.match(/ disabled=""/g)??[]).length,1);assert.equal((history.match(/Unavailable: this event has registration history./g)??[]).length,1);
  const noAccess=render(row,none);assert.equal(noAccess.includes('aria-haspopup="menu"'),false);assert.equal(noAccess.includes('Edit Draft'),false);
  const update=render(row,{...none,canUpdate:true});assert.equal(update.includes('aria-haspopup="menu"'),false);assert.ok(update.includes('Edit Draft'));
  const publisher=render(row,{...none,canPublish:true});assert.equal((publisher.match(/role="menuitem"/g)??[]).length,1);assert.ok(publisher.includes('Publish'));assert.equal(publisher.includes('Delete event'),false);
 });
 test('future sections are explicitly unavailable and introduce no navigation or pretend panels',()=>{
- const html=sections();assert.ok(html.includes('aria-current="page">Overview'));assert.equal((html.match(/disabled=""/g)??[]).length,2);assert.equal((html.match(/Coming later/g)??[]).length,2);assert.equal(html.includes('href='),false);assert.equal(html.includes('role="tab"'),false);
+ const html=sections();assert.ok(html.includes('aria-current="page"'));assert.ok(html.includes('>Overview</button>'));assert.equal((html.match(/disabled=""/g)??[]).length,2);assert.equal((html.match(/Coming later/g)??[]).length,2);assert.equal(html.includes('href='),false);assert.equal(html.includes('role="tab"'),false);
 });
 
 test('short-viewport placement keeps a flipped menu below the sticky header and inside horizontal bounds',()=>{

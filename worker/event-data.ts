@@ -5,6 +5,7 @@ import {locationDraft,locationColumns} from './location-data';
 import {validateEventDocument} from '../src/lib/event-document';
 import type {EventNode} from '../src/lib/event-document';
 import {eventDates,eventInstant,eventLocalTime} from '../src/lib/event-time';
+import {registrationReady,mutateRegistration} from './event-registration-data';
 
 export class EventError extends Error {constructor(public status:number,message:string){super(message);}}
 export async function eventsReady(db:D1Database){
@@ -12,7 +13,8 @@ export async function eventsReady(db:D1Database){
  return schema?.ready===1&&schema.obsolete===0;
 }
 const permission=(code:string)=>`EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=u.id AND r.is_active=1 AND ur.assigned_at<=unixepoch() AND rp.granted_at<=unixepoch() AND p.code='${code}')`;
-function actor(code:string|null){return `EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id WHERE u.id=? AND s.token_digest=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.updated_at<=unixepoch() AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.created_at<=unixepoch() AND s.expires_at>unixepoch() AND NOT EXISTS(SELECT 1 FROM account_lifecycle WHERE user_id=u.id) AND ${mfaSessionCondition} AND (${code?administratorPredicate()+' OR '+permission(code):administratorPredicate()}))`;}
+export function eventActor(code:string|null){return `EXISTS(SELECT 1 FROM users u JOIN auth_sessions s ON s.user_id=u.id WHERE u.id=? AND s.token_digest=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.updated_at<=unixepoch() AND s.auth_version=u.auth_version AND s.revoked_at IS NULL AND s.created_at<=unixepoch() AND s.expires_at>unixepoch() AND NOT EXISTS(SELECT 1 FROM account_lifecycle WHERE user_id=u.id) AND ${mfaSessionCondition} AND (${code?administratorPredicate()+' OR '+permission(code):administratorPredicate()}))`;}
+const actor=eventActor;
 function text(value:unknown,max:number,required=false){if(typeof value!=='string'||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)||required&&!value.trim())throw new EventError(400,'Check the event fields');return value.trim();}
 function integer(value:unknown,min:number,max:number){if(!Number.isSafeInteger(value)||Number(value)<min||Number(value)>max)throw new EventError(400,'Invalid event number');return Number(value);}
 function venue(raw:unknown){
@@ -139,7 +141,10 @@ async function lifecycleEvent(db:D1Database,userId:string,digest:string,raw:Reco
   if(JSON.stringify(dates)!==JSON.stringify(saved.map(d=>d.date)))throw new EventError(409,'Review attendance days before publishing');
   if(row.templateActive!==1&&raw.acknowledgeArchivedTemplate!==true)throw new EventError(409,'The source location is archived. Review and confirm the saved venue before publishing.');
  }else if(action==='unpublish'&&(row.status!=='published'||row.listed!==1))throw new EventError(409,'Event is not publicly listed');
- if(action==='cancel'&&row.registrationHistory===1)throw new EventError(409,'Cancellation with registration history awaits participant notification support');
+ if(action==='cancel'&&row.registrationHistory===1){
+  if(await registrationReady(db))return mutateRegistration(db,id,userId,digest,{action:'cancel-event',revision,operationId:raw.operationId},true);
+  throw new EventError(409,'Cancellation with registration history awaits participant notification support');
+ }
  const next=action==='cancel'?'cancelled':'published',listed=action==='publish'?1:0;
  const guard=action==='cancel'?`AND ${noHistory}`:action==='publish'&&raw.acknowledgeArchivedTemplate!==true?'AND EXISTS(SELECT 1 FROM locations WHERE id=? AND is_active=1)':'';
  const bindings:(string|number)[]=[listed,id,revision,userId,digest,String(row.status),Number(row.listed)];

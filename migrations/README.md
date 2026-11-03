@@ -696,3 +696,20 @@ rollback is authorized. Recovery/restore requires a separate reviewed decision.
 
 Cloudflare documents per-migration error rollback in its
 [D1 Wrangler commands](https://developers.cloudflare.com/d1/wrangler-commands/#d1-migrations-apply).
+
+## 0029 — Event member/guest registration
+
+Adds event queue sequence, private registration drafts, normalized person/day
+places, operation receipts and a durable member-notification outbox. Existing
+member registrations and selected days backfill without replacing their IDs or
+modifying foundation rows. Guest/contact data cascades with the registration;
+account deletion retains only completed anonymous guest totals, matching the
+member-total policy. Existing schema/history/roles/accounts remain intact.
+
+Apply only to DEV after exact 0029 approval, a fresh recovery checkpoint, history
+through 0028 and preservation/integrity preflight. The old Worker ignores these
+additive tables; new registration endpoints fail closed without them. Current
+read-only DEV preflight: zero registrations, three managed events, eight event
+days, 0029 not applied (2026-11-03). Recheck before execution. Application
+publication/activation, provider acceptance and PROD are separate facts. No
+automatic down migration, destructive reset or Jotform cutover is provided.

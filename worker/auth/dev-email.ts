@@ -75,7 +75,7 @@ export class DevResendEmailTransport implements EmailTransport {
   async send(mail: AccountMail): Promise<void> {
     assertDevEmailRecipient(this.env, mail.to);
     const url = new URL(mail.url);
-    const path = ['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(mail.purpose ?? '') ? '/account/security'
+    const path = mail.purpose==='event-registration'&&/^\/events\/[0-9a-f-]{36}$/.test(url.pathname)?url.pathname:['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(mail.purpose ?? '') ? '/account/security'
       : mail.purpose === 'account-reactivation' ? '/reactivate' : mail.purpose === 'password-reset' ? '/reset-password' : '/verify-email';
     if (url.origin !== origin || url.username || url.password || url.pathname !== path || url.search) {
       throw new DevEmailPolicyError();

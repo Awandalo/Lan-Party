@@ -1,3 +1,3 @@
-export default function EventSections(){
- return <div className="event-sections" role="group" aria-label="Event sections"><span className="event-section-current" aria-current="page">Overview</span><button type="button" disabled>Participants <small>Coming later</small></button><button type="button" disabled>Finance <small>Coming later</small></button></div>;
+export default function EventSections({selected='overview',onSelect}:{selected?:'overview'|'participants';onSelect?:(tab:'overview'|'participants')=>void}){
+ return <div className="event-sections" role="group" aria-label="Event sections"><button type="button" className={selected==='overview'?'event-section-current':''} aria-current={selected==='overview'?'page':undefined} aria-pressed={selected==='overview'} onClick={()=>onSelect?.('overview')}>Overview</button><button type="button" className={selected==='participants'?'event-section-current':''} disabled={!onSelect} aria-pressed={selected==='participants'} onClick={()=>onSelect?.('participants')}>Participants {!onSelect&&<small>Coming later</small>}</button><button type="button" disabled>Finance <small>Coming later</small></button></div>;
 }

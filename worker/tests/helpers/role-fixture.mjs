@@ -12,12 +12,27 @@ before(async()=>{
  const pageShell=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
+ import {localMailbox} from './worker/auth/email';
+ let rejectRegistrationMail=false;const originalMail=localMailbox.send.bind(localMailbox);localMailbox.send=async mail=>{if(rejectRegistrationMail&&mail.purpose==='event-registration')throw Error('Fictional mail failure');return originalMail(mail);};
  const background=new Set();
  export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
  if(path.startsWith('/events/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
+ if(path==='/fixture-registration-maintenance'){await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev'},ctx);return new Response('scheduled');}
  const runtime=ctx;ctx={waitUntil(task){background.add(task);runtime.waitUntil(task.finally(()=>background.delete(task)));}};
  if(path!='/fixture'){
+  if(request.headers.get('X-Fixture-Mail-Failure')==='1')rejectRegistrationMail=true;
+  const registrationFence=request.headers.get('X-Fixture-Registration-Fence');
+  if(registrationFence){
+   let batchCount=0;
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{if(++batchCount===2){
+    if(registrationFence==='session')await env.DB.prepare('UPDATE auth_sessions SET revoked_at=unixepoch() WHERE token_digest=?').bind(request.headers.get('X-Fixture-Digest')).run();
+    if(registrationFence==='generation')await env.DB.prepare('UPDATE users SET auth_version=auth_version+1 WHERE id=?').bind(request.headers.get('X-Fixture-Actor')).run();
+    if(registrationFence==='permission')await env.DB.prepare("DELETE FROM user_roles WHERE user_id=?").bind(request.headers.get('X-Fixture-Actor')).run();
+    if(registrationFence==='close')await env.DB.prepare("UPDATE events SET registration_status='closed' WHERE id=?").bind(request.headers.get('X-Fixture-Event')).run();
+   }return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
   if(request.headers.get('X-Fixture-Read-Profile')==='1'){
    const sqls=[],tasks=[];
    const statement=(value,sql)=>new Proxy(value,{get(target,key){if(key==='bind')return(...args)=>statement(target.bind(...args),sql);const entry=Reflect.get(target,key);if(['first','all','run'].includes(key))return(...args)=>{sqls.push(sql);return entry.apply(target,args);};return typeof entry==='function'?entry.bind(target):entry;}});
