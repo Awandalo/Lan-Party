@@ -371,3 +371,34 @@ inspection recovered after resetting the tool connection. At the current
 1371×1191 viewport the normal Edit details form is 888px high with equal content
 and visible heights (no dialog scrollbar), and expansion/Escape still work.
 Small windows, longer content and validation messages retain natural scrolling.
+
+## Phase 5.3A — public discovery/detail/archive review (2026-11-03)
+
+Owner authorized the bounded acceptance/gap pass against #38's 2026-11-02
+launch-scope update. Reuse accepted #37 public list/detail/Up Next/sharing and
+visibility behavior. Do not add attendee or Gallery placeholders. Gallery,
+photos/uploads/R2 are excluded from the initial launch; #42 remains separately
+tracked. Confirmed member/day visibility waits for #39; reviewed actual attendance
+waits for #40. Planned days must never be described as reviewed attendance.
+
+Ten focused publication/metadata integration tests pass, including private venue
+session fencing, identity exclusion, ongoing/past placement and hidden URLs.
+Hosted anonymous DEV at 854f77f was checked for Upcoming/Past switching, detail,
+Copy Link confirmation and prepared WhatsApp target; no message sent. At 390px
+viewport the public detail has equal 375px client/scroll widths and no attendee or
+Gallery controls. DEV currently has an empty Past archive; populated historical
+and ongoing scenarios are verified with isolated fictional integration fixtures.
+
+One demonstrated gap was corrected locally: /events/:id now labels the header
+Event details instead of repeating LAN Party. Ten frontend presentation tests,
+strict TypeScript and build pass; fictional browser navigation confirms the fix.
+Unchanged backend/security evidence is reused; no full local rerun, migration,
+remote data write, storage/configuration change or PROD operation. Local fix is
+not committed/pushed; authenticated hosted acceptance and real mobile/OS
+accessibility remain owner checks. Keep #38 open for its deferred dependencies.
+
+Owner subsequently approved the prepared correction and scoped DEV publication
+in the trusted conversation on 2026-11-03. Publish only this breadcrumb fix,
+regression assertion and supporting scope/evidence documentation through the
+normal DEV workflow; record exact CI/deployment results in #38. This supersedes
+the preparation-only publication status above, not the remaining acceptance gates.

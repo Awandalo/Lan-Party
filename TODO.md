@@ -945,3 +945,13 @@ See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote chang
 - Local one-time #0001 bootstrap candidate prepared; owner email/setup code stay private.
 - Separate approval required for migration 0019, publication/protected MAIN merge and activation.
 - Verify email ownership before initial admin grant; no live account created by preparation.
+
+## Phase 5.3A — public acceptance pass
+
+- [x] Compare updated #38 against accepted #37; reuse existing public pages.
+- [x] Verify privacy/publication/archive integration and public DEV navigation/sharing.
+- [x] Prepare/test the demonstrated event-detail breadcrumb label correction locally.
+- [x] Owner authorizes the prepared correction and DEV publication (2026-11-03).
+- [ ] Verify exact-head CI/deployment and record the DEV handover in #38.
+- [ ] Owner public-page acceptance; keep #38 open for #39/#40 dependencies.
+- Gallery/uploads/storage excluded from initial launch; no Gallery placeholders.

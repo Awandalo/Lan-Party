@@ -98,6 +98,13 @@ in UI/API to new or changed timestamps, preserving unchanged legacy instants exa
 Existing DST, chronology, derived-day/history, permissions and confirmations remain.
 No migration or PROD change; owner hosted retest remains the acceptance gate.
 
+Phase 5.3A (#38) is an owner-authorized public discovery/detail/archive acceptance
+pass reusing #37. Gallery/photos/uploads/R2 are excluded from initial launch;
+#42 stays tracked. No public placeholder tabs. Member attendee visibility waits
+for #39; reviewed actual attendance waits for #40. A local breadcrumb correction
+and targeted acceptance evidence are recorded in the Events contract. #38 remains
+open; no PROD or Jotform cutover is included.
+
 ## Agreed technology
 
 | Area | Decision |
