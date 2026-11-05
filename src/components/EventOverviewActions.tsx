@@ -5,9 +5,9 @@ import type {EventCatalogue,ManagedEvent} from '../lib/event-management';
 type Access=Pick<EventCatalogue,'canCreate'|'canUpdate'|'canDelete'|'canPublish'|'canCancel'|'canManageRegistrations'>;
 interface Props {row:ManagedEvent;access:Access;onDelete:()=>void;onDuplicate:()=>void;onEdit:()=>void;onLifecycle:(action:'publish'|'unpublish'|'cancel')=>void;onRegistration?:()=>void;pending?:boolean}
 export default function EventOverviewActions({row,access,onDelete,onDuplicate,onEdit,onLifecycle,onRegistration,pending=false}:Props){
- const editable=['draft','published'].includes(row.status),reason=row.registrationHistory?'Unavailable: this event has registration history.':undefined;
+ const editable=!row.finalized&&['draft','published'].includes(row.status),reason=row.registrationHistory?'Unavailable: this event has registration history.':undefined;
  const actions:EventMenuAction[]=[];
- if(access.canDelete)actions.push({id:'delete',label:'Delete event',danger:true,reason,onSelect:onDelete});
+ if(access.canDelete&&!row.finalized)actions.push({id:'delete',label:'Delete event',danger:true,reason,onSelect:onDelete});
  if(access.canCreate)actions.push({id:'duplicate',label:'Duplicate',onSelect:onDuplicate});
  if(access.canManageRegistrations&&onRegistration&&row.status==='published'&&row.revision!==null&&row.endsAt!==null&&row.endsAt>Date.now()/1000)actions.push({id:'registration',label:row.registrationStatus==='open'?'Close registration':'Reopen registration',reason:pending?'A change is being saved.':undefined,onSelect:onRegistration});
  if(access.canCancel&&editable)actions.push({id:'cancel',label:'Cancel event',onSelect:()=>onLifecycle('cancel')});

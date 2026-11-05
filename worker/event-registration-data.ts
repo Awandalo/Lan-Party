@@ -1,3 +1,4 @@
+import {finalizedEvent} from './event-finalization-data';
 import {changeRegistration,ownPlaces} from '../src/lib/registration-allocation';
 import type {PreviewCommand,PreviewRegistrationState,Party,Group} from '../src/lib/registration-allocation';
 import type {RegistrationDraft} from '../src/lib/event-registration';
@@ -7,21 +8,24 @@ import {UUID} from './role-administration';
 import {emailAddress} from './auth/accounts';
 
 export async function registrationReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='event_registration_notifications'").first();}
+export async function registrationCapacityReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM pragma_table_info('event_registration_control') WHERE name='capacity'").first();}
 export interface RegistrationSnapshot {state:PreviewRegistrationState;meta:Record<string,unknown>;members:{id:string;name:string}[]}
 export async function registrationSnapshot(db:D1Database,id:string):Promise<RegistrationSnapshot>{
+ const configurableCapacity=await registrationCapacityReady(db);
  const result=await db.batch<Record<string,unknown>>([
-  db.prepare(`SELECT m.*,e.title,e.publication_status,e.registration_status,c.sequence,unixepoch() AS now,coalesce((SELECT total FROM anonymous_event_registrations WHERE event_id=e.id),0) AS anonymousTotal FROM event_management m JOIN events e ON e.id=m.event_id JOIN event_registration_control c ON c.event_id=m.event_id WHERE e.id=?`).bind(id),
+  db.prepare(`SELECT m.*,${configurableCapacity?'coalesce(c.capacity,m.capacity)':'m.capacity'} AS registrationCapacity,e.title,e.publication_status,e.registration_status,c.sequence,unixepoch() AS now,coalesce((SELECT total FROM anonymous_event_registrations WHERE event_id=e.id),0) AS anonymousTotal FROM event_management m JOIN events e ON e.id=m.event_id JOIN event_registration_control c ON c.event_id=m.event_id WHERE e.id=?`).bind(id),
   db.prepare(`SELECT r.id,r.user_id,r.status,p.draft,CASE WHEN u.status='active' THEN coalesce(n.nickname,'Member') ELSE 'Deactivated user' END AS name FROM registrations r JOIN users u ON u.id=r.user_id LEFT JOIN event_registration_parties p ON p.registration_id=r.id LEFT JOIN user_nicknames n ON n.user_id=r.user_id WHERE r.event_id=? ORDER BY r.id`).bind(id),
   db.prepare(`SELECT r.user_id,d.attendance_date AS day,p.person_id,p.state,p.queue_sequence FROM event_registration_places p JOIN registrations r ON r.id=p.registration_id JOIN event_days d ON d.id=p.event_day_id WHERE p.event_id=? AND r.status='registered' ORDER BY p.queue_sequence,p.person_id`).bind(id),
   db.prepare('SELECT d.attendance_date AS day,coalesce(a.total,0) AS anonymous FROM event_days d LEFT JOIN anonymous_day_registrations a ON a.event_day_id=d.id WHERE d.event_id=? ORDER BY d.attendance_date').bind(id)
  ]);
  const meta=result[0].results[0];if(!meta)throw new EventError(404,'Event not found');
+ meta.configurableCapacity=configurableCapacity;
  meta.anonymousDays=Object.fromEntries(result[3].results.map(d=>[String(d.day),Number(d.anonymous)]));
  if(result[1].results.some(p=>p.draft===null))throw new EventError(503,'Registration history needs review before activation');
  const parties:Party[]=result[1].results.map(p=>({...JSON.parse(String(p.draft)),owner:String(p.user_id),active:p.status==='registered'}));
  const confirmed:Group[]=[],waiting:Group[]=[];
  for(const row of result[2].results){const list=row.state==='confirmed'?confirmed:waiting;let group=list.find(g=>g.owner===row.user_id&&g.day===row.day&&g.sequence===row.queue_sequence);if(!group){group={owner:String(row.user_id),day:String(row.day),sequence:Number(row.queue_sequence),people:[]};list.push(group);}group.people.push(String(row.person_id));}
- const state:PreviewRegistrationState={revision:Number(meta.revision),sequence:Number(meta.sequence),open:meta.registration_status==='open',ended:Number(meta.ends_at)<=Number(meta.now),cancelled:meta.publication_status==='cancelled',capacity:Number(meta.capacity),days:result[3].results.map(r=>String(r.day)),maxGuests:Number(meta.max_guests),parties,confirmed,waiting,notices:[]};
+ const state:PreviewRegistrationState={revision:Number(meta.revision),sequence:Number(meta.sequence),open:meta.registration_status==='open',ended:Number(meta.ends_at)<=Number(meta.now),cancelled:meta.publication_status==='cancelled',capacity:Number(meta.registrationCapacity),days:result[3].results.map(r=>String(r.day)),maxGuests:Number(meta.max_guests),parties,confirmed,waiting,notices:[]};
  return {meta,state,members:result[1].results.map(p=>({id:String(p.user_id),name:String(p.name)}))};
 }
 export function registrationProjection(snapshot:RegistrationSnapshot,userId:string,manager=false){
@@ -43,6 +47,7 @@ function draftInput(raw:unknown):RegistrationDraft{
 export async function mutateRegistration(db:D1Database,id:string,userId:string,digest:string,raw:Record<string,unknown>,manager:boolean){
  const action=String(raw.action),allowed=manager?['open','close','capacity','cancel-event']:['save','cancel'];
  if(Object.keys(raw).some(k=>!['action','revision','operationId',...(action==='save'?['draft']:action==='capacity'?['capacity']:[])].includes(k))||!allowed.includes(action)||!Number.isSafeInteger(raw.revision)||!UUID.test(String(raw.operationId)))throw new EventError(400,'Invalid registration request');
+ if(await finalizedEvent(db,id))throw new EventError(409,'This event is permanently finalized');
  const snapshot=await registrationSnapshot(db,id),{state,meta}=snapshot;
  if(meta.publication_status!=='published'||!manager&&meta.is_listed!==1)throw new EventError(409,'This event is not accepting changes');
  if(action==='open'&&state.ended)throw new EventError(409,'An ended event cannot reopen registration');
@@ -51,13 +56,14 @@ export async function mutateRegistration(db:D1Database,id:string,userId:string,d
  if(action==='capacity'&&!Number.isSafeInteger(raw.capacity))throw new EventError(400,'Use a whole-number capacity');
  const command:PreviewCommand=action==='save'?{action,owner:userId,draft:draftInput(raw.draft)}:action==='cancel'?{action,owner:userId}:action==='capacity'?{action,capacity:Number(raw.capacity)}:{action:action as 'open'|'close'|'cancel-event'};
  let next:PreviewRegistrationState;try{next=changeRegistration(state,Number(raw.revision),command);}catch(e){throw new EventError(state.revision!==raw.revision?409:400,(e as Error).message);}
+ if(action==='capacity'&&!meta.configurableCapacity)throw new EventError(503,'Capacity changes are awaiting their database migration');
  const payload=JSON.stringify(next.parties.map(p=>({...p,id:crypto.randomUUID()}))),groups=JSON.stringify([...next.confirmed.map(g=>({...g,status:'confirmed'})),...next.waiting.map(g=>({...g,status:'waitlisted'}))]);
  const sessionGuard=manager?eventActor(action==='cancel-event'?'events.cancel':'events.manage_registrations'):memberActor;
  const statements=[
-  db.prepare(`UPDATE event_management SET revision=revision+1,capacity=? WHERE event_id=? AND revision=? AND ${sessionGuard} AND ends_at=? AND max_guests=? AND capacity=? AND (SELECT count(*) FROM event_registration_operations WHERE actor_id=? AND occurred_at>unixepoch()-600)<20 AND EXISTS(SELECT 1 FROM events e WHERE e.id=event_management.event_id AND publication_status='published' ${manager?'':"AND registration_status='open' AND event_management.is_listed=1"}) ${['open','save','cancel'].includes(action)?'AND ends_at>unixepoch()':''}`).bind(next.capacity,id,state.revision,userId,digest,meta.ends_at,meta.max_guests,meta.capacity,userId),
+  db.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${sessionGuard} AND ends_at=? AND max_guests=? AND capacity=? AND (SELECT count(*) FROM event_registration_operations WHERE actor_id=? AND occurred_at>unixepoch()-600)<20 AND EXISTS(SELECT 1 FROM events e WHERE e.id=event_management.event_id AND publication_status='published' ${manager?'':"AND registration_status='open' AND event_management.is_listed=1"}) ${['open','save','cancel','capacity'].includes(action)?'AND ends_at>unixepoch()':''}`).bind(id,state.revision,userId,digest,meta.ends_at,meta.max_guests,meta.capacity,userId),
   db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Registration conflict') END"),
   db.prepare('INSERT INTO event_registration_operations(operation_id,event_id,actor_id,action,occurred_at,revision) VALUES (?,?,?,?,unixepoch(),?)').bind(raw.operationId,id,userId,action,next.revision),
-  db.prepare('UPDATE event_registration_control SET sequence=? WHERE event_id=?').bind(next.sequence,id),
+  action==='capacity'?db.prepare('UPDATE event_registration_control SET sequence=?,capacity=? WHERE event_id=?').bind(next.sequence,next.capacity,id):db.prepare('UPDATE event_registration_control SET sequence=? WHERE event_id=?').bind(next.sequence,id),
   db.prepare("UPDATE events SET registration_status=?,publication_status=CASE WHEN ?=1 THEN 'cancelled' ELSE publication_status END,updated_at=unixepoch() WHERE id=?").bind(next.open?'open':'closed',next.cancelled?1:0,id),
   db.prepare(`INSERT INTO registrations(id,user_id,event_id,status,registered_at,cancelled_at,created_at,updated_at) SELECT json_extract(value,'$.id'),json_extract(value,'$.owner'),?,CASE WHEN json_extract(value,'$.active')=1 THEN 'registered' ELSE 'cancelled' END,unixepoch(),CASE WHEN json_extract(value,'$.active')=1 THEN NULL ELSE unixepoch() END,unixepoch(),unixepoch() FROM json_each(?) WHERE 1 ON CONFLICT(user_id,event_id) DO UPDATE SET status=excluded.status,cancelled_at=CASE WHEN registrations.status<>excluded.status THEN excluded.cancelled_at ELSE registrations.cancelled_at END,updated_at=excluded.updated_at WHERE registrations.status<>excluded.status OR registrations.user_id=?`).bind(id,payload,manager?'':userId),
   db.prepare(`INSERT INTO event_registration_parties(registration_id,draft) SELECT r.id,json_object('days',json(json_extract(j.value,'$.days')),'guests',json(json_extract(j.value,'$.guests'))) FROM json_each(?) j JOIN registrations r ON r.user_id=json_extract(j.value,'$.owner') AND r.event_id=? WHERE 1 ON CONFLICT(registration_id) DO UPDATE SET draft=excluded.draft`).bind(payload,id),

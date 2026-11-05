@@ -1,3 +1,4 @@
+import {finalizedEvent} from './event-finalization-data';
 import type {AuthenticationEnvironment} from './auth/http';
 import {authOrigin,authRouteEnabled,hostedDev,loopback,validAuthMutation} from './auth/environment';
 import {readSessionCookie} from './auth/cookies';
@@ -31,7 +32,7 @@ export async function eventReview(request:Request,env:AuthenticationEnvironment)
    if(review.snapshot.meta.publication_status!=='published')return reply(404,{error:'Event not found'});
    const guard=eventActor('events.manage_registrations')+(canFinance?' AND '+eventActor('finance.manage'):'');
    if(!await env.DB.prepare('SELECT 1 FROM event_management WHERE event_id=? AND revision=? AND '+guard).bind(match[1],review.snapshot.state.revision,account.userId,digest,...(canFinance?[account.userId,digest]:[])).first())return reply(409,{error:'Event or permissions changed. Reload before continuing'});
-   return reply(200,{revision:review.snapshot.state.revision,ended:review.snapshot.state.ended,open:review.snapshot.state.open,canFinance,rentalCents:Number(review.snapshot.meta.rental_cents),days:review.snapshot.state.days,people:review.people.map(p=>canFinance?p:{...p,complimentary:undefined}),anonymousDays:review.anonymousDays,anonymousPeople:review.anonymousPeople,deletedAccounts:review.deletedAccounts,...canFinance?{settings:review.settings}:{},activity:review.activity.filter(r=>canFinance||r.action==='attendance')});
+   return reply(200,{finalized:!!await finalizedEvent(env.DB,match[1]),revision:review.snapshot.state.revision,ended:review.snapshot.state.ended,open:review.snapshot.state.open,canFinance,rentalCents:Number(review.snapshot.meta.rental_cents),days:review.snapshot.state.days,people:review.people.map(p=>canFinance?p:{...p,complimentary:undefined}),anonymousDays:review.anonymousDays,anonymousPeople:review.anonymousPeople,deletedAccounts:review.deletedAccounts,...canFinance?{settings:review.settings}:{},activity:review.activity.filter(r=>canFinance||r.action==='attendance')});
   }
   if(!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
   const reader=request.body?.getReader();if(!reader)throw new EventError(400,'Invalid request');

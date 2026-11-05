@@ -1,10 +1,13 @@
 # TODO / To remember
 
-## Current DEV handover — Phase 5.5 A (#40)
+## Current DEV handover — Phase 5.5 B (#40)
 
 - [x] Owner local acceptance of Participants → Attendance review: remove/restore people or days, Pay/Free, payment instructions and anonymous former-account labels.
-- [ ] Owner hosted DEV acceptance of Attendance review.
-- [ ] Later B: permanent event closure and combined final bills; Planner alone may close.
+- [x] Owner accepted A on 2026-11-05 after hosted testing; keep accepted working flows and allow bounded UI cleanup.
+- [x] Owner accepted local button hover/focus, attendance timelines and capacity correction; DEV publication authorized.
+- [x] Owner accepted local B and authorized DEV publication: permanent closure and combined final bills; Planner alone may close.
+- [x] Separately approved DEV migrations 0031–0032 applied with verified recovery, all 52 existing tables preserved and integrity checks passing.
+- [ ] Final hosted DEV acceptance of B. See [B contract and verification](docs/event-finalization.md).
 - [ ] Later C: reviewed payment-email action and manual Paid/Unpaid within the agreed scope.
 - [x] Owner authorized DEV publication and separately approved migration 0030 on 2026-11-05; migration applied and preservation/integrity verified. Publication and hosted checks are recorded in the handover report.
 

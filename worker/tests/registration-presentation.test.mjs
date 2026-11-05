@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {createRequire,Module} from 'node:module';
 import {test} from 'node:test';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import RegistrationCrew from './src/components/RegistrationCrew';import RegistrationSummary from './src/components/RegistrationSummary';import MinimumAttendanceCounter from './src/components/MinimumAttendanceCounter';export const minimum=(days,needed,people)=>renderToStaticMarkup(<MinimumAttendanceCounter days={days} minimum={needed} people={people} selected={true} onSelect={()=>{}}/>);export const summary=(people,places)=>renderToStaticMarkup(<RegistrationSummary people={people} places={places}/>);export const renderWithFilters=()=>renderToStaticMarkup(<RegistrationCrew members={[]} day={null} onReset={()=>{}} filters={<nav aria-label="Filter crew"><button>All days</button></nav>}/>);export const render=(members,day)=>renderToStaticMarkup(<RegistrationCrew members={members} day={day} onReset={()=>{}}/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'}});
-const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(result.outputFiles[0].text,import.meta.filename);const {render,summary,renderWithFilters,minimum}=mod.exports;
+const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import RegistrationCrew from './src/components/RegistrationCrew';import RegistrationSummary from './src/components/RegistrationSummary';import MinimumAttendanceCounter from './src/components/MinimumAttendanceCounter';import AttendanceTimeline from './src/components/AttendanceTimeline';export const timeline=(days,places)=>renderToStaticMarkup(<AttendanceTimeline days={days} places={places}/>);export const minimum=(days,needed,people)=>renderToStaticMarkup(<MinimumAttendanceCounter days={days} minimum={needed} people={people} selected={true} onSelect={()=>{}}/>);export const summary=(people,places)=>renderToStaticMarkup(<RegistrationSummary people={people} places={places}/>);export const renderWithFilters=()=>renderToStaticMarkup(<RegistrationCrew members={[]} day={null} onReset={()=>{}} filters={<nav aria-label="Filter crew"><button>All days</button></nav>}/>);export const render=(members,day)=>renderToStaticMarkup(<RegistrationCrew members={members} day={day} onReset={()=>{}}/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'}});
+const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(result.outputFiles[0].text,import.meta.filename);const {render,summary,renderWithFilters,minimum,timeline}=mod.exports;
 test('crew uses shared cards and truthful badge placeholders; selected-day filtering excludes other members/dates',()=>{
  const members=[{id:'a',name:'Pixel <Alice>',days:['2030-11-01','2030-11-03']},{id:'b',name:'Byte Bob',days:['2030-11-02']}];
  const all=render(members,null);assert.ok(all.includes('Pixel &lt;Alice&gt;'));assert.ok(all.includes('Byte Bob'));assert.ok(all.includes('Achievement badge placeholders'));assert.ok(all.includes('Coming later'));assert.ok(all.includes('01-11-2030'));assert.equal(all.includes('<Alice>'),false);
@@ -37,4 +37,24 @@ test('event minimum uses confirmed full-event equivalents, with unique people ke
  const full=minimum([{confirmed:1},{confirmed:1},{confirmed:1}],1,1);assert.ok(full.includes('>1</strong>'));assert.ok(full.includes('Minimum reached'));assert.ok(full.includes('1 person · 3 participant-days'));
  const partial=minimum([{confirmed:1},{confirmed:0},{confirmed:0}],1,1);assert.ok(partial.includes('>0.33</strong>'));assert.ok(partial.includes('Toward minimum'));
  const empty=minimum([],1,0);assert.ok(empty.includes('>0</strong>'));assert.ok(empty.includes('Toward minimum'));assert.equal(empty.includes('NaN'),false);
+});
+
+
+test('person timeline distinguishes internal gaps from unselected days outside the confirmed range',()=>{
+ const days=['2030-11-01','2030-11-02','2030-11-03','2030-11-04','2030-11-05'];
+ const html=timeline(days,[{day:days[1],status:'confirmed'},{day:days[3],status:'confirmed'}]);
+ const states=[...html.matchAll(/class="attendance-step attendance-([a-z]+)"/g)].map(match=>match[1]);
+ assert.deepEqual(states,['outside','confirmed','gap','confirmed','outside']);
+ assert.equal((html.match(/datetime=/gi)??[]).length,5);assert.ok(html.includes('02-11-2030'));assert.ok(html.includes('Not attending'));
+ assert.ok(html.includes('--next-day-color:var(--attendance-gap)'));assert.ok(html.includes('--next-day-color:var(--attendance-confirmed)'));
+ const endpoints=timeline(days,[{day:days[0],status:'confirmed'},{day:days[4],status:'confirmed'}]);
+ assert.equal((endpoints.match(/attendance-step attendance-gap/g)??[]).length,3);
+});
+
+test('person timeline keeps single-day, empty and waitlisted attendance truthful',()=>{
+ const days=['2030-11-01','2030-11-02','2030-11-03'];
+ const single=timeline(days,[{day:days[1],status:'confirmed'}]);assert.equal(single.includes('attendance-step attendance-gap'),false);
+ const empty=timeline(days,[]);assert.equal((empty.match(/attendance-step attendance-outside/g)??[]).length,3);assert.equal(empty.includes('>Confirmed<'),false);
+ const waiting=timeline(days,[{day:days[0],status:'confirmed'},{day:days[1],status:'waitlisted',position:2},{day:days[2],status:'confirmed'}]);
+ assert.ok(waiting.includes('attendance-step attendance-waiting'));assert.ok(waiting.includes('Waitlisted · group 2'));assert.equal((waiting.match(/>Confirmed</g)??[]).length,2);
 });

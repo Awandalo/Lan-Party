@@ -10,7 +10,7 @@ async function setup(f,capacity=3){
  assert.equal(r.status,200,await r.clone().text());const {id}=await r.json();
  await f.sql("UPDATE events SET publication_status='published' WHERE id=?",id).run();await f.sql('UPDATE event_management SET is_listed=1 WHERE event_id=?',id).run();
  const read=async(u=a,manager=false)=>{const r=await call(f,id,u,undefined,manager);assert.equal(r.status,200,await r.clone().text());return r.json();};
- const change=async(u,action,extra={},manager=false)=>{const s=await read(u,manager);return call(f,id,u,{action,revision:s.revision,operationId:randomUUID(),...extra},manager);};
+ const change=async(u,action,extra={},manager=false,headers={})=>{const s=await read(u,manager);return call(f,id,u,{action,revision:s.revision,operationId:randomUUID(),...extra},manager,headers);};
  assert.equal((await change(admin,'open',{},true)).status,200);
  return {id,admin,a,b,c,read,change,days:(await read()).days.map(d=>d.date)};
 }
@@ -150,3 +150,51 @@ test('a recreated account receives no reservation after deletion and joins behin
  assert.equal((await read(recreated)).own.places[0].status,'confirmed');
  assert.equal((await read(admin,true)).days[0].confirmed,1);
 },29));
+
+
+test('manager can change 40 places to 20 with existing registrations without changing the venue snapshot',()=>local(async f=>{
+ const {id,a,b,admin,read,change,days}=await setup(f,40);
+ assert.equal((await change(a,'save',{draft:{days,guests:[guest([days[1]])]}})).status,200);
+ assert.equal((await change(b,'save',{draft:{days:[days[0]],guests:[]}})).status,200);
+ const snapshot=await f.sql('SELECT venue,capacity,rental_cents FROM event_management WHERE event_id=?',id).first();
+ const parties=(await f.sql('SELECT * FROM event_registration_parties ORDER BY registration_id').all()).results;
+ const places=(await f.sql('SELECT * FROM event_registration_places ORDER BY registration_id,event_day_id,person_id').all()).results;
+ const result=await change(admin,'capacity',{capacity:20},true);assert.equal(result.status,200,await result.clone().text());
+ assert.deepEqual(await f.sql('SELECT venue,capacity,rental_cents FROM event_management WHERE event_id=?',id).first(),snapshot);
+ assert.deepEqual((await f.sql('SELECT * FROM event_registration_parties ORDER BY registration_id').all()).results,parties);
+ assert.deepEqual((await f.sql('SELECT * FROM event_registration_places ORDER BY registration_id,event_day_id,person_id').all()).results,places);
+ assert.ok((await read(admin,true)).days.every(d=>d.capacity===20));
+ const publicDays=(await(await f.request('events/'+id)).json()).event.days;assert.deepEqual(publicDays.map(d=>d.remaining),[18,18,19]);
+ assert.equal(await f.sql('SELECT capacity FROM event_registration_control WHERE event_id=?',id).first('capacity'),20);
+ const tooSmall=await change(admin,'capacity',{capacity:1},true);assert.equal(tooSmall.status,400);assert.match((await tooSmall.json()).error,/Resolve confirmed registrations/);
+ assert.ok((await read(admin,true)).days.every(d=>d.capacity===20));
+ await assert.rejects(f.sql('UPDATE event_management SET capacity=20 WHERE event_id=?',id).run(),/immutable/);
+},31));
+
+
+test('0031 preserves existing rows and defaults; capacity changes promote waiters and retain atomic permission guards',()=>local(async f=>{
+ const {id,a,b,admin,read,change,days}=await setup(f,1);
+ assert.equal((await change(a,'save',{draft:{days,guests:[]}})).status,200);
+ assert.equal((await change(b,'save',{draft:{days,guests:[]}})).status,200);
+ assert.ok((await read(b)).own.places.every(p=>p.status==='waitlisted'));
+ const before=(await f.sql('SELECT * FROM event_registration_control').all()).results;
+ const grants=(await f.sql('SELECT * FROM role_permissions ORDER BY role_id,permission_id').all()).results;
+ const pending=await change(admin,'capacity',{capacity:2},true);assert.equal(pending.status,503);assert.match((await pending.json()).error,/awaiting their database migration/);
+ await assert.rejects(f.migrate(31,["SELECT json('Fictional migration rollback')"]));
+ assert.equal(await f.sql("SELECT count(*) n FROM pragma_table_info('event_registration_control') WHERE name='capacity'").first('n'),0);
+ await f.migrate(31);assert.deepEqual((await f.sql('SELECT event_id,sequence FROM event_registration_control').all()).results,before);
+ assert.equal(await f.sql('SELECT capacity FROM event_registration_control WHERE event_id=?',id).first('capacity'),null);
+ assert.deepEqual((await f.sql('SELECT * FROM role_permissions ORDER BY role_id,permission_id').all()).results,grants);
+ const invalid=await change(admin,'capacity',{capacity:0},true);assert.equal(invalid.status,400);
+ const denied=await change(admin,'capacity',{capacity:2},true,{'X-Fixture-Registration-Fence':'permission','X-Fixture-Actor':admin.id});assert.equal(denied.status,409);
+ assert.equal(await f.sql('SELECT capacity FROM event_registration_control WHERE event_id=?',id).first('capacity'),null);
+},30));
+
+test('increased operational capacity promotes existing waiters without duplicating notices on replay',()=>local(async f=>{
+ const {id,a,b,admin,read,change,days}=await setup(f,1);
+ assert.equal((await change(a,'save',{draft:{days,guests:[]}})).status,200);assert.equal((await change(b,'save',{draft:{days,guests:[]}})).status,200);
+ const state=await read(admin,true),op=randomUUID(),command={action:'capacity',capacity:2,revision:state.revision,operationId:op};
+ const response=await call(f,id,admin,command,true);assert.equal(response.status,200,await response.clone().text());assert.ok((await read(b)).own.places.every(p=>p.status==='confirmed'));
+ assert.equal((await call(f,id,admin,command,true)).status,409);assert.equal(await f.sql('SELECT count(*) n FROM event_registration_notifications WHERE operation_id=?',op).first('n'),1);
+ assert.equal(await f.sql('SELECT capacity FROM event_management WHERE event_id=?',id).first('capacity'),1);
+},31));

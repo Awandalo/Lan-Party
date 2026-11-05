@@ -1,3 +1,4 @@
+import {finalizedEvent,finalizationReady} from './event-finalization-data';
 import {administratorPredicate} from './rbac-authority';
 import {mfaSessionCondition} from './auth/mfa-session';
 import {UUID} from './role-administration';
@@ -40,12 +41,13 @@ export async function readEvents(db:D1Database,url:URL,logs=false,includeNames=f
   return {entries:rows.slice(0,20),nextBefore:rows.length>20?String(rows[19].sequence):null};
  }
  const status=url.searchParams.get('status')??'all';if(!['all','draft','published','unpublished','archived','cancelled'].includes(status))throw new EventError(400,'Invalid status');
- const rows=(await db.prepare(`SELECT ${columns} FROM events e LEFT JOIN event_management m ON m.event_id=e.id WHERE (?='all' OR (?='unpublished' AND e.publication_status='published' AND m.is_listed=0) OR (e.publication_status=? AND (?<>'published' OR m.is_listed=1))) AND instr(lower(e.title),lower(?))>0 ORDER BY e.created_at DESC,e.id LIMIT 201`).bind(status,status,status,status,search).all()).results;
+ const rows=(await db.prepare(`SELECT ${columns},${await finalizationReady(db)?'(EXISTS(SELECT 1 FROM event_finalizations f WHERE f.event_id=e.id))':'0'} AS finalized FROM events e LEFT JOIN event_management m ON m.event_id=e.id WHERE (?='all' OR (?='unpublished' AND e.publication_status='published' AND m.is_listed=0) OR (e.publication_status=? AND (?<>'published' OR m.is_listed=1))) AND instr(lower(e.title),lower(?))>0 ORDER BY e.created_at DESC,e.id LIMIT 201`).bind(status,status,status,status,search).all()).results;
  if(rows.length>200)throw new EventError(503,'Event catalogue exceeds its supported size');
  const days=(await db.prepare('SELECT event_id AS eventId,attendance_date AS date FROM event_days ORDER BY attendance_date,id').all()).results;
  return {events:rows.map(r=>({...r,venue:r.venue?JSON.parse(String(r.venue)):null,days:days.filter(d=>d.eventId===r.id).map(d=>({date:d.date}))}))};
 }
 export async function writeEvent(db:D1Database,userId:string,digest:string,raw:Record<string,unknown>){
+ if(['update','delete','publish','unpublish','cancel'].includes(String(raw.action))&&UUID.test(String(raw.id))&&await finalizedEvent(db,String(raw.id)))throw new EventError(409,'This event is permanently finalized');
  if(raw.action==='delete')return deleteEvent(db,userId,digest,raw);
  if(['publish','unpublish','cancel'].includes(String(raw.action)))return lifecycleEvent(db,userId,digest,raw);
  const update=raw.action==='update',duplicate=raw.action==='duplicate';

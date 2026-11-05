@@ -1,5 +1,31 @@
 # D1 migrations
 
+## DEV finalization and bills — 0032
+
+`0032_finalize_event_bills.sql` follows 0031. It adds immutable closure inputs
+and combined responsible-member bills, locks event/review/payment inputs, and
+scrubs bill identities on account erasure while retaining locked totals. It
+changes no role grants or existing registration data. Tests cover populated-row
+preservation, failed-migration rollback, atomic closure/audit, concurrency and
+deletion. On 2026-11-05 the owner separately approved DEV 0031–0032; both are
+applied with verified recovery, preservation of all 52 existing tables and
+integrity checks. No PROD application is authorized.
+See [the B contract](../docs/event-finalization.md).
+
+## DEV capacity correction — 0031
+
+`0031_separate_registration_capacity.sql` is applied on DEV. It adds a
+nullable operational capacity to `event_registration_control`; NULL keeps the
+original venue limit. Existing registrations, limits, venue/rental snapshots and
+role grants remain unchanged on migration. The guarded registration transaction
+updates this limit and reallocates/promotes waiting groups atomically. Public
+availability uses the same effective limit. Reducing below existing confirmed
+attendance remains blocked. Older schemas retain registration reads/writes and
+return a specific migration-pending response for otherwise valid capacity changes.
+DEV application was separately approved and verified as recorded above.
+PROD remains unchanged.
+See the local follow-up in [attendance review](../docs/attendance-review.md).
+
 ## Phase 5.5 A — 0030
 
 `0030_create_attendance_review.sql` was accepted locally and separately approved

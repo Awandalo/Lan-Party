@@ -1,3 +1,4 @@
+import {finalizedEvent} from './event-finalization-data';
 import {EventError,eventActor} from './event-data';
 import {registrationSnapshot,registrationProjection} from './event-registration-data';
 import {UUID} from './role-administration';
@@ -33,6 +34,7 @@ export async function writeReview(db:D1Database,id:string,userId:string,digest:s
  const allowed=['action','revision','operationId','reason',...(action==='attendance'?['registrationId','personId','days']:action==='complimentary'?['registrationId','personId','complimentary']:action==='instructions'?['paymentUrl','instructions']:[])];
  if(!['attendance','complimentary','instructions'].includes(action)||Object.keys(raw).some(k=>!allowed.includes(k))||!Number.isSafeInteger(raw.revision)||!UUID.test(String(raw.operationId)))throw new EventError(400,'Invalid review request');
  const reason=boundedText(raw.reason,300);if(reason.length<3)throw new EventError(400,'Give a reason for this change');
+ if(await finalizedEvent(db,id))throw new EventError(409,'This event is permanently finalized');
  const review=await reviewSnapshot(db,id,userId),{snapshot,people}=review;
  if(raw.revision!==snapshot.state.revision)throw new EventError(409,'Review changed. Reload before continuing');
  if(snapshot.meta.publication_status!=='published')throw new EventError(409,'This event cannot be reviewed');

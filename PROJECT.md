@@ -1472,3 +1472,18 @@ then separately approved only migration 0030 on lan-party-dev. That migration
 is applied with fresh recovery evidence and verified preservation/integrity.
 Hosted owner acceptance remains pending; #40 stays open for B/C. The updated
 attendance-review contract records the publication and verification boundaries.
+
+### Phase 5.5 B local review — 2026-11-05
+
+Owner accepted A and approved B locally, retaining its working flows. The existing
+Finance section now provides Planner-only permanent closure after event end with
+registration closed, immutable rental-only daily pricing and combined member/guest
+bills. Per the owner's local-review correction, accounts deleted before closure
+and their guests are excluded from pricing; deleting after closure preserves the
+locked divisor/rate/totals while removing identity. Anonymous history stays separate.
+Members see only their own final bill and external payment
+instructions. Closure sends no emails. Manual Paid/Unpaid changes and reviewed
+emails remain C. The owner subsequently accepted the local result and authorized
+DEV publication. Separately approved migrations 0031–0032 are applied on DEV with
+recovery/preservation/integrity verified; hosted acceptance remains pending. PROD
+and Jotform cutover remain excluded. See [finalization](docs/event-finalization.md).

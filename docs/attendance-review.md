@@ -195,3 +195,61 @@ Administrator can use Pay/Free and instructions; other staff need the explicit
 Planner + Finance grants. No test email or hosted attendance write is needed for
 bounded deployment verification. Owner performs the hosted edit/save acceptance.
 Keep #40 open for later permanent closure/bills and manual payment/email stages.
+
+## Local hosted-test feedback — 2026-11-05
+
+Owner requested keeping the next changes local while continuing DEV testing.
+Both event-section button rows now use the shared green border, raised grey
+background and pointer on hover, with matching keyboard focus and unchanged
+disabled controls. Staff participant and review cards show an event-day timeline:
+confirmed/retained days green, unselected gaps strictly between first/last confirmed
+days red, and unselected outer days black. Adjacent line colours blend; waitlisted
+days remain explicitly amber with their group position. Text/icons supplement
+colour. Longer timelines scroll within the card; staff cards use a wider minimum.
+Public crew and member self-registration summaries are unchanged by this iteration.
+
+The owner's 40 → 20 capacity failure was reproduced with real local Worker/D1:
+the endpoint attempted to update `event_management.capacity`, protected by the
+immutable venue-snapshot trigger. Migration 0031 adds a nullable operational limit
+to registration control instead; NULL defaults to the snapshot. Original venue,
+rental and capacity snapshots stay immutable. The existing guarded transaction,
+revision/operation audit, authorization and allocation rules govern the new limit.
+Public remaining places and private counters share it; decreases below confirmed
+attendance remain rejected, and increases can promote existing waiters atomically.
+On older schemas ordinary registration remains compatible; valid capacity changes
+fail explicitly as awaiting migration. The end-time predicate is also checked at
+commit for capacity changes. No changes were made to applied migrations.
+
+Verification: all 703 local regression tests pass, strict types/build pass, and
+local browser 40 → 20 succeeds with current registrations retained. Tests include
+snapshot/draft/place preservation, public remaining totals, too-small rejection,
+schema rollback/default preservation, live permission revocation, promotion and
+replay without duplicate notices. Timeline tests cover five-day black/green/red/
+green/black, first/last-only, single/empty and waitlisted cases. The initial timeline
+test needed a case-insensitive HTML dateTime check; a capacity fence fixture initially
+discarded its optional headers and was corrected to exercise the actual revocation.
+The original capacity reproduction failed as expected before the fix. Final checks
+pass without weakening the assertions. Browser also verified hover and keyboard
+focus, five-day gradients and the wider actual participant cards.
+
+Everything remains unstaged and uncommitted. Migration 0031 is local only; DEV
+still serves 76a902a with schema through 0030. No hosted writes or emails were
+performed for this feedback. The ignored fictional capacity fixture on port 5191
+and five-day timeline examples on port 5175 support owner local review.
+
+## A acceptance and B — 2026-11-05
+
+Owner accepted A with bounded UI cleanup and explicitly authorized local B.
+The earlier later-step placeholders above describe their original checkpoints.
+[Permanent closure and member bills](event-finalization.md) now supplies the B
+contract, local migration 0032 and verification. A's reviewed UI/data flows remain;
+after permanent closure its edit controls become read-only. No next DEV push or
+remote 0031/0032 migration is included in this local B task.
+
+## Reviewed follow-ups and B DEV handover — 2026-11-05
+
+The owner accepted the local follow-ups and B and authorized DEV publication.
+Migrations 0031–0032 were separately approved and applied with fresh recovery,
+all 52 existing tables preserved and integrity/foreign keys passing. The B
+contract records the publication checks and remaining hosted acceptance. This
+supersedes the local-only state of the historical checkpoints above.

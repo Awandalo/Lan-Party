@@ -1,4 +1,5 @@
 import {eventReview} from './event-review';
+import {eventFinance} from './event-finance';
 import {feedback} from './feedback';
 import {eventRegistration} from './event-registration';
 import {registrationReady} from './event-registration-data';
@@ -30,6 +31,7 @@ export default {
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname.startsWith('/api/event-finance/'))return eventFinance(request,env);
     if(pathname.startsWith('/api/event-review/'))return eventReview(request,env);
     if(pathname.startsWith('/api/event-registration/')||pathname.startsWith('/api/event-participants/'))return eventRegistration(request,env,ctx);
     if(pathname.startsWith('/events/')){const page=await eventPage(request,env);if(page)return page;}

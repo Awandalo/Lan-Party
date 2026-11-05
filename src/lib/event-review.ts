@@ -1,6 +1,6 @@
 export interface ReviewPerson {registrationId:string;owner:string;id:string;name:string;kind:string;confirmed:string[];days:string[];complimentary?:boolean}
 export interface EventReviewData {
- revision:number;ended:boolean;open:boolean;canFinance:boolean;rentalCents:number;days:string[];people:ReviewPerson[];
+ finalized?:boolean;revision:number;ended:boolean;open:boolean;canFinance:boolean;rentalCents:number;days:string[];people:ReviewPerson[];
  anonymousDays:{date:string;total:number}[];anonymousPeople:number;deletedAccounts:number;
  settings?:{payment_url:string;instructions:string};activity:{action:string;personName:string|null;reason:string;detail:string;occurredAt:number}[];
 }

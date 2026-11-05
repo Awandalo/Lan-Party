@@ -7,5 +7,5 @@
 .participant-ring strong{font-size:1.8rem;line-height:1.2;color:var(--accent)}
 .participant-controls{display:flex;align-items:end;flex-wrap:wrap;gap:.75rem;padding:1rem 0;border-block:1px solid var(--border)}
 .participant-controls label{display:grid;gap:.5rem}.participant-controls input{width:8rem;padding:.75rem;background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;color:var(--text);font:inherit}
-.event-participants>.registration-member-grid{margin-block:1rem}
+.event-participants>.registration-member-grid{margin-block:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,15.5rem),1fr))}
 .event-registration .button:hover,.event-participants .button:hover{border-color:var(--accent);background:var(--surface-raised)}

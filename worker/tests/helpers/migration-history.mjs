@@ -23,4 +23,6 @@ export const expectedHistory = [
  '0028_enable_event_publication.sql',
  '0029_create_event_registration.sql',
  '0030_create_attendance_review.sql',
+ '0031_separate_registration_capacity.sql',
+ '0032_finalize_event_bills.sql',
 ];
