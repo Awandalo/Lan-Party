@@ -303,3 +303,10 @@ earlier real Worker/D1 flow evidence; exact-head CI and hosted verification foll
 publication. No migrations, infrastructure, permissions, PROD or provider actions
 are included. Temporary local review servers/assets will be cleaned after DEV
 verification, preserving private recovery evidence. Keep #39 open for DEV review.
+
+Local owner correction on 2026-11-03: retained anonymous attendance must not occupy
+physical seats. Registration/day/unique-person counters and public remaining places
+now exclude deleted-account aggregates; historical review retains them separately.
+A new account receives no restored reservation or queue priority. See the occupied-
+seat correction in [attendance review](attendance-review.md). Twenty-eight focused
+checks, types/build and local browser verification cover this local-only follow-up.

@@ -1,5 +1,16 @@
 # TODO / To remember
 
+## Current DEV handover — Phase 5.5 A (#40)
+
+- [x] Owner local acceptance of Participants → Attendance review: remove/restore people or days, Pay/Free, payment instructions and anonymous former-account labels.
+- [ ] Owner hosted DEV acceptance of Attendance review.
+- [ ] Later B: permanent event closure and combined final bills; Planner alone may close.
+- [ ] Later C: reviewed payment-email action and manual Paid/Unpaid within the agreed scope.
+- [x] Owner authorized DEV publication and separately approved migration 0030 on 2026-11-05; migration applied and preservation/integrity verified. Publication and hosted checks are recorded in the handover report.
+
+See [attendance review](docs/attendance-review.md). Older Finance backlog below is historical where it conflicts with #40's revised scope; do not implement its extra costs, subsidies or scheduled locks.
+
+
 These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,

@@ -77,14 +77,15 @@ test('real account deletion removes private guests and atomically promotes waiti
  assert.equal(await f.sql('SELECT count(*) n FROM users WHERE id=?',a.id).first('n'),0);assert.equal(await f.sql("SELECT count(*) n FROM event_registration_parties WHERE draft LIKE '%guest@example.test%'").first('n'),0);
  assert.ok((await read(b)).own.places.every(p=>p.status==='confirmed'));assert.equal(await f.sql("SELECT count(*) n FROM event_registration_places WHERE event_id=? AND state='confirmed'",id).first('n'),3);
 },29));
-test('completed event deletion preserves anonymous member and guest totals without private identities',()=>local(async f=>{
+test('completed event deletion preserves anonymous history but releases occupied seats and public capacity',()=>local(async f=>{
  const {id,a,admin,read,change,days}=await setup(f,3);
  assert.equal((await change(a,'save',{draft:{days:[days[0]],guests:[guest([days[1],days[2]])]}})).status,200);
  await f.sql('UPDATE event_management SET starts_at=1,ends_at=2 WHERE event_id=?',id).run();const before=await read(admin,true),publicBefore=(await(await f.request('events/'+id)).json()).event.days;
  await f.sql("INSERT INTO auth_recent_authentication(session_digest,user_id,auth_version,method,authenticated_at,expires_at) VALUES (?,?,0,'password',unixepoch(),unixepoch()+300)",a.digest,a.id).run();
  const response=await f.request('auth/lifecycle/delete',a,{confirm:'DELETE',acknowledged:true},{'X-CSRF-Token':a.csrf});assert.equal(response.status,200,await response.clone().text());
- const after=await read(admin,true);assert.equal(after.total,before.total);assert.deepEqual(after.days,before.days);assert.deepEqual(after.participants,[]);assert.equal(after.crew.length,0);assert.equal(await f.sql('SELECT count(*) n FROM event_registration_parties').first('n'),0);
- assert.deepEqual((await(await f.request('events/'+id)).json()).event.days,publicBefore);
+ const after=await read(admin,true);assert.equal(before.total,2);assert.equal(after.total,0);assert.ok(after.days.every(d=>d.confirmed===0));
+ assert.equal(await f.sql('SELECT total FROM anonymous_event_registrations WHERE event_id=?',id).first('total'),2);assert.equal(await f.sql('SELECT sum(total) n FROM anonymous_day_registrations WHERE event_id=?',id).first('n'),3);assert.deepEqual(after.participants,[]);assert.equal(after.crew.length,0);assert.equal(await f.sql('SELECT count(*) n FROM event_registration_parties').first('n'),0);
+ const publicAfter=(await(await f.request('events/'+id)).json()).event.days;assert.deepEqual(publicAfter.map(d=>d.date),publicBefore.map(d=>d.date));assert.ok(publicAfter.every(d=>d.remaining===3));assert.ok(publicAfter.every((d,i)=>d.remaining>publicBefore[i].remaining));
 },29));
 test('existing maintenance recovers unattempted notices and mutation limits leave places unchanged',()=>local(async f=>{
  const {id,a,read,days}=await setup(f),op=randomUUID();
@@ -132,4 +133,20 @@ test('audit failure rolls back registrations and promotions; private guests casc
  await f.sql('DROP TRIGGER fixture_fail_registration').run();assert.equal((await change(a,'save',{draft:{days,guests:[guest(days)]}})).status,200);
  const before=(await read()).revision;await f.sql('DELETE FROM registration_days WHERE event_id=?',id).run();await f.sql('DELETE FROM registrations WHERE event_id=?',id).run();
  assert.equal(await f.sql('SELECT count(*) n FROM event_registration_parties').first('n'),0);assert.equal(await f.sql('SELECT count(*) n FROM event_registration_places').first('n'),0);assert.ok((await read()).revision>before);
+},29));
+
+test('a recreated account receives no reservation after deletion and joins behind existing waiting registrations',()=>local(async f=>{
+ const {id,a,b,admin,read,change,days}=await setup(f,1);
+ assert.equal((await change(a,'save',{draft:{days:[days[0]],guests:[]}})).status,200);
+ assert.equal((await change(b,'save',{draft:{days:[days[0]],guests:[]}})).status,200);
+ await f.sql("INSERT INTO auth_recent_authentication(session_digest,user_id,auth_version,method,authenticated_at,expires_at) VALUES (?,?,0,'password',unixepoch(),unixepoch()+300)",a.digest,a.id).run();
+ const deletion=await f.request('auth/lifecycle/delete',a,{confirm:'DELETE',acknowledged:true},{'X-CSRF-Token':a.csrf});assert.equal(deletion.status,200,await deletion.clone().text());
+ assert.equal((await read(b)).own.places[0].status,'confirmed');
+ const recreated=await f.user();
+ assert.equal((await read(recreated)).own,null);
+ assert.equal((await change(recreated,'save',{draft:{days:[days[0]],guests:[]}})).status,200);
+ assert.equal((await read(recreated)).own.places[0].status,'waitlisted');
+ assert.equal((await change(b,'cancel')).status,200);
+ assert.equal((await read(recreated)).own.places[0].status,'confirmed');
+ assert.equal((await read(admin,true)).days[0].confirmed,1);
 },29));

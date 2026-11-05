@@ -1452,3 +1452,23 @@ normal allocation at #0011 and all existing MFA safeguards remain unchanged.
 PROD modes remain disabled. Remote migration, code publication/protected merge and
 activation remain separate execution gates. Details and rollback are in
 [PROD activation](docs/PROD_AUTH_ACTIVATION.md#first-owner-bootstrap--local-candidate-not-activated).
+
+## Phase 5.5 A local review — 2026-11-03
+
+After accepting #39 on DEV, the owner approved the #40 sequence and authorized
+Attendance review locally first, with no publication. Participants now has a review
+view for audited retention/removal of people or confirmed days, Pay/Free and event
+payment instructions. Planner uses events.manage_registrations; complimentary and
+instruction edits additionally require finance.manage, or Administrator. Migration
+0030 is local only and grants no existing roles automatically. Final closure (Planner
+alone), combined bills, Paid/Unpaid and explicit payment emails remain later steps.
+Original registration history remains intact; deleted accounts are grouped anonymously
+with preserved reviewed day totals. See [the local review contract](docs/attendance-review.md).
+
+### DEV handover authorization — 2026-11-05
+
+The owner accepted the local A iteration and authorized its DEV commit/push,
+then separately approved only migration 0030 on lan-party-dev. That migration
+is applied with fresh recovery evidence and verified preservation/integrity.
+Hosted owner acceptance remains pending; #40 stays open for B/C. The updated
+attendance-review contract records the publication and verification boundaries.

@@ -1,5 +1,19 @@
 # D1 migrations
 
+## Phase 5.5 A — 0030
+
+`0030_create_attendance_review.sql` was accepted locally and separately approved
+for DEV on 2026-11-05.
+It adds attendance corrections, Pay/Free, private payment instructions/audit and
+anonymous exclusion preservation; it grants no existing role Finance permission.
+Applied only to `lan-party-dev` after a fresh Time Travel bookmark and private
+recovery export. History is exactly 0001–0030; quick_check and foreign keys pass.
+All 47 preexisting tables match the pre-migration export, excluding the expected
+new permission row; no role grants changed. The export was restored and checked
+in isolated local SQLite. See [attendance review](../docs/attendance-review.md).
+No PROD migration is authorized or applied.
+
+
 ## Phase 5.2A correction — 0027
 
 `0027_correct_unregistered_events.sql` removes Finance enablement, adds minimum
