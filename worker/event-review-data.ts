@@ -1,3 +1,4 @@
+import {validPaymentRequestUrl,paymentRequestProviders} from '../src/lib/payment-request';
 import {finalizedEvent} from './event-finalization-data';
 import {EventError,eventActor} from './event-data';
 import {registrationSnapshot,registrationProjection} from './event-registration-data';
@@ -50,8 +51,7 @@ export async function writeReview(db:D1Database,id:string,userId:string,digest:s
   detail={before:person!.complimentary,after:raw.complimentary};
  }else{
   paymentUrl=boundedText(raw.paymentUrl,2048);instructions=boundedText(raw.instructions,2000);
-  if(paymentUrl){let url:URL;try{url=new URL(paymentUrl);}catch{throw new EventError(400,'Use a full HTTPS Tikkie link');}
-   if(url.protocol!=='https:'||url.hostname!=='tikkie.me'||url.username||url.password||url.port)throw new EventError(400,'Use an HTTPS tikkie.me payment link');}
+  if(paymentUrl&&!validPaymentRequestUrl(paymentUrl))throw new EventError(400,'Use a full HTTPS payment request link from '+paymentRequestProviders);
   detail={fields:['payment instructions']};
  }
  const values:unknown[]=[id,raw.revision,userId,digest];if(finance)values.push(userId,digest);

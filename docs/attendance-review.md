@@ -253,3 +253,7 @@ Migrations 0031–0032 were separately approved and applied with fresh recovery,
 all 52 existing tables preserved and integrity/foreign keys passing. The B
 contract records the publication checks and remaining hosted acceptance. This
 supersedes the local-only state of the historical checkpoints above.
+
+Local bank-link extension — 2026-11-06: the owner approved Payment request URL
+wording and exact supported bank/provider hosts alongside Tikkie. This supersedes
+the original Tikkie-only validation above. The [finalization contract](event-finalization.md#local-bank-payment-request-links--2026-11-06) records supported hosts, primary sources and verification. No remote changes.

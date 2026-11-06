@@ -7,5 +7,17 @@
 .participant-ring strong{font-size:1.8rem;line-height:1.2;color:var(--accent)}
 .participant-controls{display:flex;align-items:end;flex-wrap:wrap;gap:.75rem;padding:1rem 0;border-block:1px solid var(--border)}
 .participant-controls label{display:grid;gap:.5rem}.participant-controls input{width:8rem;padding:.75rem;background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;color:var(--text);font:inherit}
-.event-participants>.registration-member-grid{margin-block:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,15.5rem),1fr))}
+.participant-roster{margin-block:1rem;border:1px solid var(--border);border-radius:.75rem;background:var(--surface)}
+.participant-roster>summary{padding:1rem;cursor:pointer;font-weight:700;border-radius:.75rem}
+.participant-roster>summary:hover{background:var(--surface-raised)}
+.participant-roster>summary span{display:block;margin:.4rem 0 0 1rem;color:var(--muted);font-size:.85rem;font-weight:400}
+.participant-roster-content{padding:0 1rem 1rem}
+.participant-roster-list,.participant-roster-days{list-style:none;padding:0;margin:0}
+.participant-roster-list>li{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.75rem;padding:.85rem 0;border-top:1px solid var(--border)}
+.participant-roster-person{display:grid;align-content:start;gap:.25rem;overflow-wrap:anywhere}
+.participant-roster-person small{color:var(--muted)}
+.participant-roster-days{display:flex;flex-wrap:wrap;gap:.5rem 1rem}
+.participant-roster-days>li{display:grid;gap:.25rem;font-size:.85rem}
+.participant-roster-confirmed{color:var(--accent)}
+.participant-roster-waiting{color:var(--muted)}
 .event-registration .button:hover,.event-participants .button:hover{border-color:var(--accent);background:var(--surface-raised)}

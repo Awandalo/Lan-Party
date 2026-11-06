@@ -32,3 +32,6 @@
 .event-dialog .event-fields{margin:.75rem 0}
 .event-dialog>form>fieldset>h4{margin:.75rem 0 .5rem}
 .event-dialog .wizard-actions{margin-top:.75rem;padding-top:.75rem}
+
+/* Loading feedback must not move the catalogue during an unchanged search. */
+.event-search-feedback{min-block-size:1.7em}

@@ -8,7 +8,9 @@
 - [x] Owner accepted local B and authorized DEV publication: permanent closure and combined final bills; Planner alone may close.
 - [x] Separately approved DEV migrations 0031–0032 applied with verified recovery, all 52 existing tables preserved and integrity checks passing.
 - [ ] Final hosted DEV acceptance of B. See [B contract and verification](docs/event-finalization.md).
-- [ ] Later C: reviewed payment-email action and manual Paid/Unpaid within the agreed scope.
+- [x] Owner accepted the local finishing-flow iteration and authorized DEV publication; separately approved migration 0033 applied with recovery/preservation/integrity verified.
+- [ ] Hosted DEV acceptance of the simplified Finish event wizard, manual Paid/Unpaid switches, bank-link help and UI cleanup.
+- [ ] Later C: reviewed payment-email action within the agreed scope.
 - [x] Owner authorized DEV publication and separately approved migration 0030 on 2026-11-05; migration applied and preservation/integrity verified. Publication and hosted checks are recorded in the handover report.
 
 See [attendance review](docs/attendance-review.md). Older Finance backlog below is historical where it conflicts with #40's revised scope; do not implement its extra costs, subsidies or scheduled locks.

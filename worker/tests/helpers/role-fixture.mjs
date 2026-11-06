@@ -25,7 +25,7 @@ before(async()=>{
   const registrationFence=request.headers.get('X-Fixture-Registration-Fence');
   if(registrationFence){
    let batchCount=0;
-   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{if(++batchCount===2){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{if(++batchCount===(request.headers.get('X-Fixture-Payment-Commit')==='1'?1:2)){
     if(registrationFence==='session')await env.DB.prepare('UPDATE auth_sessions SET revoked_at=unixepoch() WHERE token_digest=?').bind(request.headers.get('X-Fixture-Digest')).run();
     if(registrationFence==='generation')await env.DB.prepare('UPDATE users SET auth_version=auth_version+1 WHERE id=?').bind(request.headers.get('X-Fixture-Actor')).run();
     if(registrationFence==='permission')await env.DB.prepare("DELETE FROM user_roles WHERE user_id=?").bind(request.headers.get('X-Fixture-Actor')).run();

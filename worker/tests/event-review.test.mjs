@@ -37,7 +37,7 @@ test('Pay/Free and payment instructions require both explicit planner and Financ
  await f.sql("DELETE FROM role_permissions WHERE role_id='30000000-0000-4000-8000-000000000001' AND permission_id IN (SELECT id FROM permissions WHERE code='events.manage_registrations')").run();
  assert.equal((await call(f,s.id,s.planner)).status,403);assert.equal((await call(f,s.id,s.member)).status,403);
 },30));
-test('review validates end/closed state, person ownership, original confirmed days, reasons and safe Tikkie URLs',()=>local(async f=>{
+test('review validates end/closed state, person ownership, original confirmed days, reasons and safe payment request URLs',()=>local(async f=>{
  const s=await setup(f),person=(await s.read()).people[0],extra={registrationId:person.registrationId,personId:person.id,days:[]};
  assert.equal((await s.change(s.admin,'attendance',extra)).status,409);await s.end();
  for(const patch of [{days:['2030-11-04']},{days:[s.days[0],s.days[0]]},{personId:randomUUID()},{registrationId:randomUUID()},{reason:'x'}])assert.equal((await s.change(s.admin,'attendance',{...extra,...patch})).status,400);
@@ -99,3 +99,25 @@ test('organizer can add a missed event day after end without changing original b
  const response=await f.request('auth/lifecycle/delete',s.member,{confirm:'DELETE',acknowledged:true},{'X-CSRF-Token':s.member.csrf});assert.equal(response.status,200,await response.clone().text());
  const after=await s.read();assert.equal(after.anonymousPeople,2);assert.deepEqual(after.anonymousDays.map(d=>d.total),[2,2,1]);
 },30));
+
+
+test('bank payment links preserve complete query/fragment identifiers and reject deceptive domains without partial saves',()=>local(async f=>{
+ const s=await setup(f),urls=[
+  'https://tikkie.me/pay/fictional',
+  'https://www.tikkie.me/pay/fictional',
+  'https://betaalverzoek.rabobank.nl/betaalverzoek/?id=fictional&amount=10',
+  'https://www.ing.nl/particulier/betaalverzoek/index.html?trxid=fictional',
+  'https://www.ing.nl/de-ing/payreq?trxid=fictional',
+  'https://bunq.me/fictional-lan',
+  'https://diensten.asnbank.nl/online/betaalverzoek/#/v2/fictional',
+  'https://diensten.snsbank.nl/online/betaalverzoek/#/v2/fictional',
+  'https://diensten.regiobank.nl/online/betaalverzoek/#/v2/fictional'
+ ];
+ for(const paymentUrl of urls){const response=await s.change(s.admin,'instructions',{paymentUrl,instructions:'Fictional transfer reference'});assert.equal(response.status,200,await response.clone().text());assert.equal((await s.read()).settings.payment_url,paymentUrl);}
+ const before=await s.read();
+ for(const paymentUrl of ['https://betaalverzoek.rabobank.nl.evil.test/betaalverzoek/?id=fictional','https://evil.test/?url=https://tikkie.me/pay/fictional','https://user:password@bunq.me/fictional','https://diensten.asnbank.nl:8443/online/betaalverzoek/','http://betaalverzoek.rabobank.nl/betaalverzoek/','https://rabobank.nl/betaalverzoek/','https://www.ing.nl/login','https://www.ing.nl.evil.test/de-ing/payreq?trxid=fictional','https://www.ing.nl/de-ing/payreq.evil','https://betaalverzoek-rabobank.nl/fictional','https://tikkie.me./pay/fictional','javascript:alert(1)','https://bunq.me/fictional\nrequest']){
+  const response=await s.change(s.admin,'instructions',{paymentUrl,instructions:'Rejected change'});assert.equal(response.status,400,await response.clone().text());
+ }
+ const after=await s.read();assert.equal(after.revision,before.revision);assert.deepEqual(after.settings,before.settings);assert.equal(after.activity.length,before.activity.length);
+ assert.equal((await s.change(s.admin,'instructions',{paymentUrl:'',instructions:'Fictional bank transfer instructions only'})).status,200);assert.equal((await s.read()).settings.payment_url,'');
+},33));

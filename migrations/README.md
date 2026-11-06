@@ -753,3 +753,13 @@ read-only DEV preflight: zero registrations, three managed events, eight event
 days, 0029 not applied (2026-11-03). Recheck before execution. Application
 publication/activation, provider acceptance and PROD are separate facts. No
 automatic down migration, destructive reset or Jotform cutover is provided.
+
+## Manual payment audit — 0033
+
+0033_record_manual_bill_payments.sql adds audited manual Paid/Unpaid changes for
+finalized combined bills. Existing bills/amounts/status, registrations and grants
+are preserved. The owner separately approved DEV application on 2026-11-07.
+0033 is applied to lan-party-dev with a fresh private recovery checkpoint, verified
+local restore, all 54 existing tables/rows preserved and integrity/foreign keys passing.
+The new audit table is empty. PROD is unchanged. See the finishing-flow rework in
+[the finalization contract](../docs/event-finalization.md).

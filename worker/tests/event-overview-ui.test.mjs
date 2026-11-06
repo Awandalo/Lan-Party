@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createRequire,Module} from 'node:module';
 import {test} from 'node:test';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';import EventOverviewActions from './src/components/EventOverviewActions';import EventSections from './src/components/EventSections';export {eventMenuPosition} from './src/components/EventActionsMenu';export const render=(row,access,pending=false)=>renderToStaticMarkup(<MemoryRouter><EventOverviewActions row={row} access={access} onDelete={()=>{}} onDuplicate={()=>{}} onEdit={()=>{}} onLifecycle={()=>{}} onRegistration={()=>{}} pending={pending}/></MemoryRouter>);export const sections=()=>renderToStaticMarkup(<EventSections/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'}});
+const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {MemoryRouter} from 'react-router';import EventOverviewActions from './src/components/EventOverviewActions';import EventSections from './src/components/EventSections';export {eventMenuPosition} from './src/components/EventActionsMenu';export const render=(row,access,pending=false)=>renderToStaticMarkup(<MemoryRouter><EventOverviewActions row={row} access={access} onDelete={()=>{}} onDuplicate={()=>{}} onEdit={()=>{}} onLifecycle={()=>{}} onRegistration={()=>{}} onFinish={()=>{}} pending={pending}/></MemoryRouter>);export const sections=()=>renderToStaticMarkup(<EventSections/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'}});
 const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(bundle.outputFiles[0].text,import.meta.filename);const {render,sections,eventMenuPosition}=mod.exports;
 const row={id:'20000000-0000-4000-8000-000000000001',revision:0,status:'draft',listed:0,registrationHistory:0},all={canCreate:true,canUpdate:true,canDelete:true,canPublish:true,canCancel:true},none=Object.fromEntries(Object.keys(all).map(k=>[k,false]));
 test('Overview groups secondary actions in a closed accessible menu and retains the primary edit control',()=>{
@@ -36,4 +36,16 @@ test('short-viewport placement keeps a flipped menu below the sticky header and 
  const rect={top:201.5,bottom:245.5,left:37},space={width:553,height:320,headerBottom:69,menuWidth:288,menuHeight:196,gap:8};
  const position=eventMenuPosition(rect,space);assert.equal(position.above,true);assert.equal(position.top,81);assert.equal(rect.top-space.gap-position.height,81);assert.ok(rect.top-space.gap-position.height>=space.headerBottom+12);
  const narrow={...space,width:305,height:844,menuWidth:241},below=eventMenuPosition({top:100,bottom:144,left:250},narrow);assert.equal(below.above,false);assert.ok(below.left+narrow.menuWidth<=305-12);assert.ok(below.left>=12);assert.equal(below.top,152);
+});
+
+
+test('Finish event sits beside Edit event and keeps its lifecycle and permission gates',()=>{
+ const event={...row,status:'published',endsAt:1},access={...all,canManageRegistrations:true};
+ const html=render(event,access);
+ assert.ok(html.includes('class="button button-secondary">Finish event</button><button class="button">Edit event</button>'));
+ assert.equal(html.includes('finish-event-callout'),false);
+ for(const endsAt of [null,Date.now()/1000+86400])assert.ok(render({...event,endsAt},access).includes('disabled="" title="Available after the event ends">Finish event'));
+ assert.ok(render(event,access,true).includes('disabled=""'));
+ for(const changed of [{...event,finalized:1},{...event,status:'draft'},{...event,revision:null}])assert.equal(render(changed,access).includes('Finish event'),false);
+ assert.equal(render(event,all).includes('Finish event'),false);
 });

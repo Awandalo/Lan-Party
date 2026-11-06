@@ -41,9 +41,9 @@ test('Planner alone permanently closes an ended closed event; bills include memb
 test('closure retains complimentary days, locks instructions, and rounds upward to a half euro',()=>local(async f=>{
  const s=await setup(f);await s.end();const guest=(await s.read()).people.find(p=>p.kind==='Invited guest');
  assert.equal((await s.change(s.admin,'complimentary',{registrationId:guest.registrationId,personId:guest.id,complimentary:true})).status,200);
- assert.equal((await s.change(s.admin,'instructions',{paymentUrl:'https://tikkie.me/pay/fictional',instructions:'Fictional bank reference'})).status,200);
+ assert.equal((await s.change(s.admin,'instructions',{paymentUrl:'https://betaalverzoek.rabobank.nl/betaalverzoek/?id=fictional',instructions:'Fictional bank reference'})).status,200);
  assert.equal((await finalize(f,s)).status,200);const bill=(await(await finance(f,s,s.member,undefined,false)).json()).bill;
- assert.equal(bill.totalCents,22500);assert.equal(bill.lines.find(l=>l.kind==='Invited guest').totalCents,0);assert.equal(bill.paymentUrl,'https://tikkie.me/pay/fictional');assert.equal(bill.instructions,'Fictional bank reference');
+ assert.equal(bill.totalCents,22500);assert.equal(bill.lines.find(l=>l.kind==='Invited guest').totalCents,0);assert.equal(bill.paymentUrl,'https://betaalverzoek.rabobank.nl/betaalverzoek/?id=fictional');assert.equal(bill.instructions,'Fictional bank reference');
  const denied=await s.change(s.admin,'instructions',{paymentUrl:'',instructions:'Changed'});assert.equal(denied.status,409);
  const days=await s.change(s.admin,'attendance',{registrationId:guest.registrationId,personId:guest.id,days:[]});assert.equal(days.status,409);
 },32));
@@ -130,3 +130,57 @@ test('deletion before closure removes days from pricing; deletion after closure 
  const final=await(await finance(f,s)).json();assert.equal(final.finalized,true);assert.equal(final.participantDays,5);assert.equal(final.dailyRateCents,6000);assert.equal(final.bills.reduce((n,b)=>n+b.totalCents,0),30000);
  const erased=final.bills.find(b=>b.owner===null);assert.equal(erased.totalCents,24000);assert.deepEqual(erased.lines,[]);
 },32));
+
+
+const payment=async(f,s,u,paid,extra={},headers={})=>{
+ const data=await(await finance(f,s,s.admin)).json();
+ return finance(f,s,u,{action:'payment',revision:data.revision,operationId:randomUUID(),billId:data.bills[0]?.id??randomUUID(),paid,...extra},true,headers);
+};
+const grantFinance=f=>f.sql("INSERT INTO role_permissions(role_id,permission_id,granted_at) SELECT '30000000-0000-4000-8000-000000000001',id,0 FROM permissions WHERE code='finance.manage'").run();
+
+test('manual payment needs finalization and Planner plus Finance; combined bill toggles both ways with immutable amounts and no mail',()=>local(async f=>{
+ const s=await setup(f);await s.end();assert.equal((await payment(f,s,s.admin,true)).status,409);assert.equal((await finalize(f,s)).status,200);
+ assert.equal((await payment(f,s,s.planner,true)).status,403);assert.equal((await payment(f,s,s.member,true)).status,403);
+ const before=await f.sql('SELECT lines,total_cents FROM event_bills').first(),notices=await f.sql('SELECT count(*) n FROM event_registration_notifications').first('n');
+ await grantFinance(f);assert.equal((await(await finance(f,s,s.planner)).json()).canManagePayments,true);
+ const current=await(await finance(f,s)).json(),body={action:'payment',revision:current.revision,operationId:randomUUID(),billId:current.bills[0].id,paid:true};
+ assert.equal((await finance(f,s,s.planner,body)).status,200);assert.equal((await finance(f,s,s.planner,body)).status,409);
+ assert.equal((await(await finance(f,s,s.member,undefined,false)).json()).bill.paid,1);
+ assert.equal((await payment(f,s,s.planner,false)).status,200);assert.equal(await f.sql('SELECT paid FROM event_bills').first('paid'),0);
+ assert.deepEqual(await f.sql('SELECT lines,total_cents FROM event_bills').first(),before);
+ assert.deepEqual((await f.sql('SELECT was_paid,paid FROM event_bill_payment_activity ORDER BY sequence').all()).results,[{was_paid:0,paid:1},{was_paid:1,paid:0}]);
+ assert.equal(await f.sql('SELECT count(*) n FROM event_registration_notifications').first('n'),notices);
+},33));
+
+test('payment mutation enforces CSRF, types, bill ownership, free/erased exclusions and older-schema compatibility',()=>local(async f=>{
+ const s=await setup(f);await s.end();await finalize(f,s);
+ assert.equal((await(await finance(f,s)).json()).canManagePayments,false);assert.equal((await payment(f,s,s.admin,true)).status,503);
+ const old=await f.sql('SELECT * FROM event_bills').first();await assert.rejects(f.migrate(33,["SELECT json('Fictional payment migration failure')"]));assert.equal(await f.sql("SELECT count(*) n FROM sqlite_schema WHERE name='event_bill_payment_activity'").first('n'),0);
+ await f.migrate(33);assert.deepEqual(await f.sql('SELECT * FROM event_bills').first(),old);
+ assert.equal((await payment(f,s,s.admin,'yes')).status,400);assert.equal((await payment(f,s,s.admin,true,{billId:randomUUID()})).status,409);
+ assert.equal((await payment(f,s,s.admin,true,{}, {'X-CSRF-Token':''})).status,403);
+ assert.equal((await payment(f,s,s.admin,true,{}, {Origin:'https://evil.example.test'})).status,403);
+ assert.equal((await finance(f,s,s.member,{action:'payment'},false)).status,405);
+ await f.sql("UPDATE event_bills SET owner_id=NULL,lines='[]'").run();assert.equal((await payment(f,s,s.admin,true)).status,409);
+ assert.equal(await f.sql('SELECT count(*) n FROM event_bill_payment_activity').first('n'),0);
+},32));
+
+test('zero-value bills have no payable status mutation',()=>local(async f=>{
+ const s=await setup(f);await s.end();for(const p of(await s.read()).people)assert.equal((await s.change(s.admin,'complimentary',{registrationId:p.registrationId,personId:p.id,complimentary:true})).status,200);
+ await finalize(f,s);assert.equal((await payment(f,s,s.admin,true)).status,409);assert.equal(await f.sql('SELECT paid FROM event_bills').first('paid'),0);
+},33));
+
+for(const fence of ['permission','session','generation'])test('payment commit rechecks '+fence+' without a partial audit',()=>local(async f=>{
+ const s=await setup(f);await s.end();await finalize(f,s);await grantFinance(f);
+ const headers={'X-Fixture-Registration-Fence':fence,'X-Fixture-Payment-Commit':'1','X-Fixture-Actor':s.planner.id,'X-Fixture-Digest':s.planner.digest};
+ assert.equal((await payment(f,s,s.planner,true,{},headers)).status,409);assert.equal(await f.sql('SELECT paid FROM event_bills').first('paid'),0);assert.equal(await f.sql('SELECT count(*) n FROM event_bill_payment_activity').first('n'),0);
+},33));
+
+test('payment audit failure rolls back status and revision; concurrent updates reject stale state',()=>local(async f=>{
+ const s=await setup(f);await s.end();await finalize(f,s);const before=await f.sql('SELECT revision FROM event_management WHERE event_id=?',s.id).first('revision');
+ await f.sql("CREATE TRIGGER fictional_payment_audit BEFORE INSERT ON event_activity WHEN json_extract(NEW.fields,'$[0]')='payment' BEGIN SELECT RAISE(ABORT,'Fictional audit failure'); END").run();
+ assert.equal((await payment(f,s,s.admin,true)).status,503);assert.equal(await f.sql('SELECT paid FROM event_bills').first('paid'),0);assert.equal(await f.sql('SELECT revision FROM event_management WHERE event_id=?',s.id).first('revision'),before);assert.equal(await f.sql('SELECT count(*) n FROM event_bill_payment_activity').first('n'),0);
+ await f.sql('DROP TRIGGER fictional_payment_audit').run();
+ const data=await(await finance(f,s)).json(),command=()=>({action:'payment',revision:data.revision,operationId:randomUUID(),billId:data.bills[0].id,paid:true});
+ const responses=await Promise.all([finance(f,s,s.admin,command()),finance(f,s,s.admin,command())]);assert.deepEqual(responses.map(r=>r.status).sort(),[200,409]);assert.equal(await f.sql('SELECT count(*) n FROM event_bill_payment_activity').first('n'),1);
+},33));

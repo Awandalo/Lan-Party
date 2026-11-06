@@ -1487,3 +1487,15 @@ emails remain C. The owner subsequently accepted the local result and authorized
 DEV publication. Separately approved migrations 0031–0032 are applied on DEV with
 recovery/preservation/integrity verified; hosted acceptance remains pending. PROD
 and Jotform cutover remain excluded. See [finalization](docs/event-finalization.md).
+
+### Local finishing-flow rework — 2026-11-06
+
+The owner approved one Finish event wizard: Attendance, Bills, Confirm, retaining
+end-time gating and permanent financial locks. Expanded final member bills gain
+a manual Payment received switch, guarded by Planner plus Finance or Administrator,
+with atomic audit/revision checks. This brings forward only manual status tracking
+from C; payment emails remain deferred. The owner accepted the local iteration
+and authorized DEV publication on 2026-11-07. Separately approved migration 0033
+is applied on DEV with all 54 existing tables/rows preserved and integrity verified.
+Hosted acceptance remains pending; PROD is unchanged. See
+[the finalization contract](docs/event-finalization.md).
