@@ -11,15 +11,16 @@ import type {RegistrationData} from '../lib/event-registration-api';
 import {registrationDate} from '../lib/event-registration';
 import '../CSS/EventRegistration_style.css';
 import '../CSS/EventParticipants_style.css';
-export default function EventParticipants({id,onChange,minimumParticipants}:{id:string;onChange:()=>void;minimumParticipants:number}){
- const auth=useAuth(),proof=auth.status==='ready'&&auth.administration?.status==='ready'?auth.session?.csrfToken:undefined,context=id+':'+proof+':'+auth.administration?.revision;
+export default function EventParticipants({id,onChange,minimumParticipants,initial,revision}:{id:string;onChange:()=>void;minimumParticipants:number;initial?:RegistrationData;revision?:number|null}){
+ const auth=useAuth(),proof=auth.status==='ready'&&auth.administration?.status==='ready'?auth.session?.csrfToken:undefined,context=id+':'+proof+':'+auth.administration?.revision+':'+revision;
+ const initialRead=useRef({context,data:initial});
  const current=useRef(context);current.current=context;
  const [reviewing,setReviewing]=useState(false),[switching,setSwitching]=useState(false),[reviewSeed,setReviewSeed]=useState<{context:string;data:EventReviewData}|null>(null);
  const switchRequest=useRef<AbortController|null>(null);
  useEffect(()=>{setSwitching(false);return()=>switchRequest.current?.abort();},[context]);
- const [state,setState]=useState<{context:string;data:RegistrationData}|null>(null),[retry,setRetry]=useState(0),[day,setDay]=useState<string|null>(null),[message,setMessage]=useState(''),[pending,setPending]=useState(false),[capacity,setCapacity]=useState('');
+ const [state,setState]=useState<{context:string;data:RegistrationData}|null>(()=>initial?{context,data:initial}:null),[retry,setRetry]=useState(0),[day,setDay]=useState<string|null>(null),[message,setMessage]=useState(''),[pending,setPending]=useState(false),[capacity,setCapacity]=useState(()=>String(initial?.days[0]?.capacity??''));
  const data=state?.context===context?state.data:null;
- useEffect(()=>{if(!proof)return;const controller=new AbortController();loadParticipantAttendance(()=>registrationRequest(id,proof,true,undefined,controller.signal),()=>eventReviewRequest(id,proof,undefined,controller.signal)).then(data=>{if(!controller.signal.aborted){setState({context,data});setCapacity(String(data.days[0]?.capacity??''));}}).catch(e=>{if(!controller.signal.aborted){setState(null);setMessage(e.message);}});return()=>controller.abort();},[context,id,proof,retry]);
+ useEffect(()=>{if(!proof)return;if(retry===0&&initialRead.current.context===context&&initialRead.current.data)return;const controller=new AbortController();loadParticipantAttendance(()=>registrationRequest(id,proof,true,undefined,controller.signal),()=>eventReviewRequest(id,proof,undefined,controller.signal)).then(data=>{if(!controller.signal.aborted){setState({context,data});setCapacity(String(data.days[0]?.capacity??''));}}).catch(e=>{if(!controller.signal.aborted){setState(null);setMessage(e.message);}});return()=>controller.abort();},[context,id,proof,retry]);
  async function action(body:object){if(!proof||!data||pending)return;const captured=context;setPending(true);setMessage('');try{await registrationRequest(id,proof,true,{...body,revision:data.revision});if(current.current===captured){setState(null);setRetry(n=>n+1);onChange();}}catch(e){if(current.current===captured)setMessage((e as Error).message);}finally{setPending(false);}}
  async function openReview(){
   if(reviewing||switching||pending||!proof)return;

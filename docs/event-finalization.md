@@ -451,3 +451,24 @@ proof covers the four-step editor, fixed desktop/narrow footer geometry, Dutch
 currency and helper focus/value preservation, and floating login labels. Real
 password-manager autofill and actual mobile-device acceptance remain manual.
 Hosted verification is read-only; owner online acceptance remains pending.
+
+## Management tab navigation — 2026-11-08
+
+The owner accepted the local navigation fix and authorized DEV publication.
+Overview stays local; Participants and Finance reuse selected-event, memory-only
+reads for five seconds. Returning after that window prepares fresh data before
+switching panels, avoiding an empty loading view. Initial data is consumed once
+by each panel, so mounting it does not duplicate the prepared request.
+
+Successful event, registration, attendance and finance changes invalidate both
+panel snapshots. Event revision, account, session proof and administration access
+changes clear the read cache and cancel pending requests; late results cannot
+replace newer context. Read failures clear cached snapshots and offer Check again.
+No server authorization, bill calculation, schema, configuration or PROD changes.
+The finalization wizard continues using its own fresh reads and existing guards.
+
+Validation: 27 targeted cache/attendance/presentation checks, strict TypeScript,
+build and local fictional-event browser navigation pass. The owner accepted that
+local result. Unchanged backend security/migration evidence is reused; normal
+exact-commit CI and read-only hosted DEV verification follow publication. No
+hosted attendance, payment or finalization writes or test emails are included.
