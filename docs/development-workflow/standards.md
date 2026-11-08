@@ -3,7 +3,7 @@
 These requirements supplement existing [AGENTS.md](../../AGENTS.md) rather than
 replace its directives. Source, adoption authority, mapping and conflict procedure
 are in [governance.md](governance.md). Source revision throughout:
-`cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`, Development-Workflow v1.2.1.
+`fa1a86a07fda44ac7434b95142eb7f30bc5987b2`, Development-Workflow v1.4.0.
 
 ## Git identity and publication
 
@@ -180,3 +180,132 @@ installation, discovery or runtime behavior on another host. This application
 adoption does not install/distribute Skills or activate the saved monitor. Handoffs
 state actual changed files, checks/limits, publication state and pending decisions;
 keep personal paths/profiles in an approved private location outside tracked content.
+
+## Known execution contexts and portable identity
+
+Before repeating a failed command/check, inspect recent evidence for the same tool
+class, host/client, target, configuration and failure mode. Reuse a verified unchanged
+limitation instead of deliberately reproducing it. Classify sandbox filesystem/network,
+authentication-context, actual service denial, host approval denial and tool faults
+separately. Use only a supported least-privilege route currently permitted by the
+host and the owner-authorized operation; every applicable tool prompt still applies.
+Prior success is evidence, never a permission grant or a global command allowlist.
+
+Keep concise sanitized observations in existing task/handoff evidence: safe context,
+command/tool version and scope, classification/time, working route, actual results,
+separate owner/host authority, validity assumptions and latest verification. Keep
+host-specific details private where necessary; no credentials, environment dumps,
+new registry, authentication repair or alternate GitHub read transport. Revalidate
+when host/client, version, configuration, identity, permissions, target, failure mode
+or validity conditions change, or evidence is incomplete/contradictory. Before a
+consequential write, freshly verify the actual account/target, effects and gates.
+An uncertain write must be inspected before authorized recovery; no blind retry.
+
+Owner, coordinator/reviewer and developer agent are stable roles; existing routing
+markers stay defined by the communication protocol. Display aliases are not approval,
+Git authorship, account identity or new routing syntax. No persistent profile is
+selected or loaded by this adoption. If a later task uses one, verify the explicitly
+selected user-owned source outside Git, current-user applicability, confirmed profile
+ID, safe display-only content and identity schema 1.0. A separately approved repository
+override needs the verified base, matching base ID, its own distinct ID and exact
+host/repository. Never scan other users' files, apply an override alone, persist aliases
+in shared instructions, silently repair/overwrite profiles or claim cross-host sync.
+Without a verified profile, use generic roles or expressly confirmed session aliases;
+persistence/installation remains separately scoped. The pinned source contract is
+[identity.md](https://github.com/Awandalo/Development-Workflow/blob/fa1a86a07fda44ac7434b95142eb7f30bc5987b2/onboarding/identity.md).
+
+## Prior acceptance of new Entra requirements
+
+Before implementing, configuring, requesting or making delivery depend on a new or
+expanded Microsoft Entra permission, scope, app role, API audience, consent grant,
+app registration or equivalent authorization layer, explain the exact proposal in
+plain language and obtain explicit **Accept / Reject** from the competent owner.
+Explain what is added, its benefit and why existing sign-in/administration is
+insufficient; give an everyday example, who configures/approves/maintains it, added
+installation/deployment steps and a simpler alternative where available.
+
+Record the exact decision and trusted provenance in the existing approval record;
+it may be part of an adequately explained approval bundle. Silence, technical admin
+access, existing website login or general project/deployment approval is not acceptance.
+Reuse unchanged verified acceptance; expanded effects require a new explanation and
+decision. If rejected, retain approved authentication or propose the simpler option;
+never weaken existing security. No Entra requirement is proposed or activated here;
+LAN Party remains independent of work infrastructure/accounts.
+
+## Artifact retention and safe cleanup
+
+FW-ART-001 distinguishes maintained source, frozen historical receipts, reproducible
+generated files/caches and identified deployed/release packages. Classify actual
+purpose, component, environment and verified generation; filenames, age, a build or
+a ZIP alone do not establish deployment/acceptance. Mixed or unknown-purpose material
+follows the stronger recovery requirement. Existing stricter retention remains.
+
+| Purpose | Protected generations | Earliest cleanup boundary |
+| --- | --- | --- |
+| Local reproducible frontend output/preview candidates used only locally | Current successful verified build and immediately previous successful verified build, where they exist | New local build verified; deployment is unnecessary for these local-only artifacts |
+| Deployed packages and matching rollback/recovery dependencies | Current verified installed/deployed generation and previous successful generation, with complete dependencies | Target-verified deployment/installation and acceptance, or an explicitly approved safe project release boundary |
+| Safely regenerable caches | Defined project policy, possibly shorter | Verified safe cache boundary with the same path/data/authorization checks |
+
+A first successful generation does not require an invented predecessor. A failed or
+incomplete build cannot displace a successful generation. Keep older last known-good,
+active recovery/disaster-recovery, audit/investigation and other required generations
+even when this exceeds two. Missing expected rollback material blocks cleanup.
+
+LAN Party roots and boundaries (verified from configuration/ignore rules; no cleanup
+or archived-generation inventory is performed by this adoption):
+
+- `dist/`: Vite frontend output, ignored. Vite can replace this directory during a
+  build; the command alone does not implement two-generation retention. Before a
+  future build would replace needed verified output, preserve the current/previous
+  successful local generations and their source/build evidence and content hashes
+  under the ignored `.wrangler/build-retention/` root. This is a documented local
+  retention destination, not an installed helper or a claim that archives exist.
+  Record build options and uncommitted-source identity where applicable. Verify a
+  new build before advancing generation records; retain the prior verified output
+  through failure. An ephemeral CI runner has its own target/generation evidence.
+- `.wrangler/`: mixed private local D1 fixtures, exports/recovery checkpoints,
+  operational evidence, journals and preview helpers. Never classify the whole root
+  as a cache. Preserve required exports, hashes, fixtures, recovery tools and receipts
+  independently of the frontend two-generation rule. Published Cloudflare Worker
+  versions/asset dependencies are separate remote targets, not local cleanup candidates.
+- `node_modules/` and tool caches: consider only a proven regenerable subset under
+  a bounded cleanup task. No general cache-deletion policy is activated here.
+- `backups/`, `exports/`, maintained source/docs, Git objects/history, decision records
+  and necessary test/provenance inputs: excluded from automatic build cleanup.
+
+Before any authorized cleanup, inventory/dry-run the exact resolved absolute paths,
+project/owner, host/environment, purpose, generation, candidates/exclusions with
+reasons, file counts and bytes. Inspect dependencies, active use and required recovery/
+retention references without following links or assuming build-named folders are
+wholly disposable. Verify retained current/previous hashes and recovery completeness.
+
+Cleanup requires explicit bounded target/path/candidate authority; framework adoption
+or build/deploy approval alone grants none. Reuse verified class-level cleanup scope
+only within its conditions. Recheck the actual inventory and dependencies before a
+mutation; stop on path ambiguity, unexpected changes, hash mismatch or missing recovery.
+Delete only the verified set, never unknown recursive/wildcard trees. Preserve the
+dry-run and partial outcomes, and establish rebuild/authorized recovery feasibility;
+no assumed Git restore or automatic rollback. Do not delete required source, receipts,
+journals, Git history or recovery tools merely to meet a two-generation target.
+
+After cleanup, verify retained hashes, dependencies and relevant source/Git state;
+report removed/retained/skipped items, bytes reclaimed and failures in existing task
+or build/release evidence. Stop and inspect partial results before another authorized
+plan. Repeated runs recompute current state and remove nothing further if unchanged.
+Local authority never covers another server, cloud resource or deployed PackageCache.
+This adoption authorizes no deletion, relocation, backup restore or retention helper.
+
+## Optional frontend design and version maintenance
+
+For relevant frontend work, use [frontend design guidance](frontend-design.md) as
+optional inspiration within LAN Party's existing identity and accessible React/CSS
+components. No animation, library, redesign or additional Skill is mandatory.
+Existing risk-based testing applies; a documentation-only adoption needs editorial/
+link checks rather than another application regression or UI suite.
+
+For future baseline/documentation updates, classify affected references as current
+rules, pinned consumer dependencies, candidate sections, historical receipts or legacy
+anchors. Verify approved immutable source/version and actual publication separately.
+Do not silently update other consumers or preserved workflow pins. Preserve historical
+hashes, dates and unadopted candidates; check changed links and operational meaning,
+and report unverified evidence without claiming installation or runtime acceptance.

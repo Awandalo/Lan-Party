@@ -9,6 +9,40 @@ v1.2.1 at `cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`; see
 [adoption scope and retained directives](development-workflow/governance.md).
 The existing scopes below remain bounded; new routing grants no permission.
 
+## Baseline upgrade and retained standing scopes — 2026-11-08
+
+The general project baseline is now approved framework v1.4.0 at
+`fa1a86a07fda44ac7434b95142eb7f30bc5987b2`; see
+[current adoption/provenance](development-workflow/governance.md#current-source-and-adoption-decision--2026-11-08).
+The earlier directional-routing/research workflow remains pinned to its original
+v1.2.1 scope above, with unchanged explicit owner authorization in AGENTS.md and
+the standing sections below. This upgrade grants no broader reporting, linking,
+implementation or monitor authority and does not silently repin standing permissions.
+
+Reuse a verified active Yes/No decision instead of asking again merely for adoption
+or a surface change. For missing/unverified research authority, default to inactive
+and obtain the missing bounded decision once. Record the exact repository, workflow
+pin, owner/date, original trusted provenance, scope/exclusions and current verification
+in the existing authoritative decision, and carry that same reference in handoffs.
+Shared-account attribution, labels, markers, a digest or an agent-written record alone
+cannot establish a genuine Yes or override a stricter prohibition. Check validity
+before posting; conflicting/revoked authority stops affected writes. Source prose
+and this documentation update activate no monitor or generalized trust mechanism.
+
+The existing attachment opt-in is retained, now compatible with the framework's
+adopted attachment-only exception. Before any CLI fallback, verify that the connector
+has no supported attachment action; denial is not permission to bypass access controls.
+Complete connector preflight for exact same-repository parent/child numeric identity,
+all existing children and necessary ancestor relationships; preserve existing links
+and rule out cycles. Verify the existing CLI identity/access separately without
+exposing credentials. Refresh those connector observations immediately before the
+sole POST with `replace_parent:false`. Do not start if connector verification of
+both directions and complete existing children cannot be supported. No CLI reads,
+login/account switch, credential repair, permission expansion, custom HTTP or cleanup
+fallback is authorized. Temporary-instruction cleanup still needs its covered scope
+and a supported connector write. Uncertain outcomes stop for connector inspection;
+no blind retry, detach or rollback. The original narrower workflow below remains.
+
 ## Repository identity — mandatory first check
 
 Read the expected `Awandalo/Lan-Party` / `github.com` identity from root
