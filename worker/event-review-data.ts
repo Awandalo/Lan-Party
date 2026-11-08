@@ -39,7 +39,6 @@ export async function writeReview(db:D1Database,id:string,userId:string,digest:s
  const review=await reviewSnapshot(db,id,userId),{snapshot,people}=review;
  if(raw.revision!==snapshot.state.revision)throw new EventError(409,'Review changed. Reload before continuing');
  if(snapshot.meta.publication_status!=='published')throw new EventError(409,'This event cannot be reviewed');
- if(action==='attendance'&&(!snapshot.state.ended||snapshot.state.open))throw new EventError(409,'Review attendance after the event ends and registration is closed');
  const person=people.find(p=>p.registrationId===raw.registrationId&&p.id===raw.personId);
  if(action!=='instructions'&&!person)throw new EventError(400,'Participant not found');
  let removed:string[]=[],added:string[]=[],detail:object={},paymentUrl='',instructions='';
@@ -55,7 +54,7 @@ export async function writeReview(db:D1Database,id:string,userId:string,digest:s
   detail={fields:['payment instructions']};
  }
  const values:unknown[]=[id,raw.revision,userId,digest];if(finance)values.push(userId,digest);
- const guard=db.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${eventActor('events.manage_registrations')} ${finance?'AND '+eventActor('finance.manage'):''} AND EXISTS(SELECT 1 FROM events e WHERE e.id=event_id AND e.publication_status='published' ${action==='attendance'?"AND e.registration_status='closed' AND event_management.ends_at<=unixepoch()":''}) AND (SELECT count(*) FROM event_review_activity WHERE actor_id=? AND occurred_at>unixepoch()-600)<40`).bind(...values,userId);
+ const guard=db.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${eventActor('events.manage_registrations')} ${finance?'AND '+eventActor('finance.manage'):''} AND EXISTS(SELECT 1 FROM events e WHERE e.id=event_id AND e.publication_status='published') AND (SELECT count(*) FROM event_review_activity WHERE actor_id=? AND occurred_at>unixepoch()-600)<40`).bind(...values,userId);
  const statements=[guard,db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Review conflict') END")];
  if(action==='attendance')statements.push(db.prepare(`INSERT INTO event_attendance_review(registration_id,person_id,removed_days,added_days) VALUES (?,?,?,?) ON CONFLICT(registration_id,person_id) DO UPDATE SET removed_days=excluded.removed_days,added_days=excluded.added_days`).bind(person!.registrationId,person!.id,JSON.stringify(removed),JSON.stringify(added)));
  if(action==='complimentary')statements.push(db.prepare(`INSERT INTO event_attendance_review(registration_id,person_id,complimentary) VALUES (?,?,?) ON CONFLICT(registration_id,person_id) DO UPDATE SET complimentary=excluded.complimentary`).bind(person!.registrationId,person!.id,raw.complimentary?1:0));

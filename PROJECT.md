@@ -1546,3 +1546,25 @@ The owner separately approved DEV migration 0035; it is applied with recovery,
 55-table row/schema preservation and integrity/foreign keys verified. Real email
 sending remains held for the actual recipient preview because the existing guest
 has a different destination from the owner's requested member test address.
+
+### Simplified finishing and optional early closure — local, 2026-11-08
+
+The owner explicitly replaced the end-date/separate-registration-close prerequisites:
+an authorized Planner may finish a published event before its scheduled end, accepting
+responsibility for the retained days. Attendance/day corrections are available before
+finalization even while registration is open. The final confirmation warns about early
+closure and uses the existing permanent-finalization acknowledgement, with an explicit
+server-checked early acknowledgement in that request.
+
+One atomic operation closes registration and permanently snapshots/locks attendance,
+price, instructions and bills; failure rolls back both effects. Planned dates stay
+unchanged. The wizard then opens the email preview for Planner plus Finance/Admin,
+with a separate explicit Send confirmation; Planner alone can still finish without
+email access. No unusable Send button appears in the pre-finalization bills step.
+This is local-only review, with no migration, remote data/configuration changes,
+publication or real email. See [the finishing contract](docs/event-finalization.md).
+
+The owner subsequently accepted the local flow and explicitly authorized DEV
+publication for online testing on 2026-11-08. This supersedes the local-only
+publication limit; hosted verification remains read-only, leaving event finishing
+and email sending to owner acceptance. No schema/configuration or PROD changes.

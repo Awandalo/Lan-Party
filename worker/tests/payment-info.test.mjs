@@ -8,6 +8,13 @@ const require=createRequire(import.meta.url),{build}=createRequire(require.resol
 const policyBundle=await build({stdin:{resolveDir:process.cwd(),contents:"export {paymentInfoAction,paymentInfoSendBlock} from './worker/payment-info-data';export {EventError} from './worker/event-data';"},bundle:true,format:'esm',platform:'node',write:false});
 const {paymentInfoAction,paymentInfoSendBlock,EventError}=await import('data:text/javascript;base64,'+Buffer.from(policyBundle.outputFiles[0].text).toString('base64'));
 
+test('early finishing advertises Finance capability and opens the same unsent final-email preview after closing registration',()=>local(async f=>{
+ const s=await paymentExample(f);assert.equal((await(await s.call(s.admin)).json()).canManagePayments,true);assert.equal((await(await s.call(s.planner)).json()).canManagePayments,false);
+ assert.equal((await s.command('finalize',{confirmation:'Fictional payment info LAN',acknowledgeEarly:true},s.planner)).status,200);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'closed');assert.equal((await(await s.call(s.admin)).json()).canManagePayments,true);
+ assert.equal((await s.preview()).recipients.length,2);assert.deepEqual(await s.mails(),[]);
+},35));
+
 test('preview uses locked daily rate, administrator-corrected day counts and private guest-only information',()=>local(async f=>{
  const s=await paymentExample(f);assert.equal((await s.command('payment-info-preview')).status,409);
  await s.finalize();assert.deepEqual(await s.mails(),[]);

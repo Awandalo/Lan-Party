@@ -44,7 +44,7 @@ test('Finish event sits beside Edit event and keeps its lifecycle and permission
  const html=render(event,access);
  assert.ok(html.includes('class="button button-secondary">Finish event</button><button class="button">Edit event</button>'));
  assert.equal(html.includes('finish-event-callout'),false);
- for(const endsAt of [null,Date.now()/1000+86400])assert.ok(render({...event,endsAt},access).includes('disabled="" title="Available after the event ends">Finish event'));
+ for(const endsAt of [null,Date.now()/1000+86400])assert.ok(render({...event,endsAt},access).includes('class="button button-secondary">Finish event</button>'));
  assert.ok(render(event,access,true).includes('disabled=""'));
  for(const changed of [{...event,finalized:1},{...event,status:'draft'},{...event,revision:null}])assert.equal(render(changed,access).includes('Finish event'),false);
  assert.equal(render(event,all).includes('Finish event'),false);

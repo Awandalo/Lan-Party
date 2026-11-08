@@ -503,3 +503,62 @@ This supersedes the local-only publication limit above. Reuse the unchanged loca
 Exact-commit full CI, automatic DEV deployment and read-only hosted tab checks
 remain publication verification; no migrations, hosted attendance/payment writes,
 provider sends, PROD changes or Jotform cutover are included.
+
+### One Finish event operation, including early closure — local, 2026-11-08
+
+Owner-approved replacement rule: an authorized Planner may finish a published
+event whenever they decide the retained attendance is settled, including before
+its scheduled end. This supersedes earlier requirements to wait for the end or
+close registration separately. Attendance corrections may be prepared while
+registration remains open; revision fencing prevents stale bills being finalized
+when a member or organizer changes the days concurrently.
+
+The existing Attendance → Bills → Confirm review remains. The draft Bills step
+contains payment instructions without an unusable Send button. Confirm explains
+the permanent locks and warns when finishing early; the existing confirmation
+switch covers that warning, with a separate boolean early acknowledgement sent
+and checked server-side. No extra typed confirmation or separate close action is
+introduced. One D1 transaction closes registration, advances the guarded revision
+and creates the immutable finalization/bills/audit. Dates remain unchanged. Failed
+authorization, stale state or audit writes roll back closure and financial locks
+together. Existing permanent locks and nonzero retained-day checks remain.
+
+For Planner plus Finance/Admin, success opens the actual payment-email preview
+immediately. Sending still requires its own confirmation and all existing DEV
+recipient/duplicate/outcome protections. Closing the preview is allowed without
+sending; Done returns to Finance. Planner alone can finish and sees no private
+email action. The existing Finance capability is now included in the draft
+response so the confirmation can describe the correct continuation.
+
+Verification: the first focused run found one obsolete UI assertion expecting
+the removed end-date gate; its expectation was updated to the approved contract.
+The full local run passed 760/760. After the one-field Finance-response correction,
+42 focused finalization/payment/entry-point checks passed, including its new
+capability/early-preview case; unchanged successful broad coverage is reused.
+Strict TypeScript and frontend build pass; final strict types were repeated after
+the response change. Tests cover early acknowledgement, automatic closure,
+registration/finalization races, audit rollback, authorization and immutable bills.
+The browser completed a future/open fictional event and reached the unsent email
+preview, then Done/Finance; an isolated read confirms closed/finalized state and
+zero emails. Mobile-device acceptance is not repeated.
+
+Local handover: `http://127.0.0.1:5196/manage/events`, **Finish flow - Your test**
+remains future-dated, registration open and unfinalized for owner testing. Existing
+test websites are preserved. No migration, hosted data/configuration change,
+commit/push or real provider send is performed. All changes remain unstaged.
+Suggested commit: `feat(events): finish registration and bills in one flow`.
+Body: "Allow explicitly acknowledged early finishing and atomically close
+registration with immutable bills. Open the optional authorized email preview
+after success and remove pre-finalization send/timing gates. Validate financial,
+permission, rollback, race and local browser behavior; hosted acceptance remains
+pending."
+
+### Owner acceptance and DEV publication — 2026-11-08
+
+The owner accepted the local simplified finishing flow and explicitly authorized
+DEV publication for online testing. This supersedes the local-only publication
+limit above. Reuse the unchanged broad/focused test, strict types/build and local
+browser evidence; normal exact-commit CI and deployment checks follow. Hosted
+verification is read-only: inspect the new controls without finishing an event,
+changing attendance/registration/payment state or sending emails. No migration,
+configuration/permission changes, PROD or Jotform cutover is included.

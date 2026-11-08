@@ -1,5 +1,16 @@
 # TODO / To remember
 
+## Current local review — Finish event in one flow
+
+- [x] Owner authorizes optional early finishing, automatic registration closure and then optional email preview.
+- [x] Published future/open events can be reviewed and finished with a clear early warning and permanent acknowledgement; no separate Close registration step.
+- [x] Registration closure and immutable bills commit atomically with existing live permissions, revision, rollback and duplicate protections.
+- [x] Hide Send in the draft bills step; open its explicit preview after finishing for Planner plus Finance/Admin.
+- [x] Owner accepted the local test and authorized DEV publication for online testing on 2026-11-08.
+- [ ] Verify exact-commit CI, DEV deployment and read-only hosted controls; owner performs hosted finishing acceptance. No migration/configuration changes or email sends by the agent.
+
+See [finalization](docs/event-finalization.md). The owner-approved early-finish rule supersedes the older end-date requirements below.
+
 ## Current local review — simple payment emails (#41, formerly #40C)
 
 - [x] #40 accepted/closed by the owner; retain its existing Finance flow.

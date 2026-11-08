@@ -4,7 +4,7 @@ import {financeRequest} from '../lib/event-finance';
 import type {FinanceData} from '../lib/event-finance';
 import type {PaymentInfoPreview} from '../lib/payment-info';
 import './PaymentInfoButton.css';
-export default function PaymentInfoButton({id,disabled,onSent}:{id:string;disabled:boolean;onSent:()=>void}){
+export default function PaymentInfoButton({id,disabled,onSent,openOnMount=false}:{id:string;disabled:boolean;onSent:()=>void;openOnMount?:boolean}){
  const auth=useAuth(),proof=auth.status==='ready'&&auth.administration?.status==='ready'?auth.session?.csrfToken:undefined;
  const context=id+':'+proof+':'+auth.administration?.revision,live=useRef(context);live.current=context;
  const trigger=useRef<HTMLButtonElement>(null),dialog=useRef<HTMLDialogElement>(null);
@@ -12,6 +12,7 @@ export default function PaymentInfoButton({id,disabled,onSent}:{id:string;disabl
  function close(){dialog.current?.close();setOpen(false);trigger.current?.focus({preventScroll:true});}
  useEffect(()=>{setOpen(false);setPreview(null);return()=>{live.current='';};},[context]);
  useEffect(()=>{if(open)dialog.current?.showModal();else if(dialog.current?.open){dialog.current.close();trigger.current?.focus({preventScroll:true});}},[open]);
+ useEffect(()=>{if(openOnMount&&proof){setOpen(true);void refresh();}},[context,openOnMount]);
  async function refresh(){
   if(!proof)return;const captured=context;setBusy(true);setMessage('');
   try{const data=await financeRequest<FinanceData>(id,proof,true);const value=await financeRequest<PaymentInfoPreview>(id,proof,true,{action:'payment-info-preview',revision:data.revision});if(live.current===captured)setPreview(value);}

@@ -37,9 +37,15 @@ test('Pay/Free and payment instructions require both explicit planner and Financ
  await f.sql("DELETE FROM role_permissions WHERE role_id='30000000-0000-4000-8000-000000000001' AND permission_id IN (SELECT id FROM permissions WHERE code='events.manage_registrations')").run();
  assert.equal((await call(f,s.id,s.planner)).status,403);assert.equal((await call(f,s.id,s.member)).status,403);
 },30));
-test('review validates end/closed state, person ownership, original confirmed days, reasons and safe payment request URLs',()=>local(async f=>{
+test('authorized staff can correct billable days before the end while registration is open, without changing original selections',()=>local(async f=>{
+ const s=await setup(f),person=(await s.read()).people[0],before=(await f.sql('SELECT * FROM event_registration_parties').all()).results;
+ assert.equal((await s.change(s.planner,'attendance',{registrationId:person.registrationId,personId:person.id,days:[s.days[0]]})).status,200);
+ assert.deepEqual((await s.read()).people.find(p=>p.id===person.id).days,[s.days[0]]);assert.deepEqual((await f.sql('SELECT * FROM event_registration_parties').all()).results,before);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'open');
+},30));
+
+test('review validates person ownership, valid days, reasons and safe payment request URLs while registration is open',()=>local(async f=>{
  const s=await setup(f),person=(await s.read()).people[0],extra={registrationId:person.registrationId,personId:person.id,days:[]};
- assert.equal((await s.change(s.admin,'attendance',extra)).status,409);await s.end();
  for(const patch of [{days:['2030-11-04']},{days:[s.days[0],s.days[0]]},{personId:randomUUID()},{registrationId:randomUUID()},{reason:'x'}])assert.equal((await s.change(s.admin,'attendance',{...extra,...patch})).status,400);
  for(const paymentUrl of ['javascript:alert(1)','https://tikkie.me.evil.test/x','https://user@tikkie.me/x','http://tikkie.me/x','https://example.test/x'])assert.equal((await s.change(s.admin,'instructions',{paymentUrl,instructions:''})).status,400);
  assert.equal(await f.sql('SELECT count(*) n FROM event_review_activity').first('n'),0);

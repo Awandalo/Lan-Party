@@ -48,12 +48,44 @@ test('closure retains complimentary days, locks instructions, and rounds upward 
  const days=await s.change(s.admin,'attendance',{registrationId:guest.registrationId,personId:guest.id,days:[]});assert.equal(days.status,409);
 },32));
 
-test('finalization enforces end/registration/name/nonzero attendance and staff authority',()=>local(async f=>{
+test('finalization requires early acknowledgement, exact name, nonzero attendance and staff authority',()=>local(async f=>{
  const s=await setup(f);assert.equal((await finalize(f,s)).status,409);
- await f.sql('UPDATE event_management SET starts_at=1,ends_at=2 WHERE event_id=?',s.id).run();assert.equal((await finalize(f,s)).status,409);await s.end();
- assert.equal((await finalize(f,s,s.planner,{confirmation:'wrong'})).status,400);assert.equal((await finance(f,s,s.member,{action:'finalize'})).status,403);
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:'yes'})).status,400);
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true,confirmation:'wrong'})).status,400);assert.equal((await finance(f,s,s.member,{action:'finalize'})).status,403);
  for(const person of (await s.read()).people)assert.equal((await s.change(s.admin,'attendance',{registrationId:person.registrationId,personId:person.id,days:[]})).status,200);
- assert.equal((await finalize(f,s)).status,400);assert.equal(await f.sql('SELECT count(*) n FROM event_finalizations').first('n'),0);
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,400);assert.equal(await f.sql('SELECT count(*) n FROM event_finalizations').first('n'),0);
+},32));
+
+test('one acknowledged early finish closes open registration and locks bills without email or date changes',()=>local(async f=>{
+ const s=await setup(f),dates=await f.sql('SELECT starts_at,ends_at FROM event_management WHERE event_id=?',s.id).first();
+ const notices=await f.sql('SELECT count(*) n FROM event_registration_notifications').first('n');
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,200);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'closed');
+ assert.deepEqual(await f.sql('SELECT starts_at,ends_at FROM event_management WHERE event_id=?',s.id).first(),dates);
+ assert.equal(await f.sql('SELECT participant_days FROM event_finalizations WHERE event_id=?',s.id).first('participant_days'),4);
+ assert.equal(await f.sql('SELECT count(*) n FROM event_registration_notifications').first('n'),notices);
+ const denied=await f.request('event-registration/'+s.id,s.member,{action:'save',revision:await f.sql('SELECT revision FROM event_management WHERE event_id=?',s.id).first('revision'),operationId:randomUUID(),draft:{days:s.days,guests:[s.guest]}},proof(s.member));assert.equal(denied.status,409);
+},32));
+
+test('ended events with registration still open finish without a separate Close registration action',()=>local(async f=>{
+ const s=await setup(f);await f.sql('UPDATE event_management SET starts_at=1,ends_at=2 WHERE event_id=?',s.id).run();
+ assert.equal((await finalize(f,s)).status,200);assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'closed');
+},32));
+
+test('early finish audit failure rolls back registration closure, revision and all bill locks',()=>local(async f=>{
+ const s=await setup(f),revision=await f.sql('SELECT revision FROM event_management WHERE event_id=?',s.id).first('revision');
+ await f.sql("CREATE TRIGGER reject_early_finish BEFORE INSERT ON event_activity WHEN json_extract(NEW.fields,'$[0]')='finalization' BEGIN SELECT RAISE(ABORT,'Fictional early finish failure'); END").run();
+ assert.equal((await finalize(f,s,s.admin,{acknowledgeEarly:true})).status,503);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'open');assert.equal(await f.sql('SELECT revision FROM event_management WHERE event_id=?',s.id).first('revision'),revision);
+ assert.equal(await f.sql('SELECT count(*) n FROM event_finalizations').first('n'),0);assert.equal(await f.sql('SELECT count(*) n FROM event_bills').first('n'),0);
+},32));
+
+test('registration edit racing an early finish either wins first or is rejected; final bills never retain open registration',()=>local(async f=>{
+ const s=await setup(f),preview=await(await finance(f,s)).json(),body={action:'finalize',revision:preview.revision,operationId:randomUUID(),confirmation:'Fictional review LAN',acknowledgeEarly:true};
+ const responses=await Promise.all([finance(f,s,s.planner,body),f.request('event-registration/'+s.id,s.member,{action:'save',revision:preview.revision,operationId:randomUUID(),draft:{days:[s.days[0]],guests:[s.guest]}},proof(s.member))]);
+ assert.deepEqual(responses.map(r=>r.status).sort(),[200,409]);
+ if(responses[0].status===409){assert.equal(await f.sql('SELECT count(*) n FROM event_finalizations').first('n'),0);assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,200);}
+ const review=await s.read();assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'closed');assert.equal(await f.sql('SELECT participant_days FROM event_finalizations WHERE event_id=?',s.id).first('participant_days'),review.people.reduce((n,p)=>n+p.days.length,0));
 },32));
 
 test('concurrent closure, stale revisions and replay cannot duplicate bills or reprice an event',()=>local(async f=>{
