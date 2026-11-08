@@ -44,13 +44,14 @@ export default function PaymentInfoButton({id,disabled,onSent}:{id:string;disabl
   <div className="payment-info-content"><p>Each member receives their combined final bill. Guests receive only their own cost information; the member arranges payment. Nothing is sent until you confirm.</p>
    {message&&<p role="status">{message}</p>}{!preview&&!message&&<p role="status">Loading saved payment information…</p>}
    {preview&&<>{preview.missingInstructions&&<p className="review-note">No payment link or bank instructions were saved. The message will ask members to contact the organizer.</p>}
+    {preview.sendBlockedReason&&<p role="alert" className="review-note">{preview.sendBlockedReason}</p>}
     <p role="status">{count('ready')} ready · {count('sent')} accepted · {count('failed')} not sent{unknown>0&&' · '+unknown+' need checking'}</p>
     {unknown>0&&<p>Some outcomes are uncertain. Check them with the organizer/provider; they will not be resent here.</p>}
     <div className="payment-info-recipients">{preview.recipients.map(r=><details key={r.key}><summary>{r.name} · {r.kind} · {r.email} <small>{r.state==='sent'?'Accepted':r.state==='sending'||r.state==='unknown'?'Needs checking':r.state==='failed'?'Not sent':'Ready'}</small></summary><pre>{r.text}</pre></details>)}</div>
     {!preview.recipients.length&&<p>No eligible member or guest emails.</p>}
    </>}
   </div>
-  <div className="wizard-actions"><button type="button" className="button button-secondary" disabled={busy} onClick={close}>Close</button><div>{!preview&&<button type="button" className="button" disabled={busy} onClick={()=>void refresh()}>Check again</button>}{preview&&count('failed')>0&&<button type="button" className="button button-secondary" disabled={busy} onClick={()=>void send(true)}>Retry {count('failed')} not-sent emails</button>}{preview&&count('ready')>0&&<button type="button" className="button" disabled={busy} onClick={()=>void send(false)}>{busy?'Sending…':'Confirm & send '+count('ready')+' emails'}</button>}</div></div>
+  <div className="wizard-actions"><button type="button" className="button button-secondary" disabled={busy} onClick={close}>Close</button><div>{!preview&&<button type="button" className="button" disabled={busy} onClick={()=>void refresh()}>Check again</button>}{preview&&count('failed')>0&&<button type="button" className="button button-secondary" disabled={busy||!!preview.sendBlockedReason} onClick={()=>void send(true)}>Retry {count('failed')} not-sent emails</button>}{preview&&count('ready')>0&&<button type="button" className="button" disabled={busy||!!preview.sendBlockedReason} onClick={()=>void send(false)}>{busy?'Sending…':'Confirm & send '+count('ready')+' emails'}</button>}</div></div>
  </dialog>}
  </>;
 }

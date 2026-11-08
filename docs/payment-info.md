@@ -45,3 +45,43 @@ quick integrity and foreign-key checks pass. Bills and permissions are unchanged
 The owner requested a real test to their own address; the existing finalized event
 also includes a guest with a different address. No provider send has occurred;
 the full actual recipient preview requires owner review before that send.
+
+### Local DEV-recipient feedback correction — 2026-11-08
+
+After DEV publication the owner reported a generic "Finalization could not be
+confirmed" message from the payment dialog. Read-only DEV evidence shows zero
+send records and unchanged email-budget rows. A non-allowlisted guest reproduces
+the uncaught policy exception before claims/provider calls; the old Finance route
+mapped that exception to its generic finalization error. The actual secret
+allowlist was not read or changed, so this identifies the reproduced error path
+rather than claiming access to its configured contents.
+
+The local correction validates all eligible DEV recipients in the preview, shows
+a clear recipient/settings block reason and disables Send/Retry while blocked.
+Direct send requests return a specific 403 before claiming rows or contacting the
+provider; successful/uncertain prior outcomes are not rechecked for resending.
+No recipients are silently skipped or substituted and the allowlist remains
+enforced. The owner's instruction to leave both existing emails unsent remains.
+
+Validation: 25 payment/policy/template checks and strict TypeScript/build pass,
+including a hosted-origin test against disposable D1 proving zero claims, revision
+changes, quota usage or provider attempts for a denied guest. Unchanged full
+754-case CI evidence is reused for unaffected code; this correction is local and
+unstaged, with no new migration/configuration, commit/push or external send.
+Suggested commit: `fix(events): explain blocked DEV payment recipients`.
+
+The isolated local browser fixture on port 5195 verifies the real hosted-policy
+preview handler with a deliberately unapproved fictional guest: addresses remain
+visible, the explicit block reason appears and Confirm is disabled. No send was
+clicked. Original local test state and hosted DEV remain unchanged. Proposed
+commit body: "Explain DEV recipient/settings denials before payment-email sending
+and return a specific 403 without claims or provider attempts. Verify 25 focused
+checks, strict types/build and the disabled-send browser state; no policy changes
+or real email sends."
+
+The owner accepted the local feedback correction and explicitly authorized its
+DEV publication for another online test on 2026-11-08. This supersedes its
+local-only publication limit above. Reuse the unchanged 25 focused tests,
+types/build and browser evidence; verify exact-commit CI, DEV deployment and the
+hosted disabled-send preview after publication. No migration/configuration,
+recipient allowlist changes, real email sends or PROD changes are included.

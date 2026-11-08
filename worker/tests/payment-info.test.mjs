@@ -3,6 +3,10 @@ import {randomUUID} from 'node:crypto';
 import {test} from 'node:test';
 import {local} from './helpers/role-fixture.mjs';
 import {paymentExample,proof} from './helpers/payment-info-fixture.mjs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
+const policyBundle=await build({stdin:{resolveDir:process.cwd(),contents:"export {paymentInfoAction,paymentInfoSendBlock} from './worker/payment-info-data';export {EventError} from './worker/event-data';"},bundle:true,format:'esm',platform:'node',write:false});
+const {paymentInfoAction,paymentInfoSendBlock,EventError}=await import('data:text/javascript;base64,'+Buffer.from(policyBundle.outputFiles[0].text).toString('base64'));
 
 test('preview uses locked daily rate, administrator-corrected day counts and private guest-only information',()=>local(async f=>{
  const s=await paymentExample(f);assert.equal((await s.command('payment-info-preview')).status,409);
@@ -75,4 +79,17 @@ test('failed audit rolls back claims/revision before sending; deactivated owners
  assert.equal((await s.send(p)).status,503);assert.equal(await s.revision(),p.revision);assert.equal(await f.sql('SELECT count(*) FROM event_payment_info_emails').first('count(*)'),0);assert.deepEqual(await s.mails(),[]);
  await f.sql('DROP TRIGGER reject_payment_audit').run();await f.sql("UPDATE users SET status='disabled' WHERE id=?",s.member.id).run();
  assert.equal((await s.send(p)).status,409);assert.deepEqual((await s.preview()).recipients,[]);assert.deepEqual(await s.mails(),[]);
+},35));
+
+test('hosted DEV previews explain blocked guests/settings and reject the entire send before any claim or provider attempt',()=>local(async f=>{
+ const s=await paymentExample(f);await s.finalize();const revision=await s.revision(),request=new Request('https://dev.lan-party.club/api/event-finance/'+s.id+'/manage');
+ const address=await f.sql('SELECT email FROM users WHERE id=?',s.member.id).first('email');
+ const env={DB:f.db,AUTH_ENVIRONMENT:'dev',AUTH_EMAIL_TRANSPORT:'resend',AUTH_PUBLIC_ORIGIN:'https://dev.lan-party.club',AUTH_DEV_RECIPIENT_ALLOWLIST:JSON.stringify([address])};
+ const action=(body,settings=env)=>paymentInfoAction(request,settings,s.id,s.admin.id,s.admin.digest,{revision,operationId:randomUUID(),...body});
+ const preview=await action({action:'payment-info-preview'});assert.equal(preview.recipients.length,2);assert.match(preview.sendBlockedReason,/recipient is not approved for DEV/);assert.equal(preview.sendBlockedReason.includes(address),false);assert.equal(preview.sendBlockedReason.includes('Finalization'),false);
+ await assert.rejects(action({action:'send-payment-info',previewToken:preview.previewToken,retryFailed:false}),e=>e instanceof EventError&&e.status===403&&e.message===preview.sendBlockedReason);
+ assert.equal(await s.revision(),revision);assert.equal(await f.sql('SELECT count(*) n FROM event_payment_info_emails').first('n'),0);assert.equal(await f.sql('SELECT count(*) n FROM auth_email_daily_budget').first('n'),0);assert.deepEqual(await s.mails(),[]);
+ const unavailable=await action({action:'payment-info-preview'},{...env,AUTH_DEV_RECIPIENT_ALLOWLIST:undefined});assert.match(unavailable.sendBlockedReason,/settings are unavailable/);
+ const allowed=await action({action:'payment-info-preview'},{...env,AUTH_DEV_RECIPIENT_ALLOWLIST:JSON.stringify([address,s.guest.email])});assert.equal(allowed.sendBlockedReason,undefined);
+ assert.equal(paymentInfoSendBlock(request,env,[{email:s.guest.email,state:'sent'},{email:s.guest.email,state:'unknown'}]),undefined);
 },35));

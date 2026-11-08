@@ -14,4 +14,4 @@ export function paymentInfoText(info:PaymentInfo){
   'Thank you for hanging out with us. See you at the next one!'].join('\n\n');
 }
 export interface PaymentInfoRecipient {key:string;name:string;email:string;kind:'Member'|'Invited guest';text:string;state:'ready'|'sending'|'sent'|'failed'|'unknown'}
-export interface PaymentInfoPreview {revision:number;previewToken:string;missingInstructions:boolean;recipients:PaymentInfoRecipient[]}
+export interface PaymentInfoPreview {revision:number;previewToken:string;missingInstructions:boolean;sendBlockedReason?:string;recipients:PaymentInfoRecipient[]}

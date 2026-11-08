@@ -42,18 +42,25 @@ async function plan(db:D1Database,id:string,userId:string){
  return {revision:review.snapshot.state.revision,previewToken,missingInstructions:!final.payment_url&&!final.instructions,recipients};
 }
 function publicPreview(value:Awaited<ReturnType<typeof plan>>):PaymentInfoPreview{return {...value,recipients:value.recipients.map(({key,name,email,kind,info,state})=>({key,name,email,kind,text:paymentInfoText(info),state}))};}
+export function paymentInfoSendBlock(request:Request,env:AuthenticationEnvironment,recipients:{email:string;state:string}[]){
+ if(!hostedDev(request,env))return undefined;
+ try{for(const recipient of recipients)if(['ready','failed'].includes(recipient.state))assertDevEmailRecipient(env,recipient.email);}
+ catch(error){if(error instanceof DevEmailPolicyError)return 'DEV email sending is blocked: a recipient is not approved for DEV, or DEV email settings are unavailable. Check the recipient addresses. Nothing was sent by this action.';throw error;}
+ return undefined;
+}
 export async function paymentInfoAction(request:Request,env:AuthenticationEnvironment,id:string,userId:string,digest:string,raw:Record<string,unknown>){
  if(!['payment-info-preview','send-payment-info'].includes(String(raw.action))||Object.keys(raw).some(k=>!['action','revision','operationId','previewToken','retryFailed'].includes(k))||!UUID.test(String(raw.operationId))||!Number.isSafeInteger(raw.revision))throw new EventError(400,'Invalid payment email request');
  const value=await plan(env.DB,id,userId);
  const check=()=>env.DB.prepare(`SELECT 1 FROM event_management WHERE event_id=? AND revision=? AND ${authority}`).bind(id,raw.revision,userId,digest,userId,digest).first();
  if(value.revision!==raw.revision||!await check())throw new EventError(409,'Event or permissions changed. Review again before sending');
- if(raw.action==='payment-info-preview')return publicPreview(value);
+ if(raw.action==='payment-info-preview')return {...publicPreview(value),sendBlockedReason:paymentInfoSendBlock(request,env,value.recipients)};
  if(raw.previewToken!==value.previewToken||typeof raw.retryFailed!=='boolean')throw new EventError(409,'Recipient or bill details changed. Preview again before sending');
  // Each confirmed click covers this immutable content/recipient set. Small chunks
  // keep one slow provider from exhausting Worker/request limits; never auto-retry.
  const pending=value.recipients.filter(r=>r.state===(raw.retryFailed?'failed':'ready')).slice(0,BATCH_SIZE);
  if(!pending.length)return {revision:value.revision,remaining:0};
- for(const recipient of pending)if(hostedDev(request,env))assertDevEmailRecipient(env,recipient.email);
+ const blocked=paymentInfoSendBlock(request,env,value.recipients.filter(r=>r.state===(raw.retryFailed?'failed':'ready')));
+ if(blocked)throw new EventError(403,blocked);
  const statements=[env.DB.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${authority}`).bind(id,raw.revision,userId,digest,userId,digest),env.DB.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Payment email conflict') END")];
  for(const r of pending){
   statements.push(env.DB.prepare(`INSERT INTO event_payment_info_emails(bill_id,recipient_key,state,attempt,operation_id,updated_at) VALUES (?,?,'sending',1,?,unixepoch()) ON CONFLICT(bill_id,recipient_key) DO UPDATE SET state='sending',attempt=attempt+1,operation_id=excluded.operation_id,provider_id=NULL,updated_at=unixepoch() WHERE state='failed' AND ?=1`).bind(r.billId,r.recipientKey,raw.operationId,raw.retryFailed?1:0),env.DB.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Payment email conflict') END"));
