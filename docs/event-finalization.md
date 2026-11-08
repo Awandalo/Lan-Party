@@ -472,3 +472,34 @@ build and local fictional-event browser navigation pass. The owner accepted that
 local result. Unchanged backend security/migration evidence is reused; normal
 exact-commit CI and read-only hosted DEV verification follow publication. No
 hosted attendance, payment or finalization writes or test emails are included.
+
+### Immediate tab feedback correction — local, 2026-11-08
+
+Hosted owner testing found that waiting for a fresh panel before selecting its tab
+felt like click lag. This local correction switches the selected tab synchronously.
+First visits show loading feedback inside that tab; return visits show the retained
+snapshot immediately with a small Updating indicator while stale data refreshes.
+Controls that change attendance or payments wait for that refresh to finish.
+
+The existing five-second reuse window, edit/access invalidation and server guards
+remain. Shared reads survive rapid tab changes within the same selected event;
+component cancellation ignores obsolete results, while event/access changes abort
+the shared transport. Errors clear cached data; explicit retry bypasses reuse.
+The finalization wizard retains independent fresh reads. No database/configuration,
+hosted writes, commit or push is included in this local correction.
+
+Verification: 29 targeted cache, attendance and presentation checks, strict types
+and build pass. A read-only local proxy added 1.5 seconds to Finance and review
+responses: the Finance tab selected immediately, its stale totals stayed visible
+during refresh, and rapid leave/return shared one request. Normal local testing
+continues on port 5192 after removing the temporary latency proxy.
+
+### Immediate-tab correction DEV publication — 2026-11-08
+
+The owner explicitly authorized publishing the reviewed immediate-tab-response
+correction together with the separately reviewed baseline 1.4.0 documentation.
+This supersedes the local-only publication limit above. Reuse the unchanged local
+29 targeted checks, strict types/build and artificial-latency browser evidence.
+Exact-commit full CI, automatic DEV deployment and read-only hosted tab checks
+remain publication verification; no migrations, hosted attendance/payment writes,
+provider sends, PROD changes or Jotform cutover are included.

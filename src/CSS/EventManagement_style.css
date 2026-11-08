@@ -50,5 +50,6 @@
 .event-dialog .wizard-actions>div>button:last-child{min-inline-size:8rem}
 @media(max-width:480px){.event-editor-content{padding:.5rem}.event-dialog>form>fieldset>.wizard-actions{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:44px 44px;padding:.75rem .5rem 0;gap:.4rem}.event-dialog .wizard-actions>button{justify-self:start}.event-dialog .wizard-actions>div{grid-row:2;justify-self:end;gap:.4rem;flex-wrap:nowrap}.event-dialog .wizard-actions>div>button:last-child{inline-size:8rem}}
 
-/* Announce tab preparation without shifting the current panel. */
-.event-tab-loading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Refresh feedback overlays the retained panel without moving its content. */
+.event-participants,.event-finance{position:relative}
+.event-panel-refresh{position:absolute;inset-block-start:0;inset-inline-end:0;margin:0;font-size:.8rem;color:var(--muted)}

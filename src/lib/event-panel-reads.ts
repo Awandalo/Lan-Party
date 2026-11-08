@@ -12,12 +12,13 @@ export class EventPanelReads {
  constructor(private readonly clock:()=>number=Date.now){}
  synchronize(context:string){if(context!==this.context){this.invalidate();this.context=context;}}
  invalidate(){for(const entry of this.entries.values())entry.abort.abort();this.entries.clear();}
+ peek<K extends EventPanel>(panel:K):EventPanelData[K]|undefined{return this.entries.get(panel)?.data as EventPanelData[K]|undefined;}
  async read<K extends EventPanel>(panel:K,load:(signal:AbortSignal)=>Promise<EventPanelData[K]>):Promise<EventPanelData[K]>{
   if(!this.context)throw new DOMException('Event access changed','AbortError');
   const existing=this.entries.get(panel);
   if(existing?.pending)return existing.pending as Promise<EventPanelData[K]>;
   if(existing?.data&&this.clock()-existing.at<5000)return existing.data as EventPanelData[K];
-  const entry:Entry={at:0,abort:new AbortController()};
+  const entry:Entry={data:existing?.data,at:existing?.at??0,abort:new AbortController()};
   this.entries.set(panel,entry);
   const pending=Promise.resolve().then(()=>{
    if(entry.abort.signal.aborted)throw new DOMException('Event access changed','AbortError');

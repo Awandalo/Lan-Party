@@ -34,3 +34,19 @@ test('writes invalidate both tabs and abort in-flight data; read errors clear ot
  assert.equal((await reads.read('participants',async()=>({revision:++count}))).revision,4);
  let finish,signal;const pending=reads.read('finance',s=>{signal=s;return new Promise(resolve=>{finish=resolve;});});await Promise.resolve();reads.invalidate();assert.equal(signal.aborted,true);finish({});await assert.rejects(pending,{name:'AbortError'});
 });
+
+test('expired snapshots are immediately readable during refresh and rapid return joins the in-flight read',async()=>{
+ let now=0;const reads=new EventPanelReads(()=>now);reads.synchronize('event');
+ const original=await reads.read('finance',async()=>({revision:1}));now=5001;
+ assert.equal(reads.peek('finance'),original);
+ let finish;const pending=reads.read('finance',()=>new Promise(resolve=>{finish=resolve;}));await Promise.resolve();
+ assert.equal(reads.peek('finance'),original);
+ const returning=reads.read('finance',async()=>{throw Error('Duplicate transport');});
+ finish({revision:2});assert.equal((await pending).revision,2);assert.equal(await returning,reads.peek('finance'));
+ now=10002;await assert.rejects(reads.read('finance',async()=>{throw Error('Access denied');}),/Access denied/);assert.equal(reads.peek('finance'),undefined);
+});
+test('synchronous snapshots never survive an event/access change or mutation invalidation',async()=>{
+ const reads=new EventPanelReads();reads.synchronize('event:account:proof:access');await reads.read('participants',async()=>({revision:1}));
+ reads.synchronize('other-event:account:proof:access');assert.equal(reads.peek('participants'),undefined);
+ await reads.read('finance',async()=>({revision:2}));reads.invalidate();assert.equal(reads.peek('finance'),undefined);
+});
