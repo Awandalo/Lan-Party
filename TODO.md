@@ -1,5 +1,13 @@
 # TODO / To remember
 
+## Current local review — payment email layout
+
+- [x] Owner confirms hosted payment-email delivery; reports missing shared branding.
+- [x] Apply the existing email shell to member/guest/free messages, highlight totals and style the payable-member action; keep all sending/privacy rules.
+- [x] Verify focused mail checks, strict types, 17 byte-identical authentication examples and fictional local HTML previews.
+- [x] Owner accepted the port-5197 preview and authorized DEV publication for online testing on 2026-11-08.
+- [ ] Verify exact-head CI/deployment; owner verifies actual inbox rendering. No resend/reset, schema/settings changes or PROD activation.
+
 ## Current local review — Finish event in one flow
 
 - [x] Owner authorizes optional early finishing, automatic registration closure and then optional email preview.

@@ -1,9 +1,5 @@
+import {brandedEmailHtml,escapeEmailHtml as escapeHTML} from '../email-layout';
 type MailPurpose = 'email-verification' | 'password-reset' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' | 'account-reactivation' | 'event-registration';
-
-function escapeHTML(value: string): string {
-  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;',
-    '"': '&quot;', "'": '&#39;' })[character]!);
-}
 
 export function authenticationEmail(link: string, purpose: MailPurpose = 'email-verification') {
   if(purpose==='event-registration'){
@@ -41,20 +37,11 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
   return {
     subject,
     text: `LAN / PARTY\n\n${heading}\n\n${explanation} ${expiry}\n\n${action}:\n${url.href}\n\n${support}\n\n${security}`,
-    html: `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHTML(subject)}</title></head>
-<body style="margin:0;padding:0;background-color:#101317;color:#edf1f5;font-family:'Segoe UI',Arial,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#101317;"><tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#171c22;border:1px solid #333d49;border-radius:12px;"><tr><td style="padding:32px 24px;">
-<p style="margin:0 0 24px;color:#8de2bd;font-size:18px;font-weight:bold;letter-spacing:1px;">LAN / PARTY</p>
-<h1 style="margin:0 0 16px;color:#edf1f5;font-size:28px;line-height:1.25;">${escapeHTML(heading)}</h1>
-<p style="margin:0 0 12px;color:#aeb9c7;font-size:16px;line-height:1.6;">${escapeHTML(explanation)}</p>
+    html: brandedEmailHtml(subject,heading,`<p style="margin:0 0 12px;color:#aeb9c7;font-size:16px;line-height:1.6;">${escapeHTML(explanation)}</p>
 <p style="margin:0 0 24px;color:#aeb9c7;font-size:16px;line-height:1.6;">${escapeHTML(expiry)}</p>
 <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#8de2bd" style="border-radius:8px;"><a href="${href}" style="display:inline-block;padding:16px 24px;color:#101317;font-size:16px;font-weight:bold;text-decoration:none;">${escapeHTML(action)}</a></td></tr></table>
 <p style="margin:24px 0 8px;color:#aeb9c7;font-size:14px;line-height:1.6;">If the button does not work, use this link:</p>
 <p style="margin:0 0 24px;font-size:14px;line-height:1.6;"><a href="${href}" style="color:#8de2bd;">${escapeHTML(action)} securely</a></p>
-<p style="margin:0 0 24px;color:#aeb9c7;font-size:14px;line-height:1.6;">${escapeHTML(support)}</p>
-<p style="margin:0;padding-top:20px;border-top:1px solid #333d49;color:#aeb9c7;font-size:13px;line-height:1.6;">${escapeHTML(security)} ${notification?'':'Never share this link. '}LAN Party will never ask you to send your password by email.</p>
-</td></tr></table></td></tr></table></body></html>`,
+<p style="margin:0 0 24px;color:#aeb9c7;font-size:14px;line-height:1.6;">${escapeHTML(support)}</p>`,`${escapeHTML(security)} ${notification?'':'Never share this link. '}LAN Party will never ask you to send your password by email.`),
   };
 }

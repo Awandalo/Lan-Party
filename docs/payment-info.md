@@ -85,3 +85,47 @@ local-only publication limit above. Reuse the unchanged 25 focused tests,
 types/build and browser evidence; verify exact-commit CI, DEV deployment and the
 hosted disabled-send preview after publication. No migration/configuration,
 recipient allowlist changes, real email sends or PROD changes are included.
+
+### Payment email branding — local, 2026-11-08
+
+The owner confirmed a hosted payment email arrived, then reported that it lacked
+the layout used by existing account emails. The payment HTML previously consisted
+of plain paragraphs. It now reuses the existing self-contained LAN / PARTY shell:
+dark background/card, mint branding, consistent typography and footer. The final
+total is highlighted and payable member messages with a saved URL get a mint
+Open payment request button. Bank-only instructions retain their line breaks.
+Guest and free messages retain their informational/no-payment wording and have
+no payment button. Plain-text content, amounts, privacy, send guards and stored
+delivery outcomes are unchanged; successful email sends are not reset or resent.
+
+The common shell is extracted into `worker/email-layout.ts`. The authentication
+template uses that same shell with byte-identical output for all 17 valid
+DEV/PROD purpose examples against source revision
+`f328cd3246429f6360a0c38f1a52a34c35de8dd3`; invalid destinations still reject.
+The registration-notification branch is unchanged. An isolated comparison helper
+initially needed its TypeScript loader corrected; the comparison then passed.
+
+Validation: 35 focused payment/auth-template/policy/provider checks pass, followed
+by 10 final template checks after tightening the payment-button condition to the
+fixed payable-member paragraph. Strict frontend/Node/Worker TypeScript passes.
+Browser checks cover the actual member, guest and free HTML with fictional data;
+no payment link was opened. Broader unchanged CI/security evidence is reused
+because this change affects rendering only and authentication output is identical.
+Frontend bundling is unaffected; real Gmail/Outlook/mobile rendering and another
+external send were not performed.
+
+Local HTML preview: `http://127.0.0.1:5197/`, with `/guest`, `/free` and `/bank`
+variants. All source changes remain unstaged; no commit/push, database/settings
+change or resend is included. Suggested commit:
+`style(email): share LAN Party branding with payment messages`.
+Body: "Reuse the existing branded email shell for final payment information,
+highlight totals and style the validated payment action. Preserve guest/free
+semantics and byte-identical authentication messages; validate templates, delivery
+policy, strict types and local HTML previews without resending email."
+
+The owner accepted the branded local preview and explicitly authorized DEV
+publication for online testing on 2026-11-08. This supersedes its local-only
+publication limit above. Reuse unchanged local checks; verify exact-commit CI and
+the automatic DEV deployment. Hosted checks are read-only and do not reset send
+records or resend successful messages. Actual email-client rendering remains
+owner acceptance; no migrations, settings, permissions or PROD changes are included.
