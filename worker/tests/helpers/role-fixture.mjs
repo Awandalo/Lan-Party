@@ -12,15 +12,17 @@ before(async()=>{
  const pageShell=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
- import {localMailbox} from './worker/auth/email';
- let rejectRegistrationMail=false;const originalMail=localMailbox.send.bind(localMailbox);localMailbox.send=async mail=>{if(rejectRegistrationMail&&mail.purpose==='event-registration')throw Error('Fictional mail failure');return originalMail(mail);};
+ import {localMailbox,EmailDeliveryError} from './worker/auth/email';
+ let paymentOutcome='sent';const paymentMessages=[];let rejectRegistrationMail=false;const originalMail=localMailbox.send.bind(localMailbox);localMailbox.send=async mail=>{if(rejectRegistrationMail&&mail.purpose==='event-registration')throw Error('Fictional mail failure');if(mail.purpose==='event-payment'){paymentMessages.push(mail);if(paymentOutcome!=='sent')throw new EmailDeliveryError(paymentOutcome);await originalMail(mail);return {id:crypto.randomUUID()};}return originalMail(mail);};
  const background=new Set();
  export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
  if(path.startsWith('/events/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
+ if(path==='/fixture-payment-emails')return Response.json(paymentMessages);
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
  if(path==='/fixture-registration-maintenance'){await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev'},ctx);return new Response('scheduled');}
  const runtime=ctx;ctx={waitUntil(task){background.add(task);runtime.waitUntil(task.finally(()=>background.delete(task)));}};
  if(path!='/fixture'){
+  if(['sent','failed','unknown'].includes(request.headers.get('X-Fixture-Payment-Outcome')))paymentOutcome=request.headers.get('X-Fixture-Payment-Outcome');
   if(request.headers.get('X-Fixture-Mail-Failure')==='1')rejectRegistrationMail=true;
   const registrationFence=request.headers.get('X-Fixture-Registration-Fence');
   if(registrationFence){

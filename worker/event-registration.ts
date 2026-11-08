@@ -7,7 +7,7 @@ import {sessionCsrfToken} from './auth/csrf';
 import {fromHex} from './auth/encoding';
 import {administrationPermissions} from './manage';
 import {EventError,eventActor} from './event-data';
-import {registrationReady,registrationSnapshot,registrationProjection,mutateRegistration,memberActor} from './event-registration-data';
+import {effectiveRegisteredCrew,registrationReady,registrationSnapshot,registrationProjection,mutateRegistration,memberActor} from './event-registration-data';
 import {UUID} from './role-administration';
 import {deliverRegistrationNotifications} from './event-registration-mail';
 
@@ -30,9 +30,11 @@ export async function eventRegistration(request:Request,env:AuthenticationEnviro
   if(request.method==='GET'){
    const snapshot=await registrationSnapshot(env.DB,match[2]);
    if(!manager&&(snapshot.meta.publication_status!=='published'||snapshot.meta.is_listed!==1))return reply(404,{error:'Event not found'});
+   const data=registrationProjection(snapshot,account.userId,manager);
+   if(!manager)data.crew=await effectiveRegisteredCrew(env.DB,match[2],snapshot);
    // A separate final authority read fences revocation during the data snapshot.
-   if(!await env.DB.prepare(`SELECT 1 WHERE ${manager?eventActor('events.manage_registrations'):memberActor}`).bind(account.userId,digest).first())return reply(401,{error:'Please log in again'});
-   return reply(200,registrationProjection(snapshot,account.userId,manager));
+   if(!await env.DB.prepare(`SELECT 1 FROM event_management m JOIN events e ON e.id=m.event_id WHERE m.event_id=? AND m.revision=? ${manager?'':"AND e.publication_status='published' AND m.is_listed=1"} AND ${manager?eventActor('events.manage_registrations'):memberActor}`).bind(match[2],snapshot.state.revision,account.userId,digest).first())return reply(401,{error:'Please log in again'});
+   return reply(200,data);
   }
   if(!await validAuthMutation(request,origin.origin,digest,env.AUTH_RATE_LIMIT_SECRET!))return reply(403,{error:'Request rejected'});
   const reader=request.body?.getReader();if(!reader)throw new EventError(400,'Invalid request');

@@ -1,9 +1,13 @@
+import type {PaymentInfo} from '../../src/lib/payment-info';
+import {paymentInfoEmail} from '../payment-info-template';
 import { emailAddress } from './accounts';
 import { authenticationEmail } from './email-template';
 
-export interface AccountMail { to: string; url: string; expiresAt: number; idempotencyKey: string;
-  purpose?: 'email-verification' | 'password-reset' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' | 'account-reactivation' | 'event-registration' }
-export interface EmailTransport { send(mail: AccountMail): Promise<void> }
+export interface EmailReceipt {id:string}
+export class EmailDeliveryError extends Error {constructor(public outcome:'failed'|'unknown'){super('Email delivery unavailable');}}
+export interface AccountMail { paymentInfo?:PaymentInfo; to: string; url: string; expiresAt: number; idempotencyKey: string;
+  purpose?: 'email-verification' | 'password-reset' | 'password-changed' | 'mfa-enabled' | 'mfa-disabled' | 'mfa-regenerated' | 'mfa-replaced' | 'account-reactivation' | 'event-registration' | 'event-payment' }
+export interface EmailTransport { send(mail: AccountMail): Promise<EmailReceipt|void> }
 export interface EmailEnvironment {
   AUTH_LIFECYCLE_ADMIN_MODE?: string;
   AUTH_EMAIL_TRANSPORT?: string;
@@ -34,6 +38,7 @@ export class LocalEmailTransport implements EmailTransport {
     const url = new URL(mail.url);
     if (!recipient.endsWith('.test') || url.protocol !== 'http:'
       || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw new Error('Local fictional delivery only');
+    if(mail.purpose==='event-payment')paymentInfoEmail(mail.paymentInfo!);
     this.purge(Math.floor(Date.now() / 1000));
     if (!this.messages.has(mail.idempotencyKey) && this.messages.size >= 50) throw new Error('Local mailbox full');
     this.messages.set(mail.idempotencyKey, { ...mail, to: recipient });
@@ -62,21 +67,28 @@ export class ResendEmailTransport implements EmailTransport {
     if (!apiKey || /[\r\n]/.test(apiKey)) throw new Error('Invalid email configuration');
     emailAddress(from);
   }
-  async send(mail: AccountMail): Promise<void> {
+  async send(mail: AccountMail): Promise<EmailReceipt|void> {
     emailAddress(mail.to);
     try {
-      const template = authenticationEmail(mail.url, mail.purpose);
+      const payment=mail.purpose==='event-payment';
+      const template = payment?paymentInfoEmail(mail.paymentInfo!):authenticationEmail(mail.url, mail.purpose as Exclude<AccountMail['purpose'],'event-payment'>);
       // Native Workers fetch must not receive this transport as its receiver.
       const sendRequest = this.sendRequest;
       const response = await sendRequest('https://api.resend.com/emails', {
         // Workers supports manual redirects; never forward credentials elsewhere.
-        method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000),
+        method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(mail.purpose==='event-payment'?8000:10000),
         headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json',
           'Idempotency-Key': mail.idempotencyKey },
         body: JSON.stringify({ from: this.from, to: [mail.to], ...template }),
       });
+      if(payment){
+        if(!response.ok){await response.body?.cancel();throw new EmailDeliveryError([400,401,403,404,413,422,429].includes(response.status)?'failed':'unknown');}
+        const value:unknown=await response.json();
+        if(!value||typeof value!=='object'||!('id' in value)||typeof value.id!=='string'||! /^[0-9a-f-]{36}$/i.test(value.id))throw new EmailDeliveryError('unknown');
+        return {id:value.id};
+      }
       await response.body?.cancel(); // Never log or propagate provider payloads.
       if (!response.ok) throw new Error('Delivery failed');
-    } catch { throw new Error('Email delivery unavailable'); }
+    } catch(error) {if(mail.purpose==='event-payment')throw error instanceof EmailDeliveryError?error:new EmailDeliveryError('unknown');throw new Error('Email delivery unavailable');}
   }
 }

@@ -1,0 +1,7 @@
+.payment-info-dialog{width:min(48rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem)}
+.payment-info-content{max-height:60dvh;overflow:auto;padding-inline:.25rem}
+.payment-info-recipients details{border:1px solid var(--border);border-radius:.6rem;margin-block:.75rem;padding:.75rem}
+.payment-info-recipients summary{cursor:pointer;overflow-wrap:anywhere;font-weight:600}
+.payment-info-recipients summary small{color:var(--accent)}
+.payment-info-recipients pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;color:var(--muted);line-height:1.6}
+.payment-instruction-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;margin-top:1rem}

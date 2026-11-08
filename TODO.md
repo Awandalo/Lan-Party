@@ -1,5 +1,17 @@
 # TODO / To remember
 
+## Current local review — simple payment emails (#41, formerly #40C)
+
+- [x] #40 accepted/closed by the owner; retain its existing Finance flow.
+- [x] Add Send payment info beside saved payment instructions, with recipient/message preview and explicit confirmation.
+- [x] Use final daily price and retained registered days after organizer corrections; include guests in the responsible member's total and send guests only their own informational share.
+- [x] #38 uses one member-only Who is coming projection for upcoming/past events, including explicit organizer day corrections without a finalization requirement.
+- [x] Owner accepted the local flow and authorized DEV publication/final online testing on 2026-11-08.
+- [x] Separately approved DEV migration 0035 applied with verified recovery; all 55 existing tables/rows and schema objects preserved; integrity/foreign keys pass.
+- [ ] Verify exact-commit CI/deployment and hosted behavior. A real email test is requested; the existing guest has a different address from the authorized member destination, so the actual recipient preview still needs review. No PROD activation.
+
+See [payment information](docs/payment-info.md). The older handover entries below are historical where superseded by this acceptance/scope.
+
 ## Current DEV handover — Phase 5.5 B (#40)
 
 - [x] Owner local acceptance of Participants → Attendance review: remove/restore people or days, Pay/Free, payment instructions and anonymous former-account labels.

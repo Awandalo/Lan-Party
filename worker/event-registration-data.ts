@@ -77,3 +77,19 @@ export async function mutateRegistration(db:D1Database,id:string,userId:string,d
  try{await db.batch(statements);}catch(e){if(/malformed JSON|Registration conflict|UNIQUE constraint/i.test(String(e)))throw new EventError(409,'Event, session or registration changed, request already processed, or change limit reached. Reload before trying again; allow ten minutes after repeated changes.');throw e;}
  return {revision:next.revision};
 }
+
+// One registered-days view for upcoming and past events. Apply only explicit
+// organizer corrections; no inferred actual-attendance/no-show/history mode.
+export async function effectiveRegisteredCrew(db:D1Database,id:string,snapshot:RegistrationSnapshot){
+ const base=registrationProjection(snapshot,'').crew;
+ const ready=await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='event_attendance_review'").first();
+ if(!ready)return base;
+ const corrections=(await db.prepare('SELECT r.user_id,v.removed_days,v.added_days FROM event_attendance_review v JOIN registrations r ON r.id=v.registration_id WHERE r.event_id=? AND v.person_id=r.user_id AND r.status=\'registered\'').bind(id).all<{user_id:string;removed_days:string;added_days:string}>()).results;
+ return snapshot.members.flatMap(member=>{
+  const correction=corrections.find(c=>c.user_id===member.id),selected=base.find(m=>m.id===member.id)?.days??[];
+  if(!correction)return selected.length?[{...member,days:selected}]:[];
+  const removed=JSON.parse(correction.removed_days) as string[],added=JSON.parse(correction.added_days) as string[];
+  const days=snapshot.state.days.filter(day=>selected.includes(day)&&!removed.includes(day)||added.includes(day));
+  return days.length?[{...member,days}]:[];
+ });
+}

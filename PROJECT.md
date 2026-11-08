@@ -1517,3 +1517,32 @@ See [the finalization contract](docs/event-finalization.md).
 ### Local login label motion — 2026-11-08
 
 The owner requested login labels that begin inside empty fields and float to the upper left on focus or when populated. The email/password controls retain their existing IDs, names, autocomplete attributes, associated labels and shared password toggle. Login-only CSS adds a 350 ms ease-out lift and center-out accent underline; transitions apply only when reduced motion is not requested. Authentication submission, validation, security challenges and clearing remain unchanged. Local browser checks cover empty/focused/filled/cleared labels and the password toggle using fictional input without submitting. Autofill has a CSS state but real password-manager/mobile-device acceptance is not yet verified. Four UI/mode checks and strict types/build pass. The Vite-only visual preview has no authentication backend and therefore displays the existing session-service-unavailable notice. Pricing changes are preserved; all work remains unstaged with no commit/push or hosted effects. Suggested commit for this separate UI change: style(login): animate floating field labels.
+
+### Simple payment emails and crew decision — 2026-11-08
+
+The owner accepted #40 and requested the small #41/#40C email increment locally:
+final daily rate, retained registered days after organizer corrections, and the
+combined member/guest total. Send payment info sits beside saved instructions,
+with a fixed message preview and explicit confirmation; saving does not send.
+Guests receive only their own informational breakdown. Existing Planner plus
+Finance/Administrator authorization, DEV recipient/budget controls and minimal
+duplicate/outcome guards remain. Local migration 0035 grants no permissions and
+copies no addresses/messages. No remote migration, publication or external email
+is authorized for this review.
+
+The updated #38 decision supersedes a separate historical actual-attendance mode:
+one member-only crew projection uses registered days plus explicit organizer
+corrections for both upcoming and past events, without a finalization gate or
+inferred no-shows. See [the local contract](docs/payment-info.md).
+
+The owner subsequently accepted this local increment and authorized DEV publication
+and final online testing on 2026-11-08, including a requested real email test once
+the exact event/recipient scope and preview are confirmed. Remote migration 0035
+requires its separate approval. Fresh DEV recovery/preservation preparation passes;
+remote application, deployment and provider acceptance are not yet claimed. PROD,
+permission/configuration changes and Jotform cutover remain excluded.
+
+The owner separately approved DEV migration 0035; it is applied with recovery,
+55-table row/schema preservation and integrity/foreign keys verified. Real email
+sending remains held for the actual recipient preview because the existing guest
+has a different destination from the owner's requested member test address.

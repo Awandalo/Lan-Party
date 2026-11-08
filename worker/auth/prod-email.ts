@@ -30,6 +30,7 @@ export class ProdResendEmailTransport implements EmailTransport {
     this.provider = new ResendEmailTransport(env.RESEND_API_KEY, 'noreply@auth.lan-party.club', sendRequest);
   }
   async send(mail: AccountMail): Promise<void> {
+    if(mail.purpose==='event-payment')throw new Error('Production payment email is not enabled');
     emailAddress(mail.to);
     const url = new URL(mail.url);
     const path = ['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(mail.purpose ?? '')

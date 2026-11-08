@@ -66,6 +66,15 @@ test('event notices share the DEV recipient policy and budget and deny unsafe ev
  await assert.rejects(transport.send({...notification,to:'denied@example.test'}));assert.equal(sent.length,1);
 }));
 
+test('payment information uses the DEV allowlist/shared budget, canonical crew link and provider receipt',()=>local(async db=>{
+ const sent=[],transport=new policy.DevResendEmailTransport(db,env,async(_input,init)=>{sent.push(JSON.parse(init.body));return Response.json({id:'10000000-0000-4000-8000-000000000001'});},()=>day);
+ const notification={...message,purpose:'event-payment',url:'https://dev.lan-party.club/events/10000000-0000-4000-8000-000000000001/registration',paymentInfo:{name:'Fictional Member',event:'Fictional LAN',dailyRateCents:1000,lines:[{name:'Fictional Member',kind:'Member',days:['2030-11-01'],complimentary:false,totalCents:1000}],totalCents:1000,paymentUrl:'',instructions:''}};
+ assert.deepEqual(await transport.send(notification),{id:'10000000-0000-4000-8000-000000000001'});assert.equal(sent.length,1);assert.equal(await count(db),1);assert.match(sent[0].text,/Combined total/);
+ for(const url of ['https://www.lan-party.club/events/10000000-0000-4000-8000-000000000001/registration','https://dev.lan-party.club/events/not-an-id/registration','https://dev.lan-party.club/account/security'])await assert.rejects(transport.send({...notification,url}));
+ await assert.rejects(transport.send({...notification,to:'denied@example.test'}));assert.equal(sent.length,1);assert.equal(await count(db),1);
+ await db.prepare('UPDATE auth_email_daily_budget SET attempts=60').run();await assert.rejects(transport.send(notification),policy.DevEmailBudgetExceeded);assert.equal(sent.length,1);
+}));
+
 test('migration discovery rejects missing, unexpected and renamed SQL files', () => {
   assertMigrationHistory([...expectedHistory]);
   assert.throws(() => assertMigrationHistory(expectedHistory.slice(0, -1)));

@@ -774,3 +774,17 @@ approved DEV application on 2026-11-08. A fresh recovery export and local restor
 were verified; all 55 existing tables/rows and all other schema objects are
 preserved, with integrity/foreign keys passing. DEV is through 0034; PROD remains
 unchanged. See the finalization contract's pricing receipt.
+
+## Payment email duplicate/outcome guard — 0035
+
+`0035_record_payment_info_emails.sql` adds one STRICT table keyed by immutable bill
+and recipient line, recording the claim, attempt, outcome and provider receipt.
+No addresses/message copies, bill updates or permission grants are introduced.
+The previous Worker ignores the table; the new send action fails closed if absent.
+DEV application requires exact-target approval, history through 0034, a fresh
+recovery checkpoint and preservation/integrity checks. Local recovery restoration
+and applying 0035 to that copy preserve all 55 existing tables/rows. Remote
+application was separately approved and completed on 2026-11-08. All 55 existing
+tables/rows and schema objects are preserved, the new table is empty, history is
+through 0035, and integrity/foreign keys pass. No down migration or automatic recovery is authorized.
+See [payment information](../docs/payment-info.md).

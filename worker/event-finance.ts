@@ -1,3 +1,4 @@
+import {paymentInfoAction} from './payment-info-data';
 import {paymentTrackingReady,updateBillPayment} from './event-payments-data';
 import type {AuthenticationEnvironment} from './auth/http';
 import {authOrigin,authRouteEnabled,hostedDev,loopback,validAuthMutation} from './auth/environment';
@@ -34,6 +35,10 @@ export async function eventFinance(request:Request,env:AuthenticationEnvironment
    const chunks:Uint8Array[]=[];let size=0;for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>4096){await reader.cancel();throw new EventError(413,'Request too large');}chunks.push(part.value);}
    let raw:unknown;try{const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}raw=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(bytes));}catch{throw new EventError(400,'Invalid request');}
    if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new EventError(400,'Invalid request');
+   if(['payment-info-preview','send-payment-info'].includes(String((raw as Record<string,unknown>).action))){
+    if(!permissions.includes('finance.manage'))return reply(403,{error:'Planner and Finance permissions are required'});
+    return reply(200,await paymentInfoAction(request,env,match[1],account.userId,digest,raw as Record<string,unknown>));
+   }
    if((raw as Record<string,unknown>).action==='payment'){
     if(!permissions.includes('finance.manage'))return reply(403,{error:'Planner and Finance permissions are required'});
     return reply(200,await updateBillPayment(env.DB,match[1],account.userId,digest,raw as Record<string,unknown>));
