@@ -6,7 +6,7 @@ export async function financeRequest<T>(id:string,proof:string,manager:boolean,b
  const response=await fetch('/api/event-finance/'+encodeURIComponent(id)+(manager?'/manage':''),{method:body?'POST':'GET',credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof,...body?{'Content-Type':'application/json','X-CSRF-Token':proof}:{}},...body?{body:JSON.stringify({...body,operationId:crypto.randomUUID()})}:{},signal:signal?AbortSignal.any([signal,AbortSignal.timeout(15000)]):AbortSignal.timeout(15000)});
  const value=await response.json();if(!response.ok)throw new FinanceRequestError(response.status,value.error??'Finance could not be loaded');return value;
 }
-export const euro=(cents:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR'}).format(cents/100);
+export {euro} from './currency';
 
 export type BillPaymentFilter='all'|'paid'|'unpaid';
 export function filterBillsByPayment<T extends {totalCents:number;paid?:number}>(bills:T[],filter:BillPaymentFilter):T[]{

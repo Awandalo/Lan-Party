@@ -1,3 +1,4 @@
+import {euro} from '../lib/currency';
 import PaymentRequestHelp from './PaymentRequestHelp';
 import {paymentRequestProviders} from '../lib/payment-request';
 import AttendanceTimeline from './AttendanceTimeline';
@@ -47,7 +48,7 @@ export default function EventAttendanceReview({id,onChange,view='all',onStateCha
  if(!data)return <section><h3>Attendance review</h3><p role="status">{message||'Loading attendance review…'}</p>{message&&<button className="button button-secondary" onClick={()=>setRetry(n=>n+1)}>Check again</button>}</section>;
  const personDays=data.people.reduce((n,p)=>n+p.days.length,0),people=data.people.filter(p=>!day||p.confirmed.includes(day)||p.days.includes(day)),canReview=data.ended&&!data.open&&!data.finalized;
  return <section className="event-attendance-review">{view!=='instructions'&&<h3>Attendance review</h3>}{view!=='instructions'&&<p>Check who attended and correct their days or Free attendance. Closing registration here stops signups; bills are published only at the final confirmation.</p>}
-  {view!=='instructions'&&<div className="review-totals"><span><strong>{data.people.filter(p=>p.days.length).length}</strong> retained participants</span><span><strong>{personDays}</strong> participant-days</span><span>Venue rental <strong>€{(data.rentalCents/100).toFixed(2)}</strong></span></div>}
+  {view!=='instructions'&&<div className="review-totals"><span><strong>{data.people.filter(p=>p.days.length).length}</strong> retained participants</span><span><strong>{personDays}</strong> participant-days</span><span>Venue rental <strong>{euro(data.rentalCents)}</strong></span></div>}
   {data.finalized&&<p className="review-note">Event permanently finalized. Attendance, Pay/Free and payment instructions are locked.</p>}{!canReview&&!data.finalized&&<p className="review-note">Attendance can be corrected after the event ends and registration is closed.{data.ended&&data.open&&<> <button type="button" className="button button-secondary" disabled={pending} onClick={()=>void closeRegistration()}>Close registration for review</button></>}</p>}
   {view!=='attendance'&&(data.canFinance?<PaymentInstructions data={data} pending={pending} onSave={body=>void save(body)} onDirty={onStateChange?setDirty:undefined}/>:<p>Payment instructions are prepared by staff with Planner and Finance permissions. You can finalize using the saved instructions.</p>)}
   {view!=='instructions'&&<>

@@ -35,3 +35,17 @@
 
 /* Loading feedback must not move the catalogue during an unchanged search. */
 .event-search-feedback{min-block-size:1.7em}
+
+.event-pricing-label{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}.event-rental-input{width:100%;font:inherit;color:var(--text);background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;padding:.75rem}
+
+/* A stable frame keeps navigation in place; only the current step scrolls. */
+.role-wizard.event-dialog{width:min(60rem,calc(100vw - 2rem));height:min(54rem,calc(100dvh - 2rem));max-height:calc(100dvh - 2rem);overflow:hidden}
+.event-dialog[open]{display:flex;flex-direction:column}
+.event-dialog>.wizard-heading,.event-dialog>.wizard-steps{flex-shrink:0}
+.event-dialog>form{display:flex;flex:1;min-height:0;min-width:0}
+.event-dialog>form>fieldset{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;padding:0}
+.event-editor-content{flex:1;min-height:0;overflow-y:auto;scrollbar-gutter:stable;padding:.5rem 1rem;overflow-wrap:anywhere}
+.event-editor-content>h3{margin:.5rem 0}.event-editor-content>h4{margin:.75rem 0 .5rem}
+.event-dialog>form>fieldset>.wizard-actions{flex-shrink:0;margin-top:.75rem;padding:.75rem 1rem 0}
+.event-dialog .wizard-actions>div>button:last-child{min-inline-size:8rem}
+@media(max-width:480px){.event-editor-content{padding:.5rem}.event-dialog>form>fieldset>.wizard-actions{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:44px 44px;padding:.75rem .5rem 0;gap:.4rem}.event-dialog .wizard-actions>button{justify-self:start}.event-dialog .wizard-actions>div{grid-row:2;justify-self:end;gap:.4rem;flex-wrap:nowrap}.event-dialog .wizard-actions>div>button:last-child{inline-size:8rem}}

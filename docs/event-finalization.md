@@ -383,3 +383,71 @@ The owner accepted the local iteration, authorized publication to origin/dev and
 Fresh private recovery export and SHA-256 were captured. The D1 local import encountered table-order foreign-key resolution; a local SQLite restore with foreign keys disabled during import, reenabled for verification, reproduced every row in all 54 existing tables and passed integrity/foreign-key checks. Local application of 0033 also passed. Immediate DEV preservation and migration hashes were rechecked before applying exactly the sole pending migration. History is now through 0033; all existing schema/rows/grants are unchanged, the new audit table is empty, and integrity/foreign-key checks pass. Private evidence stays ignored under .wrangler/payment-0033-dev. Read-only identity error 10000 succeeded on the single identical retry after the required 60-second wait; no write was attempted before that recovery.
 
 Publication checks: 44 focused finalization/payment/bank-link/overview/roster/bill tests and 41 policy/public-UI/auth-mode checks pass. Strict types/build and DEV Wrangler dry run pass. Earlier successful full regression and local wizard/payment/browser evidence is reused for unchanged boundaries; normal exact-commit broader CI and hosted read-only verification follow the push. The last UI changes remove duplicate notices/callouts, retain one Finish event entry beside Edit event, and move former-account summaries inside Review history. No hosted event is finalized, no payment switch is changed, and no emails are sent by these verification steps. Final hosted owner acceptance remains pending.
+
+
+## Local event pricing and defaults — 2026-11-07
+
+Owner approved Event details → Attendance & guests → Pricing → Review & save,
+local only. The event keeps the Location's initial rental independently. Existing
+event create/update permissions now allow a nonnegative event-only rental override
+(up to €1,000,000), including €0. No new permission/grant is introduced. Location
+prices, sibling events, venue/capacity snapshots and registrations are preserved.
+Changes use the existing event revision, authenticated action guard and atomic
+activity audit (rentalCents field). Omitted rental retains the copied/saved value.
+The new daily preview uses this rental; members still receive final bill amounts
+only after finalization. Finalization permanently locks rental and bills.
+
+Local migration 0034 replaces only the old rental-inclusive snapshot trigger;
+venue/capacity immutability and finalized-event locks remain. Older DEV schema
+rejects changed rental with an explicit migration-required response. No DEV/PROD
+migration, commit or push is authorized or performed for this iteration.
+
+New/duplicated event times default to 12:00–14:00. A valid start date proposes an
+end date two calendar days later, independent of DST. A manually chosen end date
+is preserved; existing event dates/times remain unchanged.
+
+Verification: full local regression ran 735 checks: 733 passed, with two obsolete
+rental-immutability assertions failing. Updating those to the approved contract
+retained venue/capacity assertions; all 16 event-management checks pass on rerun.
+All other full-run evidence remains applicable, including adjusted rental flowing
+into preview/final bills, member pre-finalization privacy and post-finalization
+API/database locks. Thirteen final presentation/date/money checks and strict
+TypeScript/build pass. Local browser verified saved defaults, all four steps and
+€0 in review, then returned unsaved input to the original €300 on Pricing. No
+hosted writes or emails. Fixture attendance/settings/history were captured before
+restart and restored with migration 0034; the local test event is unfinalized.
+
+Suggested commit: feat(events): add adjustable event pricing
+
+Local Dutch currency presentation — 2026-11-08: all numeric price displays in Locations, event overview/review, staff Finance and member bills use one nl-NL formatter (for example € 1.234,56). Rental inputs default to Dutch grouping/decimals and parse back to the same bounded integer cents; ungrouped dot decimals remain accepted for compatibility. No database representation, schema, bill calculation or network payload contract changes. The Pricing explanation now lives in the existing question-mark modal, preserving focus and unsaved input when closed. Nineteen targeted presentation/currency checks and strict types/build pass; browser verified grouped input in Review & save and helper close/focus preservation. One old test expected 1.001 to be invalid; it was corrected to 1,001 because 1.001 is valid Dutch grouping. No backend suite repeat for this frontend-only follow-up; prior pricing/finalization evidence remains applicable. Everything stays unstaged, with no commit, push or remote operations. Suggested commit for this follow-up: style(pricing): use Dutch currency notation and compact help.
+
+Local stable editor frame — 2026-11-08: the owner requested equal dimensions across all four Event editor steps. The dialog now uses a 60rem-wide/54rem-high frame bounded by the viewport, with a scrolling content area and fixed footer. Next/Save retains a shared width; on narrow screens the footer reserves the same two rows even on step one. The header, stepper and navigation remain outside the content scroller. Desktop browser measurements were identical across all four steps: 960x864 dialog, primary button 128x44 at x1110/y966.5. At a 390x700 viewport override, Next/Save stayed 128x44 at x203/y623 on all steps, with long content scrolling and footer visible. Temporary viewport sizing was reset, and Pricing was left open without saves. Fourteen focused presentation checks, strict types/build and the final CSS bundle pass. No backend or database changes for this follow-up; prior backend evidence reused. All work stays unstaged/local. Suggested commit: style(events): stabilize event wizard dimensions.
+
+
+## DEV pricing publication authorization — 2026-11-08
+
+The owner accepted the local editor/formatting/motion iteration and authorized
+DEV publication, then separately approved only 0034_allow_event_rental_adjustments.sql
+on lan-party-dev (a3c4cea6-ceb7-43b8-b9b7-b374726b35b4). This supersedes the
+historical local-only limits above. Existing permissions, PROD, event registration
+cutoff/finalization rules, emails and Jotform remain unchanged.
+
+Fresh private recovery export/hash and local SQLite restore reproduced every row
+in all 55 existing tables, before and after local 0034 application. The immediate
+remote baseline matched before applying the sole pending migration. DEV history
+is through 0034; all existing data is preserved, all unrelated schema objects
+including finalized-event locks are unchanged, and integrity/foreign keys pass.
+Evidence is ignored under .wrangler/pricing-0034-dev; no exports or private data
+are published. No event rental, attendance, payment or finalization was changed
+by this migration/verification.
+
+Publication validation: all 96 focused event-management/finalization/currency/
+presentation/auth-mode/policy/UI checks pass, plus strict types/build and DEV
+dry run. The earlier full regression had 733 passes and two obsolete immutable-
+rental assertions; both were updated to the reviewed contract and their suite
+passes. Unchanged broad evidence is reused locally; normal exact-commit full CI
+and automatic DEV deployment will be verified after publication. Local browser
+proof covers the four-step editor, fixed desktop/narrow footer geometry, Dutch
+currency and helper focus/value preservation, and floating login labels. Real
+password-manager autofill and actual mobile-device acceptance remain manual.
+Hosted verification is read-only; owner online acceptance remains pending.

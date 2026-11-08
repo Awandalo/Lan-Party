@@ -16,7 +16,7 @@ test('snapshots remain immutable while unregistered dates can be corrected; regi
  const u=await f.user({genuine:true}),l=await venue(f),id=await create(f,u,l);
  let [row]=await list(f,u);assert.equal(row.registrationHistory,0);assert.equal(row.minimumParticipants,1);assert.equal(Object.hasOwn(row,'financeEnabled'),false);assert.equal(row.capacity,10);assert.deepEqual(row.days,[{date:'2030-03-01'},{date:'2030-03-02'},{date:'2030-03-03'}]);
  await f.sql("UPDATE locations SET address_line='Changed template',capacity=20,default_rental_cents=99999,revision=revision+1 WHERE id=?",l).run();
- for(const assignment of ["venue='{}'",'capacity=11','rental_cents=1'])await assert.rejects(f.sql('UPDATE event_management SET '+assignment+' WHERE event_id=?',id).run(),/immutable/);
+ for(const assignment of ["venue='{}'",'capacity=11'])await assert.rejects(f.sql('UPDATE event_management SET '+assignment+' WHERE event_id=?',id).run(),/immutable/);
  const original=(await f.sql('SELECT id,attendance_date FROM event_days WHERE event_id=? ORDER BY attendance_date',id).all()).results;
  assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,title:'Corrected LAN',endsAt:draft(l).endsAt+86400,minimumParticipants:5}))).status,200);
  row=(await list(f,u))[0];assert.equal(row.days.length,4);assert.equal(row.minimumParticipants,5);assert.equal(row.venue.addressLine,'Example 1');assert.equal(row.capacity,10);assert.equal(row.rentalCents,12345);
@@ -55,7 +55,7 @@ test('event permission remains shared/action-specific with proof, CSRF, origin a
 
 test('obsolete manual inputs and guest switch are rejected; incomplete/stale/archived templates cannot create',()=>local(async f=>{
  const u=await f.user({genuine:true}),l=await venue(f);
- for(const patch of [{title:' '},{startsAt:1,endsAt:1},{endsAt:draft(l).endsAt+86400*32},{maxGuests:0},{financeEnabled:true},{minimumParticipants:0},{days:[]},{capacity:2},{rentalCents:1},{venue:{}},{guestsEnabled:false},{action:'publish'},{action:'delete'},{action:'cancel'},{unexpected:true}])assert.equal((await call(f,u,draft(l,patch))).status,400,JSON.stringify(patch));
+ for(const patch of [{title:' '},{startsAt:1,endsAt:1},{endsAt:draft(l).endsAt+86400*32},{maxGuests:0},{financeEnabled:true},{minimumParticipants:0},{days:[]},{capacity:2},{venue:{}},{guestsEnabled:false},{action:'publish'},{action:'delete'},{action:'cancel'},{unexpected:true}])assert.equal((await call(f,u,draft(l,patch))).status,400,JSON.stringify(patch));
  await f.sql('UPDATE locations SET capacity=NULL WHERE id=?',l).run();assert.equal((await call(f,u,draft(l))).status,400);await f.sql("UPDATE locations SET capacity=10,city=NULL WHERE id=?",l).run();assert.equal((await call(f,u,draft(l))).status,400);await f.sql("UPDATE locations SET city='Example',revision=1 WHERE id=?",l).run();assert.equal((await call(f,u,draft(l))).status,409);await f.sql('UPDATE locations SET is_active=0,revision=0 WHERE id=?',l).run();assert.equal((await call(f,u,draft(l))).status,409);
  for(const q of ['?status=no','?search=a&search=b','?unknown=1'])assert.equal((await call(f,u,undefined,'manage/events'+q)).status,400);assert.equal((await call(f,u,draft(l),'manage/event-activity')).status,405);assert.equal(await f.sql('SELECT count(*) n FROM events').first('n'),0);
 }));
@@ -122,3 +122,29 @@ test('new and changed times require quarter hours; unchanged legacy timestamps s
  assert.equal((await call(f,u,draft(l,{action:'update',id,revision:1,endsAt:base.endsAt+45*60}))).status,200);
  assert.equal(await f.sql('SELECT ends_at FROM event_management WHERE event_id=?',id).first('ends_at'),base.endsAt+45*60);
 }));
+
+
+test('event rental overrides preserve the Location and siblings, validate cents and audit changes',()=>local(async f=>{
+ const u=await f.user({genuine:true}),plain=await f.user(),l=await venue(f),id=await create(f,u,l),other=await create(f,u,l);
+ const saved=await f.sql('SELECT venue,capacity FROM event_management WHERE event_id=?',id).first();
+ for(const rentalCents of [-1,1.2,100000001,'100'])assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,rentalCents}))).status,400);
+ assert.equal((await call(f,plain,draft(l,{action:'update',id,revision:0,rentalCents:0}))).status,403);
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,rentalCents:0}))).status,200);
+ assert.equal(await f.sql('SELECT rental_cents FROM event_management WHERE event_id=?',id).first('rental_cents'),0);
+ assert.equal(await f.sql('SELECT rental_cents FROM event_management WHERE event_id=?',other).first('rental_cents'),12345);
+ assert.equal(await f.sql('SELECT default_rental_cents FROM locations WHERE id=?',l).first('default_rental_cents'),12345);
+ assert.deepEqual(await f.sql('SELECT venue,capacity FROM event_management WHERE event_id=?',id).first(),saved);
+ assert.ok(JSON.parse(await f.sql("SELECT fields FROM event_activity WHERE event_id=? AND operation='event.update'",id).first('fields')).includes('rentalCents'));
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,rentalCents:5000}))).status,409);
+ const custom=await create(f,u,l,{rentalCents:5000});assert.equal(await f.sql('SELECT rental_cents FROM event_management WHERE event_id=?',custom).first('rental_cents'),5000);
+},34));
+
+test('pricing migration preserves existing rows and rejects failed migration atomically',()=>local(async f=>{
+ const u=await f.user({genuine:true}),l=await venue(f),id=await create(f,u,l),before=await f.sql('SELECT * FROM event_management WHERE event_id=?',id).first();
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,rentalCents:0}))).status,503);
+ await assert.rejects(f.migrate(34,["SELECT json('Fictional pricing migration failure')"]));
+ await assert.rejects(f.sql('UPDATE event_management SET rental_cents=0 WHERE event_id=?',id).run(),/immutable/);
+ await f.migrate(34);assert.deepEqual(await f.sql('SELECT * FROM event_management WHERE event_id=?',id).first(),before);
+ for(const assignment of ["venue='{}'",'capacity=11'])await assert.rejects(f.sql('UPDATE event_management SET '+assignment+' WHERE event_id=?',id).run(),/immutable/);
+ assert.equal((await call(f,u,draft(l,{action:'update',id,revision:0,rentalCents:0}))).status,200);
+},33));

@@ -184,3 +184,16 @@ test('payment audit failure rolls back status and revision; concurrent updates r
  const data=await(await finance(f,s)).json(),command=()=>({action:'payment',revision:data.revision,operationId:randomUUID(),billId:data.bills[0].id,paid:true});
  const responses=await Promise.all([finance(f,s,s.admin,command()),finance(f,s,s.admin,command())]);assert.deepEqual(responses.map(r=>r.status).sort(),[200,409]);assert.equal(await f.sql('SELECT count(*) n FROM event_bill_payment_activity').first('n'),1);
 },33));
+
+
+test('adjusted event rental feeds preview and final bills, remains private before finalization and locks afterwards',()=>local(async f=>{
+ const s=await setup(f),row=await f.sql('SELECT starts_at,ends_at,revision FROM event_management WHERE event_id=?',s.id).first();
+ const update={action:'update',operationId:randomUUID(),id:s.id,revision:row.revision,title:'Fictional review LAN',description:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Review'}]}]},startsAt:row.starts_at,endsAt:row.ends_at,minimumParticipants:1,maxGuests:2,rentalCents:20000};
+ const change=await f.request('manage/events',s.admin,update,proof(s.admin));assert.equal(change.status,200,await change.clone().text());
+ assert.deepEqual(await(await finance(f,s,s.member,undefined,false)).json(),{finalized:false});
+ await s.end();const preview=await(await finance(f,s)).json();assert.equal(preview.rentalCents,20000);assert.equal(preview.dailyRateCents,5000);
+ assert.equal((await finalize(f,s)).status,200);const bill=await(await finance(f,s,s.member,undefined,false)).json();assert.equal(bill.bill.totalCents,20000);
+ const denied=await f.request('manage/events',s.admin,{...update,operationId:randomUUID(),rentalCents:0},proof(s.admin));assert.equal(denied.status,409);
+ await assert.rejects(f.sql('UPDATE event_management SET rental_cents=0 WHERE event_id=?',s.id).run(),/locked/);
+ assert.equal((await(await finance(f,s)).json()).dailyRateCents,5000);
+},34));

@@ -15,6 +15,13 @@ export function eventInputDate(date:string){
  const iso=`${match[3]}-${match[2]}-${match[1]}`,instant=Date.parse(iso+'T00:00:00Z');
  return Number.isFinite(instant)&&new Date(instant).toISOString().slice(0,10)===iso?iso:null;
 }
+export function suggestedEventEndDate(startDate:string){
+ const iso=eventInputDate(startDate);if(!iso)return null;
+ const date=new Date(iso+'T00:00:00Z');date.setUTCDate(date.getUTCDate()+2);
+ if(date.getUTCFullYear()>2099)return null;
+ const [year,month,day]=date.toISOString().slice(0,10).split('-');
+ return `${day}/${month}/${year}`;
+}
 export function resolveEventInput(value:EventDateInput,original?:number){
  const date=eventInputDate(value.date);
  if(!date)throw Error('Use a real date in DD/MM/YYYY format, between 2000 and 2099.');

@@ -763,3 +763,14 @@ are preserved. The owner separately approved DEV application on 2026-11-07.
 local restore, all 54 existing tables/rows preserved and integrity/foreign keys passing.
 The new audit table is empty. PROD is unchanged. See the finishing-flow rework in
 [the finalization contract](../docs/event-finalization.md).
+
+
+## Event-only rental adjustments — 0034
+
+0034_allow_event_rental_adjustments.sql permits rental changes before event
+finalization while preserving venue/capacity snapshot locks and finalized totals.
+It changes triggers only; existing rows are preserved. The owner separately
+approved DEV application on 2026-11-08. A fresh recovery export and local restore
+were verified; all 55 existing tables/rows and all other schema objects are
+preserved, with integrity/foreign keys passing. DEV is through 0034; PROD remains
+unchanged. See the finalization contract's pricing receipt.

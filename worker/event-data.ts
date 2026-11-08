@@ -51,7 +51,7 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
  if(raw.action==='delete')return deleteEvent(db,userId,digest,raw);
  if(['publish','unpublish','cancel'].includes(String(raw.action)))return lifecycleEvent(db,userId,digest,raw);
  const update=raw.action==='update',duplicate=raw.action==='duplicate';
- const keys=['action','operationId','title','description','startsAt','endsAt','minimumParticipants','maxGuests',...(update?['id','revision']:duplicate?['sourceId','sourceRevision']:['locationId','locationRevision'])];
+ const keys=['action','operationId','title','description','startsAt','endsAt','minimumParticipants','maxGuests','rentalCents',...(update?['id','revision']:duplicate?['sourceId','sourceRevision']:['locationId','locationRevision'])];
  if(Object.keys(raw).some(k=>!keys.includes(k))||!UUID.test(String(raw.operationId))||!['create','update','duplicate'].includes(String(raw.action)))throw new EventError(400,'Invalid event request');
  const id=update?String(raw.id):crypto.randomUUID(),title=text(raw.title,160,true),description=descriptionValue(raw.description),starts=integer(raw.startsAt,0,253402300799),ends=integer(raw.endsAt,1,253402300799),maxGuests=integer(raw.maxGuests,1,20),minimumParticipants=integer(raw.minimumParticipants,1,100000);
  if(!UUID.test(id))throw new EventError(400,'Invalid event settings');
@@ -78,6 +78,10 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
   snapshot=venue(Object.fromEntries(['name','addressLine','postalCode','city','countryCode','instructions','directionsUrl'].map(k=>[k,template[k]??''])));
   capacity=integer(template.capacity,1,100000);rental=integer(template.rentalCents,0,100000000);
  }
+ const requestedRental=raw.rentalCents===undefined?rental:integer(raw.rentalCents,0,100000000);
+ const rentalChanged=requestedRental!==rental;
+ if(rentalChanged&&!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='trigger' AND name='event_rental_finalized_locked'").first())throw new EventError(503,'Event pricing is awaiting its database migration');
+ rental=requestedRental;
  // Existing timestamps remain exact; new or changed values use quarter hours.
  for(const [value,original] of [[starts,current?.startsAt],[ends,current?.endsAt]]){
   if(update&&value===original)continue;
@@ -86,9 +90,9 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
  }
  const guard=actor(update?'events.update':'events.create'),statements:D1PreparedStatement[]=[];
  const assertChanged=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Event conflict') END");
- const fields=update?['title','description',...current?.startsAt!==starts||current?.endsAt!==ends?['times']:[],...current?.minimumParticipants!==minimumParticipants?['minimumParticipants']:[],...current?.maxGuests!==maxGuests?['guestLimit']:[]]:['created'];
+ const fields=update?['title','description',...current?.startsAt!==starts||current?.endsAt!==ends?['times']:[],...current?.minimumParticipants!==minimumParticipants?['minimumParticipants']:[],...current?.maxGuests!==maxGuests?['guestLimit']:[],...rentalChanged?['rentalCents']:[]]:['created'];
  if(update){
-  statements.push(db.prepare(`UPDATE event_management SET starts_at=?,ends_at=?,minimum_participants=?,max_guests=?,revision=revision+1 WHERE event_id=? AND revision=? AND ${guard} AND EXISTS(SELECT 1 FROM events WHERE id=? AND publication_status IN ('draft','published')) ${datesChanged?`AND ${noHistory}`:''}`).bind(starts,ends,minimumParticipants,maxGuests,id,revision,userId,digest,id),assertChanged());
+  statements.push(db.prepare(`UPDATE event_management SET starts_at=?,ends_at=?,minimum_participants=?,max_guests=?,rental_cents=?,revision=revision+1 WHERE event_id=? AND revision=? AND ${guard} AND EXISTS(SELECT 1 FROM events WHERE id=? AND publication_status IN ('draft','published')) ${datesChanged?`AND ${noHistory}`:''}`).bind(starts,ends,minimumParticipants,maxGuests,rental,id,revision,userId,digest,id),assertChanged());
   statements.push(db.prepare('UPDATE events SET title=?,description=?,updated_at=unixepoch() WHERE id=?').bind(title,description,id));
   if(datesChanged){
    const payload=JSON.stringify(dayRows(dates));
@@ -104,7 +108,7 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
   statements.push(db.prepare('INSERT INTO event_management(event_id,creator_id,starts_at,ends_at,venue,minimum_participants,rental_cents,capacity,max_guests) VALUES (?,?,?,?,?,?,?,?,?)').bind(id,userId,starts,ends,JSON.stringify(snapshot),minimumParticipants,rental,capacity,maxGuests));
  }
  statements.push(db.prepare('INSERT INTO event_activity(operation_id,occurred_at,actor_id,event_id,event_reference,event_title,operation,fields) VALUES (?,unixepoch(),?,?,?,?,?,?)').bind(raw.operationId,userId,id,id,title,'event.'+raw.action,JSON.stringify(fields)));
- try{await db.batch(statements);}catch(error){if(/Event conflict|malformed JSON|UNIQUE constraint failed: event_activity.operation_id/i.test(String(error)))throw new EventError(409,'Event or access changed, or request already processed. Reload before retrying.');throw error;}
+ try{await db.batch(statements);}catch(error){if(/Finalized event is locked|Event conflict|malformed JSON|UNIQUE constraint failed: event_activity.operation_id/i.test(String(error)))throw new EventError(409,'Event or access changed, or request already processed. Reload before retrying.');throw error;}
  return {id};
 }
 

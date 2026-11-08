@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createRequire,Module} from 'node:module';
 import {test} from 'node:test';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import EventDescription from './src/components/EventDescription';import EventEditor from './src/components/EventEditor';export {eventInputErrors,formatEventDateEntry,eventInputFromInstant,eventInputDate,resolveEventInput} from './src/lib/event-date-input';export {eventInstant,eventLocalTime,eventDates} from './src/lib/event-time';export {validateEventDocument,eventDocument} from './src/lib/event-document';export {eventLink} from './src/lib/event-content';export {RoleReadCache} from './src/lib/role-read-cache';export {routeLabel,logDestination,contextualNavigation} from './src/lib/navigation';export const editor=()=>renderToStaticMarkup(<EventEditor row={null} duplicate={false} templates={[]} pending={false} message="" onSave={async()=>{}} onCancel={()=>{}}/>);export const render=source=>renderToStaticMarkup(<EventDescription source={source}/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'},define:{'import.meta.env.DEV':'false','import.meta.env.VITE_AUTH_MODE':'"hosted-dev"'}});
+const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import EventDescription from './src/components/EventDescription';import EventEditor from './src/components/EventEditor';export {eventRentalCents} from './src/lib/event-pricing';export {euro,euroAmount,euroCents} from './src/lib/currency';export {suggestedEventEndDate,eventInputErrors,formatEventDateEntry,eventInputFromInstant,eventInputDate,resolveEventInput} from './src/lib/event-date-input';export {eventInstant,eventLocalTime,eventDates} from './src/lib/event-time';export {validateEventDocument,eventDocument} from './src/lib/event-document';export {eventLink} from './src/lib/event-content';export {RoleReadCache} from './src/lib/role-read-cache';export {routeLabel,logDestination,contextualNavigation} from './src/lib/navigation';export const editor=()=>renderToStaticMarkup(<EventEditor row={null} duplicate={false} templates={[]} pending={false} message="" onSave={async()=>{}} onCancel={()=>{}}/>);export const render=source=>renderToStaticMarkup(<EventDescription source={source}/>);`},bundle:true,packages:'external',platform:'node',format:'cjs',write:false,loader:{'.css':'empty'},define:{'import.meta.env.DEV':'false','import.meta.env.VITE_AUTH_MODE':'"hosted-dev"'}});
 const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(process.cwd());mod._compile(result.outputFiles[0].text,import.meta.filename);const {eventInputErrors,formatEventDateEntry,eventInputFromInstant,eventInputDate,resolveEventInput,render,editor,validateEventDocument,eventDocument,eventLink,eventInstant,eventLocalTime,eventDates,RoleReadCache,routeLabel,logDestination,contextualNavigation}=mod.exports;
 test('description supports safe headings, emphasis, actual lists and links; untrusted HTML remains escaped text',()=>{
  const html=render('# Welcome\n**Games** and *friends*\n- cables\n- chairs\n1. setup\n2. play\n[Venue](https://example.test/maps)\n<script>alert(1)</script>\n<img src=x onerror=alert(1)>');
@@ -28,8 +28,8 @@ test('inclusive Netherlands days handle midnight, month/year boundaries and DST 
  assert.deepEqual(eventDates(seconds('2030-12-31T20:00:00Z'),seconds('2031-01-01T00:00:00Z')),['2030-12-31','2031-01-01']);
  assert.deepEqual(eventDates(seconds('2030-11-12T23:30:00Z'),seconds('2030-11-13T00:30:00Z')),['2030-11-13']);
 });
-test('creation restores three steps and removes Finance while reserving settings for page two',()=>{
- const html=editor();for(const label of ['Choose a completed Location','Event name','Start (Netherlands time)','End (Netherlands time)','Event description','Attendance &amp; guests','Review &amp; Create'])assert.ok(html.includes(label),label);
+test('creation has four steps with Pricing before review and settings on page two',()=>{
+ const html=editor();for(const label of ['Choose a completed Location','Event name','Start (Netherlands time)','End (Netherlands time)','Event description','Attendance &amp; guests','Pricing','Review &amp; Create'])assert.ok(html.includes(label),label);
  for(const label of ['Attendance date','Day capacity','Add attendance day','Enable Finance','Maximum invited guests per member','Minimum participants'])assert.equal(html.includes(label),false,label);
  assert.equal((html.match(/aria-current="step"/g)??[]).length,1);
 });
@@ -75,4 +75,28 @@ test('member event context separates details and registration without requiring 
  assert.deepEqual(items.map(i=>[i.href,i.label]),[[path,'Event details'],[path+'/registration','Your registration & crew']]);
  assert.deepEqual(contextualNavigation(path+'/registration',[],true),items);assert.deepEqual(contextualNavigation(path,[],false),[]);assert.equal(routeLabel(path+'/registration'),'Your registration & crew');
  const unselected=contextualNavigation('/events',[],true);assert.equal(unselected.length,2);assert.ok(unselected.every(item=>item.disabled===true));assert.ok(items.every(item=>!item.disabled));
+});
+
+
+test('suggested end is two calendar days later across month/year, leap-day and DST boundaries',()=>{
+ const {suggestedEventEndDate}=mod.exports;
+ for(const [start,end]of [['30/10/2026','01/11/2026'],['31/12/2026','02/01/2027'],['27/02/2028','29/02/2028'],['28/03/2026','30/03/2026'],['24/10/2026','26/10/2026']])assert.equal(suggestedEventEndDate(start),end);
+ for(const invalid of ['30/02/2026','30/10/','31/12/2099'])assert.equal(suggestedEventEndDate(invalid),null);
+});
+
+
+test('event rental entry supports free/decimal amounts and enforces exact nonnegative bounded cents',()=>{
+ const {eventRentalCents}=mod.exports;
+ for(const [value,cents]of [['0',0],['123,45',12345],['10.1',1010],['1000000.00',100000000]])assert.equal(eventRentalCents(value),cents);
+ for(const value of ['', '-1','1,001','NaN','Infinity','1e3','1000000.01'])assert.throws(()=>eventRentalCents(value));
+});
+
+
+test('Dutch currency formatting and grouped input round-trip exact integer cents',()=>{
+ const {euro,euroAmount,euroCents}=mod.exports;
+ for(const [cents,amount]of [[0,'0,00'],[50,'0,50'],[123456,'1.234,56'],[100000000,'1.000.000,00']]){
+  assert.equal(euro(cents),'€'+String.fromCharCode(160)+amount);assert.equal(euroAmount(cents),amount);assert.equal(euroCents(amount),cents);
+ }
+ assert.equal(euroCents('1.000'),100000);assert.equal(euroCents('1234.56'),123456);assert.equal(euroCents('1234,56'),123456);
+ for(const value of ['1.23.456,78','1,234.56','1234.567','1.234,567','1.000.000,01','-1,00'])assert.throws(()=>euroCents(value));
 });

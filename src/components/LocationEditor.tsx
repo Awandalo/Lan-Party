@@ -1,10 +1,11 @@
+import {euro,euroAmount,euroCents} from '../lib/currency';
 import {useEffect,useId,useRef,useState} from 'react';
 import {locationDirections} from '../lib/locations';
 import type {LocationRow} from '../lib/locations';
 export default function LocationEditor({row,creating,pending,message,onSave,onCancel}:{row:LocationRow;creating:boolean;pending:boolean;message:string;onSave:(body:object)=>Promise<void>;onCancel:()=>void}){
  const dialog=useRef<HTMLDialogElement>(null),form=useRef<HTMLFormElement>(null),stepHeading=useRef<HTMLHeadingElement>(null),heading=useId();
  const [step,setStep]=useState(0),steps=['Location details','Additional information','Review & Create'];
- const [draft,setDraft]=useState({...row,capacity:row.capacity===null?'':String(row.capacity),rental:(row.rentalCents/100).toFixed(2)});
+ const [draft,setDraft]=useState({...row,capacity:row.capacity===null?'':String(row.capacity),rental:euroAmount(row.rentalCents)});
  useEffect(()=>{dialog.current?.showModal();},[]);
  useEffect(()=>{if(creating)stepHeading.current?.focus();},[creating,step]);
  const [validation,setValidation]=useState('');
@@ -12,11 +13,7 @@ export default function LocationEditor({row,creating,pending,message,onSave,onCa
  const directions=locationDirections(draft);
  function rentalAmount(){
   if(draft.directionsUrl&&!locationDirections(draft)){setValidation('Use an HTTPS Google Maps link, or leave the override empty.');return null;}
-  const rental=draft.rental.trim()||'0';
-  if(!/^\d{1,7}(?:[.,]\d{1,2})?$/.test(rental)){setValidation('Enter a nonnegative rental amount with at most two decimal places.');return null;}
-  const [whole,fraction='']=rental.replace(',','.').split('.'),cents=Number(whole)*100+Number(fraction.padEnd(2,'0'));
-  if(cents>100000000){setValidation('Default rental must be at most €1,000,000.');return null;}
-  return cents;
+  try{return euroCents(draft.rental.trim()||'0');}catch(error){setValidation((error as Error).message);return null;}
  }
  function next(){
   if(!form.current?.reportValidity())return;
@@ -43,7 +40,7 @@ export default function LocationEditor({row,creating,pending,message,onSave,onCa
  {(!creating||step===1)&&<div className="location-fields"><label>Default venue rental (€)<input inputMode="decimal" value={draft.rental} onChange={e=>setDraft({...draft,rental:e.target.value})}/></label>
  {stringField('directionsUrl','Google Maps link (optional override)',2048)}
  <label className="location-wide">Description and practical instructions<textarea rows={5} maxLength={8000} value={draft.instructions??''} onChange={e=>setDraft({...draft,instructions:e.target.value})}/></label></div>}
- {creating&&step===2&&<div className="location-review"><p>Review this template before creating it. You can complete optional details later.</p><dl><dt>Location name</dt><dd>{draft.name.trim()}</dd><dt>Address</dt><dd>{[draft.addressLine,draft.postalCode,draft.city,draft.countryCode?.toUpperCase()].filter(Boolean).join(', ')||'Not set'}</dd><dt>Capacity</dt><dd>{draft.capacity||'Not set'}</dd><dt>Default venue rental</dt><dd>{draft.rental.trim()?`€${draft.rental.replace(',','.')}`:'€0.00'}</dd><dt>Practical instructions</dt><dd className="location-instructions">{draft.instructions||'Not set'}</dd></dl></div>}
+ {creating&&step===2&&<div className="location-review"><p>Review this template before creating it. You can complete optional details later.</p><dl><dt>Location name</dt><dd>{draft.name.trim()}</dd><dt>Address</dt><dd>{[draft.addressLine,draft.postalCode,draft.city,draft.countryCode?.toUpperCase()].filter(Boolean).join(', ')||'Not set'}</dd><dt>Capacity</dt><dd>{draft.capacity||'Not set'}</dd><dt>Default venue rental</dt><dd>{euro(euroCents(draft.rental.trim()||'0'))}</dd><dt>Practical instructions</dt><dd className="location-instructions">{draft.instructions||'Not set'}</dd></dl></div>}
  {directions&&(!creating||step>0)&&<a href={directions} target="_blank" rel="noreferrer">Preview directions in Google Maps ↗</a>}
  <p role="alert">{validation||message}</p><div className="wizard-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button><div>{creating&&step>0&&<button type="button" className="button button-secondary" onClick={()=>{setValidation('');setStep(step-1);}}>Back</button>}{creating&&step<2?<button type="submit" className="button">Next</button>:<button className="button" disabled={pending}>{pending?'Saving…':creating?'Create location':'Save changes'}</button>}</div></div></fieldset></form>
  </dialog>;

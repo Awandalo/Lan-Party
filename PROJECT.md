@@ -1499,3 +1499,21 @@ and authorized DEV publication on 2026-11-07. Separately approved migration 0033
 is applied on DEV with all 54 existing tables/rows preserved and integrity verified.
 Hosted acceptance remains pending; PROD is unchanged. See
 [the finalization contract](docs/event-finalization.md).
+
+
+### Local event pricing decision — 2026-11-07
+
+The owner approved a fourth event-editor step: Event details, Attendance & guests,
+Pricing, Review & save. Event rental initially copies the Location/source event
+and can be adjusted independently (including free rental) using existing event
+create/update permissions until finalization. This supersedes earlier rental
+snapshot immutability only; venue and capacity remain fixed. Members' final bills
+are published and locked at finalization. Migration 0034 and date/time defaults
+were accepted locally; the owner authorized DEV publication on 2026-11-08 and
+separately approved migration 0034. DEV migration/preservation checks pass;
+hosted acceptance remains pending. PROD is unchanged.
+See [the finalization contract](docs/event-finalization.md).
+
+### Local login label motion — 2026-11-08
+
+The owner requested login labels that begin inside empty fields and float to the upper left on focus or when populated. The email/password controls retain their existing IDs, names, autocomplete attributes, associated labels and shared password toggle. Login-only CSS adds a 350 ms ease-out lift and center-out accent underline; transitions apply only when reduced motion is not requested. Authentication submission, validation, security challenges and clearing remain unchanged. Local browser checks cover empty/focused/filled/cleared labels and the password toggle using fictional input without submitting. Autofill has a CSS state but real password-manager/mobile-device acceptance is not yet verified. Four UI/mode checks and strict types/build pass. The Vite-only visual preview has no authentication backend and therefore displays the existing session-service-unavailable notice. Pricing changes are preserved; all work remains unstaged with no commit/push or hosted effects. Suggested commit for this separate UI change: style(login): animate floating field labels.
