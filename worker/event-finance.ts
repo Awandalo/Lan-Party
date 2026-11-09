@@ -1,7 +1,8 @@
+import {eventEnvironmentEnabled} from './event-environment';
 import {paymentInfoAction} from './payment-info-data';
 import {paymentTrackingReady,updateBillPayment} from './event-payments-data';
 import type {AuthenticationEnvironment} from './auth/http';
-import {authOrigin,authRouteEnabled,hostedDev,loopback,validAuthMutation} from './auth/environment';
+import {authOrigin,authRouteEnabled,validAuthMutation} from './auth/environment';
 import {readSessionCookie} from './auth/cookies';
 import {resolveSession} from './auth/sessions';
 import {digestToken} from './auth/tokens';
@@ -16,7 +17,7 @@ import {closurePreview,finalizationReady,finalizedEvent,finalizeEvent} from './e
 const reply=(status:number,data:unknown)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, X-LAN-Session-Proof','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}});
 export async function eventFinance(request:Request,env:AuthenticationEnvironment){
  const url=new URL(request.url),match=/^\/api\/event-finance\/([^/]+)(\/manage)?$/.exec(url.pathname);
- if(!match||!UUID.test(match[1])||!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
+ if(!match||!UUID.test(match[1])||!eventEnvironmentEnabled(request,env)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
  const manager=!!match[2];
  if(request.method!=='GET'&&!(manager&&request.method==='POST'))return reply(405,{error:'Method not allowed'});
  try{

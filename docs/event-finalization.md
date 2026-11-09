@@ -614,3 +614,14 @@ Migration history is through 0036; quick_check is ok, foreign_key_check empty an
 foreign keys enabled. No event was finalized, no email sent, no PROD change made.
 SHA-256: 425c1265e73ca399c9e530c41e7730b1f6839fec222e1f3c9b427f02fb4e68fc.
 Reuse prior types/build and local tests; exact-head CI/deployment follow publication.
+
+
+### Phase 5 hosted acceptance and release preparation — 2026-11-09
+
+The owner accepted all completed hosted Phase 5 flows, including branded email
+rendering and the final empty-registration finishing test at DEV `117d99a`.
+Exact DEV CI passed all 767 regression tests; deployment served Worker
+`edcedc99-1313-4c16-963b-3f6d3b50d91c`. #35, #38, #41 and #43 were closed;
+#37, #39 and #40 were already closed. Attachments (#36) and gallery/social (#42)
+remain deferred. This acceptance does not apply migrations or activate PROD; see
+[the isolated release plan](PHASE5_RELEASE.md).

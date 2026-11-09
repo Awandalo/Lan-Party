@@ -1,3 +1,4 @@
+import {eventEnvironmentEnabled} from './event-environment';
 import {feedbackReady} from './feedback-data';
 import {eventsReady,readEvents,writeEvent,EventError} from './event-data';
 import {deliverRegistrationNotifications} from './event-registration-mail';
@@ -9,7 +10,7 @@ import {sessionCsrfToken} from './auth/csrf';
 import {digestToken} from './auth/tokens';
 import {fromHex,toHex} from './auth/encoding';
 import type { AuthenticationEnvironment } from './auth/http';
-import { authOrigin, authRouteEnabled, hostedDev, loopback } from './auth/environment';
+import { authOrigin, authRouteEnabled, hosted, loopback } from './auth/environment';
 import { readSessionCookie } from './auth/cookies';
 import { resolveSession } from './auth/sessions';
 import {validAuthMutation} from './auth/environment';
@@ -53,10 +54,11 @@ export async function manage(request: Request, env: AuthenticationEnvironment,ct
   const eventLog=url.pathname==='/api/manage/event-activity';
   const deletion=/^\/api\/manage\/roles\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/deletion$/.exec(url.pathname);
   const roleEndpoint=!!deletion||url.pathname==='/api/manage/roles'||url.pathname==='/api/manage/role-activity'||/^\/api\/manage\/users\/[^/]+\/roles$/.test(url.pathname);
-  // This first iteration is DEV/local only; PROD activation requires separate approval.
-  if (!(loopback(url) || hostedDev(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
+  // Preserve the existing trusted-build and exact-origin hosted authentication gate.
+  if (!(loopback(url) || hosted(request, env)) || !authRouteEnabled(request, env, env.AUTH_SESSION_MODE)
     || (!members && !roleEndpoint && !userLog && !locationEndpoint && !eventEndpoint && url.pathname !== '/api/manage/capabilities')) return reply(404, {error: 'Not found'});
   if (request.method !== 'GET' && !((roleEndpoint&&!url.pathname.endsWith('role-activity')||locationEndpoint&&!locationLog||eventEndpoint&&!eventLog)&&request.method==='POST')) return reply(405, {error: 'Method not allowed'});
+  if((locationEndpoint||eventEndpoint)&&!eventEnvironmentEnabled(request,env))return reply(404,{error:'Not found'});
   if(deletion&&request.method!=='GET')return reply(405,{error:'Method not allowed'});
   try {
     const origin = authOrigin(request, env);
@@ -159,7 +161,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment,ct
     const sections = Object.entries(sectionPermissions).filter(([key, required]) => key==='activity'?admin:required.some(p => permissions.includes(p))).map(([key]) => key);
     if(admin&&await userActivityReady(env.DB))sections.push('userActivity');
     if(admin&&await feedbackReady(env.DB))sections.push('feedback');
-    if(permissions.includes('locations.manage')&&await locationsReady(env.DB))sections.push('locations');
+    if(eventEnvironmentEnabled(request,env)&&permissions.includes('locations.manage')&&await locationsReady(env.DB))sections.push('locations');
     if (!sections.length) return reply(403, {error: 'Administration access is not available'});
     // Cache invalidation hint, never an authorization credential. Section names
     // alone cannot detect loss of users.view while users.manage still exists.

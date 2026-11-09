@@ -43,7 +43,7 @@ test('administrator controls retain independent values and never auto-export pri
  assert.doesNotMatch(html,/Fictional private|Copy description|Open GitHub to publish/);
 });
 test('conversation change details safely render untrusted text and malformed metadata',()=>{
- const html=ui.delta(JSON.stringify({progress:{before:'<script>fictional</script>',after:'<img src=x onerror=fictional>'}}));assert.doesNotMatch(html,/<script>|<img /);assert.match(html,/&lt;script&gt;/);assert.match(ui.delta('not json'),/Change details unavailable/);
+ const html=ui.delta(JSON.stringify({progress:{before:'<script>fictional</script>',after:'<img src=x onerror=fictional>'}}));assert.equal(html.includes('<script'),false);assert.equal(html.includes('<img'),false);assert.ok(html.includes('&lt;script&gt;fictional&lt;/script&gt;'));assert.ok(html.includes('&lt;img src=x onerror=fictional&gt;'));assert.match(ui.delta('not json'),/Change details unavailable/);
 });
 
 test('member Feedback routes do not select or expand User Settings; normal account and admin navigation remain intact',()=>{

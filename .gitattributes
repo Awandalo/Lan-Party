@@ -1,3 +1,17 @@
 # Keep reviewed migration bytes stable on Windows and CI.
 migrations/0023_create_member_feedback.sql text eol=lf
 migrations/0024_create_location_management.sql text eol=lf
+
+# Preserve the Phase 5 migration bytes reviewed and applied on DEV.
+migrations/0025_create_event_management.sql text eol=lf
+migrations/0026_simplify_event_snapshots.sql text eol=lf
+migrations/0027_correct_unregistered_events.sql text eol=lf
+migrations/0028_enable_event_publication.sql text eol=lf
+migrations/0029_create_event_registration.sql text eol=lf
+migrations/0030_create_attendance_review.sql text eol=lf
+migrations/0031_separate_registration_capacity.sql text eol=lf
+migrations/0032_finalize_event_bills.sql text eol=lf
+migrations/0033_record_manual_bill_payments.sql text eol=lf
+migrations/0034_allow_event_rental_adjustments.sql text eol=lf
+migrations/0035_record_payment_info_emails.sql text eol=lf
+migrations/0036_allow_empty_event_finalization.sql text eol=lf

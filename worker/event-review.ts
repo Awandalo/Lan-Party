@@ -1,6 +1,7 @@
+import {eventEnvironmentEnabled} from './event-environment';
 import {finalizedEvent} from './event-finalization-data';
 import type {AuthenticationEnvironment} from './auth/http';
-import {authOrigin,authRouteEnabled,hostedDev,loopback,validAuthMutation} from './auth/environment';
+import {authOrigin,authRouteEnabled,validAuthMutation} from './auth/environment';
 import {readSessionCookie} from './auth/cookies';
 import {resolveSession} from './auth/sessions';
 import {digestToken} from './auth/tokens';
@@ -14,7 +15,7 @@ import {reviewReady,reviewSnapshot,writeReview} from './event-review-data';
 const reply=(status:number,data:unknown)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, X-LAN-Session-Proof','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}});
 export async function eventReview(request:Request,env:AuthenticationEnvironment){
  const url=new URL(request.url),match=/^\/api\/event-review\/([^/]+)$/.exec(url.pathname);
- if(!match||!UUID.test(match[1])||!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
+ if(!match||!UUID.test(match[1])||!eventEnvironmentEnabled(request,env)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE))return reply(404,{error:'Not found'});
  if(!['GET','POST'].includes(request.method))return reply(405,{error:'Method not allowed'});
  try{
   const origin=authOrigin(request,env);

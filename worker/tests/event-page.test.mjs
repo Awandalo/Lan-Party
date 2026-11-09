@@ -49,8 +49,8 @@ test('metadata omits management/venue data, bounds plain descriptions and does n
 test('missing publication schema returns generic 503 without an event projection',()=>local(async f=>{
  const response=await get(f,randomUUID()),html=await response.text();assert.equal(response.status,503);assert.equal(meta(html,'og:title'),'LAN Party | Events');assert.equal(meta(html,'og:url'),origin+'/events');
 },27));
-test('existing artwork is a PNG and default/PROD routing stays unchanged',async()=>{
+test('existing artwork is a PNG and approved event routing covers DEV and production',async()=>{
  const art=await readFile('public/lan-hall.png');assert.deepEqual([...art.subarray(0,8)],[137,80,78,71,13,10,26,10]);
  const source=await readFile('wrangler.jsonc','utf8'),config=JSON.parse(source.replace(/^\s*\/\/.*$/gm,''));
- assert.deepEqual(config.assets.run_worker_first,['/api','/api/*']);assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,['/api','/api/*','/events/*']);
+ assert.deepEqual(config.assets.run_worker_first,['/api','/api/*','/events/*']);assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*','/events/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,['/api','/api/*','/events/*']);
 });

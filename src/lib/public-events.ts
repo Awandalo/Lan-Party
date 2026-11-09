@@ -1,6 +1,7 @@
+import {AUTH_UI_AVAILABLE,authUIEnabled} from './auth-mode';
 import {useEffect,useState} from 'react';
 import type {EventVenue} from './event-management';
-export const PUBLIC_EVENTS_AVAILABLE=import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev';
+export const PUBLIC_EVENTS_AVAILABLE=AUTH_UI_AVAILABLE&&authUIEnabled();
 export interface PublicEvent {id:string;title:string;description?:string;startsAt:number;endsAt:number;registrationStatus:string;venue:EventVenue|null;days:{date:string;remaining:number}[]}
 export const eventTime=(value:number)=>new Date(value*1000).toLocaleString('en-GB',{timeZone:'Europe/Amsterdam',dateStyle:'medium',timeStyle:'short'});
 export async function loadPublicEvents(href:string,signal:AbortSignal,proof?:string){

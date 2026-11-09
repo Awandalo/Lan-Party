@@ -135,3 +135,14 @@ owner acceptance; no migrations, settings, permissions or PROD changes are inclu
 The owner confirmed the delivered branded payment email renders correctly and
 accepted the Finance part in conversation. This is hosted owner evidence for the
 member email layout; it is not a new provider send, resend or PROD approval.
+
+
+### Phase 5 hosted acceptance and release preparation — 2026-11-09
+
+The owner accepted all completed hosted Phase 5 flows, including branded email
+rendering and the final empty-registration finishing test at DEV `117d99a`.
+Exact DEV CI passed all 767 regression tests; deployment served Worker
+`edcedc99-1313-4c16-963b-3f6d3b50d91c`. #35, #38, #41 and #43 were closed;
+#37, #39 and #40 were already closed. Attachments (#36) and gallery/social (#42)
+remain deferred. This acceptance does not apply migrations or activate PROD; see
+[the isolated release plan](PHASE5_RELEASE.md).

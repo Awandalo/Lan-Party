@@ -1,5 +1,27 @@
 # LAN Party website
 
+## Current accepted state — 2026-11-09
+
+Accounts and Phase 4 Administration are live on PROD at `b667022`. The owner has
+accepted the Phase 5 launch scope on hosted DEV at `117d99a`: Locations metadata,
+event preparation/publication, registration and invited guests, daily capacity and
+waitlists, member-only attendance views, manual attendance review, final bills,
+manual Paid/Unpaid and explicit branded payment emails. Empty events may also be
+finished. #35, #37–#41 and #43 are closed as accepted. #36 remains open for deferred
+attachments/files and #42 for optional gallery/social; R2 billing is not approved.
+
+The owner authorized an isolated `codex/release-phase5` candidate to integrate MAIN
+and add bounded production activation fixes. DEV remains unchanged. PROD still
+has migrations 0001–0023; applying 0024–0036, merging and activation/deployment
+await exact-PR approval under RELEASE.md. The factual privacy notice is aligned
+with existing account and accepted event behavior without changing retention policy.
+Jotform remains operational; this release does not authorize its replacement.
+See [the exact release scope and sequence](docs/PHASE5_RELEASE.md).
+
+The development receipts below describe their state at the time. This accepted
+state supersedes their older local-only or pending-acceptance descriptions; future
+ideas still require separate authorization.
+
 ## Purpose and project status
 
 Build a modern, mobile-friendly website for organizing private LAN parties among

@@ -30,7 +30,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const [feedbackReads] = useState(() => new FeedbackReadCache());
   const [feedback]=useState(()=>new RoleFeedback());
   const [,renderFeedback]=useState(0);
-  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);roleReads.synchronize(next);feedbackReads.synchronize(next);setState(next);}, (...args) => fetch(...args), import.meta.env.VITE_AUTH_MODE !== 'hosted-prod'));
+  const [validation] = useState(() => new SessionValidation(next=>{memberReads.synchronize(next);roleReads.synchronize(next);feedbackReads.synchronize(next);setState(next);}, (...args) => fetch(...args), enabled));
   const channel = useRef<BroadcastChannel | null>(null);
   const {pathname} = useLocation();
   const feedbackContext=state.session?state.session.account.userId+':'+state.session.csrfToken:null;

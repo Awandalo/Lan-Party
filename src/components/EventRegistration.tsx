@@ -11,7 +11,7 @@ import EventRegistrationWizard from './EventRegistrationWizard';
 import RegistrationCrew from './RegistrationCrew';
 import RegistrationSummary from './RegistrationSummary';
 import '../CSS/EventRegistration_style.css';
-const images=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?import.meta.glob('../../worker/tests/fixtures/lan-art/*.png',{eager:true,query:'?url',import:'default'}) as Record<string,string>:{};
+const images=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev'||import.meta.env.VITE_AUTH_MODE==='hosted-prod')?import.meta.glob('../../worker/tests/fixtures/lan-art/*.png',{eager:true,query:'?url',import:'default'}) as Record<string,string>:{};
 export default function EventRegistration({id,onChange,view,selectedDay,onShowRegistration}:{id:string;onChange:()=>void;view:'details'|'registration';selectedDay:string|null;onShowRegistration:(day?:string)=>void}){
  const auth=useAuth(),proof=auth.status==='ready'?auth.session?.csrfToken:undefined,context=id+':'+proof;
  const live=useRef(context);live.current=context;

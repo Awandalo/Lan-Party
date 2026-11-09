@@ -1,10 +1,13 @@
 # LAN Party
 
-A personal LAN party website built with React, TypeScript, and Vite. Phase 1 and
-Phase 2 are complete on DEV/PROD (owner-confirmed). Phase 3.2 authentication storage
-and Phase 3.3 registration, login/logout and Phase 3.4 email verification are implemented locally; authentication is disabled on
-hosted Workers. See PROJECT.md for authoritative requirements, environment URLs,
-security decisions and the roadmap. The repository root is the application root.
+A personal LAN party website built with React, TypeScript, and Vite. Accounts and
+Phase 4 Administration are live on PROD. The owner accepted the Phase 5 Events
+launch scope on DEV at `117d99a`, including empty-event finishing and branded
+payment emails. This isolated release candidate prepares production activation;
+it has not been merged or deployed to PROD. Attachments and gallery/social remain
+deferred, and Jotform remains operational. See [the release plan](docs/PHASE5_RELEASE.md)
+and PROJECT.md for requirements, environment mappings and remaining approvals.
+The repository root is the application root.
 
 ## Setup on Windows 11
 
@@ -60,10 +63,12 @@ manual deployments require explicit approval.
 Use fictional `.test` participant details and disposable passwords only. No real
 email is sent. Start at `http://127.0.0.1:5173/register`, retrieve a message through
 `/local-mail`, open it and explicitly confirm on `/verify-email`, then use `/login`
-and `/account`. Production builds omit active forms/account routes.
+and `/account`. Default builds omit active forms/account routes; approved hosted
+builds use the explicit hosted-dev or hosted-prod mode and canonical origin gates.
 This local setup requires HTTP loopback and explicit local-only configuration.
 The separately gated [hosted DEV integration](PROJECT.md#hosted-dev-integration--implemented-locally-disabled-remotely)
-is implemented locally but not activated; deploying source alone does not enable it.
+is active on DEV. Deploying source alone does not replace the required environment
+gates, secrets, database migrations or production release approval.
 
 1. Copy `.dev.vars.example` to ignored `.dev.vars.dev` without overwriting any
    existing configuration. Replace all three secret placeholders with DIFFERENT random

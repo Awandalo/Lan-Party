@@ -7,7 +7,7 @@ import type {PublicEvent} from '../lib/public-events';
 import {locationDirections} from '../lib/locations';
 import EventDescription from '../components/EventDescription';
 import '../CSS/EventDetails_style.css';
-const EventRegistration=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?lazy(()=>import('../components/EventRegistration')):null;
+const EventRegistration=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev'||import.meta.env.VITE_AUTH_MODE==='hosted-prod')?lazy(()=>import('../components/EventRegistration')):null;
 export default function EventDetails(){
  const {eventId}=useParams(),location=useLocation(),navigate=useNavigate(),auth=useAuth(),proof=auth.status==='ready'?auth.session?.csrfToken:undefined;
  const registration=location.pathname.endsWith('/registration'),selectedDay=new URLSearchParams(location.search).get('day');

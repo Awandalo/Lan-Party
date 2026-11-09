@@ -1,5 +1,6 @@
+import {eventEnvironmentEnabled} from './event-environment';
 import type {AuthenticationEnvironment} from './auth/http';
-import {authRouteEnabled,hostedDev,loopback} from './auth/environment';
+import {authRouteEnabled,} from './auth/environment';
 import {eventsReady} from './event-data';
 import {UUID} from './role-administration';
 import {eventDocument} from '../src/lib/event-document';
@@ -18,7 +19,7 @@ function description(source:string){
 // No UA-specific rendering, external fetches, account reads or cached event HTML.
 export async function eventPage(request:Request,env:AuthenticationEnvironment&{ASSETS:Fetcher}):Promise<Response|null>{
  const url=new URL(request.url);
- if(!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE)||!['GET','HEAD'].includes(request.method))return null;
+ if(!eventEnvironmentEnabled(request,env)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE)||!['GET','HEAD'].includes(request.method))return null;
  const id=/^\/events\/([^/]+)(?:\/registration)?\/?$/.exec(url.pathname)?.[1];
  let event:{title:string;description:string}|null=null,status=404;
  if(id&&UUID.test(id)){

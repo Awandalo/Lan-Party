@@ -1,5 +1,6 @@
+import {eventEnvironmentEnabled} from './event-environment';
 import type {AuthenticationEnvironment} from './auth/http';
-import {authRouteEnabled,hostedDev,loopback} from './auth/environment';
+import {authRouteEnabled,} from './auth/environment';
 import {readSessionCookie} from './auth/cookies';
 import {resolveSession} from './auth/sessions';
 import {digestToken} from './auth/tokens';
@@ -12,7 +13,7 @@ import {registrationReady,registrationCapacityReady} from './event-registration-
 const reply=(status:number,data:unknown)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, X-LAN-Session-Proof','X-Content-Type-Options':'nosniff'}});
 export async function publicEvents(request:Request,env:AuthenticationEnvironment){
  const url=new URL(request.url),id=url.pathname.slice('/api/events/'.length),detail=url.pathname!=='/api/events';
- if(!(loopback(url)||hostedDev(request,env))||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE)||detail&&!UUID.test(id))return reply(404,{error:'Not found'});
+ if(!eventEnvironmentEnabled(request,env)||!authRouteEnabled(request,env,env.AUTH_SESSION_MODE)||detail&&!UUID.test(id))return reply(404,{error:'Not found'});
  if(request.method!=='GET')return reply(405,{error:'Method not allowed'});
  if([...url.searchParams.keys()].some(k=>detail||!['period','limit'].includes(k)||url.searchParams.getAll(k).length!==1))return reply(400,{error:'Invalid query'});
  const period=url.searchParams.get('period')??'upcoming',limit=url.searchParams.get('limit');

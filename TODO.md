@@ -1,5 +1,19 @@
 # TODO / To remember
 
+## Phase 5 launch closeout — 2026-11-09
+
+- [x] Owner accepts the completed hosted DEV walkthroughs and final empty-event test at `117d99a`.
+- [x] Close #35, #38, #41 and #43 as accepted; #37, #39 and #40 were already closed.
+- [x] Keep #36 open only for deferred attachments/files and #42 for deferred gallery/social.
+- [x] Reclaim 38 verified obsolete local generated files (12,236,253 bytes), preserving current/prior builds and all recovery evidence.
+- [x] Prepare an isolated Phase 5 release candidate integrating existing MAIN; leave DEV unchanged.
+- [ ] Complete exact-candidate CI/security review and the MAIN release PR.
+- [ ] Obtain exact-head Investigate and Deploy acceptance for the explicitly listed PROD migrations and activation, then verify the deployed revision.
+
+See [the Phase 5 release plan](docs/PHASE5_RELEASE.md). Earlier local-review and
+handover checklists below are historical and superseded by this owner acceptance;
+they are not additional outstanding Phase 5 implementation tasks.
+
 ## Current local review — payment email layout
 
 - [x] Owner confirms hosted payment-email delivery; reports missing shared branding.

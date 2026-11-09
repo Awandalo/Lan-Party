@@ -3,7 +3,9 @@
 Generated with the built-in imagegen tool on 2026-11-03 for the local #39 preview.
 Ten distinct assets, lan-01.png through lan-10.png, displayed as small circular
 thumbnails. No runtime image generation, image upload, remote host or paid storage.
-The fixture directory is excluded from the normal production build entry.
+The accepted day cards reuse these assets in hosted DEV and PROD builds.
+Only the fictional registration preview remains excluded from production; these
+static thumbnails are maintained product assets, not disposable test output.
 
 ## Prompt set
 
