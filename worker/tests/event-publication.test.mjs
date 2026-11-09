@@ -3,10 +3,10 @@ import {randomUUID} from 'node:crypto';
 import {test} from 'node:test';
 import {local} from './helpers/role-fixture.mjs';
 const call=(f,u,body,path='manage/events')=>f.request(path,u,body,{'X-LAN-Session-Proof':u?.csrf??'','X-CSRF-Token':u?.csrf??''});
-async function setup(f){
+async function setup(f,overrides={}){
  const u=await f.user({genuine:true}),l=randomUUID();
  await f.sql("INSERT INTO locations(id,name,address_line,postal_code,city,country_code,capacity,default_rental_cents,created_at,updated_at) VALUES (?,'Fictional Hall','Example 1','0000 AA','Example','NL',10,12345,0,0)",l).run();
- const body={action:'create',operationId:randomUUID(),locationId:l,locationRevision:0,title:'Fictional LAN',description:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Welcome'}]}]},startsAt:Date.parse('2030-03-01T17:00Z')/1000,endsAt:Date.parse('2030-03-03T19:00Z')/1000,minimumParticipants:1,maxGuests:2};
+ const body={action:'create',operationId:randomUUID(),locationId:l,locationRevision:0,title:'Fictional LAN',description:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Welcome'}]}]},startsAt:Date.parse('2030-03-01T17:00Z')/1000,endsAt:Date.parse('2030-03-03T19:00Z')/1000,minimumParticipants:1,maxGuests:2,...overrides};
  const response=await call(f,u,body);assert.equal(response.status,200,await response.clone().text());const {id}=await response.json();
  const action=(name,revision,extra={})=>({action:name,id,revision,operationId:randomUUID(),confirmation:body.title,...extra});
  return {u,l,id,body,action};
@@ -19,13 +19,15 @@ test('publication exposes only approved public fields; unpublish and cancellatio
  const publish=action('publish',0);assert.equal((await call(f,u,publish)).status,200);
  assert.equal((await call(f,u,publish)).status,409);
  let response=await f.request('events/'+id);assert.equal(response.status,200,await response.clone().text());assert.equal(response.headers.get('Cache-Control'),'no-store');
- let {event}=await response.json();assert.deepEqual(Object.keys(event).sort(),['id','title','description','startsAt','endsAt','registrationStatus','venue','days'].sort());assert.equal(event.registrationStatus,'closed');assert.equal(event.days.length,3);assert.equal(event.days[0].remaining,10);
+ let {event}=await response.json();assert.deepEqual(Object.keys(event).sort(),['id','title','description','startsAt','endsAt','registrationStatus','venue','days'].sort());assert.equal(event.registrationStatus,'open');assert.equal(event.days.length,3);assert.equal(event.days[0].remaining,10);
  const {locationId,locationRevision,...edit}=body;
  assert.equal((await call(f,u,{...edit,action:'update',id,revision:1,title:'Updated public title',operationId:randomUUID()})).status,200);
  assert.equal((await(await f.request('events/'+id)).json()).event.title,'Updated public title');
  assert.equal((await call(f,u,action('unpublish',2,{confirmation:'Updated public title'}))).status,200);assert.equal((await f.request('events/'+id)).status,404);
  assert.equal(await f.sql('SELECT publication_status FROM events WHERE id=?',id).first('publication_status'),'published');
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',id).first('registration_status'),'closed');
  assert.equal((await call(f,u,action('publish',3,{confirmation:'Updated public title'}))).status,200);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',id).first('registration_status'),'open');
  assert.equal((await call(f,u,action('cancel',4,{confirmation:'Updated public title'}))).status,200);assert.equal((await f.request('events/'+id)).status,404);
  assert.equal((await call(f,u,action('publish',5,{confirmation:'Updated public title'}))).status,409);
  assert.deepEqual((await f.sql('SELECT operation FROM event_activity ORDER BY sequence').all()).results.map(r=>r.operation),['event.create','event.publish','event.update','event.unpublish','event.publish','event.cancel']);
@@ -50,6 +52,7 @@ test('archived source confirmation, live permissions, stale revisions and audit 
  await f.sql("CREATE TRIGGER fixture_publication_failure BEFORE INSERT ON event_activity WHEN NEW.operation='event.publish' BEGIN SELECT RAISE(ABORT,'Fictional audit failure'); END").run();
  assert.equal((await call(f,u,action('publish',0,{acknowledgeArchivedTemplate:true}))).status,503);
  assert.equal(await f.sql('SELECT is_listed FROM event_management WHERE event_id=?',id).first('is_listed'),0);assert.equal(await f.sql('SELECT revision FROM event_management WHERE event_id=?',id).first('revision'),0);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',id).first('registration_status'),'closed');
  await f.sql('DROP TRIGGER fixture_publication_failure').run();
  const results=await Promise.all([call(f,u,action('publish',0,{acknowledgeArchivedTemplate:true})),call(f,u,action('cancel',0))]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
 }));
@@ -80,3 +83,20 @@ test('0028 retains every audit row and allocated sequence; old schemas stay gate
  assert.equal(await f.sql("SELECT seq FROM sqlite_sequence WHERE name='event_activity'").first('seq'),120);
  assert.equal(await f.sql("SELECT count(*) n FROM sqlite_master WHERE name LIKE '%_next'").first('n'),0);
 },27));
+
+test('publishing an ongoing event opens connected registration; ended events stay closed',()=>local(async f=>{
+ const now=await f.sql('SELECT unixepoch() AS now').first('now'),hour=Math.floor(now/3600)*3600;
+ for(const [startsAt,endsAt,expected] of [[hour-3600,hour+7200,true],[hour-7200,hour-3600,false]]){
+  const {u,id,action}=await setup(f,{startsAt,endsAt});
+  assert.equal((await call(f,u,action('publish',0))).status,200);
+  const response=await call(f,u,undefined,'event-registration/'+id);
+  assert.equal(response.status,200,await response.clone().text());
+  const data=await response.json();assert.equal(data.open,expected);assert.equal(data.ended,!expected);
+  assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',id).first('registration_status'),expected?'open':'closed');
+ }
+}));
+test('publication before connected registration migration stays closed',()=>local(async f=>{
+ const {u,id,action}=await setup(f);
+ assert.equal((await call(f,u,action('publish',0))).status,200);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',id).first('registration_status'),'closed');
+},28));

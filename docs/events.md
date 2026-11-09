@@ -402,3 +402,20 @@ in the trusted conversation on 2026-11-03. Publish only this breadcrumb fix,
 regression assertion and supporting scope/evidence documentation through the
 normal DEV workflow; record exact CI/deployment results in #38. This supersedes
 the preparation-only publication status above, not the remaining acceptance gates.
+
+### Publish and open registration - owner decision 2026-11-09
+
+Publishing (including republishing) now opens registration in the same audited,
+revision-fenced transaction when connected registration is installed and the event
+has not ended. Publishing a past event leaves registration closed. Unpublish and
+cancel still close registration; permanent finalization remains locked. Publishing
+continues to require events.publish; separate manual open/close controls retain
+events.manage_registrations. No permission grants, migration or email send is added.
+This supersedes the earlier publication-only rule that registration stays closed.
+The owner requested and accepted this simplification in conversation, then explicitly
+authorized its commit and DEV push on 2026-11-09. Hosted checks remain read-only;
+no existing event is published or reopened as a verification action.
+
+Local verification: 55 publication, lifecycle UI, registration and finalization
+checks pass, alongside strict TypeScript and the frontend build. The fictional
+browser preview confirms publishing changes Registration closed to open.

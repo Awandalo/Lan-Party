@@ -6,7 +6,7 @@ export default function EventLifecycleDialog({row,action,pending,message,onSave,
  useEffect(()=>{const trigger=document.activeElement;dialog.current?.showModal();cancel.current?.focus();return()=>{if(trigger instanceof HTMLElement&&trigger.isConnected)trigger.focus();};},[]);
  return <dialog ref={dialog} className="event-dialog role-wizard" aria-labelledby={heading} onCancel={e=>{if(pending)e.preventDefault();}} onClose={onClose}>
   <h2 id={heading}>{label}: {row.title}</h2>
-  <p>{action==='publish'?'This makes the event description, dates, venue and availability public. Registration stays closed.':action==='unpublish'?'This hides the event and its direct public link. It retains the published history and can be published again.':'This hides the event and closes registration. Cancellation cannot be undone.'}</p>
+  <p>{action==='publish'?'This makes the event description, dates, venue and availability public and opens registration. Events that have already ended stay closed.':action==='unpublish'?'This hides the event and its direct public link. It retains the published history and can be published again.':'This hides the event and closes registration. Cancellation cannot be undone.'}</p>
   <p>{row.days.map(d=>d.date).join(', ')} · {row.venue?.name} · {row.capacity} places per day</p>
   <form onSubmit={e=>{e.preventDefault();if(!pending&&confirmation===row.title&&(!archived||acknowledge))void onSave(confirmation,acknowledge);}}><fieldset disabled={pending}><legend className="visually-hidden">Confirm event action</legend>
    {archived&&<label><input type="checkbox" checked={acknowledge} onChange={e=>setAcknowledge(e.target.checked)}/>The source location is archived. I have reviewed the event’s saved venue details.</label>}

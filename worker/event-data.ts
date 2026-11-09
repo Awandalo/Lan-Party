@@ -152,13 +152,14 @@ async function lifecycleEvent(db:D1Database,userId:string,digest:string,raw:Reco
   throw new EventError(409,'Cancellation with registration history awaits participant notification support');
  }
  const next=action==='cancel'?'cancelled':'published',listed=action==='publish'?1:0;
+ const openRegistration=action==='publish'&&await registrationReady(db);
  const guard=action==='cancel'?`AND ${noHistory}`:action==='publish'&&raw.acknowledgeArchivedTemplate!==true?'AND EXISTS(SELECT 1 FROM locations WHERE id=? AND is_active=1)':'';
  const bindings:(string|number)[]=[listed,id,revision,userId,digest,String(row.status),Number(row.listed)];
  if(action==='publish'&&raw.acknowledgeArchivedTemplate!==true)bindings.push(String(row.locationId));
  try{await db.batch([
   db.prepare(`UPDATE event_management SET is_listed=?,revision=revision+1 WHERE event_id=? AND revision=? AND ${actor(action==='cancel'?'events.cancel':'events.publish')} AND EXISTS(SELECT 1 FROM events WHERE id=event_management.event_id AND publication_status=?) AND is_listed=? ${guard}`).bind(...bindings),
   db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Event conflict') END"),
-  db.prepare("UPDATE events SET publication_status=?,registration_status='closed',updated_at=unixepoch() WHERE id=?").bind(next,id),
+  db.prepare("UPDATE events SET publication_status=?,registration_status=CASE WHEN ?=1 AND (SELECT ends_at FROM event_management WHERE event_id=events.id)>unixepoch() THEN 'open' ELSE 'closed' END,updated_at=unixepoch() WHERE id=?").bind(next,openRegistration?1:0,id),
   db.prepare('INSERT INTO event_activity(operation_id,occurred_at,actor_id,event_id,event_reference,event_title,operation,fields) VALUES (?,unixepoch(),?,?,?,?,?,?)').bind(raw.operationId,userId,id,id,row.title,'event.'+action,JSON.stringify(['publication','registration']))
  ]);}catch(error){if(/malformed JSON|Event conflict|UNIQUE constraint failed: event_activity.operation_id/i.test(String(error)))throw new EventError(409,'Event or access changed. Reload before trying again.');throw error;}
  return {id};

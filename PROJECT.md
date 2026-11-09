@@ -1568,3 +1568,12 @@ The owner subsequently accepted the local flow and explicitly authorized DEV
 publication for online testing on 2026-11-08. This supersedes the local-only
 publication limit; hosted verification remains read-only, leaving event finishing
 and email sending to owner acceptance. No schema/configuration or PROD changes.
+
+### Publication simplification - 2026-11-09
+
+Owner-approved local change: publishing or republishing an event opens registration
+atomically if connected registration is installed and the end time has not passed.
+Past events stay closed; unpublish/cancel close registration and finalized events
+remain locked. This supersedes the earlier publish-with-registration-closed rule.
+The owner subsequently accepted this change and authorized its commit and DEV push
+for online testing on 2026-11-09. No database or PROD operation is included.
