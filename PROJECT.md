@@ -1577,3 +1577,16 @@ Past events stay closed; unpublish/cancel close registration and finalized event
 remain locked. This supersedes the earlier publish-with-registration-closed rule.
 The owner subsequently accepted this change and authorized its commit and DEV push
 for online testing on 2026-11-09. No database or PROD operation is included.
+
+### Finance acceptance and empty-event follow-up — 2026-11-09
+
+The owner accepted Finance on DEV, including the actual delivered branded payment
+email. A separate requested local fix permits finishing zero-attendance events
+without bills/email; migration 0036 and UI/backend changes remain unpushed and no
+remote migration is included. See docs/event-finalization.md for the bounded scope.
+
+The owner subsequently approved the empty-event DEV update and migration 0036 on
+2026-11-09. Migration/recovery/preservation checks pass on DEV; the owner confirms
+all other Phase 5 walkthroughs were already accepted. Empty-event hosted testing
+is the final acceptance item before the requested issue closeout. PROD, Jotform,
+attachments/gallery and further provider sends remain outside this operation.

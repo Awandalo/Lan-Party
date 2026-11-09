@@ -129,3 +129,9 @@ publication limit above. Reuse unchanged local checks; verify exact-commit CI an
 the automatic DEV deployment. Hosted checks are read-only and do not reset send
 records or resend successful messages. Actual email-client rendering remains
 owner acceptance; no migrations, settings, permissions or PROD changes are included.
+
+### Owner acceptance — 2026-11-09
+
+The owner confirmed the delivered branded payment email renders correctly and
+accepted the Finance part in conversation. This is hosted owner evidence for the
+member email layout; it is not a new provider send, resend or PROD approval.

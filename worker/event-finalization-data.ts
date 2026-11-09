@@ -20,7 +20,7 @@ export async function finalizeEvent(db:D1Database,id:string,userId:string,digest
  if(snapshot.state.revision!==raw.revision)throw new EventError(409,'Attendance changed. Review the latest totals before finalizing');
  if(!snapshot.state.ended&&raw.acknowledgeEarly!==true)throw new EventError(409,'The event has not ended. Acknowledge early finishing before continuing');
  if(raw.confirmation!==snapshot.meta.title)throw new EventError(400,'Enter the exact event name to confirm permanent closure');
- if(!summary.participantDays)throw new EventError(400,'At least one retained participant-day is required');
+ if(!summary.participantDays&&!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='trigger' AND name='event_finalization_empty_rate'").first())throw new EventError(503,'Finishing an empty event is awaiting its database migration');
  const bills=summary.bills.map(b=>({...b,id:crypto.randomUUID()}));
  try{await db.batch([
   db.prepare(`UPDATE event_management SET revision=revision+1 WHERE event_id=? AND revision=? AND ${eventActor('events.manage_registrations')} AND EXISTS(SELECT 1 FROM events e WHERE e.id=event_id AND e.publication_status='published') AND NOT EXISTS(SELECT 1 FROM event_finalizations f WHERE f.event_id=event_management.event_id)`).bind(id,raw.revision,userId,digest),

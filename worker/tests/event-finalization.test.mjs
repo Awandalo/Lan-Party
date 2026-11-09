@@ -9,14 +9,14 @@ const {calculateEventBills}=await import('data:text/javascript;base64,'+Buffer.f
 
 const proof=u=>({'X-LAN-Session-Proof':u?.csrf??'','X-CSRF-Token':u?.csrf??''});
 const call=(f,id,u,body,headers={})=>f.request('event-review/'+id,u,body,{...proof(u),...headers});
-async function setup(f){
+async function setup(f,empty=false){
  const admin=await f.user({genuine:true}),member=await f.user(),planner=await f.user({admin:true}),outsider=await f.user(),location=randomUUID();
  await f.sql("INSERT INTO locations(id,name,address_line,postal_code,city,country_code,capacity,default_rental_cents,created_at,updated_at) VALUES (?,'Fictional Hall','Example 1','0000 AA','Example','NL',10,30000,0,0)",location).run();
  const response=await f.request('manage/events',admin,{action:'create',operationId:randomUUID(),locationId:location,locationRevision:0,title:'Fictional review LAN',description:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Review'}]}]},startsAt:Date.parse('2030-11-01T17:00Z')/1000,endsAt:Date.parse('2030-11-03T19:00Z')/1000,minimumParticipants:1,maxGuests:2},proof(admin));
  assert.equal(response.status,200,await response.clone().text());const {id}=await response.json(),days=['2030-11-01','2030-11-02','2030-11-03'];
  await f.sql("UPDATE events SET publication_status='published',registration_status='open' WHERE id=?",id).run();await f.sql('UPDATE event_management SET is_listed=1 WHERE event_id=?',id).run();
  const guest={id:randomUUID(),name:'Fictional Guest',email:'guest@example.test',days:[days[1]]};
- const registration=await f.request('event-registration/'+id,member,{action:'save',revision:0,operationId:randomUUID(),draft:{days,guests:[guest]}},proof(member));assert.equal(registration.status,200,await registration.clone().text());
+ if(!empty){const registration=await f.request('event-registration/'+id,member,{action:'save',revision:0,operationId:randomUUID(),draft:{days,guests:[guest]}},proof(member));assert.equal(registration.status,200,await registration.clone().text());}
  const original=(await f.sql('SELECT * FROM event_registration_parties').all()).results;
  const end=async()=>{await f.sql("UPDATE events SET registration_status='closed' WHERE id=?",id).run();await f.sql('UPDATE event_management SET starts_at=1,ends_at=2 WHERE event_id=?',id).run();};
  const read=async(u=admin)=>{const r=await call(f,id,u);assert.equal(r.status,200,await r.clone().text());return r.json();};
@@ -48,12 +48,12 @@ test('closure retains complimentary days, locks instructions, and rounds upward 
  const days=await s.change(s.admin,'attendance',{registrationId:guest.registrationId,personId:guest.id,days:[]});assert.equal(days.status,409);
 },32));
 
-test('finalization requires early acknowledgement, exact name, nonzero attendance and staff authority',()=>local(async f=>{
+test('finalization requires early acknowledgement, exact name, migration readiness and staff authority',()=>local(async f=>{
  const s=await setup(f);assert.equal((await finalize(f,s)).status,409);
  assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:'yes'})).status,400);
  assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true,confirmation:'wrong'})).status,400);assert.equal((await finance(f,s,s.member,{action:'finalize'})).status,403);
  for(const person of (await s.read()).people)assert.equal((await s.change(s.admin,'attendance',{registrationId:person.registrationId,personId:person.id,days:[]})).status,200);
- assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,400);assert.equal(await f.sql('SELECT count(*) n FROM event_finalizations').first('n'),0);
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,503);assert.equal(await f.sql('SELECT count(*) n FROM event_finalizations').first('n'),0);
 },32));
 
 test('one acknowledged early finish closes open registration and locks bills without email or date changes',()=>local(async f=>{
@@ -116,7 +116,7 @@ test('account erasure after closure scrubs bill identity but preserves locked to
 
 test('deleted accounts before closure contribute no billable days; historical records remain separate',()=>local(async f=>{
  const s=await setup(f);await s.end();await f.sql("INSERT INTO auth_recent_authentication(session_digest,user_id,auth_version,method,authenticated_at,expires_at) VALUES (?,?,0,'password',unixepoch(),unixepoch()+300)",s.member.digest,s.member.id).run();assert.equal((await f.request('auth/lifecycle/delete',s.member,{confirm:'DELETE',acknowledged:true},{'X-CSRF-Token':s.member.csrf})).status,200);
- const p=await(await finance(f,s)).json();assert.equal(p.participantDays,0);assert.equal(p.bills.length,0);assert.equal((await finalize(f,s)).status,400);assert.equal(await f.sql('SELECT sum(total) n FROM anonymous_day_registrations').first('n'),4);assert.equal(await f.sql('SELECT count(*) n FROM event_bills').first('n'),0);
+ const p=await(await finance(f,s)).json();assert.equal(p.participantDays,0);assert.equal(p.bills.length,0);assert.equal((await finalize(f,s)).status,503);assert.equal(await f.sql('SELECT sum(total) n FROM anonymous_day_registrations').first('n'),4);assert.equal(await f.sql('SELECT count(*) n FROM event_bills').first('n'),0);
 },32));
 
 test('finance routes enforce proof, origin, CSRF and member-only own projections',()=>local(async f=>{
@@ -229,3 +229,50 @@ test('adjusted event rental feeds preview and final bills, remains private befor
  await assert.rejects(f.sql('UPDATE event_management SET rental_cents=0 WHERE event_id=?',s.id).run(),/locked/);
  assert.equal((await(await finance(f,s)).json()).dailyRateCents,5000);
 },34));
+
+
+test('empty attendance can be finalized with no bills or email claims; locks and replay guards remain',()=>local(async f=>{
+ const s=await setup(f);
+ for(const person of (await s.read()).people)assert.equal((await s.change(s.admin,'attendance',{registrationId:person.registrationId,personId:person.id,days:[]})).status,200);
+ const before=await f.sql('SELECT count(*) AS n FROM event_registration_notifications').first('n');
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,200);
+ const final=await f.sql('SELECT participant_days,daily_rate_cents,rental_cents FROM event_finalizations WHERE event_id=?',s.id).first();
+ assert.deepEqual(final,{participant_days:0,daily_rate_cents:0,rental_cents:30000});
+ assert.equal(await f.sql('SELECT count(*) AS n FROM event_bills').first('n'),0);
+ assert.equal(await f.sql('SELECT count(*) AS n FROM event_payment_info_emails').first('n'),0);
+ assert.equal(await f.sql('SELECT count(*) AS n FROM event_registration_notifications').first('n'),before);
+ assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',s.id).first('registration_status'),'closed');
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,409);
+ await assert.rejects(f.sql('DELETE FROM event_finalizations WHERE event_id=?',s.id).run(),/permanent/);
+ await assert.rejects(f.sql('UPDATE event_finalizations SET participant_days=1 WHERE event_id=?',s.id).run(),/permanent/);
+ await assert.rejects(f.sql('UPDATE event_management SET rental_cents=0 WHERE event_id=?',s.id).run(),/locked/);
+}));
+
+test('0036 preserves populated final bills, payment/email history, audit sequence and locks; failure rolls back',()=>local(async f=>{
+ const s=await setup(f);await s.end();assert.equal((await finalize(f,s)).status,200);
+ const bill=await f.sql('SELECT id FROM event_bills WHERE event_id=?',s.id).first('id');
+ await f.sql('INSERT INTO event_bill_payment_activity(sequence,operation_id,event_id,bill_id,actor_id,was_paid,paid,occurred_at) VALUES (120,?,?,?,?,0,1,0)',randomUUID(),s.id,bill,s.admin.id).run();
+ await f.sql("INSERT INTO event_payment_info_emails VALUES (?,'member','sent',1,?,'fictional-provider-receipt',0)",bill,randomUUID()).run();
+ const names=['event_finalizations','event_bills','event_bill_payment_activity','event_payment_info_emails','registrations','role_permissions','sqlite_sequence'];
+ const rows=async()=>Object.fromEntries(await Promise.all(names.map(async n=>[n,(await f.sql('SELECT * FROM '+n+' ORDER BY rowid').all()).results])));
+ const before=await rows(),schema=(await f.sql('SELECT type,name,sql FROM sqlite_schema ORDER BY type,name').all()).results;
+ await assert.rejects(f.migrate(36,["SELECT json('Fictional migration failure')"]));
+ assert.deepEqual(await rows(),before);assert.deepEqual((await f.sql('SELECT type,name,sql FROM sqlite_schema ORDER BY type,name').all()).results,schema);
+ await f.migrate(36);assert.deepEqual(await rows(),before);
+ assert.equal(await f.sql("SELECT count(*) AS n FROM sqlite_schema WHERE name LIKE '%0036_saved'").first('n'),0);
+ const expectedTriggers=schema.filter(r=>r.type==='trigger');
+ for(const trigger of expectedTriggers)assert.equal(await f.sql('SELECT sql FROM sqlite_schema WHERE name=?',trigger.name).first('sql'),trigger.sql);
+ await assert.rejects(f.sql('UPDATE event_bills SET total_cents=1 WHERE id=?',bill).run(),/immutable/);
+ await assert.rejects(f.sql('DELETE FROM event_finalizations WHERE event_id=?',s.id).run(),/permanent/);
+ assert.equal(await f.sql("SELECT seq FROM sqlite_sequence WHERE name='event_bill_payment_activity'").first('seq'),120);
+ const empty=await setup(f);for(const person of (await empty.read()).people)await empty.change(empty.admin,'attendance',{registrationId:person.registrationId,personId:person.id,days:[]});
+ assert.equal((await finalize(f,empty,empty.planner,{acknowledgeEarly:true})).status,200);
+},35));
+
+test('a newly published event with no registration history can finish empty',()=>local(async f=>{
+ const s=await setup(f,true);assert.equal(await f.sql('SELECT count(*) AS n FROM registrations WHERE event_id=?',s.id).first('n'),0);
+ assert.equal((await finalize(f,s,s.planner,{acknowledgeEarly:true})).status,200);
+ assert.equal(await f.sql('SELECT participant_days FROM event_finalizations WHERE event_id=?',s.id).first('participant_days'),0);
+ assert.equal(await f.sql('SELECT count(*) AS n FROM event_bills WHERE event_id=?',s.id).first('n'),0);
+ assert.equal(await f.sql('SELECT count(*) AS n FROM event_registration_notifications').first('n'),0);
+}));

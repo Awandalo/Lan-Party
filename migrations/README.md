@@ -788,3 +788,22 @@ application was separately approved and completed on 2026-11-08. All 55 existing
 tables/rows and schema objects are preserved, the new table is empty, history is
 through 0035, and integrity/foreign keys pass. No down migration or automatic recovery is authorized.
 See [payment information](../docs/payment-info.md).
+
+## Empty-event finalization — 0036, local preparation only
+
+`0036_allow_empty_event_finalization.sql` changes the finalization constraint to
+permit zero participant-days with a zero daily rate. Existing finalizations, bills,
+manual payment audit/send guards and audit sequence are copied/restored in one
+migration transaction; all existing lock triggers and indexes are preserved.
+Temporary copy tables are removed on success, and failure rolls the operation back.
+This migration has not been applied remotely. DEV application requires exact-target
+approval, a fresh recovery checkpoint and populated preservation/integrity checks.
+The Worker fails safely with a migration-pending message for empty closure on an
+older schema. Normal nonempty finalization remains compatible.
+
+0036 DEV application was separately approved and completed on 2026-11-09. A fresh
+export restored successfully; local application to that copy and remote pre/post
+checks preserved all 56 existing tables' rows. Existing triggers/indexes and audit
+history are preserved; only the intended table constraint and zero-rate guard
+change. History through 0036, quick_check and foreign keys pass; no copy tables
+remain. PROD is unchanged and recovery material is retained privately.

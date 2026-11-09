@@ -562,3 +562,55 @@ browser evidence; normal exact-commit CI and deployment checks follow. Hosted
 verification is read-only: inspect the new controls without finishing an event,
 changing attendance/registration/payment state or sending emails. No migration,
 configuration/permission changes, PROD or Jotform cutover is included.
+
+### Empty-event completion — local follow-up, 2026-11-09
+
+The owner reported that an event with zero attendance cannot finish and requested
+a local fix for the next update. Empty events may finish with the existing permanent
+acknowledgement (and early-finish acknowledgement where applicable). Registration
+closes, venue rental stays recorded, participant-days and daily price are zero,
+and no member bills or payment emails are created. Normal authority, revision,
+replay, audit and permanent locks remain. This supersedes the nonzero-day prerequisite.
+
+Prepared migration 0036 rebuilds the constrained finalization parent and referencing
+bill/history tables together, preserving rows, payment audit sequence, indexes and
+all existing lock triggers. It permits zero days only with a zero daily rate.
+Populated preservation and forced-failure rollback pass locally. Older databases
+reject only empty finalization with an explicit migration-pending message; normal
+finalization remains compatible. No remote migration, commit or push is authorized
+for this follow-up; separate DEV migration approval will be needed at publication.
+
+The owner also accepted the Finance functionality on DEV on 2026-11-09, including
+the real delivered branded payment email screenshot. The empty-event edge case is
+a separate local follow-up and does not revoke that acceptance. No issue closure,
+PROD activation, additional send or resend is performed by this acceptance record.
+
+Local verification receipt — 2026-11-09: populated 0036 preservation/forced-failure
+rollback, zero-attendance and never-registered closure, replay and immutable locks
+pass. Full regression: 753 passed, 14 blocked by the reviewed migration-history
+fixture still ending at 0035. Classified as test fixture maintenance; added the
+explicit 0036 filename without weakening missing/unexpected/renamed migration
+assertions. All 14 affected DEV email-budget/MFA schema-compatibility checks then
+passed. Reused the unchanged 753 results; no redundant full rerun. Strict types,
+frontend build and whitespace checks pass. Browser interaction for this final UI
+change is not repeated; hosted zero-attendance acceptance waits for the next
+approved DEV update and separately approved 0036 migration. All work stays unstaged.
+Suggested commit: fix(events): allow finishing events without attendance.
+
+### Approved DEV publication and migration — 2026-11-09
+
+Owner confirms the other Phase 5 walkthroughs were already completed/accepted,
+authorizes this DEV push, and separately approves migration 0036. The remaining
+owner test is finishing an empty event; issue closeout is conditional on that result.
+Only DEV lan-party-dev (a3c4cea6-ceb7-43b8-b9b7-b374726b35b4) was changed.
+
+Fresh recovery export/hash and Time Travel checkpoint were saved privately; the
+export restored into isolated SQLite and 0036 preserved all 56 existing tables'
+rows there. Remote pre/post snapshots match for all existing tables, including
+bill amounts, email send guards, payment history and permissions. All existing
+schema objects remain identical except the intentionally relaxed finalization
+table constraint; the new zero-rate guard is installed and no copy tables remain.
+Migration history is through 0036; quick_check is ok, foreign_key_check empty and
+foreign keys enabled. No event was finalized, no email sent, no PROD change made.
+SHA-256: 425c1265e73ca399c9e530c41e7730b1f6839fec222e1f3c9b427f02fb4e68fc.
+Reuse prior types/build and local tests; exact-head CI/deployment follow publication.
