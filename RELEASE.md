@@ -1,5 +1,9 @@
 # Controlled DEV-to-MAIN release procedures
 
+The separate [Investigate and Deploy](#investigate-and-deploy) operation below
+governs owner-authorized merge-through-production execution. The preparation-only
+and separately requested housekeeping procedures retain their narrower scopes.
+
 ## Scope and explicit initiation
 
 Execute release preparation only when the user explicitly requests it, for example,
@@ -261,6 +265,146 @@ line totals, grouped promotion summary, PR URL (or "not created"), check results
 and evidence, blockers, and required manual actions. Report staged, unstaged, and
 untracked status and local/remote branch divergence. State explicitly that no
 commit, push, merge, production deployment, or production migration was performed.
+
+## Investigate and Deploy
+
+Owner-approved LAN Party project directive, 2026-11-01. This implements the owner's
+hands-off preference inside a bounded approved production operation. It updates
+project execution guidance, not the adopted framework pin or other repositories.
+The authoritative procedure is here; AGENTS.md and the governance/communication
+documents link to it. No new framework directive ID or framework version is assigned.
+
+### Step 0 — accept the reviewed release and its production scope
+
+Prepare a clearly labelled **Investigate and Deploy scope** in the release PR
+before asking for acceptance. In trusted conversation, the owner's acceptance of
+that PR for merge under this directive authorizes the exact reviewed head's merge
+and the explicitly disclosed production operation together. For example, once
+that scope is complete, "PR #N accepted, merge it" is sufficient; no second round
+is needed for the listed migrations, deployment, activation or acceptance checks.
+Record the accepted head and scope in the existing PR. A label, issue prose, agent
+recommendation or edited PR description alone never supplies owner authorization.
+
+The scope must identify:
+
+- Repository, PR, exact base/head, features to make live, exclusions, and the
+  canonical PROD Worker/database from PROJECT.md's environment reference.
+- Exact migration filenames/order, required earlier dependencies, existing-data
+  compatibility and any explicitly approved bounded data transformations.
+- Configuration keys and intended values, feature/origin gates, production build
+  profile and deployment mechanism; any source changes must already be reviewed.
+- Small operational corrections allowed below, hosted checks and their fictional
+  account/data/email effects and cleanup, and separately approved provider actions.
+- Recovery checkpoint method, integrity baseline, safe ordering, abort conditions,
+  rollback compatibility and any recovery actions actually authorized to execute.
+
+Missing information can be investigated without approval, but an omitted write,
+migration, activation, provider action or recovery operation is not authorized.
+If one is needed, first prepare the concrete addition and ask only for that scope.
+An owner may approve this same explicit production scope for an already merged
+revision; start at step 1 without another merge. A merge-only or prepare-only
+instruction stays limited. Earlier PR #46 was approved as source promotion only:
+this directive is not retroactive approval for its pending production activation.
+
+All required review, exact-head approval, CI/security, branch protection and host
+gates remain. Recheck the head immediately before merging with an expected-SHA
+guard. A changed source head needs affected validation, review and fresh exact-head
+owner approval; this directive never permits silently merging a replacement head.
+Use a reviewed isolated release branch when DEV contains excluded work. Never
+publish later DEV commits just to make the earlier approved release live.
+
+### Execute the ten stages continuously
+
+After step 0, follow these stages without routine research-report or approval stops.
+Keep short progress updates; the final report contains the consolidated results.
+
+1. **Verify current reality.** Check root/origin, clean scoped work, MAIN/PROD SHAs,
+   active deployed version, account, Worker/D1 identities, configuration, feature
+   and origin gates, authentication and actual production migration history. Use
+   explicit PROD profiles and canonical targets, never CLI defaults. Resolve
+   deploy-before-migration ordering in the PR before merge when automatic deployment
+   could encounter an incompatible schema. A post-merge check is not a substitute.
+2. **Verify the migration chain.** Compare every pending file with reviewed source,
+   check ordered dependencies against the real applied history and prove data
+   compatibility. Preserve applied migrations and registrations. A missing unlisted
+   dependency requires a scoped decision, not an automatic extra migration.
+3. **Prepare activation.** Confirm the exact approved settings and source gates
+   required to expose the approved features. Prepare commands/diffs and a sequence
+   that keeps incomplete functionality gated. Distinguish missing schema, disabled
+   gates and account roles; an Administrator grant does not enable PROD routes.
+4. **Verify recovery first.** Capture and verify a fresh D1 recovery checkpoint and
+   integrity baseline immediately before database writes; retain sanitized recovery
+   references privately. Establish a realistic procedure, responsible operator and
+   stop conditions. Do not export participant data into the repository. A checkpoint
+   does not authorize a destructive restore, and Worker rollback may be incompatible
+   with a newer schema. Stop writes if recovery capability cannot be verified.
+5. **Resolve genuine blockers.** Investigate privacy, security, email, retention,
+   authorization, data and operational concerns that affect this release. Reuse
+   valid recorded decisions; do not reopen settled questions without new evidence.
+6. **Select acceptance checks.** Reuse unchanged DEV/CI/preflight evidence with its
+   revision and limits. Choose the smallest necessary hosted-PROD checks for affected
+   behavior, including server-side permissions, private-data boundaries and schema
+   integrity. Use only approved fictional fixtures/provider actions. A build or
+   health response alone does not establish functional acceptance.
+7. **Handle bounded small issues.** Investigate and correct safe operational issues
+   inside the approved scope, then rerun affected checks. Examples: correct command
+   quoting for the identical approved effect; set an explicitly listed activation
+   value; redeploy the same approved artifact through the approved mechanism after
+   a diagnosed failure, if preauthorized. For uncertain writes, inspect actual state
+   first and never replay blindly. Apply the existing error-10000 rule exactly;
+   other errors have no automatic retry entitlement. No retry-until-green.
+8. **Apply approved migrations.** Only when prerequisites pass, apply the explicitly
+   approved files in verified order to the named PROD database. Inspect results and
+   applied history before the next dependency; stop on partial/uncertain application
+   or failed integrity. Never edit an applied file or include a later feature's
+   migrations merely because it shares DEV. Record actual effects.
+9. **Deploy, activate and verify.** Confirm the approved MAIN artifact and deployment,
+   apply the disclosed activation settings in their safe order, and test actual
+   hosted behavior. Reuse unchanged preflight evidence; refresh anything invalidated
+   by writes, configuration or revision changes. Check account/permission boundaries
+   and data integrity. Do not claim a feature is live merely because its PR merged.
+10. **Report once.** Give a concise completion report: reviewed/merged/deployed SHAs,
+    actual migrations/settings, hosted checks and results, reused/omitted evidence,
+    limitations, recovery references and clean/staged/unstaged state. Update the
+    existing PR's execution receipt within the approved operation, without private
+    data; keep historical evidence distinct. Routine stages need progress updates,
+    not another approval. Stop reports identify the actual blocker and decision.
+
+### Repairs and stop boundaries
+
+Small means low-impact, understood, within the exact approved target/effect and
+recoverable under the approved procedure, not merely a small diff. Reuse existing
+credentials/permissions only. No speculative refactoring, new dependencies/services,
+production data repair, secret rotation, account privilege grants, authentication
+weakening, privacy/retention policy changes, extra migrations or infrastructure
+expansion are implied. Jotform cutover requires its separate explicit decision.
+
+If a source correction is necessary, prepare and validate the minimal patch locally
+when covered by the repair scope. DEV publication must also be authorized under
+AGENTS.md. A new MAIN commit/PR must follow exact-head review/owner approval;
+operational repair authority never bypasses that boundary. Do not downgrade a
+security test, suppress an alert or weaken a gate to continue.
+
+Stop affected actions for insufficient authority, identity/revision/environment
+mismatch, missing recovery capability, incompatible/unlisted schema requirements,
+material privacy/security issues, failed integrity or critical runtime checks,
+destructive recovery, or a correction outside the approved scope. Preserve minimal
+sanitized diagnostics; investigate a failed check without repeating its harmful
+effect or broadening authority. Separable safe work may continue. Report impact,
+work completed, concrete options and the smallest owner decision needed. Host/tool
+confirmation requirements still apply even where conversational approval is reused.
+
+### Scenario review
+
+| Scenario | Expected action |
+| --- | --- |
+| Reviewed PR lists the full PROD operation; owner accepts its exact head; prerequisites pass | Merge under protections and execute stages 1–10 without another migration/activation approval. |
+| Quoting fails before any effect; corrected syntax has the identical authorized target/effect | Correct it, verify actual state and continue with affected checks. |
+| Approved activation key has the wrong value | Apply the reviewed value and recheck behavior; no new scope. |
+| MAIN changes, an earlier migration is missing, CLI authorization fails, recovery is unverified, or integrity fails | Stop affected effects, diagnose safely and request the concrete missing decision/access/recovery action. No credential or security bypass. |
+| New application code is required to enable PROD | Prepare a scoped reviewed patch; obtain exact-head approval before its MAIN merge. |
+| Phase 4 source already merged as #46; PROD activation is requested later | Prepare the explicit operation for that revision; approve it once, then execute continuously. Verify 0020–0023 and earlier dependencies; exclude Locations/0024 and retain Jotform. |
+| Owner only asks to update this directive | Publish the scoped project documentation to DEV under its existing authorization; execute no PROD operation. |
 
 ## Post-release housekeeping (separate explicit request)
 

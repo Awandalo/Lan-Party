@@ -1,0 +1,11 @@
+.event-date-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.event-date-time{min-width:0;border-radius:.5rem}
+.event-dialog .event-date-time{margin:0;border:1px solid var(--border);padding:1rem}
+.event-date-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:.75rem}
+.event-date-controls label{display:grid;gap:.4rem;min-width:0}
+.event-calendar{position:relative}
+.event-calendar input{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
+.event-date-time [aria-invalid=true]{border-color:var(--danger,#ffb4ab)}
+.event-time-hint{font-size:.875rem;color:var(--muted)}
+@media(max-width:720px){.event-date-pair{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:400px){.event-date-controls .event-date-text,.event-date-controls .event-calendar{grid-column:1 / -1}.event-calendar .button{width:100%}.event-date-controls{grid-template-columns:repeat(2,minmax(0,1fr))}}

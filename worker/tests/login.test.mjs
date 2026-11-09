@@ -15,8 +15,8 @@ const credentials = { email: profile.email, password: profile.password };
 const origin = 'http://127.0.0.1:5173', base = 'http://127.0.0.1:8787/api/auth/';
 let script, migrations;
 before(async () => {
-  script = (await build({ stdin: {resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
-    import app from './index';
+  script = (await build({ stdin: {resolveDir:fileURLToPath(new URL('../../',import.meta.url)),contents:`
+    import app from './worker/index';
     export default {async fetch(request,env,ctx){
       const header=request.headers.get('X-Fixture-Login-Time');
       if(header===null)return app.fetch(request,env,ctx);

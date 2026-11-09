@@ -1,4 +1,11 @@
+import {eventReview} from './event-review';
+import {eventFinance} from './event-finance';
 import {feedback} from './feedback';
+import {eventRegistration} from './event-registration';
+import {registrationReady} from './event-registration-data';
+import {deliverPendingRegistrationNotifications} from './event-registration-mail';
+import {publicEvents} from './public-events';
+import {eventPage} from './event-page';
 import {productionBuild} from './auth/production';
 import {purgeFeedback,feedbackReady} from './feedback-data';
 import { manage } from './manage';
@@ -19,13 +26,19 @@ interface Env extends AuthenticationEnvironment {
 
 export default {
   async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext) {
+    if((env.AUTH_ENVIRONMENT==='dev'||env.AUTH_ENVIRONMENT==='prod'&&productionBuild()&&env.EVENTS_MODE==='enabled')&&await registrationReady(env.DB))ctx.waitUntil(deliverPendingRegistrationNotifications(env));
     if((env.AUTH_ENVIRONMENT==='dev'||env.AUTH_ENVIRONMENT==='prod'&&productionBuild())&&await feedbackReady(env.DB))ctx.waitUntil(purgeFeedback(env.DB,20));
     if(['dev','prod'].includes(env.AUTH_ENVIRONMENT??'')&&env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled')ctx.waitUntil(purgeUserActivity(env.DB));
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname.startsWith('/api/event-finance/'))return eventFinance(request,env);
+    if(pathname.startsWith('/api/event-review/'))return eventReview(request,env);
+    if(pathname.startsWith('/api/event-registration/')||pathname.startsWith('/api/event-participants/'))return eventRegistration(request,env,ctx);
+    if(pathname.startsWith('/events/')){const page=await eventPage(request,env);if(page)return page;}
+    if(pathname==='/api/events'||pathname.startsWith('/api/events/'))return publicEvents(request,env);
     if(pathname.startsWith('/api/feedback/')||pathname==='/api/manage/feedback'||pathname.startsWith('/api/manage/feedback/'))return feedback(request,env,ctx);
-    if(pathname.startsWith('/api/manage/'))return manage(request,env);
+    if(pathname.startsWith('/api/manage/'))return manage(request,env,ctx);
     if(pathname.startsWith('/api/auth/lifecycle/'))return lifecycleHttp(request,env);
     if(pathname.startsWith('/api/auth/mfa/'))return mfaAuthentication(request,env);
     if (pathname.startsWith('/api/auth/security/')) return accountSecurity(request,env);

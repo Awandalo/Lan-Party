@@ -6,11 +6,11 @@ for requirements, architecture, roadmap, and decisions awaiting owner review.
 ## Repository identity and adopted workflow
 
 Expected repository: `Awandalo/Lan-Party`, host `github.com`.
-Baseline: Development-Workflow v1.2.1 at immutable revision
-`cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`.
-The owner authorized the additive adoption and directional routing update on
-2026-10-22 in this conversation; the exact scope, retained project directives and
-the approved project-specific linking fallback are recorded in
+Baseline: Development-Workflow v1.4.0 at immutable revision
+`fa1a86a07fda44ac7434b95142eb7f30bc5987b2`.
+The owner authorized this existing-project baseline update on 2026-11-08 in this
+conversation. The original 2026-10-22 adoption, retained project directives,
+standing scopes and attachment-only linking fallback are recorded in
 [workflow governance](docs/development-workflow/governance.md).
 
 Before affected work, read that governance document and the adopted
@@ -18,6 +18,10 @@ Before affected work, read that governance document and the adopted
 existing rules below. For GitHub coordination read
 [the communication protocol](docs/GITHUB_COMMUNICATION.md). Read
 [RELEASE.md](RELEASE.md) for an explicitly requested release operation only.
+For website/frontend changes, also read the optional
+[frontend design guidance](docs/development-workflow/frontend-design.md); it adds
+no mandatory motion or redesign. Build/artifact work follows FW-ART-001 in the
+[workflow standards](docs/development-workflow/standards.md#artifact-retention-and-safe-cleanup).
 These local rules govern continuing work without repeated onboarding.
 
 Before changes or external effects, verify the actual Git root, effective origin
@@ -114,6 +118,9 @@ Use these locations when implementation begins:
   naming/versioning conventions and never reuse migration numbers.
 - Never modify production data or production schemas, or execute production
   migrations, without explicit approval.
+  That approval may be bundled into a reviewed production operation under
+  [Investigate and Deploy](RELEASE.md#investigate-and-deploy), covering its exact
+  database, migrations and actions; do not request it again for covered steps.
 - Use parameterized queries, never SQL constructed from untrusted input.
 - Maintain a clear separation between development and production databases,
   configuration, and migration execution.
@@ -328,6 +335,13 @@ When completing development tasks:
   authorizes creating or updating the `dev` to `main` PR after all pre-flight checks
   pass; it does not authorize commits, pushes, merging, production deployment, or
   production migrations. All existing protections remain in effect.
+- **Investigate and Deploy:** the owner-approved project directive in
+  [RELEASE.md](RELEASE.md#investigate-and-deploy) defines a separate execution
+  operation. Step 0 accepts the exact reviewed PR and its disclosed production
+  scope, including explicitly listed migrations, activation and bounded repairs.
+  Continue through its authorized stages without intermediate approval/reporting
+  stops. Preparation-only requests and ordinary PR review acceptance outside that
+  procedure retain their existing limits. Never infer unlisted production scope.
 - Codex may stage completed changes using `git add`, but must never create
   commits, push, pull, merge, rebase, reset, or deploy unless explicitly instructed.
   Normal development push and the existing documentation policies define scoped

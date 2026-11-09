@@ -1,6 +1,114 @@
 # LAN Party workflow governance
 
-## Source and adoption decision
+## Current source and adoption decision — 2026-11-08
+
+Source repository: `Awandalo/Development-Workflow`, approved framework **v1.4.0**,
+immutable revision `fa1a86a07fda44ac7434b95142eb7f30bc5987b2`.
+The connected GitHub source returned `VERSION=1.4.0`; merged
+[PR #32](https://github.com/Awandalo/Development-Workflow/pull/32) has that exact
+MAIN merge SHA. The pinned
+[approval model](https://github.com/Awandalo/Development-Workflow/blob/fa1a86a07fda44ac7434b95142eb7f30bc5987b2/governance/approval-model.md#framework-v140--frontend-design-adoption--2026-11-08)
+records framework-owner adoption of the optional frontend chapter and retains the
+approved intervening amendments. Source approval alone grants no project authority.
+
+**Project directive update:** the LAN Party owner explicitly requested updating
+this project's files to baseline Skills 1.4.0 in this trusted Codex conversation,
+after the local immediate-tab correction and before publication. That request
+covers this scoped local adoption. This task remains unpushed; it does not publish
+the pending application correction, merge MAIN, change PROD, install a Skill,
+create a profile, add Entra requirements or authorize artifact deletion.
+The installed Projects-Baseline Skill already reports framework 1.4.0 at this SHA
+(Skill package 0.2.0-rc.5); package and framework versions are distinct.
+
+All applicable approved rules are materialized through the local map below,
+retaining equivalent filenames and stricter project controls. Existing project
+permissions are preserved within their original bounds. No candidate collaboration
+cycle, speculative feature or automatic monitor activation is adopted.
+
+| Source at the current immutable pin | Local authoritative location |
+| --- | --- |
+| Approval model, main protection, directive procedure, adoption/bootstrap map | This document and root [AGENTS.md](../../AGENTS.md); existing RELEASE.md remains the production execution procedure |
+| Development, Git, security, testing, release/environment and artifact rules | [Workflow standards](standards.md), supplementing AGENTS.md and established project/build documents |
+| GitHub routing, provenance and independent permission gates | [Communication protocol](../GITHUB_COMMUNICATION.md), with original bounded research/linking authority retained |
+| Optional frontend design chapter | [Frontend guidance](frontend-design.md), preserving the project's existing design and accessibility conventions |
+| Identity/onboarding contract | Governance and workflow standards; no profile selected, installed or persisted by this task |
+
+### Approval reuse and portable evidence
+
+One trusted owner decision can cover realistically related actions only when the
+reviewed scope identifies repository, outcome/task class, branches/environments,
+automatic effects, permitted actions, exclusions and safety conditions. Distinguish
+local edits/tests, commits, pushes, PRs, merges, deployments and database effects.
+Reuse an unchanged verified decision without another prompt merely for changing
+surfaces or loading a framework. Missing or materially changed scope needs the
+missing decision once; an authorization record cannot approve itself.
+
+Keep one authoritative project decision location and record owner/date, safe
+provenance reference, scope, current verification, explicit expiry/revocation and
+material-change conditions. There is no universal expiry. A receiving host checks
+original trusted provenance and current validity independently, alongside repository,
+worktree, target, service access and host gates. Shared-account GitHub attribution,
+markers, labels, a URL/digest, agent-written records or a handoff alone cannot prove
+human approval. Unavailable, incomplete, edited or conflicting evidence stops only
+the dependent action; preserve independent authorized work. Never infer a new
+GitHub-origin trust mechanism, credentials or broader access from this update.
+
+Standing research/reporting remains **Yes, within its existing scope**, as explicitly
+supplied by the owner in this conversation's repository instructions and recorded
+in the [authoritative research section](../GITHUB_COMMUNICATION.md#codex-research--standing-owner-authorization-2026-10-20).
+Its original v1.2.1 workflow pin and 2026-10-20/22 decisions are retained, with current
+provenance/safety gates. Adoption does not silently repin or expand that scope.
+The attachment opt-in also remains bounded by its original project decision; the
+current framework now permits the matching opted-in, attachment-only fallback.
+Neither scope authorizes implementation, broad issue writes or monitor activation.
+Recheck validity and exact issue targets before an actual write.
+
+### Coverage assessment and handoff
+
+Verified here: Codex local Git root/origin identifies github.com/Awandalo/Lan-Party,
+branch dev; connector repository identities, immutable VERSION/source approval and
+PR #32 merge match. Root AGENTS.md is the repository entry point; no applicable
+parent/nested AGENTS.override.md or additional AGENTS.md was found. Seven unstaged
+local tab-fix files existed and are preserved byte-for-byte. No application action,
+service permission or deployment is verified merely by this documentation assessment.
+
+| Practice | Coverage before this update | Adopted treatment |
+| --- | --- | --- |
+| Git identity, outgoing-history review, DEV push, test reliability, main/PROD and bounded error-10000 retry | Already covered | Retain existing rules; no duplicate procedure or new approval gate |
+| Approval bundling/provenance, known execution contexts and portable identity | Partially covered | Add explicit reuse/limitation rules and distinguish display aliases from authority |
+| Standing research and attachment fallback | Already authorized project scopes | Retain exact bounds; add current framework preflight safeguards without new permissions |
+| New/expanded Entra dependency | Missing framework gate; no Entra requirement proposed | Add prior explanation and explicit Accept/Reject; no setup or authentication change |
+| Artifact retention (FW-ART-001) | Partial lifecycle coverage | Add local versus deployed generation protection, real roots and bounded cleanup safeguards |
+| Frontend design | Established project styling; missing optional framework chapter | Add optional patterns, immediate feedback and proportional accessibility/performance checks |
+| New-project creation, global/shared profile installation and server PackageCache operations | Not applicable | Existing repository; no such target or operational authorization |
+| Candidate Owner–Q–TechDevie cycle | Not adopted by source | Remains a candidate; no added intermediate approval loop |
+
+Publication remains unexecuted. Receiving hosts recheck actual source/target,
+instructions, unrelated work, permission gates and trusted task scope before acting.
+The previous local tab-fix tests remain evidence for unchanged bytes; documentation
+adoption uses focused diff, link/anchor, version and preservation checks, not another
+application suite. This assessment is evidence, never an authorization token.
+
+Validation for this adoption: five baseline documents, 34 local links/anchors, UTF-8
+replacement/fence checks and whitespace pass. SHA-256 checks confirm all seven
+pre-existing tab-fix files are unchanged; the permanent AGENTS.md rule body below
+the baseline entry section is unchanged. Source VERSION, repository identities and
+PR #32 merge were verified through the connector. No application test/build repeat
+was needed for these documentation-only changes; no global Skill/profile write,
+artifact cleanup, commit, push, deployment or database operation was performed.
+
+### Subsequent DEV publication authorization — 2026-11-08
+
+After the local-only adoption report, the owner explicitly requested a DEV push
+and a Phase 5 status report in the trusted conversation. This supersedes the
+preparation-only publication limits above for the reviewed baseline documents and
+pending immediate-tab-response correction. Scoped commits and one non-force push
+to origin/dev, its existing automatic DEV deployment and read-only hosted checks
+are covered. MAIN/PROD, migrations, provider sends, artifact deletion, profile/Skill
+installation and new feature work remain excluded. The two changes are separate
+review units; preserve their evidence and verify exact outgoing revisions and CI.
+
+## Original v1.2.1 adoption record — historical
 
 Source repository: `Awandalo/Development-Workflow`, framework v1.2.1,
 immutable revision `cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155`.
@@ -59,7 +167,9 @@ scope and evidence in the relevant existing document or PR; no new registry is n
 Preserve dev/main roles and all existing Git rules. Main changes require explicit
 owner approval through a reviewed PR. Record approval for the exact reviewed head;
 if it changes, recheck affected evidence and obtain approval for the revised head
-before merging. Review acceptance does not authorize a merge. Verify the actual
+before merging. Review acceptance outside the explicit
+[Investigate and Deploy](../../RELEASE.md#investigate-and-deploy) step-0 operation
+does not authorize a merge. Verify the actual
 repository protections rather than assuming enforcement; procedural safeguards
 do not constitute technical branch protection. Tags/releases, deployments,
 production operations and migrations retain their separate authorization boundaries.
@@ -79,8 +189,8 @@ must not be discarded through an assumed precedence or a closer instruction file
 Stable source references: `FW-GOV-001` (approval), `FW-GIT-001` (Git/main),
 `FW-COM-001` (communication), `FW-SEC-001` (security), `FW-TST-001` (testing),
 `FW-REL-001` (release/environment), `FW-ADP-001` (adoption/development) and
-`FW-DIR-001` (directive changes/conflicts), as indexed in
-[the pinned directive index](https://github.com/Awandalo/Development-Workflow/blob/cbe4b564e2f30d084ba79b76c1e3ae0ef18ec155/governance/directives.md).
+`FW-DIR-001` (directive changes/conflicts), and `FW-ART-001` (artifact retention), as indexed in
+[the pinned directive index](https://github.com/Awandalo/Development-Workflow/blob/fa1a86a07fda44ac7434b95142eb7f30bc5987b2/governance/directives.md).
 These IDs refer to source subjects, not invented local permissions. Cite project
 rules by their actual file/section; do not invent project directive IDs.
 
@@ -149,10 +259,11 @@ ambiguous targets, conflicting relationships or uncertain writes still stop the
 operation under the existing procedure. Do not request another conversational
 approval merely for an attachment already within this standing scope.
 
-Source difference: pinned FW-COM-001 says to stop if the connector linking write is
-unavailable. That source provision is not adopted locally; the explicitly approved
-LAN Party alternative above governs this operation. The framework repository and
-immutable pin are unchanged, and this decision propagates nowhere else. Existing
+Historical source difference: the original v1.2.1 FW-COM-001 required stopping
+when the connector linking write was unavailable. The approved LAN Party alternative
+above applied within that original adoption. Framework v1.4.0 now includes the
+opt-in attachment-only exception introduced in v1.2.2; the existing project scope
+and the protocol's stricter safeguards remain. This does not update another project. Existing
 verification, temporary-instruction cleanup and sanitized completion-report rules
 remain intact. No actual relationship operation or credential change is performed
 by this documentation update. Any rollback of a real relationship needs separate
@@ -194,3 +305,27 @@ check Markdown links/whitespace, and preserve unrelated staging. No runtime test
 can establish future authorization; actual publication still requires live identity,
 remote-state and compatibility checks. A later change/reversal needs owner authority;
 this record supplies no history-rewrite or deployment-recovery permission.
+
+## Project Investigate and Deploy decision — 2026-11-01
+
+The LAN Party owner explicitly requested adapting the supplied ten-stage workflow
+into a LAN Party project directive, with merge acceptance as step 0 and hands-off
+production execution where possible. RELEASE.md's
+[Investigate and Deploy](../../RELEASE.md#investigate-and-deploy) is authoritative.
+One trusted owner acceptance can explicitly incorporate the exact reviewed PR's
+disclosed production scope: merge, named migrations, settings, activation, bounded
+operational corrections and hosted checks. Distinct permission categories remain;
+they can be approved together instead of requiring repeated conversational rounds.
+
+This is an execution/approval-by-reference clarification within FW-GOV-001,
+FW-REL-001, FW-TST-001, FW-SEC-001 and FW-DIR-001, not a new framework directive,
+version, automatic adoption or unlimited production delegation. Exact-head review,
+explicit environment/database/action scope, recovery and security/host gates remain.
+Changed code, unlisted operations, failed integrity and destructive recovery retain
+their boundaries. Existing source-only approvals, including #46, are not expanded
+retroactively. This documentation task executes no production operation.
+
+Review the complete documentation diff, links and success/small-fix/stop scenarios
+in RELEASE.md. Reversing the directive requires an owner-approved documentation
+change; reversing an actual deployment/database effect needs its own applicable
+recovery authorization. Historical receipts retain their original scope.

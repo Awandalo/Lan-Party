@@ -25,3 +25,18 @@
 .login-links { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .5rem 1rem; margin-top: 1.5rem; font-size: .85rem; }
 .login-links p { margin: 0; }
 .login-links > a { margin-left: auto; }
+
+.login-floating-field { position: relative; min-width: 0; margin-top: .5rem; }
+.login-fields .login-floating-field input { min-height: 4rem; padding: 1.6rem .9rem .45rem; }
+.login-fields .login-floating-field .password-input input { padding-right: 3.5rem; }
+.login-fields .login-floating-field > label { position: absolute; top: 1.1rem; left: .9rem; right: 3.5rem; margin: 0; color: var(--muted); transform-origin: left top; pointer-events: none; }
+.login-floating-field:focus-within > label,
+.login-floating-field:has(input:not(:placeholder-shown)) > label,
+.login-floating-field:has(input:autofill) > label { transform: translateY(-.8rem) scale(.76); }
+.login-floating-field:focus-within > label { color: var(--accent); }
+.login-floating-field::after { content: ''; position: absolute; height: 2px; bottom: 1px; left: .9rem; right: .9rem; background: var(--accent); transform: scaleX(0); transform-origin: center; pointer-events: none; }
+.login-floating-field:focus-within::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: no-preference) {
+  .login-fields .login-floating-field > label { transition: transform 350ms ease-out, color 180ms ease-out; }
+  .login-floating-field::after { transition: transform 350ms ease-out; }
+}

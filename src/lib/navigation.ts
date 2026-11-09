@@ -3,6 +3,7 @@ export const publicNavigation=[{href:'/',label:'Home',icon:'home'},{href:'/event
 export const administrationNavigation:{href:string;label:string;icon:string;section?:Section}[]=[
  {href:'/manage',label:'Overview',icon:'grid'},
  {href:'/manage/events',label:'Events',icon:'calendar',section:'events'},
+ {href:'/manage/locations',label:'Locations',icon:'pin',section:'locations'},
  {href:'/manage/users',label:'Members',icon:'users',section:'users'},
  {href:'/manage/roles',label:'Roles & Permissions',icon:'shield',section:'roles'},
  {href:'/manage/feedback',label:'Feedback',icon:'bug',section:'feedback'},
@@ -10,26 +11,37 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
 ];
 export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
 export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account\/feedback(?:\/|$)/.test(path)?null:/^\/account(?:\/|$)/.test(path)?'account':null;}
-export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity'].includes(path);}
+export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity','/manage/location-activity','/manage/event-activity'].includes(path);}
 // Match the Logs landing redirect, including accounts allowed only User Log.
 export function logDestination(path:string,sections:Section[]){
- if(path==='/manage/logs')path=sections.includes('activity')?'/manage/activity':'/manage/user-activity';
+ if(path==='/manage/logs')path=sections.includes('activity')?'/manage/activity':sections.includes('userActivity')?'/manage/user-activity':sections.includes('locations')?'/manage/location-activity':'/manage/event-activity';
  if(path==='/manage/activity'&&sections.includes('activity'))return {path,api:'/api/manage/role-activity',section:'activity' as const};
  if(path==='/manage/user-activity'&&sections.includes('userActivity'))return {path,api:'/api/manage/user-activity',section:'userActivity' as const};
+ if(path==='/manage/location-activity'&&sections.includes('locations'))return {path,api:'/api/manage/location-activity',section:'locations' as const};
+ if(path==='/manage/event-activity'&&sections.includes('events'))return {path,api:'/api/manage/event-activity',section:'events' as const};
  return null;
 }
-export function contextualNavigation(path:string,sections:Section[],signedIn:boolean){
+export interface ContextNavigationItem {href:string;label:string;icon:string;section?:Section;disabled?:boolean}
+export function contextualNavigation(path:string,sections:Section[],signedIn:boolean):ContextNavigationItem[]{
  if(!signedIn)return [];
+ if(path==='/events')return [{href:'/events',label:'Event details',icon:'calendar',disabled:true},{href:'/events',label:'Your registration & crew',icon:'users',disabled:true}];
+ const event=/^(\/events\/[^/]+)(?:\/registration)?$/.exec(path);
+ if(event)return [{href:event[1],label:'Event details',icon:'calendar'},{href:event[1]+'/registration',label:'Your registration & crew',icon:'users'}];
  if(mainArea(path)==='account')return signedIn?accountNavigation:[];
  if(mainArea(path)!=='administration'||!sections.length)return [];
- return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&sections.includes('userActivity'));
+ return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')||sections.includes('events')));
 }
 export function routeLabel(path:string){
+ if(/^\/events\/[^/]+\/registration$/.test(path))return 'Your registration & crew';
+ if((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')&&path==='/preview/registration')return 'Registration preview';
+ if(/^\/events\/[^/]+$/.test(path))return 'Event details';
  if(path.startsWith('/account/feedback'))return 'Feedback';
  if(path.startsWith('/manage/feedback'))return 'Feedback';
  if(path==='/reactivate')return 'Reactivate account';
  if(path.startsWith('/manage/users/'))return 'Member details';
  if(path==='/manage/activity')return 'Role Activity Log';
  if(path==='/manage/user-activity')return 'User Log';
+ if(path==='/manage/event-activity')return 'Events Log';
+ if(path==='/manage/location-activity')return 'Locations Log';
  return [...publicNavigation,...administrationNavigation,{href:'/account',label:'My account'},{href:'/account/security',label:'Account security'},{href:'/privacy',label:'Privacy Policy'},{href:'/login',label:'Login'},{href:'/register',label:'Create account'}].find(item=>item.href===path)?.label??'LAN Party';
 }

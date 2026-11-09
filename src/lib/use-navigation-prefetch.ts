@@ -1,8 +1,10 @@
+import {loadEventRead} from './event-management';
 import {useAuth} from './auth';
 import {useFeedback} from './feedback';
 import {loadMemberRead} from './use-member-read';
 import {loadRoleRead} from './roles';
 import {loadUserActivity} from './use-user-activity';
+import {loadLocations} from './locations';
 import {logDestination} from './navigation';
 import type {Section} from './session-validation';
 import type {RoleReadCache} from './role-read-cache';
@@ -11,7 +13,7 @@ export function prefetchLog(href:string,sections:Section[],cache:RoleReadCache,p
  const log=logDestination(href,sections);
  if(!log)return;
  cache.read(log.api,log.section,signal=>log.section==='activity'
-  ?loadRoleRead(log.api,'activity',proof,signal):loadUserActivity(log.api,proof,signal),5000);
+  ?loadRoleRead(log.api,'activity',proof,signal):log.section==='events'?loadEventRead(log.api,proof,signal):log.section==='locations'?loadLocations(log.api,proof,signal):loadUserActivity(log.api,proof,signal),5000);
 }
 
 // Intent only: no background directory crawl, polling or mutations. Every GET

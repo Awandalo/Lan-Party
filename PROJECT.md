@@ -1,5 +1,27 @@
 # LAN Party website
 
+## Current accepted state — 2026-11-09
+
+Accounts and Phase 4 Administration are live on PROD at `b667022`. The owner has
+accepted the Phase 5 launch scope on hosted DEV at `117d99a`: Locations metadata,
+event preparation/publication, registration and invited guests, daily capacity and
+waitlists, member-only attendance views, manual attendance review, final bills,
+manual Paid/Unpaid and explicit branded payment emails. Empty events may also be
+finished. #35, #37–#41 and #43 are closed as accepted. #36 remains open for deferred
+attachments/files and #42 for optional gallery/social; R2 billing is not approved.
+
+The owner authorized an isolated `codex/release-phase5` candidate to integrate MAIN
+and add bounded production activation fixes. DEV remains unchanged. PROD still
+has migrations 0001–0023; applying 0024–0036, merging and activation/deployment
+await exact-PR approval under RELEASE.md. The factual privacy notice is aligned
+with existing account and accepted event behavior without changing retention policy.
+Jotform remains operational; this release does not authorize its replacement.
+See [the exact release scope and sequence](docs/PHASE5_RELEASE.md).
+
+The development receipts below describe their state at the time. This accepted
+state supersedes their older local-only or pending-acceptance descriptions; future
+ideas still require separate authorization.
+
 ## Purpose and project status
 
 Build a modern, mobile-friendly website for organizing private LAN parties among
@@ -32,13 +54,100 @@ owner-accepted on DEV at bba6ff5. Phase 4.5 (#30) adds contextual navigation,
 the User Log viewer and final Administration polish. The owner accepted it on
 2026-10-31 and authorized #30 closure after the final switch consistency deployment
 and verification. Phase 4.6 (#44) adds private member feedback and Administrator
-triage with manual GitHub handoff; implementation/DEV handover is in progress,
-with hosted owner acceptance pending. See [the feedback contract](docs/member-feedback.md) and
+triage with manual GitHub handoff; owner accepted Phase 4.6 on DEV and #44 is
+closed ([acceptance](https://github.com/Awandalo/Lan-Party/issues/44#issuecomment-6550151355)). See [the feedback contract](docs/member-feedback.md) and
 [the administration contract](docs/administration-foundation.md#phase-42--read-only-members-administration).
 
 `AGENTS.md` contains the permanent development, security, Git, and verification
 rules. Requirements below are mandatory. Items labeled as proposals, open
 decisions, or future ideas require review and are not immediate requirements.
+
+Phase 5.1 Increment A (#36) is an owner-approved DEV candidate for Locations
+metadata, name-only creation, explicit editing, archive/restore, locations.manage
+navigation and Locations under Administration Logs. Migration 0024 was separately
+approved, applied and integrity-verified on DEV on 2026-11-01; hosted owner
+functional acceptance remains pending. Attachments/R2 and event
+snapshots are deferred to their increments; R2 billing is not approved. See
+[the Locations contract](docs/locations.md) for scope and acceptance.
+
+Locations iteration 2 (#36) adds a three-step name-only creation wizard, responsive
+venue information/action layout, central-only log navigation and Administration
+document-title correction. This is DEV UI work; schema, permissions, snapshots,
+storage and PROD activation remain unchanged. See the contract's iteration-2 receipt.
+
+Phase 5.2 Increment A (#37) implements private Draft management. The owner revised
+A again on 2026-11-01: completed-Location immutable snapshots and automatically
+derived inclusive Netherlands dates remain; dates can be corrected before the
+first registration and lock on any registration history. Administrators can delete
+never-registered events with confirmation and retained audit. Finance enablement
+is removed; eventual price calculation follows explicit organizer closure and
+Paid/Unpaid tracking stays manual in the attendee workflow. The wizard has three
+pages: details/toolbar editor, guest limit/minimum event headcount, review/create.
+A was accepted at `aabf376` on 2026-11-01. The owner authorized Increment B:
+DEV-only audited publish/unpublish, ordinary published edits, public detail/list
+pages and homepage Up Next. Registration stays closed; cancellation with any
+registration history awaits #39/#41 notifications. No PROD activation or Jotform
+cutover is included. Migration 0028 has separate DEV approval and preserves
+existing private events. See [the Events contract](docs/events.md).
+
+Increment B touch-ups (2026-11-02): remove the redundant Home hero CTA when Up Next
+has an event, reuse the existing public event artwork there, and serve anonymous
+event-specific initial HTML share metadata on DEV. The owner separately approved
+the narrow DEV `/events/*` Worker-first asset routing change. No migration or new
+resource is needed. B acceptance still precedes C; WhatsApp preview/cache behavior
+remains external to the site. See the Events contract for verification boundaries.
+
+The owner proceeded to Stage C on 2026-11-02, accepting the current B layout and
+share-preview limitation. Browse all events becomes a secondary button aligned
+to the right of Up Next; View event stays in place. C closes the destructive
+boundary already delivered in A: genuine Administrator, exact-name confirmation,
+no registration history, atomic deletion and retained audit. Retained anonymous
+attendance aggregates also count as history, including older rows predating the
+history bit. No migration or hosted deletion is needed. Event closure/final bills
+remain #40; registration/participant notices and PROD remain separate.
+
+Final #37 GUI pass (2026-11-02): after accepting C functionality, the owner
+authorized an Actions dropdown in Overview, retaining public-view/Edit controls
+on the right and every existing confirmation/guard. Overview is the current
+section; Participants and Finance are disabled Coming later placeholders with no
+routes or functionality. Keyboard, mobile positioning and reduced-motion support
+are required. No backend/schema/PROD changes; #37 stays open until owner acceptance.
+
+Final regression follow-up (#37, 2026-11-02): fix the reproduced Actions scroll
+jump with a viewport overlay; replace segmented date/year entry with DD/MM/YYYY,
+calendar selection and 24-hour quarter-hour controls. Apply quarter-hour validation
+in UI/API to new or changed timestamps, preserving unchanged legacy instants exactly.
+Existing DST, chronology, derived-day/history, permissions and confirmations remain.
+No migration or PROD change; owner hosted retest remains the acceptance gate.
+
+Phase 5.3A (#38) is an owner-authorized public discovery/detail/archive acceptance
+pass reusing #37. Gallery/photos/uploads/R2 are excluded from initial launch;
+#42 stays tracked. No public placeholder tabs. Member attendee visibility waits
+for #39; reviewed actual attendance waits for #40. A local breadcrumb correction
+and targeted acceptance evidence are recorded in the Events contract. #38 remains
+open; no PROD or Jotform cutover is included.
+
+Phase 5.4 (#39) first increment is a local-only registration UI/rules preview
+for owner review, using fictional in-memory members/guests and waiting groups.
+It adds no hosted registration capability, migration or email delivery; real
+Worker/D1 authorization/concurrency and notifications remain to implement after
+flow review. See [local registration scope](docs/event-registration.md).
+On 2026-11-03 the owner additionally authorized publishing the reviewed fictional
+preview to DEV. The separate /preview/registration surface is gated to canonical
+DEV or loopback development and excluded from PROD builds; it still grants no
+real registration, persistence, email, migration or production authority.
+
+After accepting the hosted preview, the owner authorized connecting #39 to real
+events on DEV, including a Participants tab using the Who is coming card style
+and daily/overall counters. Local implementation uses migration 0029, authenticated
+self-service Worker APIs, atomic revision-fenced allocation, manual lifecycle
+controls, and durable responsible-member notifications through the existing
+guarded email transport. Daily counters include confirmed members and guests;
+overall total counts distinct confirmed people, with participant-days separately.
+This supersedes the preview-only implementation scope, not remote migration,
+PROD or Jotform boundaries. The owner separately approved 0029 and connected DEV
+activation; 0029 is applied with preservation/integrity verified. Publication and
+hosted acceptance are separate evidence; #39 remains open for that review.
 
 ## Agreed technology
 
@@ -73,7 +182,9 @@ paid dependencies, and verify relevant platform limits before production deploym
 
 - Public visitors can view published events and register for events open to registration.
 - Public event registration must not require an organizer account or organizer login.
-- Every participant must have a user account. Email/password and
+- The responsible registering member must have a user account. Approved Phase 5
+  guests may be accountless under that member; this supersedes older universal
+  participant-account wording for guests only. Email/password and
   optional TOTP MFA protect one central profile. Google OAuth is discontinued.
 - Organizers require secure authentication and server-side authorization.
 - Contact information and other private registration details must not appear in public
@@ -137,8 +248,11 @@ the default configuration targets PROD and `--env dev` selects DEV.
   configuration and actual deployment evidence
   rather than treating the merge itself as proof of deployment.
 - Deployments do not automatically apply D1 migrations. Production database
-  migrations require separate explicit owner approval; deployment or release
-  verification does not grant that approval.
+  migrations require explicit owner approval for the exact database/actions.
+  [Investigate and Deploy](RELEASE.md#investigate-and-deploy) allows the owner to
+  approve the disclosed merge, migrations, activation and hosted checks together
+  through its step-0 release acceptance. Deployment or verification alone does not
+  grant that approval; existing source-only releases are not retroactively expanded.
 - Custom domains are configured: PROD www is canonical, with apex HTTP/HTTPS and
   HTTP www redirected to HTTPS www (308, path/query preserved). The apex Worker
   binding is retained. DEV is unchanged. Worker aliases are not auth origins.
@@ -1360,3 +1474,141 @@ normal allocation at #0011 and all existing MFA safeguards remain unchanged.
 PROD modes remain disabled. Remote migration, code publication/protected merge and
 activation remain separate execution gates. Details and rollback are in
 [PROD activation](docs/PROD_AUTH_ACTIVATION.md#first-owner-bootstrap--local-candidate-not-activated).
+
+## Phase 5.5 A local review — 2026-11-03
+
+After accepting #39 on DEV, the owner approved the #40 sequence and authorized
+Attendance review locally first, with no publication. Participants now has a review
+view for audited retention/removal of people or confirmed days, Pay/Free and event
+payment instructions. Planner uses events.manage_registrations; complimentary and
+instruction edits additionally require finance.manage, or Administrator. Migration
+0030 is local only and grants no existing roles automatically. Final closure (Planner
+alone), combined bills, Paid/Unpaid and explicit payment emails remain later steps.
+Original registration history remains intact; deleted accounts are grouped anonymously
+with preserved reviewed day totals. See [the local review contract](docs/attendance-review.md).
+
+### DEV handover authorization — 2026-11-05
+
+The owner accepted the local A iteration and authorized its DEV commit/push,
+then separately approved only migration 0030 on lan-party-dev. That migration
+is applied with fresh recovery evidence and verified preservation/integrity.
+Hosted owner acceptance remains pending; #40 stays open for B/C. The updated
+attendance-review contract records the publication and verification boundaries.
+
+### Phase 5.5 B local review — 2026-11-05
+
+Owner accepted A and approved B locally, retaining its working flows. The existing
+Finance section now provides Planner-only permanent closure after event end with
+registration closed, immutable rental-only daily pricing and combined member/guest
+bills. Per the owner's local-review correction, accounts deleted before closure
+and their guests are excluded from pricing; deleting after closure preserves the
+locked divisor/rate/totals while removing identity. Anonymous history stays separate.
+Members see only their own final bill and external payment
+instructions. Closure sends no emails. Manual Paid/Unpaid changes and reviewed
+emails remain C. The owner subsequently accepted the local result and authorized
+DEV publication. Separately approved migrations 0031–0032 are applied on DEV with
+recovery/preservation/integrity verified; hosted acceptance remains pending. PROD
+and Jotform cutover remain excluded. See [finalization](docs/event-finalization.md).
+
+### Local finishing-flow rework — 2026-11-06
+
+The owner approved one Finish event wizard: Attendance, Bills, Confirm, retaining
+end-time gating and permanent financial locks. Expanded final member bills gain
+a manual Payment received switch, guarded by Planner plus Finance or Administrator,
+with atomic audit/revision checks. This brings forward only manual status tracking
+from C; payment emails remain deferred. The owner accepted the local iteration
+and authorized DEV publication on 2026-11-07. Separately approved migration 0033
+is applied on DEV with all 54 existing tables/rows preserved and integrity verified.
+Hosted acceptance remains pending; PROD is unchanged. See
+[the finalization contract](docs/event-finalization.md).
+
+
+### Local event pricing decision — 2026-11-07
+
+The owner approved a fourth event-editor step: Event details, Attendance & guests,
+Pricing, Review & save. Event rental initially copies the Location/source event
+and can be adjusted independently (including free rental) using existing event
+create/update permissions until finalization. This supersedes earlier rental
+snapshot immutability only; venue and capacity remain fixed. Members' final bills
+are published and locked at finalization. Migration 0034 and date/time defaults
+were accepted locally; the owner authorized DEV publication on 2026-11-08 and
+separately approved migration 0034. DEV migration/preservation checks pass;
+hosted acceptance remains pending. PROD is unchanged.
+See [the finalization contract](docs/event-finalization.md).
+
+### Local login label motion — 2026-11-08
+
+The owner requested login labels that begin inside empty fields and float to the upper left on focus or when populated. The email/password controls retain their existing IDs, names, autocomplete attributes, associated labels and shared password toggle. Login-only CSS adds a 350 ms ease-out lift and center-out accent underline; transitions apply only when reduced motion is not requested. Authentication submission, validation, security challenges and clearing remain unchanged. Local browser checks cover empty/focused/filled/cleared labels and the password toggle using fictional input without submitting. Autofill has a CSS state but real password-manager/mobile-device acceptance is not yet verified. Four UI/mode checks and strict types/build pass. The Vite-only visual preview has no authentication backend and therefore displays the existing session-service-unavailable notice. Pricing changes are preserved; all work remains unstaged with no commit/push or hosted effects. Suggested commit for this separate UI change: style(login): animate floating field labels.
+
+### Simple payment emails and crew decision — 2026-11-08
+
+The owner accepted #40 and requested the small #41/#40C email increment locally:
+final daily rate, retained registered days after organizer corrections, and the
+combined member/guest total. Send payment info sits beside saved instructions,
+with a fixed message preview and explicit confirmation; saving does not send.
+Guests receive only their own informational breakdown. Existing Planner plus
+Finance/Administrator authorization, DEV recipient/budget controls and minimal
+duplicate/outcome guards remain. Local migration 0035 grants no permissions and
+copies no addresses/messages. No remote migration, publication or external email
+is authorized for this review.
+
+The updated #38 decision supersedes a separate historical actual-attendance mode:
+one member-only crew projection uses registered days plus explicit organizer
+corrections for both upcoming and past events, without a finalization gate or
+inferred no-shows. See [the local contract](docs/payment-info.md).
+
+The owner subsequently accepted this local increment and authorized DEV publication
+and final online testing on 2026-11-08, including a requested real email test once
+the exact event/recipient scope and preview are confirmed. Remote migration 0035
+requires its separate approval. Fresh DEV recovery/preservation preparation passes;
+remote application, deployment and provider acceptance are not yet claimed. PROD,
+permission/configuration changes and Jotform cutover remain excluded.
+
+The owner separately approved DEV migration 0035; it is applied with recovery,
+55-table row/schema preservation and integrity/foreign keys verified. Real email
+sending remains held for the actual recipient preview because the existing guest
+has a different destination from the owner's requested member test address.
+
+### Simplified finishing and optional early closure — local, 2026-11-08
+
+The owner explicitly replaced the end-date/separate-registration-close prerequisites:
+an authorized Planner may finish a published event before its scheduled end, accepting
+responsibility for the retained days. Attendance/day corrections are available before
+finalization even while registration is open. The final confirmation warns about early
+closure and uses the existing permanent-finalization acknowledgement, with an explicit
+server-checked early acknowledgement in that request.
+
+One atomic operation closes registration and permanently snapshots/locks attendance,
+price, instructions and bills; failure rolls back both effects. Planned dates stay
+unchanged. The wizard then opens the email preview for Planner plus Finance/Admin,
+with a separate explicit Send confirmation; Planner alone can still finish without
+email access. No unusable Send button appears in the pre-finalization bills step.
+This is local-only review, with no migration, remote data/configuration changes,
+publication or real email. See [the finishing contract](docs/event-finalization.md).
+
+The owner subsequently accepted the local flow and explicitly authorized DEV
+publication for online testing on 2026-11-08. This supersedes the local-only
+publication limit; hosted verification remains read-only, leaving event finishing
+and email sending to owner acceptance. No schema/configuration or PROD changes.
+
+### Publication simplification - 2026-11-09
+
+Owner-approved local change: publishing or republishing an event opens registration
+atomically if connected registration is installed and the end time has not passed.
+Past events stay closed; unpublish/cancel close registration and finalized events
+remain locked. This supersedes the earlier publish-with-registration-closed rule.
+The owner subsequently accepted this change and authorized its commit and DEV push
+for online testing on 2026-11-09. No database or PROD operation is included.
+
+### Finance acceptance and empty-event follow-up — 2026-11-09
+
+The owner accepted Finance on DEV, including the actual delivered branded payment
+email. A separate requested local fix permits finishing zero-attendance events
+without bills/email; migration 0036 and UI/backend changes remain unpushed and no
+remote migration is included. See docs/event-finalization.md for the bounded scope.
+
+The owner subsequently approved the empty-event DEV update and migration 0036 on
+2026-11-09. Migration/recovery/preservation checks pass on DEV; the owner confirms
+all other Phase 5 walkthroughs were already accepted. Empty-event hosted testing
+is the final acceptance item before the requested issue closeout. PROD, Jotform,
+attachments/gallery and further provider sends remain outside this operation.

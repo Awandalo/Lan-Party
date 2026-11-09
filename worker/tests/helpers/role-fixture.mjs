@@ -9,13 +9,32 @@ const {Miniflare,convertV4MiniflareOptions}=wr('miniflare'),{build}=wr('esbuild'
 const origin='http://127.0.0.1:5173';
 let script,migrations;
 before(async()=>{
+ const pageShell=await readFile(new URL('../../../index.html',import.meta.url),'utf8');
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
+ import {localMailbox,EmailDeliveryError} from './worker/auth/email';
+ let paymentOutcome='sent';const paymentMessages=[];let rejectRegistrationMail=false;const originalMail=localMailbox.send.bind(localMailbox);localMailbox.send=async mail=>{if(rejectRegistrationMail&&mail.purpose==='event-registration')throw Error('Fictional mail failure');if(mail.purpose==='event-payment'){paymentMessages.push(mail);if(paymentOutcome!=='sent')throw new EmailDeliveryError(paymentOutcome);await originalMail(mail);return {id:crypto.randomUUID()};}return originalMail(mail);};
  const background=new Set();
  export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
+ if(path.startsWith('/events/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
+ if(path==='/fixture-payment-emails')return Response.json(paymentMessages);
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
+ if(path==='/fixture-registration-maintenance'){await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev'},ctx);return new Response('scheduled');}
  const runtime=ctx;ctx={waitUntil(task){background.add(task);runtime.waitUntil(task.finally(()=>background.delete(task)));}};
  if(path!='/fixture'){
+  if(['sent','failed','unknown'].includes(request.headers.get('X-Fixture-Payment-Outcome')))paymentOutcome=request.headers.get('X-Fixture-Payment-Outcome');
+  if(request.headers.get('X-Fixture-Mail-Failure')==='1')rejectRegistrationMail=true;
+  const registrationFence=request.headers.get('X-Fixture-Registration-Fence');
+  if(registrationFence){
+   let batchCount=0;
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{if(++batchCount===(request.headers.get('X-Fixture-Payment-Commit')==='1'?1:2)){
+    if(registrationFence==='session')await env.DB.prepare('UPDATE auth_sessions SET revoked_at=unixepoch() WHERE token_digest=?').bind(request.headers.get('X-Fixture-Digest')).run();
+    if(registrationFence==='generation')await env.DB.prepare('UPDATE users SET auth_version=auth_version+1 WHERE id=?').bind(request.headers.get('X-Fixture-Actor')).run();
+    if(registrationFence==='permission')await env.DB.prepare("DELETE FROM user_roles WHERE user_id=?").bind(request.headers.get('X-Fixture-Actor')).run();
+    if(registrationFence==='close')await env.DB.prepare("UPDATE events SET registration_status='closed' WHERE id=?").bind(request.headers.get('X-Fixture-Event')).run();
+   }return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
   if(request.headers.get('X-Fixture-Read-Profile')==='1'){
    const sqls=[],tasks=[];
    const statement=(value,sql)=>new Proxy(value,{get(target,key){if(key==='bind')return(...args)=>statement(target.bind(...args),sql);const entry=Reflect.get(target,key);if(['first','all','run'].includes(key))return(...args)=>{sqls.push(sql);return entry.apply(target,args);};return typeof entry==='function'?entry.bind(target):entry;}});
@@ -30,6 +49,12 @@ before(async()=>{
   }
   // Test-only interleaving: invoke the real RBAC endpoint after lifecycle
   // prechecks, before its transaction. Never included in the deployed Worker.
+  // Test-only retained-history interleaving after preflight, before the batch.
+  const historyEvent=request.headers.get('X-Fixture-Event-History');
+  if(historyEvent){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{await env.DB.prepare('INSERT INTO anonymous_event_registrations(event_id,total) VALUES (?,1)').bind(historyEvent).run();return target.batch(statements);};const entry=Reflect.get(target,key);return typeof entry==='function'?entry.bind(target):entry;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
   const member=request.headers.get('X-Fixture-Rbac-Remove');
   if(!member)return app.fetch(request,env,ctx);
   let removalStatus=0;
@@ -76,7 +101,7 @@ async function local(run,count){
  };
  const request=(path,u,input,headers={})=>simulator.dispatchFetch(origin+'/api/'+path,{method:input===undefined?'GET':'POST',headers:{'X-LAN-Request':'1',...(u?{Cookie:'__Host-lan_session='+u.token}:{}),...(input===undefined?{}:{'Content-Type':'application/json',Origin:origin}),...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
  const drain=()=>simulator.dispatchFetch(origin+'/fixture-drain');
- await run({db,sql,user,value,request,migrate,drain});
+ await run({db,sql,user,value,request,migrate,drain,fetch:(url,options)=>simulator.dispatchFetch(url,options)});
  assert.equal(await sql('PRAGMA quick_check').first('quick_check'),'ok');assert.deepEqual((await sql('PRAGMA foreign_key_check').all()).results,[]);
  }finally{await simulator.dispose();}
 }

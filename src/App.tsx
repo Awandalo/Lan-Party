@@ -8,6 +8,8 @@ import Footer from './components/Footer';
 import RouteFocus from './components/RouteFocus';
 import Home from './pages/Home';
 import Events from './pages/Events';
+import EventDetails from './pages/EventDetails';
+import {PUBLIC_EVENTS_AVAILABLE} from './lib/public-events';
 import Privacy from './pages/Privacy';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
@@ -25,6 +27,7 @@ import {lazy,Suspense,useCallback,useState} from 'react';
 import SiteNavigation from './components/SiteNavigation';
 import './CSS/Workspace_style.css';
 
+const RegistrationPreview=(import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?lazy(()=>import('./pages/RegistrationPreview')):null;
 const Feedback=lazy(()=>import('./pages/Feedback'));
 function feedbackPage(admin=false){return <Suspense fallback={<section className="page-section"><h1>Feedback</h1><p role="status">Loading feedback…</p></section>}><Feedback admin={admin}/></Suspense>;}
 
@@ -38,7 +41,10 @@ export default function App() {
       <main id="main-content" className="container main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />
+          {RegistrationPreview&&<Route path="/preview/registration" element={<Suspense fallback={<p role="status">Loading registration preview…</p>}><RegistrationPreview/></Suspense>}/>}
           <Route path="/events" element={<Events />} />
+          {PUBLIC_EVENTS_AVAILABLE&&<Route path="/events/:eventId" element={<EventDetails/>}/> }
+          {PUBLIC_EVENTS_AVAILABLE&&<Route path="/events/:eventId/registration" element={<EventDetails/>}/> }
           {AUTH_UI_AVAILABLE && authUIEnabled() && <Route path="/manage" element={<Administration />} />}
           {AUTH_UI_AVAILABLE && authUIEnabled() && <Route path="/manage/users/:userId" element={<Administration />} />}
           {AUTH_UI_AVAILABLE && authUIEnabled() && <Route path="/manage/:section" element={<Administration />} />}

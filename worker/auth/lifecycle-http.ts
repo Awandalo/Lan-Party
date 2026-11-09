@@ -1,4 +1,5 @@
 import {deleteAccount,prepareAccountDeletion,deletionSchemaReady} from './account-deletion';
+import {deliverRegistrationNotifications} from '../event-registration-mail';
 import type {AuthenticationEnvironment} from './http';
 import type {MfaKeys} from './mfa-crypto';
 import {authRouteEnabled,authOrigin,authClientIP,validAuthMutation,emailTransport,recipientAllowed,loopback} from './environment';
@@ -151,7 +152,8 @@ export async function lifecycleHttp(request:Request,env:AuthenticationEnvironmen
  }
  if(path==='delete'){
  if(Object.keys(body).length!==2||body.confirm!=='DELETE'||body.acknowledged!==true)return reply(400,{error:'Explicit final deletion confirmation required.'});
- await deleteAccount(env.DB,account.userId,account.authVersion,digest);
+ const notificationOperations=await deleteAccount(env.DB,account.userId,account.authVersion,digest);
+ for(const operation of notificationOperations)await deliverRegistrationNotifications(request,env,operation);
  return reply(200,{next:'/login',message:'Account deleted.'},{'Set-Cookie':clearSessionCookie()});
  }
  if(path==='deactivate'){

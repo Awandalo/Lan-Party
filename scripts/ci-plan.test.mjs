@@ -151,7 +151,7 @@ test('real Git multi-commit, rename/deletion, unavailable history and CLI comple
 
 // Keep this dependency-free: the policy suite runs before npm ci.
 test('workflow preserves required context, trigger coverage and mandatory completion gate', () => {
-  const yaml = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const yaml = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.match(yaml, /^name: CI$/m);
   assert.match(yaml, /  frontend:\n(?:    #.*\n)*    name: TypeScript and build/);
   assert.match(yaml, /pull_request:\n    branches: \[main\]/);

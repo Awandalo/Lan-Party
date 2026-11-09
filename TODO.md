@@ -1,5 +1,66 @@
 # TODO / To remember
 
+## Phase 5 launch closeout — 2026-11-09
+
+- [x] Owner accepts the completed hosted DEV walkthroughs and final empty-event test at `117d99a`.
+- [x] Close #35, #38, #41 and #43 as accepted; #37, #39 and #40 were already closed.
+- [x] Keep #36 open only for deferred attachments/files and #42 for deferred gallery/social.
+- [x] Reclaim 38 verified obsolete local generated files (12,236,253 bytes), preserving current/prior builds and all recovery evidence.
+- [x] Prepare an isolated Phase 5 release candidate integrating existing MAIN; leave DEV unchanged.
+- [ ] Complete exact-candidate CI/security review and the MAIN release PR.
+- [ ] Obtain exact-head Investigate and Deploy acceptance for the explicitly listed PROD migrations and activation, then verify the deployed revision.
+
+See [the Phase 5 release plan](docs/PHASE5_RELEASE.md). Earlier local-review and
+handover checklists below are historical and superseded by this owner acceptance;
+they are not additional outstanding Phase 5 implementation tasks.
+
+## Current local review — payment email layout
+
+- [x] Owner confirms hosted payment-email delivery; reports missing shared branding.
+- [x] Apply the existing email shell to member/guest/free messages, highlight totals and style the payable-member action; keep all sending/privacy rules.
+- [x] Verify focused mail checks, strict types, 17 byte-identical authentication examples and fictional local HTML previews.
+- [x] Owner accepted the port-5197 preview and authorized DEV publication for online testing on 2026-11-08.
+- [ ] Verify exact-head CI/deployment; owner verifies actual inbox rendering. No resend/reset, schema/settings changes or PROD activation.
+
+## Current local review — Finish event in one flow
+
+- [x] Owner authorizes optional early finishing, automatic registration closure and then optional email preview.
+- [x] Published future/open events can be reviewed and finished with a clear early warning and permanent acknowledgement; no separate Close registration step.
+- [x] Registration closure and immutable bills commit atomically with existing live permissions, revision, rollback and duplicate protections.
+- [x] Hide Send in the draft bills step; open its explicit preview after finishing for Planner plus Finance/Admin.
+- [x] Owner accepted the local test and authorized DEV publication for online testing on 2026-11-08.
+- [ ] Verify exact-commit CI, DEV deployment and read-only hosted controls; owner performs hosted finishing acceptance. No migration/configuration changes or email sends by the agent.
+
+See [finalization](docs/event-finalization.md). The owner-approved early-finish rule supersedes the older end-date requirements below.
+
+## Current local review — simple payment emails (#41, formerly #40C)
+
+- [x] #40 accepted/closed by the owner; retain its existing Finance flow.
+- [x] Add Send payment info beside saved payment instructions, with recipient/message preview and explicit confirmation.
+- [x] Use final daily price and retained registered days after organizer corrections; include guests in the responsible member's total and send guests only their own informational share.
+- [x] #38 uses one member-only Who is coming projection for upcoming/past events, including explicit organizer day corrections without a finalization requirement.
+- [x] Owner accepted the local flow and authorized DEV publication/final online testing on 2026-11-08.
+- [x] Separately approved DEV migration 0035 applied with verified recovery; all 55 existing tables/rows and schema objects preserved; integrity/foreign keys pass.
+- [ ] Verify exact-commit CI/deployment and hosted behavior. A real email test is requested; the existing guest has a different address from the authorized member destination, so the actual recipient preview still needs review. No PROD activation.
+
+See [payment information](docs/payment-info.md). The older handover entries below are historical where superseded by this acceptance/scope.
+
+## Current DEV handover — Phase 5.5 B (#40)
+
+- [x] Owner local acceptance of Participants → Attendance review: remove/restore people or days, Pay/Free, payment instructions and anonymous former-account labels.
+- [x] Owner accepted A on 2026-11-05 after hosted testing; keep accepted working flows and allow bounded UI cleanup.
+- [x] Owner accepted local button hover/focus, attendance timelines and capacity correction; DEV publication authorized.
+- [x] Owner accepted local B and authorized DEV publication: permanent closure and combined final bills; Planner alone may close.
+- [x] Separately approved DEV migrations 0031–0032 applied with verified recovery, all 52 existing tables preserved and integrity checks passing.
+- [ ] Final hosted DEV acceptance of B. See [B contract and verification](docs/event-finalization.md).
+- [x] Owner accepted the local finishing-flow iteration and authorized DEV publication; separately approved migration 0033 applied with recovery/preservation/integrity verified.
+- [ ] Hosted DEV acceptance of the simplified Finish event wizard, manual Paid/Unpaid switches, bank-link help and UI cleanup.
+- [ ] Later C: reviewed payment-email action within the agreed scope.
+- [x] Owner authorized DEV publication and separately approved migration 0030 on 2026-11-05; migration applied and preservation/integrity verified. Publication and hosted checks are recorded in the handover report.
+
+See [attendance review](docs/attendance-review.md). Older Finance backlog below is historical where it conflicts with #40's revised scope; do not implement its extra costs, subsidies or scheduled locks.
+
+
 These notes record requested future work. They do not authorize backend,
 authentication, storage, or production changes now. See AGENTS.md and PROJECT.md.
 `PROJECT.md` defines the current numbered roadmap: Phase 3 authentication/accounts,
@@ -17,6 +78,52 @@ assumed. Worker deployment and D1 migrations remain separate operations, and
 production migrations still require separate explicit owner approval.
 Keep additional feature ideas in the unnumbered backlog below until separately
 approved. Plan their database needs now; implement migrations with their functionality.
+
+## Phase 5.2 Events — Increment B
+
+Final #37 regression follow-up: Actions overlay avoids document-height scroll
+clamping after reload/client navigation. Start/End use DD/MM/YYYY plus calendar,
+24-hour hours and quarter-hour minutes; UI/API preserve unchanged legacy seconds
+and non-quarter times. No migration/PROD. Owner hosted retest remains pending.
+
+Owner explicitly requested pre-registration date correction and guarded permanent
+Administrator deletion, removal of Finance enablement, a three-page wizard with
+guest/minimum-headcount settings on page 2, and a basic Word-like formatting/table
+editor. Migration 0027 preserves the owner event while removing the retired flag,
+adding durable registration-history protection and retaining deleted-event audit.
+The event headcount is a manual organizer target, with no automatic cancellation.
+Record future closure-triggered price calculation and manual Paid/Unpaid member
+switch in #40 planning; no automated payment/provider workflow.
+
+A is owner-accepted at `aabf376`. B adds DEV publish/unpublish, published detail
+edits, public upcoming/past/detail pages and homepage Up Next, preserving the
+existing action layout, mint focus/hover and dividers. Migration 0028 has separate
+DEV approval; existing events remain hidden until deliberately published.
+Registration controls, attendees, participant-bearing cancellation notifications,
+settlement, uploads and PROD remain later work. B requires exact CI/deployment,
+integrity evidence and hosted owner acceptance. See [the Events contract](docs/events.md).
+
+B touch-ups requested 2026-11-02: conditional hero CTA, shared artwork on Up Next,
+and server-visible event Open Graph/Twitter metadata with private-event fallback.
+DEV event-page Worker-first routing has separate owner approval; no migrations,
+uploads, new infrastructure or PROD scope. Verify initial anonymous HTML, crawler
+headers, canonical URLs, image access and responsive Home layout before handover.
+Actual WhatsApp preview appearance/cache is an owner check; C awaits B acceptance.
+
+Owner authorized Stage C and DEV handover on 2026-11-02, accepting the current B
+layout/preview limitation. Make only Browse all events a right-aligned secondary
+button. Verify existing deletion across lifecycle states/public URLs, retained
+audit, genuine Administrator authority and registration races. Include retained
+anonymous event/day totals in history eligibility and live transaction guards;
+never erase those totals to make an event deletable. No new schema/Finance gate.
+Hosted C acceptance remains separate; no real event deletion during verification.
+
+Owner accepted C functionality and authorized the final #37 GUI pass on 2026-11-02:
+left Actions dropdown for existing secondary operations, right public-view/Edit
+controls, and Overview / disabled Participants / disabled Finance section styling.
+Retain confirmations/permissions, keyboard/outside dismissal, adaptive positioning
+and reduced motion. Publish to DEV for visual/functional testing; keep #37 open
+until the owner accepts this final pass. No registration/Finance implementation.
 
 ## Phase 2 Database Foundation — complete on DEV and PROD
 
@@ -495,9 +602,20 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [x] Cover ownership, full sessions, transactional replay/races, closure/purge, actual account deletion, responsive layout and sign-out cleanup locally.
 - [x] Optimize private-page loading, including both Logs tabs, with request-local query reuse, background feedback cleanup, session-bound result reuse and navigation-intent prefetch; preserve security checks. See [loading behavior and verification limits](docs/private-page-loading.md).
 - [x] Refine Feedback with the native New Request dialog and a responsive three-column Administrator workspace; preserve errors/replay, read state and manual GitHub controls. Hosted acceptance and actual browser-zoom checks remain with the owner.
-- [ ] Verify CI and DEV deployment, then owner two-account acceptance; keep #44 open. No Phase 5 implementation until acceptance/closure.
+- [x] Owner accepted Phase 4.6 on DEV and #44 is closed; [acceptance](https://github.com/Awandalo/Lan-Party/issues/44#issuecomment-6550151355). Phase 5 follows its own approval gates.
 
 ## Phase 5 — Events
+
+### Phase 5.1 — Locations (#36), Increment A
+
+- [x] Prepare location metadata CRUD, name-only creation, explicit Save/Cancel, archive/restore, Active/Archived/All search and locations.manage authorization/navigation locally.
+- [x] Add atomic revision/audit writes and Locations under central Administration Logs; prepare forward migration 0024 with populated-data preservation/rollback tests.
+- [x] Publish candidate 1bbc703 to DEV; CI/deployment pass. Apply separately approved 0024 after fresh recovery preflight; verify schema, foreign keys and unchanged empty event/registration tables on 2026-11-01.
+- [ ] Owner hosted functional acceptance: create/edit/cancel, filters, archive/restore, permissions and Locations logs. Code and schema deployment are not functional acceptance.
+- [x] Implement iteration 2: three-step Add Location, name-only/optional fields, second-column pin/directions link, distinct action footer and central-only log navigation; correct Administration titles without changing access/routes.
+- [ ] Owner iteration-2 DEV walkthrough: mobile/desktop wizard, Back/Enter/Cancel, edit/archive/restore, Maps links, central Logs and route titles on deep link/refresh/Back/Forward. Local fictional browser/changed-area checks pass; hosted owner acceptance remains pending.
+- [ ] Increment B: separately approve storage/R2/files and quota lifecycle; R2 billing is not approved.
+- [ ] Integrate independent event snapshots/publication checks with #37. Keep #36 open; see [Locations scope and verification](docs/locations.md).
 
 - [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.
 
@@ -888,3 +1006,30 @@ See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote chang
 - Local one-time #0001 bootstrap candidate prepared; owner email/setup code stay private.
 - Separate approval required for migration 0019, publication/protected MAIN merge and activation.
 - Verify email ownership before initial admin grant; no live account created by preparation.
+
+## Phase 5.3A — public acceptance pass
+
+- [x] Compare updated #38 against accepted #37; reuse existing public pages.
+- [x] Verify privacy/publication/archive integration and public DEV navigation/sharing.
+- [x] Prepare/test the demonstrated event-detail breadcrumb label correction locally.
+- [x] Owner authorizes the prepared correction and DEV publication (2026-11-03).
+- [ ] Verify exact-head CI/deployment and record the DEV handover in #38.
+- [ ] Owner public-page acceptance; keep #38 open for #39/#40 dependencies.
+- Gallery/uploads/storage excluded from initial launch; no Gallery placeholders.
+
+## Phase 5.4 — connect accepted registration flow to DEV
+
+- [x] Prepare local-only three-step member/guest wizard and fictional multi-member simulator.
+- [x] Exercise per-day group waits/promotion, edits/cancel, closed/end states and capacity rejection.
+- [x] Verify ten model tests, ten existing presentation tests, strict types/build and browser flow.
+- [x] Owner accepts the local preview iterations and authorizes hosted DEV preview publication.
+- [x] Verify preview exact-head CI/deployment at 150ea01; owner accepts hosted demo.
+- [x] Prepare 0029 schema extension preserving member identities/history and private deletion.
+- [x] Implement Worker/D1 self-service guards, atomic queue/capacity and replay safety locally.
+- [x] Connect public event registration and member roster; add authorized Participants/counters.
+- [x] Prepare durable responsible-member notices using existing local/guarded DEV transport.
+- [x] Complete local D1/security/retention/notification regression and connected browser verification.
+- [x] Obtain exact DEV approval for 0029/registration activation; apply and verify preservation/integrity.
+- [ ] Publish approved work, verify exact-head CI/DEV deployment and hosted acceptance.
+
+See [registration contract](docs/event-registration.md); this preview does not complete #39.

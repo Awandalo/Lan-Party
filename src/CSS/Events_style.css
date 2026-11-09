@@ -1,6 +1,6 @@
 .events-filters { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 2rem; }
 .events-filters button { min-height: 44px; padding: .75rem 1rem; border-radius: .5rem; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font: inherit; cursor: pointer; }
-.events-filters button:hover { color: var(--text); border-color: var(--muted); }
+.events-filters button:hover,.events-filters button:focus-visible { color:var(--text); border-color:var(--accent); background:var(--surface-raised); }
 .events-filters button[aria-pressed="true"] { color: var(--accent); background: var(--accent-dim); border-color: var(--accent); }
 .events-empty { padding-block: 3rem; text-align: center; border-style: dashed; }
 .events-empty h2 { margin-top: 1.25rem; }
@@ -8,3 +8,10 @@
 .events-list { display: grid; gap: 1rem; }
 
 .events-management-slot { min-height:3rem; margin-block:.5rem; }
+
+.public-event-card { display:flex; gap:1.5rem; text-decoration:none; color:var(--text); transition:background .15s,border-color .15s; }
+.public-event-card:hover,.public-event-card:focus-visible { border-color:var(--accent); background:var(--surface-raised); }
+.public-event-card img { width:30%; object-fit:cover; border-radius:.75rem; }
+.public-event-card div { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:720px){.public-event-card{flex-direction:column}.public-event-card img{width:100%;max-height:14rem}}
+@media(prefers-reduced-motion:reduce){.public-event-card{transition:none}}

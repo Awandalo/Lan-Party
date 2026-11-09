@@ -1,4 +1,6 @@
 import {assertChanged,requireLifecycleProof,lastAdministratorSql,LastAdministrator,eraseLifecycleOperations,LifecycleStateConflict} from './account-lifecycle';
+import {registrationRemoval} from '../event-registration-removal';
+import {registrationReady} from '../event-registration-data';
 
 // Owner-approved DEV policy: no identifying deletion registry or restore replay list.
 export async function deletionSchemaReady(db:D1Database){
@@ -16,13 +18,16 @@ export async function prepareAccountDeletion(db:D1Database,userId:string,version
 }
 export async function deleteAccount(db:D1Database,userId:string,version:number,digest:string){
  const guard=await prepareAccountDeletion(db,userId,version,digest);
+ const registrations=await registrationRemoval(db,userId);
+ const managedRegistration=await registrationReady(db);
  const completed=`e.publication_status IN ('published','archived')
  AND EXISTS(SELECT 1 FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled')
- AND (SELECT max(d.ends_at) FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled')<=unixepoch()`;
+ AND ${managedRegistration?"coalesce((SELECT m.ends_at FROM event_management m WHERE m.event_id=e.id),":""}(SELECT max(d.ends_at) FROM event_days d WHERE d.event_id=e.id AND d.status='scheduled')${managedRegistration?')':''}<=unixepoch()`;
  await db.batch([
  db.prepare(`INSERT INTO account_lifecycle(user_id,state,deactivated_at) SELECT u.id,'deleting',unixepoch()
  FROM users u WHERE u.id=? AND ${lastAdministratorSql} AND ${guard.sql}`).bind(userId,...guard.values),assertChanged(db),
  db.prepare("UPDATE users SET status='disabled',updated_at=max(updated_at,unixepoch()) WHERE id=? AND status='active'").bind(userId),assertChanged(db),
+ ...registrations.statements,
  db.prepare(`INSERT INTO anonymous_event_registrations(event_id,total)
  SELECT e.id,count(DISTINCT r.id) FROM registrations r JOIN events e ON e.id=r.event_id
  JOIN registration_days rd ON rd.registration_id=r.id AND rd.event_id=r.event_id
@@ -46,6 +51,7 @@ export async function deleteAccount(db:D1Database,userId:string,version:number,d
  'user_password_credentials','user_nicknames','account_lifecycle'].map(table=>db.prepare('DELETE FROM '+table+' WHERE user_id=?').bind(userId)),
  db.prepare("DELETE FROM users WHERE id=? AND status='disabled'").bind(userId),assertChanged(db),
  ]);
+ return registrations.operations;
 }
 // Count live registrations once, then add the aggregate; never join aggregate counts to day rows.
 export async function registrationTotals(db:D1Database,eventId:string){

@@ -1,19 +1,10 @@
-// Frontend content boundary: replace these local values with validated public API data later.
-export interface PublicEvent {
-  id: string;
-  title: string;
-  summary: string;
-  period: 'upcoming' | 'past';
-}
-
+// Local News previews; Events use their public API.
 export interface NewsPost {
   id: string;
   title: string;
   body: string;
   preview?: boolean;
 }
-
-export const publishedEvents: PublicEvent[] = [];
 
 export const newsPosts: NewsPost[] = [
   {

@@ -1,0 +1,21 @@
+.registration-person-summaries{display:grid;gap:1rem}
+.registration-person-summary{padding:1.25rem;border:1px solid var(--border);border-radius:1rem;background:var(--surface);min-width:0}
+.registration-person-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.registration-person-heading h3{margin:0;overflow-wrap:anywhere;font-size:1.2rem}
+.registration-day-count{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .8rem;border-radius:999px;background:var(--accent-dim);color:var(--accent);font-weight:700;font-size:.85rem}
+.registration-confirmation{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.4rem 1rem;align-items:center;padding:1rem;border:1px solid var(--border);border-radius:.8rem;background:var(--surface-raised)}
+.registration-confirmation-icon{display:grid;place-items:center;width:2.75rem;height:2.75rem;border-radius:50%;background:var(--accent);color:var(--background,#101317);font-size:1.7rem;font-weight:800}
+.registration-confirmation-copy h4{margin:0 0 .3rem;font-size:1.15rem;color:var(--accent)}
+.registration-confirmation-copy p{margin:0;color:var(--muted);font-size:.9rem}
+.registration-confirmation-percentage{display:grid;justify-items:end}.registration-confirmation-percentage strong{font-size:1.2rem}.registration-confirmation-percentage small{color:var(--muted);font-size:.7rem}
+.registration-confirmation progress{grid-column:2/-1;display:block;width:100%;height:.65rem;margin-top:.5rem;appearance:none;border:0;border-radius:999px;overflow:hidden;background:var(--border);accent-color:var(--accent)}
+.registration-confirmation progress::-webkit-progress-bar{background:var(--border);border-radius:999px}.registration-confirmation progress::-webkit-progress-value{background:var(--accent);border-radius:999px}.registration-confirmation progress::-moz-progress-bar{background:var(--accent);border-radius:999px}
+.registration-confirmation.waiting .registration-confirmation-icon,.registration-confirmation.mixed .registration-confirmation-icon{background:var(--accent-dim);color:var(--accent)}
+.registration-status-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:.85rem;padding:0;margin:1rem 0 0;list-style:none}
+.registration-status-days>li{display:flex;align-items:flex-start;flex-direction:column;gap:.5rem;padding:1rem;border:1px solid var(--border);border-radius:.8rem;background:var(--surface-raised);min-width:0}
+.registration-status-date{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.registration-status-date strong{font-size:1rem}
+.registration-status-days time,.registration-status-days small{color:var(--muted);font-size:.75rem}
+.registration-status-badge{display:inline-block;border-radius:999px;padding:.35rem .65rem;background:var(--accent-dim);color:var(--accent);font-size:.8rem;font-weight:750}
+.registration-status-days .waiting .registration-status-badge{background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+.registration-own-actions{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem}
+@media(max-width:540px){.registration-person-summary{padding:1rem}.registration-confirmation{gap:.6rem;grid-template-columns:auto minmax(0,1fr)}.registration-confirmation-percentage{grid-column:2;justify-items:start;display:flex;align-items:baseline;gap:.4rem}.registration-confirmation progress{grid-column:1/-1}.registration-own-actions>.button{flex:1 1 auto}}

@@ -67,10 +67,14 @@ export default function LocalLogin() {
     {status === 'error' && <p role="status">Session service unavailable. Please reload and try again.</p>}
     <form onSubmit={submit} aria-busy={busy}>
       <fieldset className="login-fields" disabled={busy || status === 'loading'} aria-label="Login credentials">
-        <label htmlFor="login-email">Email address</label>
-        <input id="login-email" name="email" type="email" required maxLength={254} autoComplete="username" autoCapitalize="none" />
-        <label htmlFor="login-password">Password</label>
-        <PasswordInput id="login-password" name="password" required autoComplete="current-password" />
+        <div className="login-floating-field">
+          <input id="login-email" name="email" type="email" required maxLength={254} autoComplete="username" autoCapitalize="none" placeholder=" " />
+          <label htmlFor="login-email">Email address</label>
+        </div>
+        <div className="login-floating-field">
+          <PasswordInput id="login-password" name="password" required autoComplete="current-password" placeholder=" " />
+          <label htmlFor="login-password">Password</label>
+        </div>
         {siteKey && <LoginChallenge key={challengeAttempt} siteKey={siteKey} onToken={setChallengeToken} />}
         <button className="button" type="submit">{busy ? 'Logging in…' : 'Log in'}</button>
       </fieldset>

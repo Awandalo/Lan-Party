@@ -47,3 +47,15 @@ p:last-child { margin-bottom: 0; }
 
 /* Keep centered navigation stable when switching between long and short pages. */
 html { scrollbar-gutter: stable; }
+
+/* Individual scale keeps existing transforms and layout positions intact. */
+@media (prefers-reduced-motion: no-preference) {
+  :is(button, .button, summary, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]):not(:disabled):not([aria-disabled="true"]) {
+    scale: 1;
+    transition: scale 280ms cubic-bezier(.34, 1.56, .64, 1), background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+  :is(button, .button, summary, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]):not(:disabled):not([aria-disabled="true"]):active {
+    scale: .95;
+    transition: scale 80ms ease-out, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+}

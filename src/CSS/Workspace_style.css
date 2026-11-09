@@ -2,7 +2,9 @@
 .site-sidebar { position:fixed; inset:0 auto 0 0; width:232px; display:flex; flex-direction:column; padding:1.8rem 1.1rem 1.2rem; background:var(--surface); border-right:1px solid var(--border); z-index:30; overflow-y:auto; }
 .site-sidebar .brand,.navigation-drawer .brand { margin:.2rem .6rem 2.7rem; font-size:.95rem; }
 .workspace-navigation { display:grid; gap:.4rem; }
-.workspace-navigation a { display:flex; align-items:center; gap:.85rem; min-height:46px; padding:.75rem .85rem; border-radius:.55rem; color:var(--muted); text-decoration:none; font-size:.88rem; }
+.workspace-navigation a,.workspace-navigation .navigation-disabled { display:flex; align-items:center; gap:.85rem; min-height:46px; padding:.75rem .85rem; border-radius:.55rem; color:var(--muted); text-decoration:none; font-size:.88rem; }
+.workspace-navigation .navigation-disabled{opacity:.5;cursor:default}
+.event-navigation-hint{padding:.35rem .85rem;color:var(--muted);font-size:.72rem}
 .workspace-navigation a:hover { background:var(--surface-raised); color:var(--text); }
 .workspace-navigation a.active { background:var(--accent-dim); color:var(--accent); box-shadow:inset 3px 0 var(--accent); }
 .workspace-navigation svg { flex-shrink:0; }

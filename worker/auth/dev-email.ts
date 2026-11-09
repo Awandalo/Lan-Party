@@ -1,7 +1,7 @@
 import { emailAddress } from './accounts';
 import { serverTime } from './database';
 import { ResendEmailTransport } from './email';
-import type { AccountMail, EmailEnvironment, EmailTransport } from './email';
+import type { AccountMail, EmailEnvironment, EmailTransport, EmailReceipt } from './email';
 
 const origin = 'https://dev.lan-party.club';
 const sender = 'noreply@auth.lan-party.club';
@@ -72,15 +72,15 @@ export class DevResendEmailTransport implements EmailTransport {
     this.monthlyProviderLimit = providerLimit(env.AUTH_EMAIL_PROVIDER_MONTHLY_LIMIT, 3000);
     this.provider = new ResendEmailTransport(env.RESEND_API_KEY, sender, sendRequest);
   }
-  async send(mail: AccountMail): Promise<void> {
+  async send(mail: AccountMail): Promise<EmailReceipt|void> {
     assertDevEmailRecipient(this.env, mail.to);
     const url = new URL(mail.url);
-    const path = ['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(mail.purpose ?? '') ? '/account/security'
+    const path = mail.purpose==='event-payment'&&/^\/events\/[0-9a-f-]{36}\/registration$/.test(url.pathname)?url.pathname:mail.purpose==='event-registration'&&/^\/events\/[0-9a-f-]{36}$/.test(url.pathname)?url.pathname:['password-changed','mfa-enabled','mfa-disabled','mfa-regenerated','mfa-replaced'].includes(mail.purpose ?? '') ? '/account/security'
       : mail.purpose === 'account-reactivation' ? '/reactivate' : mail.purpose === 'password-reset' ? '/reset-password' : '/verify-email';
     if (url.origin !== origin || url.username || url.password || url.pathname !== path || url.search) {
       throw new DevEmailPolicyError();
     }
     await reserveDevEmailAttempt(this.db, this.now(), this.dailyProviderLimit, this.monthlyProviderLimit);
-    await this.provider.send(mail); // Existing adapter sanitizes failures; never retry.
+    return await this.provider.send(mail); // Existing adapter sanitizes failures; never retry.
   }
 }

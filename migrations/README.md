@@ -1,5 +1,105 @@
 # D1 migrations
 
+## DEV finalization and bills — 0032
+
+`0032_finalize_event_bills.sql` follows 0031. It adds immutable closure inputs
+and combined responsible-member bills, locks event/review/payment inputs, and
+scrubs bill identities on account erasure while retaining locked totals. It
+changes no role grants or existing registration data. Tests cover populated-row
+preservation, failed-migration rollback, atomic closure/audit, concurrency and
+deletion. On 2026-11-05 the owner separately approved DEV 0031–0032; both are
+applied with verified recovery, preservation of all 52 existing tables and
+integrity checks. No PROD application is authorized.
+See [the B contract](../docs/event-finalization.md).
+
+## DEV capacity correction — 0031
+
+`0031_separate_registration_capacity.sql` is applied on DEV. It adds a
+nullable operational capacity to `event_registration_control`; NULL keeps the
+original venue limit. Existing registrations, limits, venue/rental snapshots and
+role grants remain unchanged on migration. The guarded registration transaction
+updates this limit and reallocates/promotes waiting groups atomically. Public
+availability uses the same effective limit. Reducing below existing confirmed
+attendance remains blocked. Older schemas retain registration reads/writes and
+return a specific migration-pending response for otherwise valid capacity changes.
+DEV application was separately approved and verified as recorded above.
+PROD remains unchanged.
+See the local follow-up in [attendance review](../docs/attendance-review.md).
+
+## Phase 5.5 A — 0030
+
+`0030_create_attendance_review.sql` was accepted locally and separately approved
+for DEV on 2026-11-05.
+It adds attendance corrections, Pay/Free, private payment instructions/audit and
+anonymous exclusion preservation; it grants no existing role Finance permission.
+Applied only to `lan-party-dev` after a fresh Time Travel bookmark and private
+recovery export. History is exactly 0001–0030; quick_check and foreign keys pass.
+All 47 preexisting tables match the pre-migration export, excluding the expected
+new permission row; no role grants changed. The export was restored and checked
+in isolated local SQLite. See [attendance review](../docs/attendance-review.md).
+No PROD migration is authorized or applied.
+
+
+## Phase 5.2A correction — 0027
+
+`0027_correct_unregistered_events.sql` removes Finance enablement, adds minimum
+participant headcount, preserves registration history permanently and retains audit
+when an eligible Administrator deletes an event. Date guards now lock only after
+any registration history. Existing IDs, event text/snapshot and audit sequence are
+preserved. No existing events/registrations are deleted and descriptions are not
+bulk converted. See [the Events contract](../docs/events.md).
+
+The current owner-authorized DEV correction includes these necessary schema changes.
+Require fresh private recovery evidence, history exactly through 0026 and only 0027
+pending. Publish the schema-gated Worker first. Compare existing rows/sequence and
+integrity after migration, excluding the intentionally dropped flag/new fields.
+No PROD execution or unapproved restore. Applied migrations stay unchanged.
+
+## Phase 5.2A simplification — 0026
+
+`0026_simplify_event_snapshots.sql` adds a common copied capacity to event
+management, physically drops `event_days.capacity` and
+`event_management.guests_enabled`, and enforces immutable venue/capacity/rental.
+The consistent member-invited guest rule uses a positive limit; previously disabled
+zero limits become 1. No guest registration functionality is removed. Historical
+0025 is unchanged. The temporary conversion guard is dropped in the same batch.
+
+Never silently flatten mixed daily capacities: migration aborts for missing/unequal
+managed capacities or nonempty unmanaged capacity data. Preserve dates, IDs,
+registration links and audit. Previously noncontiguous dates are not regenerated;
+such historical events need explicit review/recreation rather than date rewriting.
+
+The current owner request explicitly includes the scoped DEV database cleanup.
+Apply only to `lan-party-dev` after fresh recovery and 0001–0025/only-0026-pending
+preflight. Publish the new Worker first: it fails safely with 503 until 0026 exists,
+so the old mutable API cannot operate after cleanup. Stop on changed event data,
+failed prerequisites or schema drift; never edit applied history or reset the DB.
+See [the current Events contract](../docs/events.md). No PROD operation authorized.
+
+## Phase 5.2 Events Increment A — 0025
+
+`0025_create_event_management.sql` is additive over 0024. It adds event-owned
+venue/timing/settings/revision records, Events audit, per-day capacity and immutable
+selected-date guards. Existing events/day/registration IDs and values remain intact;
+legacy management fields are not invented. See [the Events contract](../docs/events.md).
+The owner separately approved applying only 0025 to `lan-party-dev`, after fresh
+recovery/history/integrity preflight. Verify 0001–0024 applied and only 0025 pending;
+compare existing record counts and foreign-key/quick checks afterward. No PROD
+migration, automatic rollback or unrelated schema/data changes are authorized.
+
+## Phase 5.1 Locations candidate — 0024
+
+`0024_create_location_management.sql` was separately approved, applied and verified
+on DEV on 2026-11-01. PROD is unchanged. SHA-256:
+`ae9d640f93d5d3ed3deafcb29626ef954d70cff2cd60155e9243c51a93f1de43`.
+It rebuilds locations to allow name-only templates while retaining IDs and current
+event foreign keys; adds capacity/rental/directions/revision and location activity.
+Populated migration and rollback tests live in `worker/tests/locations.test.mjs`.
+See [Locations migration/acceptance](../docs/locations.md) for exact DEV preflight,
+recovery and schema-gated publication. A fresh Time Travel bookmark was captured;
+quick_check passed, foreign-key checks were empty and existing event/registration
+tables remained empty. No attachment storage, snapshots, grants or PROD migration.
+
 ## Current release boundary — Phase 3 closeout (2026-10-27)
 
 DEV migration history 0001–0018 was verified during the separately approved #10/#16
@@ -636,3 +736,74 @@ rollback is authorized. Recovery/restore requires a separate reviewed decision.
 
 Cloudflare documents per-migration error rollback in its
 [D1 Wrangler commands](https://developers.cloudflare.com/d1/wrangler-commands/#d1-migrations-apply).
+
+## 0029 — Event member/guest registration
+
+Adds event queue sequence, private registration drafts, normalized person/day
+places, operation receipts and a durable member-notification outbox. Existing
+member registrations and selected days backfill without replacing their IDs or
+modifying foundation rows. Guest/contact data cascades with the registration;
+account deletion retains only completed anonymous guest totals, matching the
+member-total policy. Existing schema/history/roles/accounts remain intact.
+
+Apply only to DEV after exact 0029 approval, a fresh recovery checkpoint, history
+through 0028 and preservation/integrity preflight. The old Worker ignores these
+additive tables; new registration endpoints fail closed without them. Current
+read-only DEV preflight: zero registrations, three managed events, eight event
+days, 0029 not applied (2026-11-03). Recheck before execution. Application
+publication/activation, provider acceptance and PROD are separate facts. No
+automatic down migration, destructive reset or Jotform cutover is provided.
+
+## Manual payment audit — 0033
+
+0033_record_manual_bill_payments.sql adds audited manual Paid/Unpaid changes for
+finalized combined bills. Existing bills/amounts/status, registrations and grants
+are preserved. The owner separately approved DEV application on 2026-11-07.
+0033 is applied to lan-party-dev with a fresh private recovery checkpoint, verified
+local restore, all 54 existing tables/rows preserved and integrity/foreign keys passing.
+The new audit table is empty. PROD is unchanged. See the finishing-flow rework in
+[the finalization contract](../docs/event-finalization.md).
+
+
+## Event-only rental adjustments — 0034
+
+0034_allow_event_rental_adjustments.sql permits rental changes before event
+finalization while preserving venue/capacity snapshot locks and finalized totals.
+It changes triggers only; existing rows are preserved. The owner separately
+approved DEV application on 2026-11-08. A fresh recovery export and local restore
+were verified; all 55 existing tables/rows and all other schema objects are
+preserved, with integrity/foreign keys passing. DEV is through 0034; PROD remains
+unchanged. See the finalization contract's pricing receipt.
+
+## Payment email duplicate/outcome guard — 0035
+
+`0035_record_payment_info_emails.sql` adds one STRICT table keyed by immutable bill
+and recipient line, recording the claim, attempt, outcome and provider receipt.
+No addresses/message copies, bill updates or permission grants are introduced.
+The previous Worker ignores the table; the new send action fails closed if absent.
+DEV application requires exact-target approval, history through 0034, a fresh
+recovery checkpoint and preservation/integrity checks. Local recovery restoration
+and applying 0035 to that copy preserve all 55 existing tables/rows. Remote
+application was separately approved and completed on 2026-11-08. All 55 existing
+tables/rows and schema objects are preserved, the new table is empty, history is
+through 0035, and integrity/foreign keys pass. No down migration or automatic recovery is authorized.
+See [payment information](../docs/payment-info.md).
+
+## Empty-event finalization — 0036, local preparation only
+
+`0036_allow_empty_event_finalization.sql` changes the finalization constraint to
+permit zero participant-days with a zero daily rate. Existing finalizations, bills,
+manual payment audit/send guards and audit sequence are copied/restored in one
+migration transaction; all existing lock triggers and indexes are preserved.
+Temporary copy tables are removed on success, and failure rolls the operation back.
+This migration has not been applied remotely. DEV application requires exact-target
+approval, a fresh recovery checkpoint and populated preservation/integrity checks.
+The Worker fails safely with a migration-pending message for empty closure on an
+older schema. Normal nonempty finalization remains compatible.
+
+0036 DEV application was separately approved and completed on 2026-11-09. A fresh
+export restored successfully; local application to that copy and remote pre/post
+checks preserved all 56 existing tables' rows. Existing triggers/indexes and audit
+history are preserved; only the intended table constraint and zero-rate guard
+change. History through 0036, quick_check and foreign keys pass; no copy tables
+remain. PROD is unchanged and recovery material is retained privately.

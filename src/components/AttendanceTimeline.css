@@ -1,0 +1,25 @@
+.attendance-timeline-scroll{--attendance-confirmed:var(--accent);--attendance-gap:#f08d8d;--attendance-outside:#080c10;--attendance-waiting:#e8c675;max-width:100%;overflow-x:auto;margin-top:1rem;padding:.35rem 0 .5rem}
+.attendance-timeline{display:flex;list-style:none;padding:0;margin:0;min-width:100%}
+.attendance-step{--day-color:var(--attendance-outside);position:relative;flex:1 0 6.5rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;text-align:center;font-size:.75rem;min-width:0}
+.attendance-confirmed{--day-color:var(--attendance-confirmed)}.attendance-gap{--day-color:var(--attendance-gap)}.attendance-waiting{--day-color:var(--attendance-waiting)}
+.attendance-step:not(:last-child):after{content:'';position:absolute;top:1rem;left:50%;width:100%;height:3px;background:linear-gradient(to right,var(--day-color),var(--next-day-color));z-index:0}
+.attendance-day-marker{position:relative;z-index:1;display:grid;place-items:center;width:2.2rem;height:2.2rem;border:2px solid var(--day-color);border-radius:50%;background:var(--surface);color:var(--text);font-size:1.1rem;font-weight:800;margin-bottom:.25rem}
+.attendance-confirmed .attendance-day-marker{background:var(--accent-dim);color:var(--accent);box-shadow:0 0 .65rem color-mix(in srgb,var(--accent) 20%,transparent)}
+.attendance-gap .attendance-day-marker{background:#3c2228;color:var(--attendance-gap)}.attendance-outside .attendance-day-marker{background:var(--attendance-outside);color:var(--muted)}.attendance-waiting .attendance-day-marker{color:var(--attendance-waiting)}
+.attendance-step time{white-space:nowrap;color:var(--muted)}.attendance-day-status{font-size:.65rem;padding:.2rem .4rem;border-radius:999px;color:var(--muted);max-width:100%;overflow-wrap:anywhere}
+.attendance-confirmed .attendance-day-status{color:var(--accent);background:var(--accent-dim)}.attendance-gap .attendance-day-status{color:var(--attendance-gap);background:#3c2228}.attendance-waiting .attendance-day-status{color:var(--attendance-waiting)}
+.registration-member-info{flex:1}
+
+/* Compact staff cards keep the day strip beside the profile column. */
+:is(.event-participants,.event-attendance-review) .registration-member-card{gap:.65rem;padding:.8rem}
+:is(.event-participants,.event-attendance-review) .registration-member-avatar{width:2.25rem;height:2.25rem;font-size:.85rem}
+:is(.event-participants,.event-attendance-review) .registration-member-info h3{font-size:1rem;margin-bottom:.5rem}
+:is(.event-participants,.event-attendance-review) .registration-achievements{gap:.3rem;font-size:.6rem}
+:is(.event-participants,.event-attendance-review) .registration-badge-placeholders>span{width:1.15rem;height:1.15rem}
+:is(.event-participants,.event-attendance-review) .registration-achievements>small{font-size:.55rem}
+:is(.event-participants,.event-attendance-review) .attendance-timeline-scroll{margin-top:.7rem}
+:is(.event-participants,.event-attendance-review) .attendance-step{flex-basis:3.65rem;font-size:.65rem;gap:.25rem}
+:is(.event-participants,.event-attendance-review) .attendance-step time{font-size:.56rem}
+:is(.event-participants,.event-attendance-review) .attendance-day-marker{width:1.7rem;height:1.7rem;font-size:.9rem}
+:is(.event-participants,.event-attendance-review) .attendance-step:not(:last-child):after{top:.8rem}
+:is(.event-participants,.event-attendance-review) .attendance-day-status{font-size:.55rem;padding:.2rem .25rem}

@@ -165,6 +165,16 @@ test('TOTP reactivation consumes a fresh step while stale factors and spent reco
  assert.ok((await value('finish',c.context,password,{firstName:'Fresh',lastName:'Proof',code,method:'totp'})).token);
  assert.ok(await sql('SELECT last_step FROM auth_totp_factors WHERE user_id=?',u.id).first('last_step')>0);
 }));
+test('location audit survives real account deletion with its actor identity cleared',()=>local(async({user,value,sql})=>{
+ const u=await user(),location=randomUUID();
+ await sql("INSERT INTO locations(id,name,created_at,updated_at) VALUES (?,'Fictional retained venue',0,0)",location).run();
+ await sql("INSERT INTO location_activity(operation_id,occurred_at,actor_id,location_id,operation,fields) VALUES (?,unixepoch(),?,?,'location.create','[\"name\"]')",randomUUID(),u.id,location).run();
+ await value('deleteAccount',u.id,0,u.digest);
+ assert.equal(await sql('SELECT count(*) n FROM users WHERE id=?',u.id).first('n'),0);
+ assert.equal(await sql('SELECT actor_id FROM location_activity').first('actor_id'),null);
+ assert.equal(await sql('SELECT count(*) n FROM locations WHERE id=?',location).first('n'),1);
+},24));
+
 test('deletion has atomic anonymous event/day totals, removes identity links, preserves unrelated content and number non-reuse',()=>local(async({user,value,sql,now,db})=>{
  const u=await user(),other=await user(),time=await now(),event=randomUUID(),future=randomUUID(),day1=randomUUID(),day2=randomUUID(),futureDay=randomUUID();
  const number=await sql('SELECT member_number FROM member_numbers WHERE user_id=?',u.id).first('member_number');

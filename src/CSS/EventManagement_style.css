@@ -1,0 +1,55 @@
+.event-heading,.event-actions{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.event-search,.event-fields{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;margin:1.25rem 0}
+.event-search label,.event-fields label{display:grid;gap:.5rem;flex:1 1 14rem;min-width:0}
+.event-layout{display:grid;grid-template-columns:minmax(14rem,1fr) minmax(20rem,1.5fr);gap:1.5rem;align-items:start}
+.event-list{display:grid;gap:1rem}.event-card{display:grid;gap:.75rem;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;overflow-wrap:anywhere}.event-card.selected{border-color:var(--accent)}
+.event-card{transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease}.event-card:hover,.event-card:focus-visible{background:var(--surface-raised);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.event-list{border-right:1px solid var(--border);padding-right:1.5rem}
+.event-description table{border-collapse:collapse;width:100%;table-layout:fixed}.event-description td,.event-description th{border:1px solid var(--border);padding:.5rem;vertical-align:top}.event-description th{background:var(--surface-raised)}.event-table-scroll{overflow-x:auto}
+.event-preview{min-width:0;overflow-wrap:anywhere}.event-default-cover{width:100%;height:12rem;object-fit:cover;border-radius:.5rem}
+.event-actions{justify-content:end;border-top:1px solid var(--border);padding-top:1rem;margin-top:1rem}
+.event-primary-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.75rem;margin-left:auto;min-width:0}
+.event-sections{display:flex;flex-wrap:wrap;gap:.5rem;border-bottom:1px solid var(--border);padding-bottom:.75rem;margin:1.5rem 0}
+.event-sections>span,.event-sections>button{display:flex;align-items:center;gap:.5rem;min-height:44px;padding:.65rem .8rem;border:1px solid var(--border);border-radius:.5rem;font:inherit;background:var(--surface);color:var(--muted)}
+.event-sections .event-section-current{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.event-sections>button:enabled{cursor:pointer}
+.event-sections>button:enabled:hover,.event-sections>button:enabled:focus-visible{border-color:var(--accent);background:var(--surface-raised)}
+.event-sections button:disabled{cursor:default;opacity:.75}.event-sections small{font-size:.7rem;white-space:nowrap}
+.event-dialog{width:min(60rem,calc(100vw - 2rem));max-height:90dvh;overflow:auto;padding:1rem}.event-dialog fieldset{border:0;min-width:0;margin:0;padding:1.5rem}.event-description-input{display:grid;gap:.5rem}
+.event-management input,.event-management select,.event-dialog input,.event-dialog select,.event-dialog textarea{min-width:0;max-width:100%;font:inherit;color:var(--text);background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;padding:.75rem;min-height:44px}
+.event-dialog input[type=checkbox]{min-height:auto;width:auto}.event-instructions{white-space:pre-wrap}.event-description{overflow-wrap:anywhere}.event-description p:empty{display:none}
+.event-snapshot{margin:1rem 0;padding:1rem;border:1px solid var(--border);border-radius:.5rem;overflow-wrap:anywhere}.event-snapshot h4{margin-top:0}.event-days-summary{overflow-wrap:anywhere}
+@media(max-width:720px){.event-layout{grid-template-columns:minmax(0,1fr)}.event-dialog fieldset{padding:1rem}.event-fields{display:grid;grid-template-columns:minmax(0,1fr)}.event-fields label{display:grid}.event-default-cover{height:9rem}.event-dialog .wizard-steps{font-size:.8rem;gap:.5rem}}
+@media(max-width:720px){.event-list{border-right:0;padding-right:0;border-bottom:1px solid var(--border);padding-bottom:1.5rem}}
+@media(prefers-reduced-motion:reduce){.event-card{transition:none}}
+@media(max-width:480px){.event-dialog .wizard-actions,.event-dialog .wizard-actions>div{flex-wrap:wrap}.event-dialog .wizard-steps{flex-direction:row}.event-dialog .wizard-steps li{flex:1}.event-dialog .wizard-actions>div{margin-left:auto}}
+
+/* Keep the Events wizard compact; retain natural scrolling on smaller screens. */
+.event-dialog{max-height:calc(100dvh - 2rem)}
+.event-dialog>.wizard-heading h2{margin:.25rem 0 .5rem}
+.event-dialog>.wizard-steps{margin:.5rem 0;padding:.65rem 0}
+.event-dialog>form>fieldset{padding:.5rem 1rem}
+.event-dialog>form>fieldset>h3{margin:.5rem 0}
+.event-dialog .event-fields{margin:.75rem 0}
+.event-dialog>form>fieldset>h4{margin:.75rem 0 .5rem}
+.event-dialog .wizard-actions{margin-top:.75rem;padding-top:.75rem}
+
+/* Loading feedback must not move the catalogue during an unchanged search. */
+.event-search-feedback{min-block-size:1.7em}
+
+.event-pricing-label{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}.event-rental-input{width:100%;font:inherit;color:var(--text);background:var(--surface-raised);border:1px solid var(--border);border-radius:.5rem;padding:.75rem}
+
+/* A stable frame keeps navigation in place; only the current step scrolls. */
+.role-wizard.event-dialog{width:min(60rem,calc(100vw - 2rem));height:min(54rem,calc(100dvh - 2rem));max-height:calc(100dvh - 2rem);overflow:hidden}
+.event-dialog[open]{display:flex;flex-direction:column}
+.event-dialog>.wizard-heading,.event-dialog>.wizard-steps{flex-shrink:0}
+.event-dialog>form{display:flex;flex:1;min-height:0;min-width:0}
+.event-dialog>form>fieldset{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;padding:0}
+.event-editor-content{flex:1;min-height:0;overflow-y:auto;scrollbar-gutter:stable;padding:.5rem 1rem;overflow-wrap:anywhere}
+.event-editor-content>h3{margin:.5rem 0}.event-editor-content>h4{margin:.75rem 0 .5rem}
+.event-dialog>form>fieldset>.wizard-actions{flex-shrink:0;margin-top:.75rem;padding:.75rem 1rem 0}
+.event-dialog .wizard-actions>div>button:last-child{min-inline-size:8rem}
+@media(max-width:480px){.event-editor-content{padding:.5rem}.event-dialog>form>fieldset>.wizard-actions{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:44px 44px;padding:.75rem .5rem 0;gap:.4rem}.event-dialog .wizard-actions>button{justify-self:start}.event-dialog .wizard-actions>div{grid-row:2;justify-self:end;gap:.4rem;flex-wrap:nowrap}.event-dialog .wizard-actions>div>button:last-child{inline-size:8rem}}
+
+/* Refresh feedback overlays the retained panel without moving its content. */
+.event-participants,.event-finance{position:relative}
+.event-panel-refresh{position:absolute;inset-block-start:0;inset-inline-end:0;margin:0;font-size:.8rem;color:var(--muted)}
