@@ -7,3 +7,4 @@
 .account-updates > section { min-width: 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--background); }
 .account-updates h2 { font-size: 1.2rem; margin-bottom: .75rem; }
 .account-updates p { margin-bottom: 0; color: var(--muted); }
+.account-updates .button { margin-top:1rem; }

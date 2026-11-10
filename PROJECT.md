@@ -1635,3 +1635,27 @@ The owner accepted local review and authorized the scoped DEV commit/push and it
 automatic deployment. The owner separately approved only DEV migration 0038 and
 DEV `/news/*` routing; recovery restore, preservation and integrity verification
 passed. No member role assignments or PROD changes.
+
+## Phase 6.2 Display case — approved local increment
+
+Owner revised the local rules to Worn Iron Shield (one reviewed day), Bronze
+(one full weekend), Silver (four), Gold (ten), and Legendary (ten consecutive
+qualifying full weekends). Legendary is active only while the streak continues;
+a missed qualifying event falls back to Gold. Full weekends require every day of
+an event lasting at least two days. Own Free attendance counts; guests do not.
+Only finalized, ended qualifying events count. Existing events start excluded;
+new events default enabled; qualification locks on finalization. Unearned badges
+are hidden. The highest earned tier adds its coloured suffix after the display
+name without changing the saved nickname; one earned badge may be showcased.
+Display case lives beneath Profile. Local migration 0039 and implementation are
+authorized; remote migrations, commits, pushes and deployments remain excluded.
+See [Display case](docs/display-case.md). Broader backlog ideas remain future work.
+
+## DEV publication authorization — 2026-11-10
+
+After accepting local review, the owner requested DEV publication and separately
+approved only migration 0039 on lan-party-dev, with a fresh recovery checkpoint
+and preservation/integrity verification. This supersedes the earlier local-only
+publication boundary for the Display case, selected badge icons, automatic tier
+suffixes, navigation motion, shared event Share menu and account-card cleanup.
+Existing events remain excluded. No PROD operations, role assignments or emails.

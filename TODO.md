@@ -1054,9 +1054,21 @@ See [registration contract](docs/event-registration.md); this preview does not c
 - [x] Owner accept local desktop/mobile and editorial workflow review.
 - [x] Owner authorize scoped DEV commit/push for online testing.
 - [x] Separately approve remote 0038 and DEV News routing; apply/verify DEV migration.
-- [ ] Verify exact-head CI/deployment and owner hosted acceptance.
+- [x] Verify exact-head CI/deployment and owner hosted acceptance (News #50, 01b5693).
 - [ ] Approve exact production release when ready.
 
-See [local News contract](docs/news-posting.md). Achievements #51 remains deferred.
+See [local News contract](docs/news-posting.md). Achievements #51 is now approved for the bounded local Display case increment.
 
 News reactions/comments are deferred together to [Backlog #52](https://github.com/Awandalo/Lan-Party/issues/52), outside #50.
+
+### Phase 6.2 — Member Display case #51, local only
+
+- [x] Owner approve five revised tiers, active Legendary streak, coloured suffixes, event qualification and local migration.
+- [x] Implement private Display case, five owner-revised tiers, earned-only cards, active Legendary streak, coloured highest-tier suffix and one opt-in public crew badge.
+- [x] Add local 0039 with old-event exclusion and finalized qualification lock.
+- [x] Exercise eligibility, privacy, authorization, concurrency and deletion locally.
+- [ ] Owner local acceptance, including narrow layouts and menu wave feel.
+- [ ] Separately approve DEV migration/publication when ready.
+
+Local companion cleanup: Events reuse the News Share menu; My account links to
+working Events/News and keeps Polls future-only. [Social polls #53](https://github.com/Awandalo/Lan-Party/issues/53) is a separate backlog item; no existing native Social parent was found.

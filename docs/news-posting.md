@@ -123,3 +123,10 @@ save/reopen, keyboard cancellation, and empty/error/retry states. The first curs
 insertion check caught Tiptap’s whole-link unset behavior; using the stored-mark
 command preserves the inserted anchor, verified in the browser. Reuse unchanged
 backend/security evidence; normal exact-head CI runs on DEV publication.
+
+Owner accepted News #50 on hosted DEV at 01b5693. A following local-only cleanup
+extracts its public Share menu for reuse by Events, retaining event dates and the
+canonical event URL. Provider actions remain manual. Account cards now link to
+working Events/News; Polls remains future work in Social backlog #53. The owner
+also requested a small navigation lift/wave: independent item hover/focus and a
+retained selected state, with a smoother mint marker and reduced-motion fallback.

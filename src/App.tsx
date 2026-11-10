@@ -12,6 +12,7 @@ import EventDetails from './pages/EventDetails';
 import {PUBLIC_EVENTS_AVAILABLE} from './lib/public-events';
 import Privacy from './pages/Privacy';
 import Profile from './pages/Profile';
+import DisplayCase from './pages/DisplayCase';
 import News from './pages/News';
 import NewsArticle from './pages/NewsArticle';
 import Login from './pages/Login';
@@ -62,6 +63,7 @@ export default function App() {
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/register" element={<Registration />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account" element={<Account />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/profile" element={<Profile />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/profile/display-case" element={<DisplayCase />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/security" element={<AccountSecurity />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/verify-email" element={<VerifyEmail />} />}
           {import.meta.env.DEV && <Route path="/local-mail" element={<LocalMail />} />}

@@ -838,3 +838,17 @@ DEV execution, 2026-11-10: owner-approved 0038 applied after fresh recovery expo
 Time Travel checkpoint and verified isolated restore. All rows/schema in the 56
 existing tables are preserved; one role and four grants added, no member assignments,
 empty audit table, quick check OK and no foreign-key violations. PROD unchanged.
+
+## Member Display case — 0039, local only
+
+0039 adds event achievement qualification (existing events excluded), a finalized
+qualification lock and one optional per-member showcase preference with a revision
+and deletion cascade. Awards derive from locked own-member attendance and never
+from payments or guests. It grants no permissions and changes no existing event
+values besides the new defaulted column. Local fixtures only; DEV/PROD application
+requires separately approved recovery/preservation checks. See [Display case](../docs/display-case.md).
+
+DEV 0039 applied and verified on 2026-11-10 after a fresh private export,
+Time Travel checkpoint and isolated restore/migration. Existing rows in 57
+tables and permissions were preserved; existing events remain excluded, showcase
+choices empty, quick check OK and no foreign-key violations. PROD unchanged.

@@ -14,7 +14,7 @@ const titles: Record<string, string> = {
   ...((AUTH_UI_AVAILABLE && authUIEnabled()) ? { '/register': 'Create account', '/account': 'Account',
     '/verify-email': 'Verify email', '/local-mail': 'Local mailbox',
     '/forgot-password': 'Forgot password', '/reset-password': 'Reset password',
-    '/account/security': 'Account security', '/account/profile':'Profile', '/mfa':'Verify sign-in', '/reactivate':'Reactivate account' } : {}),
+    '/account/security': 'Account security', '/account/profile':'Profile', '/account/profile/display-case':'Display case', '/mfa':'Verify sign-in', '/reactivate':'Reactivate account' } : {}),
 };
 
 export function administrationDocumentTitle(pathname:string,heading?:string){

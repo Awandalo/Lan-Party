@@ -1,6 +1,7 @@
 import {useEffect,useId,useRef,useState} from 'react';
+import '../CSS/PublicShare.css';
 
-export function newsShareLinks(title:string,url:string){
+export function publicShareLinks(title:string,url:string){
  const text=title+'\n'+url;
  return [
   {label:'WhatsApp',href:'https://wa.me/?text='+encodeURIComponent(text)},
@@ -12,7 +13,7 @@ export function newsShareLinks(title:string,url:string){
  ];
 }
 
-export default function NewsPublicShare({title,url}:{title:string;url:string}){
+export default function PublicShare({title,url,kind='article'}:{title:string;url:string;kind?:'article'|'event'}){
  const root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null),id=useId();
  const [open,setOpen]=useState(false),[status,setStatus]=useState(''),[fallback,setFallback]=useState(false);
  useEffect(()=>{
@@ -22,15 +23,15 @@ export default function NewsPublicShare({title,url}:{title:string;url:string}){
   document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
   return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
  },[open]);
- return <div className="news-public-share" ref={root} onBlur={event=>{if(event.relatedTarget instanceof Node&&!event.currentTarget.contains(event.relatedTarget))setOpen(false);}}>
+ return <div className="public-share" ref={root} onBlur={event=>{if(event.relatedTarget instanceof Node&&!event.currentTarget.contains(event.relatedTarget))setOpen(false);}}>
   <button ref={button} className="button button-secondary" aria-expanded={open} aria-controls={id} onClick={()=>setOpen(value=>!value)}>
    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/></svg> Share
   </button>
-  <div id={id} className="news-share-options" hidden={!open}>
-   <nav aria-label="Share this article"><ul>{newsShareLinks(title,url).map(link=><li key={link.label}><a href={link.href} target={link.label==='E-mail'?undefined:'_blank'} rel="noopener noreferrer">{link.label}<span aria-hidden="true">↗</span></a></li>)}
+  <div id={id} className="public-share-options" hidden={!open}>
+   <nav aria-label={'Share this '+kind}><ul>{publicShareLinks(title,url).map(link=><li key={link.label}><a href={link.href} target={link.label==='E-mail'?undefined:'_blank'} rel="noopener noreferrer">{link.label}<span aria-hidden="true">↗</span></a></li>)}
    <li><button onClick={async()=>{try{await navigator.clipboard.writeText(url);setStatus('Link copied.');setFallback(false);}catch{setStatus('Select and copy the link below.');setFallback(true);}}}>Copy link</button></li></ul></nav>
-   <p className="news-share-status" role="status">{status}</p>
-   {fallback&&<label className="news-share-fallback">Article link<input readOnly value={url} onFocus={event=>event.currentTarget.select()}/></label>}
+   <p className="public-share-status" role="status">{status}</p>
+   {fallback&&<label className="public-share-fallback">{kind==='event'?'Event':'Article'} link<input readOnly value={url} onFocus={event=>event.currentTarget.select()}/></label>}
   </div>
  </div>;
 }

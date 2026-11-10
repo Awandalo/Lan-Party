@@ -28,9 +28,9 @@ export default function Account() {
     <Link className="button button-secondary" to="/account/profile">Edit profile</Link>
     <RecoveryWarning remaining={session.recoveryCodesRemaining}/>
     <div className="account-updates">
-      <section aria-labelledby="account-events"><h2 id="account-events">Upcoming events</h2><span className="status-label">Coming soon</span><p>Your next LAN adventures will appear here. Event registration is not available yet.</p></section>
+      <section aria-labelledby="account-events"><h2 id="account-events">Upcoming events</h2><p>Find your next LAN, choose your days and see who is coming.</p><Link className="button button-secondary" to="/events">Browse events →</Link></section>
       <section aria-labelledby="account-polls"><h2 id="account-polls">Upcoming polls</h2><span className="status-label">Coming soon</span><p>Help shape the party when polls become available.</p></section>
-      <section aria-labelledby="account-news"><h2 id="account-news">Page updates</h2><span className="status-label">Coming soon</span><p>Website news and announcements will appear here.</p></section>
+      <section aria-labelledby="account-news"><h2 id="account-news">Latest news</h2><p>Read the latest announcements and updates from the crew.</p><Link className="button button-secondary" to="/news">Read news →</Link></section>
     </div>
     {!session.emailVerified && <button className="button" onClick={resendVerification} disabled={busy}>Request verification email</button>}
     <p role="status" aria-live="polite">{feedback}</p>

@@ -1,3 +1,4 @@
+import {displayCase} from './achievements';
 import {news} from './news';
 import {newsPage} from './news-page';
 import {accountProfile} from './auth/profile';
@@ -36,6 +37,7 @@ export default {
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
     if(pathname==='/api/news'||pathname.startsWith('/api/news/')||pathname==='/api/manage/news')return news(request,env);
+    if(pathname==='/api/auth/display-case')return displayCase(request,env);
     if(pathname==='/api/auth/profile')return accountProfile(request,env);
     if(pathname.startsWith('/api/event-finance/'))return eventFinance(request,env);
     if(pathname.startsWith('/api/event-review/'))return eventReview(request,env);

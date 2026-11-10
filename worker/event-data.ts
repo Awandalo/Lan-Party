@@ -1,3 +1,4 @@
+import {achievementsReady} from './achievement-data';
 import {finalizedEvent,finalizationReady} from './event-finalization-data';
 import {administratorPredicate} from './rbac-authority';
 import {mfaSessionCondition} from './auth/mfa-session';
@@ -44,14 +45,16 @@ export async function readEvents(db:D1Database,url:URL,logs=false,includeNames=f
  const rows=(await db.prepare(`SELECT ${columns},${await finalizationReady(db)?'(EXISTS(SELECT 1 FROM event_finalizations f WHERE f.event_id=e.id))':'0'} AS finalized FROM events e LEFT JOIN event_management m ON m.event_id=e.id WHERE (?='all' OR (?='unpublished' AND e.publication_status='published' AND m.is_listed=0) OR (e.publication_status=? AND (?<>'published' OR m.is_listed=1))) AND instr(lower(e.title),lower(?))>0 ORDER BY e.created_at DESC,e.id LIMIT 201`).bind(status,status,status,status,search).all()).results;
  if(rows.length>200)throw new EventError(503,'Event catalogue exceeds its supported size');
  const days=(await db.prepare('SELECT event_id AS eventId,attendance_date AS date FROM event_days ORDER BY attendance_date,id').all()).results;
- return {events:rows.map(r=>({...r,venue:r.venue?JSON.parse(String(r.venue)):null,days:days.filter(d=>d.eventId===r.id).map(d=>({date:d.date}))}))};
+ const achievementsAvailable=await achievementsReady(db);
+ const qualifications=achievementsAvailable?(await db.prepare('SELECT event_id,achievements_enabled FROM event_management').all()).results:[];
+ return {achievementsAvailable,events:rows.map(r=>({...r,achievementsEnabled:qualifications.find(q=>q.event_id===r.id)?.achievements_enabled===1,venue:r.venue?JSON.parse(String(r.venue)):null,days:days.filter(d=>d.eventId===r.id).map(d=>({date:d.date}))}))};
 }
 export async function writeEvent(db:D1Database,userId:string,digest:string,raw:Record<string,unknown>){
  if(['update','delete','publish','unpublish','cancel'].includes(String(raw.action))&&UUID.test(String(raw.id))&&await finalizedEvent(db,String(raw.id)))throw new EventError(409,'This event is permanently finalized');
  if(raw.action==='delete')return deleteEvent(db,userId,digest,raw);
  if(['publish','unpublish','cancel'].includes(String(raw.action)))return lifecycleEvent(db,userId,digest,raw);
  const update=raw.action==='update',duplicate=raw.action==='duplicate';
- const keys=['action','operationId','title','description','startsAt','endsAt','minimumParticipants','maxGuests','rentalCents',...(update?['id','revision']:duplicate?['sourceId','sourceRevision']:['locationId','locationRevision'])];
+ const keys=['action','operationId','title','description','startsAt','endsAt','minimumParticipants','maxGuests','rentalCents','achievementsEnabled',...(update?['id','revision']:duplicate?['sourceId','sourceRevision']:['locationId','locationRevision'])];
  if(Object.keys(raw).some(k=>!keys.includes(k))||!UUID.test(String(raw.operationId))||!['create','update','duplicate'].includes(String(raw.action)))throw new EventError(400,'Invalid event request');
  const id=update?String(raw.id):crypto.randomUUID(),title=text(raw.title,160,true),description=descriptionValue(raw.description),starts=integer(raw.startsAt,0,253402300799),ends=integer(raw.endsAt,1,253402300799),maxGuests=integer(raw.maxGuests,1,20),minimumParticipants=integer(raw.minimumParticipants,1,100000);
  if(!UUID.test(id))throw new EventError(400,'Invalid event settings');
@@ -78,6 +81,11 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
   snapshot=venue(Object.fromEntries(['name','addressLine','postalCode','city','countryCode','instructions','directionsUrl'].map(k=>[k,template[k]??''])));
   capacity=integer(template.capacity,1,100000);rental=integer(template.rentalCents,0,100000000);
  }
+ const achievementsAvailable=await achievementsReady(db);
+ if(raw.achievementsEnabled!==undefined&&(typeof raw.achievementsEnabled!=='boolean'||!achievementsAvailable))throw new EventError(!achievementsAvailable?503:400,'Achievement settings are unavailable or invalid');
+ const previousQualification=update&&achievementsAvailable?await db.prepare('SELECT achievements_enabled AS enabled FROM event_management WHERE event_id=?').bind(id).first<{enabled:number}>():null;
+ const achievementsEnabled=raw.achievementsEnabled===undefined?(update?previousQualification?.enabled===1:true):raw.achievementsEnabled;
+ const qualificationChanged=update&&achievementsAvailable&&(previousQualification?.enabled===1)!==achievementsEnabled;
  const requestedRental=raw.rentalCents===undefined?rental:integer(raw.rentalCents,0,100000000);
  const rentalChanged=requestedRental!==rental;
  if(rentalChanged&&!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='trigger' AND name='event_rental_finalized_locked'").first())throw new EventError(503,'Event pricing is awaiting its database migration');
@@ -90,7 +98,7 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
  }
  const guard=actor(update?'events.update':'events.create'),statements:D1PreparedStatement[]=[];
  const assertChanged=()=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Event conflict') END");
- const fields=update?['title','description',...current?.startsAt!==starts||current?.endsAt!==ends?['times']:[],...current?.minimumParticipants!==minimumParticipants?['minimumParticipants']:[],...current?.maxGuests!==maxGuests?['guestLimit']:[],...rentalChanged?['rentalCents']:[]]:['created'];
+ const fields=update?['title','description',...current?.startsAt!==starts||current?.endsAt!==ends?['times']:[],...current?.minimumParticipants!==minimumParticipants?['minimumParticipants']:[],...current?.maxGuests!==maxGuests?['guestLimit']:[],...rentalChanged?['rentalCents']:[],...qualificationChanged?['achievementsEnabled']:[]]:['created'];
  if(update){
   statements.push(db.prepare(`UPDATE event_management SET starts_at=?,ends_at=?,minimum_participants=?,max_guests=?,rental_cents=?,revision=revision+1 WHERE event_id=? AND revision=? AND ${guard} AND EXISTS(SELECT 1 FROM events WHERE id=? AND publication_status IN ('draft','published')) ${datesChanged?`AND ${noHistory}`:''}`).bind(starts,ends,minimumParticipants,maxGuests,rental,id,revision,userId,digest,id),assertChanged());
   statements.push(db.prepare('UPDATE events SET title=?,description=?,updated_at=unixepoch() WHERE id=?').bind(title,description,id));
@@ -107,6 +115,7 @@ export async function writeEvent(db:D1Database,userId:string,digest:string,raw:R
   statements.push(dayInsert(db,id,JSON.stringify(dayRows(dates))));
   statements.push(db.prepare('INSERT INTO event_management(event_id,creator_id,starts_at,ends_at,venue,minimum_participants,rental_cents,capacity,max_guests) VALUES (?,?,?,?,?,?,?,?,?)').bind(id,userId,starts,ends,JSON.stringify(snapshot),minimumParticipants,rental,capacity,maxGuests));
  }
+ if(achievementsAvailable)statements.push(db.prepare('UPDATE event_management SET achievements_enabled=? WHERE event_id=?').bind(achievementsEnabled?1:0,id));
  statements.push(db.prepare('INSERT INTO event_activity(operation_id,occurred_at,actor_id,event_id,event_reference,event_title,operation,fields) VALUES (?,unixepoch(),?,?,?,?,?,?)').bind(raw.operationId,userId,id,id,title,'event.'+raw.action,JSON.stringify(fields)));
  try{await db.batch(statements);}catch(error){if(/Finalized event is locked|Event conflict|malformed JSON|UNIQUE constraint failed: event_activity.operation_id/i.test(String(error)))throw new EventError(409,'Event or access changed, or request already processed. Reload before retrying.');throw error;}
  return {id};
