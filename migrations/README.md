@@ -807,3 +807,18 @@ checks preserved all 56 existing tables' rows. Existing triggers/indexes and aud
 history are preserved; only the intended table constraint and zero-rate guard
 change. History through 0036, quick_check and foreign keys pass; no copy tables
 remain. PROD is unchanged and recovery material is retained privately.
+
+## Preferred display prefix catalogue — 0037, local only
+
+`0037_seed_preferred_name_prefixes.sql` inserts the eight owner-requested display
+prefix choices into the existing `name_prefixes` reference catalogue. It adds no
+tables/columns, does not set any user's selection and grants no permissions.
+Existing references remain; inactive historical choices are preserved. The new
+profile API allows active new selections and publishes only approved prefix labels
+with confirmed member nicknames, never private first/last names.
+
+Local migration/forced-failure rollback tests preserve existing accounts, prefix
+references and role grants. The catalogue is applied only to disposable local
+fixtures; DEV/PROD remain unchanged. Future remote application needs explicit
+exact-target approval and normal recovery/preservation preflight. See
+[profile settings](../docs/profile-settings.md).

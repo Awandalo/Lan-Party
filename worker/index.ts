@@ -1,3 +1,4 @@
+import {accountProfile} from './auth/profile';
 import {eventReview} from './event-review';
 import {eventFinance} from './event-finance';
 import {feedback} from './feedback';
@@ -32,6 +33,7 @@ export default {
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname==='/api/auth/profile')return accountProfile(request,env);
     if(pathname.startsWith('/api/event-finance/'))return eventFinance(request,env);
     if(pathname.startsWith('/api/event-review/'))return eventReview(request,env);
     if(pathname.startsWith('/api/event-registration/')||pathname.startsWith('/api/event-participants/'))return eventRegistration(request,env,ctx);

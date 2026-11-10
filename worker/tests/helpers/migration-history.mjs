@@ -29,4 +29,5 @@ export const expectedHistory = [
  '0034_allow_event_rental_adjustments.sql',
  '0035_record_payment_info_emails.sql',
  '0036_allow_empty_event_finalization.sql',
+ '0037_seed_preferred_name_prefixes.sql',
 ];

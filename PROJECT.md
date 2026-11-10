@@ -1,5 +1,15 @@
 # LAN Party website
 
+## User settings — local profile iteration, 2026-11-10
+
+The owner authorizes local profile editing for display nickname, private first/last
+names and the eight optional preferred display prefixes. Keep existing nickname
+uniqueness and 14-day participant cooldown, reuse the prefix catalogue, and show
+only the public prefix/nickname on Who is coming. This work is isolated from DEV
+and PROD during development. The owner accepted local testing and requested live
+release; prepare its exact-head PR and migration scope under RELEASE.md. See
+[the profile contract](docs/profile-settings.md).
+
 ## Current accepted state — 2026-11-09
 
 Accounts and Phase 4 Administration are live on PROD at `b667022`. The owner has

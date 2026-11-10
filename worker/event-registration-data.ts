@@ -9,12 +9,13 @@ import {emailAddress} from './auth/accounts';
 
 export async function registrationReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='event_registration_notifications'").first();}
 export async function registrationCapacityReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM pragma_table_info('event_registration_control') WHERE name='capacity'").first();}
-export interface RegistrationSnapshot {state:PreviewRegistrationState;meta:Record<string,unknown>;members:{id:string;name:string}[]}
+import {NAME_PREFIXES} from '../src/lib/name-prefixes';
+export interface RegistrationSnapshot {state:PreviewRegistrationState;meta:Record<string,unknown>;members:{id:string;name:string;prefix?:string}[]}
 export async function registrationSnapshot(db:D1Database,id:string):Promise<RegistrationSnapshot>{
  const configurableCapacity=await registrationCapacityReady(db);
  const result=await db.batch<Record<string,unknown>>([
   db.prepare(`SELECT m.*,${configurableCapacity?'coalesce(c.capacity,m.capacity)':'m.capacity'} AS registrationCapacity,e.title,e.publication_status,e.registration_status,c.sequence,unixepoch() AS now,coalesce((SELECT total FROM anonymous_event_registrations WHERE event_id=e.id),0) AS anonymousTotal FROM event_management m JOIN events e ON e.id=m.event_id JOIN event_registration_control c ON c.event_id=m.event_id WHERE e.id=?`).bind(id),
-  db.prepare(`SELECT r.id,r.user_id,r.status,p.draft,CASE WHEN u.status='active' THEN coalesce(n.nickname,'Member') ELSE 'Deactivated user' END AS name FROM registrations r JOIN users u ON u.id=r.user_id LEFT JOIN event_registration_parties p ON p.registration_id=r.id LEFT JOIN user_nicknames n ON n.user_id=r.user_id WHERE r.event_id=? ORDER BY r.id`).bind(id),
+  db.prepare(`SELECT r.id,r.user_id,r.status,p.draft,CASE WHEN u.status='active' THEN coalesce(n.nickname,'Member') ELSE 'Deactivated user' END AS name,CASE WHEN u.status='active' AND pfx.id IN (${NAME_PREFIXES.map(()=>'?').join(',')}) THEN pfx.label ELSE NULL END AS prefix FROM registrations r JOIN users u ON u.id=r.user_id LEFT JOIN event_registration_parties p ON p.registration_id=r.id LEFT JOIN user_nicknames n ON n.user_id=r.user_id LEFT JOIN name_prefixes pfx ON pfx.id=u.name_prefix_id WHERE r.event_id=? ORDER BY r.id`).bind(...NAME_PREFIXES.map(p=>p.id),id),
   db.prepare(`SELECT r.user_id,d.attendance_date AS day,p.person_id,p.state,p.queue_sequence FROM event_registration_places p JOIN registrations r ON r.id=p.registration_id JOIN event_days d ON d.id=p.event_day_id WHERE p.event_id=? AND r.status='registered' ORDER BY p.queue_sequence,p.person_id`).bind(id),
   db.prepare('SELECT d.attendance_date AS day,coalesce(a.total,0) AS anonymous FROM event_days d LEFT JOIN anonymous_day_registrations a ON a.event_day_id=d.id WHERE d.event_id=? ORDER BY d.attendance_date').bind(id)
  ]);
@@ -26,7 +27,7 @@ export async function registrationSnapshot(db:D1Database,id:string):Promise<Regi
  const confirmed:Group[]=[],waiting:Group[]=[];
  for(const row of result[2].results){const list=row.state==='confirmed'?confirmed:waiting;let group=list.find(g=>g.owner===row.user_id&&g.day===row.day&&g.sequence===row.queue_sequence);if(!group){group={owner:String(row.user_id),day:String(row.day),sequence:Number(row.queue_sequence),people:[]};list.push(group);}group.people.push(String(row.person_id));}
  const state:PreviewRegistrationState={revision:Number(meta.revision),sequence:Number(meta.sequence),open:meta.registration_status==='open',ended:Number(meta.ends_at)<=Number(meta.now),cancelled:meta.publication_status==='cancelled',capacity:Number(meta.registrationCapacity),days:result[3].results.map(r=>String(r.day)),maxGuests:Number(meta.max_guests),parties,confirmed,waiting,notices:[]};
- return {meta,state,members:result[1].results.map(p=>({id:String(p.user_id),name:String(p.name)}))};
+ return {meta,state,members:result[1].results.map(p=>({id:String(p.user_id),name:String(p.name),...(p.prefix?{prefix:String(p.prefix)}:{})}))};
 }
 export function registrationProjection(snapshot:RegistrationSnapshot,userId:string,manager=false){
  const {state,meta,members}=snapshot,party=state.parties.find(p=>p.owner===userId),places=ownPlaces(state,userId);

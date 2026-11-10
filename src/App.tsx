@@ -11,6 +11,7 @@ import Events from './pages/Events';
 import EventDetails from './pages/EventDetails';
 import {PUBLIC_EVENTS_AVAILABLE} from './lib/public-events';
 import Privacy from './pages/Privacy';
+import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Registration from './pages/Registration';
 import Account from './pages/Account';
@@ -56,6 +57,7 @@ export default function App() {
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/mfa" element={<MfaChallenge />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/register" element={<Registration />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account" element={<Account />} />}
+          {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/profile" element={<Profile />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/account/security" element={<AccountSecurity />} />}
           {(AUTH_UI_AVAILABLE && authUIEnabled()) && <Route path="/verify-email" element={<VerifyEmail />} />}
           {import.meta.env.DEV && <Route path="/local-mail" element={<LocalMail />} />}

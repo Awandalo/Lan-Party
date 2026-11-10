@@ -4,7 +4,7 @@ export default function Privacy() {
   return <article className="page-section privacy-page" aria-labelledby="privacy-title">
     <p className="eyebrow">Your information</p>
     <h1 id="privacy-title">Privacy Policy</h1>
-    <p>Last updated <time dateTime="2026-11-09">9 November 2026</time>.</p>
+    <p>Last updated <time dateTime="2026-11-10">10 November 2026</time>.</p>
     <section aria-labelledby="privacy-scope"><h2 id="privacy-scope">About LAN Party</h2>
       <p>LAN Party is a non-commercial hobby initiative organized by a group of friends. We use the public-facing name LAN Party Organizers. The organizing group makes most decisions about this website and how personal information is used.</p>
       <p>This policy covers the LAN Party website and its separate, invited development tests. You can read published event details without an account. Accounts let members register themselves and invited guests for events.</p>
@@ -26,7 +26,7 @@ export default function Privacy() {
     </section>
     <section aria-labelledby="privacy-events"><h2 id="privacy-events">Event registration and bills</h2>
       <p>Registration stores your selected days and confirmed or waitlisted places. When you invite a guest, you provide their name, email address and selected days and manage their registration. Tell your guests how their information is used and share this policy before adding them. Authorized event organizers can access the private details needed to manage the event.</p>
-      <p>Signed-in members can see confirmed members’ display names and attendance days. Signed-out visitors cannot see attendee identities. Guest identities, contact details and waitlisted attendance are not published in the member attendance list.</p>
+      <p>Signed-in members can see confirmed members’ display names, chosen public prefixes and attendance days. Signed-out visitors cannot see attendee identities. Guest identities, contact details and waitlisted attendance are not published in the member attendance list.</p>
       <p>Registration changes, cancellations and waitlist promotions can generate event notices. Finishing an event locks the reviewed attendance, daily price and final bills. A member’s private bill includes their guests’ costs. Organizers can separately send payment information through Resend; guests receive only their own cost information, with the responsible member arranging payment.</p>
       <p>Optional payment-request links and bank-transfer instructions appear on members’ final bills and in payment emails. Payment happens outside this website. Organizers record Paid or Unpaid manually; the website does not charge accounts or connect to a bank API.</p>
     </section>

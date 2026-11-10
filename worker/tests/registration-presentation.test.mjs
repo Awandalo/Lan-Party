@@ -58,3 +58,8 @@ test('person timeline keeps single-day, empty and waitlisted attendance truthful
  const waiting=timeline(days,[{day:days[0],status:'confirmed'},{day:days[1],status:'waitlisted',position:2},{day:days[2],status:'confirmed'}]);
  assert.ok(waiting.includes('attendance-step attendance-waiting'));assert.ok(waiting.includes('Waitlisted · group 2'));assert.equal((waiting.match(/>Confirmed</g)??[]).length,2);
 });
+
+test('crew renders optional public prefixes beside escaped nicknames while retaining nickname initials',()=>{
+ const html=render([{id:'a',name:'Pixel Alice',prefix:'LAN Legend',days:['2030-11-01']}],null);assert.ok(html.includes('LAN Legend'));assert.ok(html.includes('Pixel Alice'));assert.ok(html.includes('>PA</div>'));
+ const escaped=render([{id:'a',name:'Pixel Alice',prefix:'<b>Mr.</b>',days:['2030-11-01']}],null);assert.ok(escaped.includes('&lt;b&gt;Mr.&lt;/b&gt;'));assert.equal(escaped.includes('<b>Mr.</b>'),false);
+});

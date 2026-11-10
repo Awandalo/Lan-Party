@@ -15,3 +15,4 @@ migrations/0033_record_manual_bill_payments.sql text eol=lf
 migrations/0034_allow_event_rental_adjustments.sql text eol=lf
 migrations/0035_record_payment_info_emails.sql text eol=lf
 migrations/0036_allow_empty_event_finalization.sql text eol=lf
+migrations/0037_seed_preferred_name_prefixes.sql text eol=lf

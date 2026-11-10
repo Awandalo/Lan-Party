@@ -3,7 +3,7 @@ export interface RegistrationData {
  revision:number;open:boolean;ended:boolean;cancelled:boolean;maxGuests:number;startsAt:number;endsAt:number;
  days:{date:string;confirmed:number;waiting:number;capacity:number}[];
  own:(Omit<OwnEventRegistration,'revision'>)|null;
- crew:{id:string;name:string;days:string[]}[];
+ crew:{id:string;name:string;prefix?:string;days:string[]}[];
  participants?:{id:string;name:string;kind:string;owner:string;places:RegistrationPlace[]}[];total?:number;attendanceReviewed?:boolean;
 }
 export async function registrationRequest(id:string,proof:string,manager=false,body?:object,signal?:AbortSignal):Promise<RegistrationData>{
