@@ -104,3 +104,22 @@ all original rows/schema across 56 existing tables. Added only the News activity
 table/index, one editorial role and four existing-permission grants, with no member
 assignments or article changes. Audit is empty; quick check OK, foreign keys clean.
 Private receipt: `.wrangler/news-dev-release/verified.json`. Production is unchanged.
+
+Local follow-up: the Link action now focuses its URL field, leaving the document
+focus outline only on the active editor. News alone enables a “Link to event”
+picker using the existing anonymous upcoming/public-listed event endpoint. It
+links selected text or inserts the event title at the saved cursor, preserving
+the shared validated rich-text format. Cancellation/Escape preserve content;
+empty/error states and retry are explicit. Event descriptions retain their current
+toolbar by default. The owner accepted the local review and authorized this
+scoped DEV commit/push and automatic deployment. No migration, API extension,
+configuration change, participant data write or provider send is included. Existing
+links remain ordinary links if an event is later withdrawn.
+
+Verification: 24 focused formatting/public-event/News presentation tests pass;
+strict types and the final build pass. Browser checks cover expanded-editor URL
+focus, selected-text and cursor insertion, plain typing after a link, validated
+save/reopen, keyboard cancellation, and empty/error/retry states. The first cursor
+insertion check caught Tiptap’s whole-link unset behavior; using the stored-mark
+command preserves the inserted anchor, verified in the browser. Reuse unchanged
+backend/security evidence; normal exact-head CI runs on DEV publication.
