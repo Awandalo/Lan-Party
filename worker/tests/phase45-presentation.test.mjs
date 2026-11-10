@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createRequire,Module} from 'node:module';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-async function load(path){const r=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'cjs'}),m=new Module(import.meta.filename);m._compile(r.outputFiles[0].text,import.meta.filename);return m.exports;}
+async function load(path){const r=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'cjs',define:{'import.meta.env.DEV':'false','import.meta.env.VITE_AUTH_MODE':'undefined'}}),m=new Module(import.meta.filename);m._compile(r.outputFiles[0].text,import.meta.filename);return m.exports;}
 const nav=await load('src/lib/navigation.ts'),dto=await load('src/lib/user-activity.ts'),{RoleReadCache}=await load('src/lib/role-read-cache.ts');
 const {MemberReadCache}=await load('src/lib/member-read-cache.ts');
 test('context menus derive from routes, omit empty areas and retain authorized order',()=>{
@@ -10,7 +10,9 @@ test('context menus derive from routes, omit empty areas and retain authorized o
  for(const route of ['/','/privacy','/reactivate'])assert.deepEqual(nav.contextualNavigation(route,all,true),[]);
  assert.deepEqual(nav.contextualNavigation('/events',all,true).map(x=>[x.label,x.disabled]),[['Event details',true],['Your registration & crew',true]]);
  assert.deepEqual(nav.contextualNavigation('/manage/users/fictional',all,true).map(x=>x.label),['Overview','Events','Members','Roles & Permissions','Logs']);
- assert.deepEqual(nav.contextualNavigation('/account/security',[],true).map(x=>x.href),['/account','/account/security']);
+ assert.deepEqual(nav.contextualNavigation('/account/security',[],true).map(x=>x.href),['/account','/account/profile','/account/security']);
+ assert.equal(nav.routeLabel('/account/profile'),'Profile');
+ assert.deepEqual(nav.contextualNavigation('/account/profile',[],false),[]);
  assert.deepEqual(nav.contextualNavigation('/account/security',[],false),[]);
  assert.deepEqual(nav.contextualNavigation('/manage/activity',['roles'],true).map(x=>x.label),['Overview','Roles & Permissions']);
  assert.ok(nav.isLogs('/manage/activity'));assert.ok(nav.isLogs('/manage/user-activity'));assert.equal(nav.mainArea('/management'),null);

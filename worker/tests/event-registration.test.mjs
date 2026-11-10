@@ -198,3 +198,12 @@ test('increased operational capacity promotes existing waiters without duplicati
  assert.equal((await call(f,id,admin,command,true)).status,409);assert.equal(await f.sql('SELECT count(*) n FROM event_registration_notifications WHERE operation_id=?',op).first('n'),1);
  assert.equal(await f.sql('SELECT capacity FROM event_management WHERE event_id=?',id).first('capacity'),1);
 },31));
+
+test('profile prefix reaches confirmed member cards without publishing private names or guest details',()=>local(async f=>{
+ const {id,a,b,change,read,days}=await setup(f);await f.sql('INSERT INTO user_nicknames(user_id,nickname,created_at,updated_at) VALUES(?,?,0,0)',a.id,'Pixel Alice').run();
+ assert.equal((await change(a,'save',{draft:{days:[days[0]],guests:[]}})).status,200);
+ const headers={'X-LAN-Session-Proof':a.csrf,'X-CSRF-Token':a.csrf},response=await f.request('auth/profile',a,undefined,headers);assert.equal(response.status,200);const profile=await response.json();
+ const updated=await f.request('auth/profile',a,{...profile.profile,revision:profile.revision,firstName:'Private Givenname',lastName:'Private Familyname',prefixId:profile.prefixes[6].id},headers);assert.equal(updated.status,200,await updated.clone().text());
+ const other=await read(b);assert.equal(other.crew.find(p=>p.id===a.id).prefix,'LAN Legend');assert.equal(other.crew.find(p=>p.id===a.id).name,'Pixel Alice');assert.equal(JSON.stringify(other.crew).includes('Private Givenname'),false);assert.equal(JSON.stringify(other.crew).includes('Private Familyname'),false);
+ const anonymous=await f.request('events/'+id);assert.equal(anonymous.status,200);assert.equal(JSON.stringify(await anonymous.json()).includes('Pixel Alice'),false);
+}));

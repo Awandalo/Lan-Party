@@ -1,0 +1,15 @@
+.profile-card { width: min(100%, 56rem); margin-inline: auto; }
+.profile-card fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.profile-fields label { display: grid; gap: .5rem; min-width: 0; font-weight: 600; }
+.profile-fields input, .profile-fields select { width: 100%; min-width: 0; min-height: 44px; padding: .75rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface-raised); color: var(--text); font: inherit; font-weight: 400; }
+.profile-fields input:hover, .profile-fields select:hover { border-color: var(--accent); }
+.profile-fields input:focus-visible, .profile-fields select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.profile-fields input[readonly] { color: var(--muted); }
+.profile-hint { color: var(--muted); margin-block: 1rem; }
+.profile-status { min-height: 1.5em; }
+.profile-preview { display: grid; gap: .5rem; padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--background); overflow-wrap: anywhere; }
+.profile-preview strong { font-size: 1.3rem; color: var(--accent); }
+.profile-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.profile-reload { margin-top: 1rem; }
+@media (max-width: 38rem) { .profile-fields { grid-template-columns: 1fr; } }

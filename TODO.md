@@ -1,5 +1,18 @@
 # TODO / To remember
 
+## User settings — local profile review
+
+- [x] Add an authenticated owner-only profile editor and the eight approved prefix choices.
+- [x] Preserve private names, nickname uniqueness/cooldown, stable IDs and permissions.
+- [x] Show the selected public prefix on confirmed-member Who is coming cards.
+- [x] Match existing input/dropdown/button styling and verify a phone-width layout.
+- [x] Owner accepts the local profile and attendance cards and requests live release.
+- [ ] Publish the isolated MAIN release PR and complete its exact-head review gates.
+- [ ] Apply only the approved PROD migration 0037 with recovery/preservation checks,
+  merge and verify the deployed profile. DEV publication/migration is excluded.
+
+See [the local profile contract](docs/profile-settings.md).
+
 ## Phase 5 launch closeout — 2026-11-09
 
 - [x] Owner accepts the completed hosted DEV walkthroughs and final empty-event test at `117d99a`.

@@ -9,7 +9,7 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
  {href:'/manage/feedback',label:'Feedback',icon:'bug',section:'feedback'},
  {href:'/manage/logs',label:'Logs',icon:'history',section:'activity'},
 ];
-export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
+export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/profile',label:'Profile',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
 export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account\/feedback(?:\/|$)/.test(path)?null:/^\/account(?:\/|$)/.test(path)?'account':null;}
 export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity','/manage/location-activity','/manage/event-activity'].includes(path);}
 // Match the Logs landing redirect, including accounts allowed only User Log.
@@ -36,6 +36,7 @@ export function routeLabel(path:string){
  if((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')&&path==='/preview/registration')return 'Registration preview';
  if(/^\/events\/[^/]+$/.test(path))return 'Event details';
  if(path.startsWith('/account/feedback'))return 'Feedback';
+ if(path==='/account/profile')return 'Profile';
  if(path.startsWith('/manage/feedback'))return 'Feedback';
  if(path==='/reactivate')return 'Reactivate account';
  if(path.startsWith('/manage/users/'))return 'Member details';
