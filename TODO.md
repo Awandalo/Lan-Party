@@ -1046,3 +1046,17 @@ See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote chang
 - [ ] Publish approved work, verify exact-head CI/DEV deployment and hosted acceptance.
 
 See [registration contract](docs/event-registration.md); this preview does not complete #39.
+
+### Phase 6.1 — News Posting #50, local review
+
+- [x] Prepare local News storage reuse, editor role, editorial/public UI and manual sharing.
+- [x] Add local migration 0038 and focused permission/privacy/lifecycle tests.
+- [x] Owner accept local desktop/mobile and editorial workflow review.
+- [x] Owner authorize scoped DEV commit/push for online testing.
+- [x] Separately approve remote 0038 and DEV News routing; apply/verify DEV migration.
+- [ ] Verify exact-head CI/deployment and owner hosted acceptance.
+- [ ] Approve exact production release when ready.
+
+See [local News contract](docs/news-posting.md). Achievements #51 remains deferred.
+
+News reactions/comments are deferred together to [Backlog #52](https://github.com/Awandalo/Lan-Party/issues/52), outside #50.

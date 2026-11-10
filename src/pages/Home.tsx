@@ -1,10 +1,13 @@
 import { Link } from 'react-router';
 import {usePublicEvents,eventTime} from '../lib/public-events';
 import {EVENT_ARTWORK,EVENT_ARTWORK_ALT} from '../lib/event-artwork';
-import { newsPosts } from '../lib/content';
+import {useNews} from '../lib/news';
+import {NewsCards} from '../components/NewsReading';
+import '../CSS/News_style.css';
 import '../CSS/Home_style.css';
 
 export default function Home() {
+ const news=useNews('/api/news?limit=4');
  const upcoming=usePublicEvents('upcoming',true),next=upcoming.events[0];
   return (
     <div className="home-page">
@@ -27,18 +30,8 @@ export default function Home() {
       <section className="home-news" aria-labelledby="news-title">
         <p className="eyebrow">From the crew</p>
         <h2 id="news-title">Latest news</h2>
-        {newsPosts.map((post) => (
-          <article className="panel home-news-post" key={post.id}>
-            {post.preview && <span className="status-label">Example announcement</span>}
-            <h3>{post.title}</h3>
-            <p>{post.body}</p>
-          </article>
-        ))}
-      </section>
-      <section className="home-features" aria-label="What is coming">
-        <article className="panel"><span className="home-number" aria-hidden="true">01 /</span><h2>Find your weekend</h2><p>Planned events and a calendar will make the next LAN easy to find.</p></article>
-        <article className="panel"><span className="home-number" aria-hidden="true">02 /</span><h2>Choose your days</h2><p>Future registration will let you select the event days that work for you.</p></article>
-        <article className="panel"><span className="home-number" aria-hidden="true">03 /</span><h2>See the crew</h2><p>Display names and daily attendance will help everyone plan their session.</p></article>
+        {news.loading?<p role="status">Loading news…</p>:news.error?<p role="status">News is temporarily unavailable.</p>:news.data?.articles?.length?<NewsCards articles={news.data.articles}/>:<p>No announcements published yet.</p>}
+        <Link className="text-link" to="/news">All news →</Link>
       </section>
     </div>
   );

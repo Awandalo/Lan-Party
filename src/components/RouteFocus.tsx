@@ -5,6 +5,7 @@ import { useLocation } from 'react-router';
 import {useAuth} from '../lib/auth';
 
 const titles: Record<string, string> = {
+  '/news':'News',
   '/': 'Home',
   '/events': 'Events',
   ...((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')?{'/preview/registration':'Registration preview'}:{}),
@@ -32,7 +33,8 @@ export default function RouteFocus() {
     // allowlist. Unknown or disabled routes keep their actual not-found heading.
     const heading=document.querySelector('#main-content h1')?.textContent?.trim();
     const administrationTitle=administrationDocumentTitle(pathname,heading);
-    document.title = `LAN Party | ${administrationTitle ?? (/^\/events\/[^/]+(?:\/registration)?$/.test(pathname)?heading:null) ?? feedbackTitle ?? titles[pathname] ?? 'Page not found'}`;
+    const newsTitle=/^\/news\/[^/]+$/.test(pathname)?heading??'News':null;
+    document.title = `LAN Party | ${administrationTitle ?? (/^\/events\/[^/]+(?:\/registration)?$/.test(pathname)?heading:null) ?? newsTitle ?? feedbackTitle ?? titles[pathname] ?? 'Page not found'}`;
     if (previousPath.current !== pathname) {
       document.getElementById('main-content')?.focus({ preventScroll: true });
       window.scrollTo(0, 0);

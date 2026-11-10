@@ -77,8 +77,8 @@ test('0011 deterministically backfills by created_at then UUID without assigning
   const first = await user(db, { id: '11111111-1111-4111-8111-111111111111' });
   await apply();
   assert.equal(await number(db, first), '11'); assert.equal(await number(db, second), '12'); assert.equal(await number(db, later), '13');
-  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM roles').first('n'), 2);
-  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM role_permissions').first('n'), 13);
+  assert.equal(await db.prepare("SELECT COUNT(*) AS n FROM roles WHERE code IN ('admin','user')").first('n'), 2);
+  assert.equal(await db.prepare("SELECT COUNT(*) AS n FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE code IN ('admin','user'))").first('n'), 13);
 }, true));
 
 test('numbers survive nickname/role changes, cannot be edited/deleted and are never reused after deletion', () => local(async ({ db }) => {

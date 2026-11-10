@@ -1,0 +1,22 @@
+.news-page { max-width: 76rem; margin-inline: auto; }
+.news-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap: 1.25rem; }
+.news-card { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+.news-card h2 { font-size: 1.5rem; margin: 0; overflow-wrap: anywhere; }
+.news-card p { margin: 0; }
+.news-card .button { margin-top: auto; }
+.news-article { max-width: 62rem; }
+.news-article>.text-link { display: inline-block; margin-bottom: 2rem; }
+.news-article h1, .news-preview h1 { overflow-wrap: anywhere; }
+.news-updated { color: var(--muted); font-size: .9rem; }
+.news-pagination { display: flex; gap: .75rem; margin-top: 1.5rem; }
+.news-public-share { position: relative; width: fit-content; max-width: 100%; margin-top: 2rem; }
+.news-public-share>.button { display: inline-flex; align-items: center; gap: .5rem; }
+.news-share-options { margin-top: .5rem; width: min(19rem,calc(100vw - 3rem)); padding: .5rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface, #171e24); box-shadow: 0 .5rem 2rem #0006; }
+.news-share-options[hidden] { display: none; }
+.news-share-options ul { list-style: none; margin: 0; padding: 0; }
+.news-share-options a,.news-share-options button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: .65rem .75rem; border: 1px solid transparent; border-radius: .4rem; background: transparent; color: var(--text); text-decoration: none; font: inherit; text-align: left; cursor: pointer; }
+.news-share-options a:hover,.news-share-options button:hover { background: #ffffff0a; border-color: var(--accent); }
+.news-share-status:empty { display: none; }
+.news-share-status,.news-share-fallback { margin: .5rem; font-size: .9rem; }
+.news-share-fallback { display: grid; gap: .4rem; }
+.news-share-fallback input { width: 100%; min-width: 0; }

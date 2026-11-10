@@ -1,3 +1,5 @@
+import {news} from './news';
+import {newsPage} from './news-page';
 import {accountProfile} from './auth/profile';
 import {eventReview} from './event-review';
 import {eventFinance} from './event-finance';
@@ -33,10 +35,12 @@ export default {
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname==='/api/news'||pathname.startsWith('/api/news/')||pathname==='/api/manage/news')return news(request,env);
     if(pathname==='/api/auth/profile')return accountProfile(request,env);
     if(pathname.startsWith('/api/event-finance/'))return eventFinance(request,env);
     if(pathname.startsWith('/api/event-review/'))return eventReview(request,env);
     if(pathname.startsWith('/api/event-registration/')||pathname.startsWith('/api/event-participants/'))return eventRegistration(request,env,ctx);
+    if(pathname.startsWith('/news/')){const page=await newsPage(request,env);if(page)return page;}
     if(pathname.startsWith('/events/')){const page=await eventPage(request,env);if(page)return page;}
     if(pathname==='/api/events'||pathname.startsWith('/api/events/'))return publicEvents(request,env);
     if(pathname.startsWith('/api/feedback/')||pathname==='/api/manage/feedback'||pathname.startsWith('/api/manage/feedback/'))return feedback(request,env,ctx);

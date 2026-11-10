@@ -30,4 +30,5 @@ export const expectedHistory = [
  '0035_record_payment_info_emails.sql',
  '0036_allow_empty_event_finalization.sql',
  '0037_seed_preferred_name_prefixes.sql',
+ '0038_create_news_activity.sql',
 ];

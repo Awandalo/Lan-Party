@@ -1,7 +1,8 @@
 import type {Section} from './session-validation';
-export const publicNavigation=[{href:'/',label:'Home',icon:'home'},{href:'/events',label:'Events',icon:'calendar'}] as const;
+export const publicNavigation=[{href:'/',label:'Home',icon:'home'},{href:'/events',label:'Events',icon:'calendar'},{href:'/news',label:'News',icon:'news'}] as const;
 export const administrationNavigation:{href:string;label:string;icon:string;section?:Section}[]=[
  {href:'/manage',label:'Overview',icon:'grid'},
+ {href:'/manage/news',label:'News',icon:'news',section:'news'},
  {href:'/manage/events',label:'Events',icon:'calendar',section:'events'},
  {href:'/manage/locations',label:'Locations',icon:'pin',section:'locations'},
  {href:'/manage/users',label:'Members',icon:'users',section:'users'},
@@ -32,6 +33,7 @@ export function contextualNavigation(path:string,sections:Section[],signedIn:boo
  return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')||sections.includes('events')));
 }
 export function routeLabel(path:string){
+ if(/^\/news\/[^/]+$/.test(path))return 'News article';
  if(/^\/events\/[^/]+\/registration$/.test(path))return 'Your registration & crew';
  if((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')&&path==='/preview/registration')return 'Registration preview';
  if(/^\/events\/[^/]+$/.test(path))return 'Event details';

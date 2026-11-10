@@ -822,3 +822,19 @@ references and role grants. The catalogue is applied only to disposable local
 fixtures; DEV/PROD remain unchanged. Future remote application needs explicit
 exact-target approval and normal recovery/preservation preflight. See
 [profile settings](../docs/profile-settings.md).
+
+## News editorial audit and role — 0038, local only
+
+`0038_create_news_activity.sql` adds compact article action/operation metadata and
+seeds the assignable News Editor role with exactly the four existing News grants.
+It assigns no members, changes no articles and overwrites no role customizations.
+Audit actor references become NULL on account deletion. Existing article storage
+and original publication metadata remain unchanged. Conflicts fail transactionally.
+Local fixtures/migration rollback and permission tests cover the change. No remote
+application is included; use fresh recovery/preservation checks under separately
+approved DEV/PROD execution. See [News contract](../docs/news-posting.md).
+
+DEV execution, 2026-11-10: owner-approved 0038 applied after fresh recovery export,
+Time Travel checkpoint and verified isolated restore. All rows/schema in the 56
+existing tables are preserved; one role and four grants added, no member assignments,
+empty audit table, quick check OK and no foreign-key violations. PROD unchanged.

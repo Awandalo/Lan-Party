@@ -6,14 +6,14 @@ import type {EventNode} from '../lib/event-document';
 import {eventLink} from '../lib/event-content';
 import '../CSS/EventRichTextEditor.css';
 
-export default function EventRichTextEditor({value,disabled,onChange}:{value:EventNode;disabled:boolean;onChange:(value:EventNode)=>void}){
+export default function EventRichTextEditor({value,disabled,onChange,label='Event description',returnLabel='Return to event'}:{value:EventNode;disabled:boolean;onChange:(value:EventNode)=>void;label?:string;returnLabel?:string}){
  const [linkOpen,setLinkOpen]=useState(false),[href,setHref]=useState(''),[message,setMessage]=useState('');
  const [expanded,setExpanded]=useState(false),dialog=useRef<HTMLDialogElement>(null),expandButton=useRef<HTMLButtonElement>(null),heading=useId();
  const editor=useEditor({
   extensions:[StarterKit.configure({code:false,codeBlock:false,blockquote:false,horizontalRule:false,heading:{levels:[2,3,4]},link:{openOnClick:false,autolink:false,linkOnPaste:false,isAllowedUri:url=>!!eventLink(url)}}),TableKit.configure({table:{resizable:false}})],
   content:value,immediatelyRender:false,shouldRerenderOnTransaction:true,
   editable:!disabled,
-  editorProps:{attributes:{role:'textbox','aria-label':'Event description','aria-multiline':'true'}},
+  editorProps:{attributes:{role:'textbox','aria-label':label,'aria-multiline':'true'}},
   onUpdate:({editor:instance})=>onChange(instance.getJSON() as EventNode),
  });
  useEffect(()=>{editor?.setEditable(!disabled);},[editor,disabled]);
@@ -46,7 +46,7 @@ export default function EventRichTextEditor({value,disabled,onChange}:{value:Eve
    </>}
    {button('Undo','↶',()=>editor.chain().focus().undo().run(),false,!editor.can().undo())}
    {button('Redo','↷',()=>editor.chain().focus().redo().run(),false,!editor.can().redo())}
-   {!expanded&&<button ref={expandButton} type="button" className="event-editor-expand" disabled={disabled} aria-haspopup="dialog" onClick={()=>setExpanded(true)}>Expand description</button>}
+   {!expanded&&<button ref={expandButton} type="button" className="event-editor-expand" disabled={disabled} aria-haspopup="dialog" onClick={()=>setExpanded(true)}>{label==='Event description'?'Expand description':'Expand '+label.toLowerCase()}</button>}
   </div>
   {linkOpen&&<div className="event-link-controls"><label>Link URL<input type="url" value={href} onChange={e=>setHref(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();applyLink();}}}/></label><button type="button" onClick={applyLink}>Apply link</button><button type="button" onClick={()=>setLinkOpen(false)}>Cancel link</button><p role="alert">{message}</p></div>}
   <EditorContent editor={editor}/>
@@ -55,7 +55,7 @@ export default function EventRichTextEditor({value,disabled,onChange}:{value:Eve
  return <div className="event-rich-editor">
   {!expanded&&content}
   <dialog ref={dialog} className="event-description-dialog event-rich-editor" aria-labelledby={heading} onCancel={e=>{e.preventDefault();e.stopPropagation();setExpanded(false);}} onClose={e=>{e.stopPropagation();setExpanded(false);}}>
-   {expanded&&<><div className="event-editor-expanded-heading"><h2 id={heading}>Event description</h2><button type="button" className="button button-secondary" onClick={()=>setExpanded(false)}>Return to event</button></div>{content}</>}
+   {expanded&&<><div className="event-editor-expanded-heading"><h2 id={heading}>{label}</h2><button type="button" className="button button-secondary" onClick={()=>setExpanded(false)}>{returnLabel}</button></div>{content}</>}
   </dialog>
  </div>;
 }

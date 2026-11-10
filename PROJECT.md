@@ -1622,3 +1622,16 @@ The owner subsequently approved the empty-event DEV update and migration 0036 on
 all other Phase 5 walkthroughs were already accepted. Empty-event hosted testing
 is the final acceptance item before the requested issue closeout. PROD, Jotform,
 attachments/gallery and further provider sends remain outside this operation.
+
+## Phase 6.1 News — DEV preparation, 2026-11-10
+
+Owner approved #50 and the assignable News Editor role for local implementation
+only, after DEV/MAIN alignment at ca92533. Reuse existing News storage/permissions
+and event formatting; public posts, one featured latest post plus three preceding posts on Home, private drafts, original
+publication dates, public display-name update attribution, admin prepared-message
+sharing and an owner-requested public Share menu. Local migration 0038 adds audit metadata and an unassigned news_editor
+role; permanent Delete stays Administrator-only. See [News contract](docs/news-posting.md).
+The owner accepted local review and authorized the scoped DEV commit/push and its
+automatic deployment. The owner separately approved only DEV migration 0038 and
+DEV `/news/*` routing; recovery restore, preservation and integrity verification
+passed. No member role assignments or PROD changes.
