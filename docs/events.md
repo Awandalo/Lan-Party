@@ -419,3 +419,18 @@ no existing event is published or reopened as a verification action.
 Local verification: 55 publication, lifecycle UI, registration and finalization
 checks pass, alongside strict TypeScript and the frontend build. The fictional
 browser preview confirms publishing changes Registration closed to open.
+
+## Optional description correction — #54, local review 2026-11-12
+
+The owner explicitly chose optional event descriptions. Create, Edit, Publish and
+republish all allow a blank rich-text description, and the wizard labels it
+optional. Publishing still validates any supplied document against the existing
+formatting, link and size allowlist. Required title, dates, venue, capacity,
+permissions, confirmation, revision and audit rules remain unchanged. No migration,
+remote changes or publication are included in this local correction.
+
+Owner accepted #54 on 2026-11-12 after local review. Issue #54 is closed with
+verification notes; the accepted correction remains local awaiting publication.
+
+Owner approved including this accepted correction in the next DEV publication
+with Polls #57 on 2026-11-12. No real-email testing or PROD change is included.

@@ -5,7 +5,6 @@ import {mfaSessionCondition} from './auth/mfa-session';
 import {UUID} from './role-administration';
 import {locationDraft,locationColumns} from './location-data';
 import {validateEventDocument} from '../src/lib/event-document';
-import type {EventNode} from '../src/lib/event-document';
 import {eventDates,eventInstant,eventLocalTime} from '../src/lib/event-time';
 import {registrationReady,mutateRegistration} from './event-registration-data';
 
@@ -147,9 +146,8 @@ async function lifecycleEvent(db:D1Database,userId:string,digest:string,raw:Reco
  if(!['draft','published'].includes(String(row.status)))throw new EventError(409,'This event is read-only');
  if(action==='publish'){
   if(row.listed===1)throw new EventError(409,'Event is already published');
-  const doc=validateEventDocument(JSON.parse(String(row.description)));
-  const hasText=(node:EventNode):boolean=>!!node.text?.trim()||!!node.content?.some(hasText);
-  if(!hasText(doc))throw new EventError(400,'Add an event description before publishing');
+  // Description is optional; supplied content still uses the same safe document contract.
+  validateEventDocument(JSON.parse(String(row.description)));
   text(row.title,160,true);venue(JSON.parse(String(row.venue)));integer(row.capacity,1,100000);
   const dates=eventDates(Number(row.startsAt),Number(row.endsAt));
   const saved=(await db.prepare("SELECT attendance_date AS date FROM event_days WHERE event_id=? AND status='scheduled' ORDER BY attendance_date").bind(id).all<{date:string}>()).results;

@@ -100,3 +100,5 @@ test('Dutch currency formatting and grouped input round-trip exact integer cents
  assert.equal(euroCents('1.000'),100000);assert.equal(euroCents('1234.56'),123456);assert.equal(euroCents('1234,56'),123456);
  for(const value of ['1.23.456,78','1,234.56','1234.567','1.234,567','1.000.000,01','-1,00'])assert.throws(()=>euroCents(value));
 });
+
+test('event editor explicitly labels description as optional',()=>{assert.ok(editor().includes('Event description (optional)'));});

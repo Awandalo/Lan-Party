@@ -100,3 +100,21 @@ test('publication before connected registration migration stays closed',()=>loca
  assert.equal((await call(f,u,action('publish',0))).status,200);
  assert.equal(await f.sql('SELECT registration_status FROM events WHERE id=?',id).first('registration_status'),'closed');
 },28));
+
+test('optional empty and whitespace descriptions can be created, published and republished without changing registration rules',()=>local(async f=>{
+ for(const description of [{type:'doc',content:[{type:'paragraph',content:[]}]},{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'   '}]}]}]){
+  const {u,id,action}=await setup(f,{description});
+  assert.equal(await f.sql('SELECT publication_status FROM events WHERE id=?',id).first('publication_status'),'draft');
+  assert.equal((await call(f,u,action('publish',0))).status,200);
+  const response=await f.request('events/'+id);assert.equal(response.status,200);const {event}=await response.json();assert.deepEqual(JSON.parse(event.description),description);assert.equal(event.registrationStatus,'open');assert.equal(event.days.length,3);
+  assert.equal((await call(f,u,action('unpublish',1))).status,200);assert.equal((await f.request('events/'+id)).status,404);assert.equal((await call(f,u,action('publish',2))).status,200);
+ }
+}));
+
+test('editing can clear an existing description and publish it; unsafe supplied documents remain rejected',()=>local(async f=>{
+ const {u,id,body,action}=await setup(f),{locationId,locationRevision,...fields}=body;
+ const empty={type:'doc',content:[{type:'paragraph',content:[]}]},update={...fields,action:'update',id,revision:0,operationId:randomUUID(),description:empty};
+ assert.equal((await call(f,u,update)).status,200);assert.deepEqual(JSON.parse(await f.sql('SELECT description FROM events WHERE id=?',id).first('description')),empty);
+ const unsafe=await call(f,u,{...update,revision:1,operationId:randomUUID(),description:{type:'doc',content:[{type:'script',text:'unsafe'}]}});assert.equal(unsafe.status,400);assert.deepEqual(JSON.parse(await f.sql('SELECT description FROM events WHERE id=?',id).first('description')),empty);
+ assert.equal((await call(f,u,action('publish',1))).status,200);assert.equal((await f.request('events/'+id)).status,200);
+}));
