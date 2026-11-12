@@ -38,7 +38,6 @@
 @media (max-width:900px) { .site-shell { margin-left:0; }.site-sidebar { display:none; }.navigation-trigger { display:inline-flex; }.site-header .header-inner { min-height:68px; padding:.75rem 1rem; flex-direction:row; }.site-breadcrumb { margin-right:auto; gap:.4rem; font-size:.75rem; }.header-site-label { display:none; }.main-content:has(.administration-page) { width:calc(100% - 2rem); }.administration-page { padding-top:1.5rem; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
 
-.workspace-admin a.navigation-child { margin-left:1rem; padding-left:1rem; }
 
 /* Each item reacts independently, creating a small wave as the pointer passes. */
 .workspace-navigation a { position:relative; border:1px solid transparent; transform-origin:left center; }

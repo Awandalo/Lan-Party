@@ -143,3 +143,10 @@ and preservation/integrity verification. This supersedes the earlier local-only
 publication boundary for the Display case, selected badge icons, automatic tier
 suffixes, navigation motion, shared event Share menu and account-card cleanup.
 Existing events remain excluded. No PROD operations, role assignments or emails.
+
+Local alignment follow-up, 2026-11-12: Display case uses the same User Settings
+link indentation as My account, Profile and Account Security. Its URL, active state,
+hover/focus motion and access rules are unchanged. No publication included.
+
+Owner accepted the alignment correction and authorized including it in the final
+DEV UI follow-up on 2026-11-12. Hosted owner acceptance remains pending.
