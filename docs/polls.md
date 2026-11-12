@@ -69,3 +69,24 @@ and verified isolated restore/migration. All existing rows in 58 tables and thei
 permissions are preserved; four new poll tables are empty, exact schema matches,
 quick check OK and no foreign-key violations. Publication includes #54–56 and #57;
 hosted owner acceptance remains pending. PROD unchanged.
+
+Local follow-up after DEV review: render open-poll choices immediately while the
+private current-ballot request is pending. Voting and refresh stay disabled until
+that check finishes; saved-choice/status space is reserved so results/actions do
+not shift when the selection arrives. No private ballot cache or backend changes.
+Seven focused presentation tests and strict types pass. A disposable local fixture
+delaying the private read by 1.2 seconds confirms visible disabled choices first,
+then the saved selection and enabled controls with identical action-row position.
+No publication is included in this follow-up.
+
+Local size follow-up: compact wrapping choice buttons and smaller poll actions,
+retaining saved-label space, at least 44px touch height and existing hover/focus/press
+feedback. Scoped CSS only; voting and loading behavior are unchanged.
+
+Local alignment touch-up: align choice indicators with the first text line,
+keeping the reserved saved-choice row and compact touch target unchanged.
+
+Owner accepted these local loading, sizing and alignment follow-ups and approved
+DEV publication on 2026-11-12. Only frontend presentation and its focused tests
+change; reuse the verified DEV 0040 schema and existing backend/security evidence.
+No migration, configuration change, provider send or PROD operation is required.
