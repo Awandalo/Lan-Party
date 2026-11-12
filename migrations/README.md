@@ -822,3 +822,46 @@ references and role grants. The catalogue is applied only to disposable local
 fixtures; DEV/PROD remain unchanged. Future remote application needs explicit
 exact-target approval and normal recovery/preservation preflight. See
 [profile settings](../docs/profile-settings.md).
+
+## News editorial audit and role — 0038, local only
+
+`0038_create_news_activity.sql` adds compact article action/operation metadata and
+seeds the assignable News Editor role with exactly the four existing News grants.
+It assigns no members, changes no articles and overwrites no role customizations.
+Audit actor references become NULL on account deletion. Existing article storage
+and original publication metadata remain unchanged. Conflicts fail transactionally.
+Local fixtures/migration rollback and permission tests cover the change. No remote
+application is included; use fresh recovery/preservation checks under separately
+approved DEV/PROD execution. See [News contract](../docs/news-posting.md).
+
+DEV execution, 2026-11-10: owner-approved 0038 applied after fresh recovery export,
+Time Travel checkpoint and verified isolated restore. All rows/schema in the 56
+existing tables are preserved; one role and four grants added, no member assignments,
+empty audit table, quick check OK and no foreign-key violations. PROD unchanged.
+
+## Member Display case — 0039, local only
+
+0039 adds event achievement qualification (existing events excluded), a finalized
+qualification lock and one optional per-member showcase preference with a revision
+and deletion cascade. Awards derive from locked own-member attendance and never
+from payments or guests. It grants no permissions and changes no existing event
+values besides the new defaulted column. Local fixtures only; DEV/PROD application
+requires separately approved recovery/preservation checks. See [Display case](../docs/display-case.md).
+
+DEV 0039 applied and verified on 2026-11-10 after a fresh private export,
+Time Travel checkpoint and isolated restore/migration. Existing rows in 57
+tables and permissions were preserved; existing events remain excluded, showcase
+choices empty, quick check OK and no foreign-key violations. PROD unchanged.
+
+## News polls — 0040, local only
+
+Adds four private poll/ballot tables alongside News, composite uniqueness and
+foreign keys, single-choice and post-vote editorial locks. Existing News rows,
+roles and permissions remain unchanged. Account/article deletion cascades ballots.
+Local migration/rollback and concurrency/privacy tests cover this addition. No
+remote execution is included. See [Polls](../docs/polls.md).
+
+DEV execution, 2026-11-12: separately approved 0040 applied after fresh private
+export, Time Travel checkpoint and isolated restore/migration. Existing rows in
+58 tables and permissions preserved; four poll tables empty, exact schema matches,
+quick check OK, no foreign-key violations. PROD unchanged.

@@ -13,10 +13,12 @@ before(async()=>{
  script=(await build({stdin:{resolveDir:fileURLToPath(new URL('../../../',import.meta.url)),contents:`
  import app from './worker/index';import {sessionCsrfToken} from './worker/auth/csrf';import {generateToken,digestToken} from './worker/auth/tokens';
  import {localMailbox,EmailDeliveryError} from './worker/auth/email';
+ import {deleteAccount} from './worker/auth/account-deletion';
  let paymentOutcome='sent';const paymentMessages=[];let rejectRegistrationMail=false;const originalMail=localMailbox.send.bind(localMailbox);localMailbox.send=async mail=>{if(rejectRegistrationMail&&mail.purpose==='event-registration')throw Error('Fictional mail failure');if(mail.purpose==='event-payment'){paymentMessages.push(mail);if(paymentOutcome!=='sent')throw new EmailDeliveryError(paymentOutcome);await originalMail(mail);return {id:crypto.randomUUID()};}return originalMail(mail);};
  const background=new Set();
  export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
- if(path.startsWith('/events/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
+ if(path.startsWith('/events/')||path.startsWith('/news/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
+ if(path==='/fixture-news-delete'){await deleteAccount(env.DB,request.headers.get('X-Fixture-Actor'),0,request.headers.get('X-Fixture-Digest'));return new Response('deleted');}
  if(path==='/fixture-payment-emails')return Response.json(paymentMessages);
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
  if(path==='/fixture-registration-maintenance'){await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev'},ctx);return new Response('scheduled');}
@@ -33,6 +35,22 @@ before(async()=>{
     if(registrationFence==='permission')await env.DB.prepare("DELETE FROM user_roles WHERE user_id=?").bind(request.headers.get('X-Fixture-Actor')).run();
     if(registrationFence==='close')await env.DB.prepare("UPDATE events SET registration_status='closed' WHERE id=?").bind(request.headers.get('X-Fixture-Event')).run();
    }return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
+  // Poll-only test interleaving, after preflight and before the atomic ballot write.
+  const lockPoll=request.headers.get('X-Fixture-Poll-Lock');
+  if(lockPoll&&path==='/api/manage/news'){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{
+    await env.DB.batch([env.DB.prepare('INSERT INTO news_poll_ballots(poll_id,user_id,revision,updated_at,window_started_at,changes) VALUES(?,?,1,unixepoch(),unixepoch(),1)').bind(lockPoll,request.headers.get('X-Fixture-Actor')),env.DB.prepare('INSERT INTO news_poll_selections(poll_id,user_id,option_id) SELECT ?,?,id FROM news_poll_options WHERE poll_id=? ORDER BY sort_order LIMIT 1').bind(lockPoll,request.headers.get('X-Fixture-Actor'),lockPoll)]);
+    return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
+  const pollFence=request.headers.get('X-Fixture-Poll-Fence');
+  if(pollFence&&path.startsWith('/api/polls/')){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{
+    if(pollFence==='close')await env.DB.prepare('UPDATE news_polls SET closed=1,revision=revision+1 WHERE article_id=?').bind(path.slice('/api/polls/'.length)).run();
+    if(pollFence==='unpublish')await env.DB.prepare("UPDATE news_articles SET publication_status='archived' WHERE id=?").bind(path.slice('/api/polls/'.length)).run();
+    return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
    return app.fetch(request,{...env,DB:db},ctx);
   }
   if(request.headers.get('X-Fixture-Read-Profile')==='1'){

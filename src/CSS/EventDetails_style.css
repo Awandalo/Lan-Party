@@ -10,3 +10,4 @@
 .event-details-instructions { white-space:pre-wrap; }
 .event-details-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:.75rem; align-items:center; margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border); }
 .event-details-actions .button:hover,.event-details-actions .button:focus-visible { border-color:var(--accent); background:var(--surface-raised); }
+.event-details-actions .public-share { display:flex; flex-direction:column; align-items:flex-end; }

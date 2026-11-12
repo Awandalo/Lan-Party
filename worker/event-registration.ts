@@ -8,9 +8,10 @@ import {sessionCsrfToken} from './auth/csrf';
 import {fromHex} from './auth/encoding';
 import {administrationPermissions} from './manage';
 import {EventError,eventActor} from './event-data';
-import {effectiveRegisteredCrew,registrationReady,registrationSnapshot,registrationProjection,mutateRegistration,memberActor} from './event-registration-data';
+import {effectiveRegisteredAttendance,registrationReady,registrationSnapshot,registrationProjection,mutateRegistration,memberActor} from './event-registration-data';
 import {UUID} from './role-administration';
 import {deliverRegistrationNotifications} from './event-registration-mail';
+import {achievementsReady,memberAchievementRanks} from './achievement-data';
 
 const reply=(status:number,data:unknown)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, X-LAN-Session-Proof','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}});
 export async function eventRegistration(request:Request,env:AuthenticationEnvironment,ctx:ExecutionContext){
@@ -31,8 +32,15 @@ export async function eventRegistration(request:Request,env:AuthenticationEnviro
   if(request.method==='GET'){
    const snapshot=await registrationSnapshot(env.DB,match[2]);
    if(!manager&&(snapshot.meta.publication_status!=='published'||snapshot.meta.is_listed!==1))return reply(404,{error:'Event not found'});
-   const data=registrationProjection(snapshot,account.userId,manager);
-   if(!manager)data.crew=await effectiveRegisteredCrew(env.DB,match[2],snapshot);
+   const data={...registrationProjection(snapshot,account.userId,manager),...!manager?await effectiveRegisteredAttendance(env.DB,match[2],snapshot):{}};
+   if(await achievementsReady(env.DB)){
+    const ids=[...data.crew.map(m=>m.id),...(data.participants??[]).filter(p=>p.kind==='Member').map(p=>p.id)];
+    const badges=(await env.DB.prepare("SELECT s.user_id,s.selected_code FROM member_achievement_showcase s JOIN users u ON u.id=s.user_id WHERE u.status='active' AND s.user_id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)).all<{user_id:string;selected_code:string|null}>()).results;
+    const ranks=await memberAchievementRanks(env.DB,ids);
+    const badge=(id:string)=>{const code=badges.find(b=>b.user_id===id)?.selected_code;return code&&ranks.get(id)?.earned.has(code)?code:null;};
+    data.crew=data.crew.map(m=>({...m,badgeCode:badge(m.id),rankCode:ranks.get(m.id)?.rankCode??null}));
+    if(data.participants)data.participants=data.participants.map(p=>p.kind==='Member'?{...p,badgeCode:badge(p.id),rankCode:ranks.get(p.id)?.rankCode??null}:p);
+   }
    // A separate final authority read fences revocation during the data snapshot.
    if(!await env.DB.prepare(`SELECT 1 FROM event_management m JOIN events e ON e.id=m.event_id WHERE m.event_id=? AND m.revision=? ${manager?'':"AND e.publication_status='published' AND m.is_listed=1"} AND ${manager?eventActor('events.manage_registrations'):memberActor}`).bind(match[2],snapshot.state.revision,account.userId,digest).first())return reply(401,{error:'Please log in again'});
    return reply(200,data);

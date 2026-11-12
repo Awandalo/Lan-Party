@@ -1,0 +1,15 @@
+.display-case { max-width:68rem; margin-inline:auto; }
+.display-case-heading,.display-case-showcase { display:flex; align-items:center; gap:1.5rem; }
+.display-case-heading { justify-content:space-between; margin-bottom:1.5rem; }
+.display-case-heading h1,.display-case-showcase p { margin-bottom:0; }
+.display-case-showcase { margin-bottom:1.5rem; background:linear-gradient(120deg,var(--accent-dim),var(--surface)); }
+.display-case-medal { display:grid; place-items:center; flex-shrink:0; width:5rem; height:5rem; border:1px solid var(--border); border-radius:50%; font-size:2.6rem; color:var(--muted); background:var(--background); }
+.display-case-showcase .display-case-medal,.display-case-badge.unlocked .display-case-medal { color:var(--accent); border-color:var(--accent); }
+.display-case-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr)); gap:1rem; }
+.display-case-badge { display:flex; flex-direction:column; align-items:flex-start; gap:.8rem; }
+.display-case-badge h2,.display-case-badge p { margin:0; }
+.display-case-badge progress { width:100%; accent-color:var(--accent); }
+.display-case-badge .button { margin-top:auto; }
+.display-case-badge .button[aria-pressed=true] { border-color:var(--accent); background:var(--accent-dim); }
+.display-case-actions { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.75rem; margin-block:1.5rem 1rem; }
+@media(max-width:540px){.display-case-showcase{align-items:flex-start;gap:1rem}.display-case-medal{width:4rem;height:4rem;font-size:2rem}}

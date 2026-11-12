@@ -1,3 +1,4 @@
+import NewsManagement from './NewsManagement';
 import EventManagement from './EventManagement';
 import EventActivityLog from '../components/EventActivityLog';
 import Members from './Members';
@@ -12,7 +13,7 @@ import {useNavigationPrefetch} from '../lib/use-navigation-prefetch';
 import {logDestination} from '../lib/navigation';
 import '../CSS/Administration_style.css';
 
-const sections={feedback:'Feedback',users:'Members',roles:'Roles & Permissions',events:'Events',activity:'Role Activity Log',userActivity:'User Log',locations:'Locations'};
+const sections={news:'News',feedback:'Feedback',users:'Members',roles:'Roles & Permissions',events:'Events',activity:'Role Activity Log',userActivity:'User Log',locations:'Locations'};
 export default function Administration() {
   const {section:routeSection,userId} = useParams(), {session, status} = useAuth(), access = useAdministration();
   const prefetch=useNavigationPrefetch();
@@ -31,7 +32,7 @@ export default function Administration() {
   return <section className={pageClass}>
     <h1>{eventLog?'Events Log':locationLog?'Locations Log':section ? sections[key] : 'Administration'}</h1>
     {logs&&<nav className="logs-navigation" aria-label="Logs">{access.sections.includes('activity')&&<NavLink to="/manage/activity" onPointerEnter={()=>prefetch('/manage/activity')} onFocus={()=>prefetch('/manage/activity')}>Role Activity Log</NavLink>}{access.sections.includes('userActivity')&&<NavLink to="/manage/user-activity" onPointerEnter={()=>prefetch('/manage/user-activity')} onFocus={()=>prefetch('/manage/user-activity')}>User Log</NavLink>}{access.sections.includes('locations')&&<NavLink to="/manage/location-activity" onPointerEnter={()=>prefetch('/manage/location-activity')} onFocus={()=>prefetch('/manage/location-activity')}>Locations</NavLink>}{access.sections.includes('events')&&<NavLink to="/manage/event-activity" onPointerEnter={()=>prefetch('/manage/event-activity')} onFocus={()=>prefetch('/manage/event-activity')}>Events</NavLink>}</nav>}
-    {eventLog?<EventActivityLog/>:section==='events'?<EventManagement/>:locationLog?<LocationActivityLog/>:section==='locations'?<Locations/>:section === 'feedback' ? <Link to="/manage/feedback">Open Feedback inbox</Link> : section === 'users' ? <Members/> : section==='roles'?<Roles/>:section==='activity'?<RoleActivity/>:section==='userActivity'?<UserActivityLog/>:section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>Event management will be added here in a later iteration.</p>
+    {section==='news'?<NewsManagement/>:eventLog?<EventActivityLog/>:section==='events'?<EventManagement/>:locationLog?<LocationActivityLog/>:section==='locations'?<Locations/>:section === 'feedback' ? <Link to="/manage/feedback">Open Feedback inbox</Link> : section === 'users' ? <Members/> : section==='roles'?<Roles/>:section==='activity'?<RoleActivity/>:section==='userActivity'?<UserActivityLog/>:section ? <div className="panel administration-panel"><h2>{sections[key]}</h2><p>Event management will be added here in a later iteration.</p>
 
     </div> : <><p>Choose an area to get started. Only areas available to your account are shown.</p><div className="administration-grid">
       {access.sections.filter(s=>s!=='activity'&&s!=='userActivity').map(s => <Link className="panel administration-panel" key={s} to={'/manage/'+s}><h2>{sections[s]}</h2></Link>)}

@@ -81,16 +81,19 @@ export async function mutateRegistration(db:D1Database,id:string,userId:string,d
 
 // One registered-days view for upcoming and past events. Apply only explicit
 // organizer corrections; no inferred actual-attendance/no-show/history mode.
-export async function effectiveRegisteredCrew(db:D1Database,id:string,snapshot:RegistrationSnapshot){
- const base=registrationProjection(snapshot,'').crew;
+export async function effectiveRegisteredAttendance(db:D1Database,id:string,snapshot:RegistrationSnapshot){
+ const {state,members}=snapshot;
  const ready=await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='event_attendance_review'").first();
- if(!ready)return base;
- const corrections=(await db.prepare('SELECT r.user_id,v.removed_days,v.added_days FROM event_attendance_review v JOIN registrations r ON r.id=v.registration_id WHERE r.event_id=? AND v.person_id=r.user_id AND r.status=\'registered\'').bind(id).all<{user_id:string;removed_days:string;added_days:string}>()).results;
- return snapshot.members.flatMap(member=>{
-  const correction=corrections.find(c=>c.user_id===member.id),selected=base.find(m=>m.id===member.id)?.days??[];
-  if(!correction)return selected.length?[{...member,days:selected}]:[];
-  const removed=JSON.parse(correction.removed_days) as string[],added=JSON.parse(correction.added_days) as string[];
-  const days=snapshot.state.days.filter(day=>selected.includes(day)&&!removed.includes(day)||added.includes(day));
-  return days.length?[{...member,days}]:[];
+ const corrections=ready?(await db.prepare("SELECT r.user_id,v.person_id,v.removed_days,v.added_days FROM event_attendance_review v JOIN registrations r ON r.id=v.registration_id WHERE r.event_id=? AND r.status='registered'").bind(id).all<{user_id:string;person_id:string;removed_days:string;added_days:string}>()).results:[];
+ // Person keys stay inside the Worker. Only anonymous aggregate guest counts
+ // leave this helper; cancelled parties and removed guests cannot reappear.
+ const people=[...new Map(state.parties.filter(p=>p.active).flatMap(p=>[{owner:p.owner,id:p.owner,member:true},...p.guests.map(g=>({owner:p.owner,id:g.id,member:false}))]).map(person=>[person.owner+':'+person.id,person])).values()].map(person=>{
+  const selected=state.days.filter(day=>state.confirmed.some(g=>g.owner===person.owner&&g.day===day&&g.people.includes(person.id)));
+  const correction=corrections.find(c=>c.user_id===person.owner&&c.person_id===person.id);
+  const removed=correction?JSON.parse(correction.removed_days) as string[]:[],added=correction?JSON.parse(correction.added_days) as string[]:[];
+  return {...person,days:state.days.filter(day=>selected.includes(day)&&!removed.includes(day)||added.includes(day))};
  });
+ const count=(day?:string)=>{const present=people.filter(p=>day?p.days.includes(day):p.days.length>0),memberCount=present.filter(p=>p.member).length;return {members:memberCount,guests:present.length-memberCount,total:present.length};};
+ const crew=members.flatMap(member=>{const days=people.find(p=>p.member&&p.id===member.id)?.days??[];return days.length?[{...member,days}]:[];});
+ return {crew,crewCounts:{...count(),days:state.days.map(date=>({date,...count(date)}))}};
 }

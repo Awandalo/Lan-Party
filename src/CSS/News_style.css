@@ -1,0 +1,12 @@
+.news-page { max-width: 76rem; margin-inline: auto; }
+.news-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap: 1.25rem; }
+.news-card { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+.news-card h2 { font-size: 1.5rem; margin: 0; overflow-wrap: anywhere; }
+.news-card p { margin: 0; }
+.news-card .button { margin-top: auto; }
+.news-article { max-width: 62rem; }
+.news-article>.text-link { display: inline-block; margin-bottom: 2rem; }
+.news-article h1, .news-preview h1 { overflow-wrap: anywhere; }
+.news-updated { color: var(--muted); font-size: .9rem; }
+.news-pagination { display: flex; gap: .75rem; margin-top: 1.5rem; }
+.news-article>.public-share { margin-top:2rem; }

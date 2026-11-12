@@ -47,7 +47,7 @@ async function local(run,trusted=true){
 }
 test('trusted PROD administration exposes approved sections and preserves member, role and log authority',()=>local(async f=>{
  const admin=await f.user(true),member=await f.user();
- const caps=await f.request('manage/capabilities',admin);assert.equal(caps.status,200);assert.deepEqual((await caps.json()).sections,['users','roles','activity','events','userActivity','feedback']);
+ const caps=await f.request('manage/capabilities',admin);assert.equal(caps.status,200);assert.deepEqual((await caps.json()).sections,['news','users','roles','activity','events','userActivity','feedback']);
  for(const path of ['manage/users','manage/roles','manage/role-activity','manage/user-activity','manage/feedback']){
   assert.equal((await f.request(path,admin)).status,200,path);assert.equal((await f.request(path,member)).status,403,path);assert.equal((await f.request(path)).status,401,path);
  }

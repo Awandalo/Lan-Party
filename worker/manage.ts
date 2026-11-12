@@ -1,3 +1,4 @@
+import {administratorPredicate} from './rbac-authority';
 import {eventEnvironmentEnabled} from './event-environment';
 import {feedbackReady} from './feedback-data';
 import {eventsReady,readEvents,writeEvent,EventError} from './event-data';
@@ -17,6 +18,7 @@ import {validAuthMutation} from './auth/environment';
 import {isAdministrator,roleSchemaReady,roleCatalogue,roleActivity,roleDeletionState,mutateRole,RoleDenied,RoleInvalid,RoleConflict,RoleAssigned,UUID} from './role-administration';
 
 const sectionPermissions = {
+  news: ['news.create','news.update','news.publish','news.archive'],
   users: ['users.view', 'users.manage'],
   roles: ['roles.manage'],
   activity: ['roles.protect_admin'],
@@ -29,16 +31,19 @@ export async function administrationPermissions(db: D1Database, userId: string, 
 }
 async function administrationAuthority(db:D1Database,userId:string,now:number) {
   // Request-local facts only: never cache grants or schema readiness across requests.
-  const rolesReady=await roleSchemaReady(db),admin=rolesReady&&await isAdministrator(db,userId);
+  const rolesReady=await roleSchemaReady(db);
+  // Read migration readiness with the existing authority lookup; no extra foreground query.
+  const authority=rolesReady?await db.prepare(`SELECT (${administratorPredicate()}) AS administrator,EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='news_activity') AS newsInstalled FROM users u WHERE u.id=?`).bind(userId).first<{administrator:number;newsInstalled:number}>():null;
+  const admin=authority?.administrator===1,newsInstalled=authority?.newsInstalled===1;
   if(admin) {
-    return {rolesReady,admin,permissions:(await db.prepare('SELECT code FROM permissions').all<{code:string}>()).results.map(p=>p.code)};
+    return {rolesReady,admin,newsInstalled,permissions:(await db.prepare('SELECT code FROM permissions').all<{code:string}>()).results.map(p=>p.code)};
   }
   const rows = await db.prepare(`SELECT DISTINCT p.code FROM user_roles ur
     JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id
     JOIN permissions p ON p.id=rp.permission_id
     WHERE ur.user_id=? AND r.is_active=1 AND ur.assigned_at<=? AND rp.granted_at<=?`)
     .bind(userId, now, now).all<{code: string}>();
-  return {rolesReady,admin,permissions:rows.results.map(row => row.code)};
+  return {rolesReady,admin,newsInstalled,permissions:rows.results.map(row => row.code)};
 }
 
 export async function manage(request: Request, env: AuthenticationEnvironment,ctx?:ExecutionContext): Promise<Response> {
@@ -79,7 +84,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment,ct
       const expected = fromHex(await sessionCsrfToken(await digestToken(token!, 'session'), env.AUTH_RATE_LIMIT_SECRET!), 32)!;
       if (!bytes || !crypto.subtle.timingSafeEqual(bytes, expected)) return reply(409, {error: 'Session context changed'});
     }
-    const {permissions,rolesReady,admin} = await administrationAuthority(env.DB, account.userId, now);
+    const {permissions,rolesReady,admin,newsInstalled} = await administrationAuthority(env.DB, account.userId, now);
     if(eventEndpoint){
       if(!sectionPermissions.events.some(p=>permissions.includes(p)))return reply(403,{error:'Event access is restricted'});
       if(!await eventsReady(env.DB))return reply(503,{error:'Events requires its approved database migration'});
@@ -158,7 +163,7 @@ export async function manage(request: Request, env: AuthenticationEnvironment,ct
       if (!permissions.includes('users.view')) return reply(403, {error: 'Member access is restricted'});
       const result = await memberRead(env.DB, url); return reply(result.status, result.body);
     }
-    const sections = Object.entries(sectionPermissions).filter(([key, required]) => key==='activity'?admin:required.some(p => permissions.includes(p))).map(([key]) => key);
+    const sections = Object.entries(sectionPermissions).filter(([key, required]) => (key!=='news'||newsInstalled)&&(key==='activity'?admin:required.some(p => permissions.includes(p)))).map(([key]) => key);
     if(admin&&await userActivityReady(env.DB))sections.push('userActivity');
     if(admin&&await feedbackReady(env.DB))sections.push('feedback');
     if(eventEnvironmentEnabled(request,env)&&permissions.includes('locations.manage')&&await locationsReady(env.DB))sections.push('locations');

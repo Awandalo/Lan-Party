@@ -2,8 +2,8 @@ import {useEffect,useState,useSyncExternalStore} from 'react';
 import {useAuth} from './auth';
 import type {LocationRow} from './locations';
 export type EventVenue=Pick<LocationRow,'name'|'addressLine'|'postalCode'|'city'|'countryCode'|'instructions'|'directionsUrl'>;
-export interface ManagedEvent {finalized?:boolean;id:string;title:string;description:string;locationId:string;status:string;listed:0|1;templateActive:0|1;registrationStatus:string;startsAt:number|null;endsAt:number|null;venue:EventVenue|null;days:{date:string}[];revision:number|null;minimumParticipants:number;registrationHistory:0|1;rentalCents:number;capacity:number|null;maxGuests:number}
-export interface EventCatalogue {events:ManagedEvent[];templates:LocationRow[];canCreate:boolean;canUpdate:boolean;canDelete:boolean;canPublish:boolean;canCancel:boolean;canManageRegistrations?:boolean}
+export interface ManagedEvent {achievementsEnabled?:boolean;finalized?:boolean;id:string;title:string;description:string;locationId:string;status:string;listed:0|1;templateActive:0|1;registrationStatus:string;startsAt:number|null;endsAt:number|null;venue:EventVenue|null;days:{date:string}[];revision:number|null;minimumParticipants:number;registrationHistory:0|1;rentalCents:number;capacity:number|null;maxGuests:number}
+export interface EventCatalogue {achievementsAvailable?:boolean;events:ManagedEvent[];templates:LocationRow[];canCreate:boolean;canUpdate:boolean;canDelete:boolean;canPublish:boolean;canCancel:boolean;canManageRegistrations?:boolean}
 export interface EventLog {sequence:string;occurredAt:number;operation:string;title:string;actorName:string|null;fields:string}
 export async function loadEventRead(href:string,proof:string,signal:AbortSignal){
  try{

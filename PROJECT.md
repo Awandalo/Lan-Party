@@ -1622,3 +1622,61 @@ The owner subsequently approved the empty-event DEV update and migration 0036 on
 all other Phase 5 walkthroughs were already accepted. Empty-event hosted testing
 is the final acceptance item before the requested issue closeout. PROD, Jotform,
 attachments/gallery and further provider sends remain outside this operation.
+
+## Phase 6.1 News — DEV preparation, 2026-11-10
+
+Owner approved #50 and the assignable News Editor role for local implementation
+only, after DEV/MAIN alignment at ca92533. Reuse existing News storage/permissions
+and event formatting; public posts, one featured latest post plus three preceding posts on Home, private drafts, original
+publication dates, public display-name update attribution, admin prepared-message
+sharing and an owner-requested public Share menu. Local migration 0038 adds audit metadata and an unassigned news_editor
+role; permanent Delete stays Administrator-only. See [News contract](docs/news-posting.md).
+The owner accepted local review and authorized the scoped DEV commit/push and its
+automatic deployment. The owner separately approved only DEV migration 0038 and
+DEV `/news/*` routing; recovery restore, preservation and integrity verification
+passed. No member role assignments or PROD changes.
+
+## Phase 6.2 Display case — approved local increment
+
+Owner revised the local rules to Worn Iron Shield (one reviewed day), Bronze
+(one full weekend), Silver (four), Gold (ten), and Legendary (ten consecutive
+qualifying full weekends). Legendary is active only while the streak continues;
+a missed qualifying event falls back to Gold. Full weekends require every day of
+an event lasting at least two days. Own Free attendance counts; guests do not.
+Only finalized, ended qualifying events count. Existing events start excluded;
+new events default enabled; qualification locks on finalization. Unearned badges
+are hidden. The highest earned tier adds its coloured suffix after the display
+name without changing the saved nickname; one earned badge may be showcased.
+Display case lives beneath Profile. Local migration 0039 and implementation are
+authorized; remote migrations, commits, pushes and deployments remain excluded.
+See [Display case](docs/display-case.md). Broader backlog ideas remain future work.
+
+## DEV publication authorization — 2026-11-10
+
+After accepting local review, the owner requested DEV publication and separately
+approved only migration 0039 on lan-party-dev, with a fresh recovery checkpoint
+and preservation/integrity verification. This supersedes the earlier local-only
+publication boundary for the Display case, selected badge icons, automatic tier
+suffixes, navigation motion, shared event Share menu and account-card cleanup.
+Existing events remain excluded. No PROD operations, role assignments or emails.
+
+## Phase 6.3 Polls — approved local increment #57
+
+Owner approved Polls in News with Single choice / Multiple choices. Each member
+may vote once per option and replace their choices while open. Reuse News editor,
+lifecycle, permissions, public list/Home and sharing. Lock question/mode/options
+after first vote; introduction remains editable. Expose aggregates only. Details
+and acceptance steps: [Polls](docs/polls.md). Owner accepted local review and
+approved DEV publication with accepted #54–56 fixes, plus separate DEV migration
+0040 approval on 2026-11-12. Hosted acceptance pending; PROD unchanged.
+
+## Phase 6 release preparation — 2026-11-12
+
+The owner accepted final DEV News, Display case, Polls and companion fixes, and
+requested the full Phase 6 release. A separately approved bounded preparation
+correction adds `/news/*` Worker-first routing only to the explicit PROD profile,
+with focused routing tests and these acceptance notes. Existing deployment/auth
+settings remain unchanged. Production currently has migrations through 0037;
+0038–0040 and exact-PR merge/deployment still require final release acceptance.
+News reactions/comments #52, uploads/gallery and broader Social work remain deferred;
+#53 is the original Polls backlog whose approved first increment is #57.

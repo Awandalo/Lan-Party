@@ -1,7 +1,8 @@
 import type {Section} from './session-validation';
-export const publicNavigation=[{href:'/',label:'Home',icon:'home'},{href:'/events',label:'Events',icon:'calendar'}] as const;
+export const publicNavigation=[{href:'/',label:'Home',icon:'home'},{href:'/events',label:'Events',icon:'calendar'},{href:'/news',label:'News',icon:'news'}] as const;
 export const administrationNavigation:{href:string;label:string;icon:string;section?:Section}[]=[
  {href:'/manage',label:'Overview',icon:'grid'},
+ {href:'/manage/news',label:'News',icon:'news',section:'news'},
  {href:'/manage/events',label:'Events',icon:'calendar',section:'events'},
  {href:'/manage/locations',label:'Locations',icon:'pin',section:'locations'},
  {href:'/manage/users',label:'Members',icon:'users',section:'users'},
@@ -9,7 +10,7 @@ export const administrationNavigation:{href:string;label:string;icon:string;sect
  {href:'/manage/feedback',label:'Feedback',icon:'bug',section:'feedback'},
  {href:'/manage/logs',label:'Logs',icon:'history',section:'activity'},
 ];
-export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/profile',label:'Profile',icon:'users'},{href:'/account/security',label:'Account Security',icon:'lock'}];
+export const accountNavigation=[{href:'/account',label:'My account',icon:'users'},{href:'/account/profile',label:'Profile',icon:'users'},{href:'/account/profile/display-case',label:'Display case',icon:'shield'},{href:'/account/security',label:'Account Security',icon:'lock'}];
 export function mainArea(path:string){return /^\/manage(?:\/|$)/.test(path)?'administration':/^\/account\/feedback(?:\/|$)/.test(path)?null:/^\/account(?:\/|$)/.test(path)?'account':null;}
 export function isLogs(path:string){return ['/manage/logs','/manage/activity','/manage/user-activity','/manage/location-activity','/manage/event-activity'].includes(path);}
 // Match the Logs landing redirect, including accounts allowed only User Log.
@@ -32,10 +33,12 @@ export function contextualNavigation(path:string,sections:Section[],signedIn:boo
  return administrationNavigation.filter(item=>!item.section||sections.includes(item.section)||item.href==='/manage/logs'&&(sections.includes('userActivity')||sections.includes('locations')||sections.includes('events')));
 }
 export function routeLabel(path:string){
+ if(/^\/news\/[^/]+$/.test(path))return 'News article';
  if(/^\/events\/[^/]+\/registration$/.test(path))return 'Your registration & crew';
  if((import.meta.env.DEV||import.meta.env.VITE_AUTH_MODE==='hosted-dev')&&path==='/preview/registration')return 'Registration preview';
  if(/^\/events\/[^/]+$/.test(path))return 'Event details';
  if(path.startsWith('/account/feedback'))return 'Feedback';
+ if(path==='/account/profile/display-case')return 'Display case';
  if(path==='/account/profile')return 'Profile';
  if(path.startsWith('/manage/feedback'))return 'Feedback';
  if(path==='/reactivate')return 'Reactivate account';
