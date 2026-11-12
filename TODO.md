@@ -1047,7 +1047,7 @@ See [PROD activation preparation](docs/PROD_AUTH_ACTIVATION.md); no remote chang
 
 See [registration contract](docs/event-registration.md); this preview does not complete #39.
 
-### Phase 6.1 — News Posting #50, local review
+### Phase 6.1 — News Posting #50, DEV accepted
 
 - [x] Prepare local News storage reuse, editor role, editorial/public UI and manual sharing.
 - [x] Add local migration 0038 and focused permission/privacy/lifecycle tests.
@@ -1061,19 +1061,20 @@ See [local News contract](docs/news-posting.md). Achievements #51 is now approve
 
 News reactions/comments are deferred together to [Backlog #52](https://github.com/Awandalo/Lan-Party/issues/52), outside #50.
 
-### Phase 6.2 — Member Display case #51, local only
+### Phase 6.2 — Member Display case #51, DEV accepted
 
 - [x] Owner approve five revised tiers, active Legendary streak, coloured suffixes, event qualification and local migration.
 - [x] Implement private Display case, five owner-revised tiers, earned-only cards, active Legendary streak, coloured highest-tier suffix and one opt-in public crew badge.
 - [x] Add local 0039 with old-event exclusion and finalized qualification lock.
 - [x] Exercise eligibility, privacy, authorization, concurrency and deletion locally.
-- [ ] Owner local acceptance, including narrow layouts and menu wave feel.
-- [ ] Separately approve DEV migration/publication when ready.
+- [x] Owner local acceptance, including narrow layouts and menu wave feel.
+- [x] Separately approve/apply DEV 0039 and verify DEV publication.
+- [x] Owner final hosted acceptance, 2026-11-12.
 
 Local companion cleanup: Events reuse the News Share menu; My account links to
-working Events/News and keeps Polls future-only. [Social polls #53](https://github.com/Awandalo/Lan-Party/issues/53) is a separate backlog item; no existing native Social parent was found.
+working Events/News/Polls; Polls is implemented in #57. [Social polls #53](https://github.com/Awandalo/Lan-Party/issues/53) is a separate backlog item; no existing native Social parent was found.
 
-### Phase 6.3 — Polls #57, local review
+### Phase 6.3 — Polls #57, DEV accepted
 
 - [x] Implement single/multiple choices with one vote per option per member.
 - [x] Reuse News create dropdown, editor, permissions, lifecycle and public pages.
@@ -1081,7 +1082,8 @@ working Events/News and keeps Polls future-only. [Social polls #53](https://gith
 - [x] Prepare additive 0040 locally with integrity/privacy/concurrency coverage.
 - [x] Owner local acceptance; focused browser and responsive checks.
 - [x] Separately approved DEV migration 0040, recovery and integrity verification.
-- [ ] Authorized DEV publication, exact-head CI/deployment and owner hosted acceptance.
+- [x] Authorized DEV publication, exact-head CI/deployment and owner hosted acceptance.
+- [ ] Exact release PR acceptance, approved PROD migrations 0038–0040 and deployment.
 
 This supersedes the earlier future-only Polls placeholder. Social backlog #53
 remains background; the current approved execution issue is #57.

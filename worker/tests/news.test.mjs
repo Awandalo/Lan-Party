@@ -110,3 +110,6 @@ test('anonymous page metadata exposes only published posts, escapes HTML and ret
  const response=await f.fetch(url);assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');const html=await response.text();assert.ok(html.includes('&lt;script&gt;News &amp; games&lt;/script&gt;'));assert.equal(html.includes('<script>News'),false);assert.equal(html.includes('@example.test'),false);
  assert.equal((await f.fetch(url,{method:'HEAD'})).status,200);assert.equal((await change(f,u,await article(f,u,id),'unpublish')).status,200);assert.equal((await f.fetch(url)).status,404);
 }));
+
+
+test('News and Poll metadata routes reach the Worker in the explicit PROD profile while DEV routing stays aligned',async()=>{const{readFile}=await import('node:fs/promises');const config=JSON.parse((await readFile('wrangler.jsonc','utf8')).replace(/^\s*\/\/.*$/gm,''));assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,config.env.prod.assets.run_worker_first);assert.equal(config.env.prod.d1_databases[0].database_name,'lan-party-prod');assert.equal(config.env.dev.d1_databases[0].database_name,'lan-party-dev');});

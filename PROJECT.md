@@ -1669,3 +1669,14 @@ after first vote; introduction remains editable. Expose aggregates only. Details
 and acceptance steps: [Polls](docs/polls.md). Owner accepted local review and
 approved DEV publication with accepted #54–56 fixes, plus separate DEV migration
 0040 approval on 2026-11-12. Hosted acceptance pending; PROD unchanged.
+
+## Phase 6 release preparation — 2026-11-12
+
+The owner accepted final DEV News, Display case, Polls and companion fixes, and
+requested the full Phase 6 release. A separately approved bounded preparation
+correction adds `/news/*` Worker-first routing only to the explicit PROD profile,
+with focused routing tests and these acceptance notes. Existing deployment/auth
+settings remain unchanged. Production currently has migrations through 0037;
+0038–0040 and exact-PR merge/deployment still require final release acceptance.
+News reactions/comments #52, uploads/gallery and broader Social work remain deferred;
+#53 is the original Polls backlog whose approved first increment is #57.

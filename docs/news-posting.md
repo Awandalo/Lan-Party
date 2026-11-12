@@ -130,3 +130,12 @@ canonical event URL. Provider actions remain manual. Account cards now link to
 working Events/News; Polls remains future work in Social backlog #53. The owner
 also requested a small navigation lift/wave: independent item hover/focus and a
 retained selected state, with a smoother mint marker and reduced-motion fallback.
+
+## Phase 6 release preparation — 2026-11-12
+
+Owner accepted final hosted DEV behavior and authorized the one-line explicit PROD
+`/news/*` Worker-first correction plus routing tests/release notes. News/Poll HTML
+metadata now has the same routing path as DEV; publication/privacy/origin guards
+remain unchanged. No remote configuration or production operation is performed
+by this source fix. Release application requires exact-PR acceptance and migrations
+0038–0040 after fresh production recovery/integrity verification.

@@ -52,5 +52,5 @@ test('missing publication schema returns generic 503 without an event projection
 test('existing artwork is a PNG and approved event routing covers DEV and production',async()=>{
  const art=await readFile('public/lan-hall.png');assert.deepEqual([...art.subarray(0,8)],[137,80,78,71,13,10,26,10]);
  const source=await readFile('wrangler.jsonc','utf8'),config=JSON.parse(source.replace(/^\s*\/\/.*$/gm,''));
- assert.deepEqual(config.assets.run_worker_first,['/api','/api/*','/events/*']);assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*','/events/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);
+ assert.deepEqual(config.assets.run_worker_first,['/api','/api/*','/events/*']);assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);
 });
