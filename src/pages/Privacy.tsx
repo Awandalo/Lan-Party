@@ -2,7 +2,6 @@ import '../CSS/Privacy_style.css';
 
 export default function Privacy() {
   return <article className="page-section privacy-page" aria-labelledby="privacy-title">
-    <p className="eyebrow">Your information</p>
     <h1 id="privacy-title">Privacy Policy</h1>
     <p>Last updated <time dateTime="2026-11-10">10 November 2026</time>.</p>
     <section aria-labelledby="privacy-scope"><h2 id="privacy-scope">About LAN Party</h2>

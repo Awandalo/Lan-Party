@@ -1,4 +1,4 @@
-.news-management-heading, .news-management-heading>div, .news-dialog-heading { display: flex; align-items: center; gap: .75rem; justify-content: space-between; }
+.news-management-heading { display:flex; align-items:center; gap:.75rem; justify-content:space-between; }
 .news-management-heading h2 { margin: 0; }
 .news-field { display: grid; gap: .5rem; font-weight: 600; margin-block: 1rem; min-width: 0; }
 .news-field input, .news-field textarea { width: 100%; min-width: 0; min-height: 44px; padding: .75rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface-raised); color: var(--text); font: inherit; font-weight: 400; }
@@ -17,3 +17,7 @@
 .news-editor-dialog fieldset { min-width: 0; border: 0; margin: 0; padding: 0; }
 .news-share-dialog { width: min(44rem,calc(100vw - 2rem)); max-height: 90dvh; overflow-y: auto; }
 @media(max-width:55rem) { .news-workspace { grid-template-columns: minmax(0,1fr); } .news-management-heading { flex-wrap: wrap; } }
+
+.news-management-heading>.event-action-menu { margin-left:auto; margin-right:0; }
+.news-management-heading>.event-action-menu>.button { background:var(--accent); border-color:var(--accent); color:var(--background); }
+.news-management-heading>.event-action-menu>.button:enabled:hover,.news-management-heading>.event-action-menu>.button:enabled:focus-visible { background:#aff0d4; border-color:#aff0d4; }

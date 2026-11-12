@@ -1,3 +1,8 @@
 .context-help-button{display:grid;place-items:center;width:2.75rem;height:2.75rem;flex-shrink:0;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--accent);font:inherit;font-weight:700;cursor:pointer}
 .context-help-button:hover,.context-help-button:focus-visible{border-color:var(--accent);background:var(--surface-raised)}
 .context-help-dialog{width:min(48rem,calc(100vw - 2rem));max-height:90dvh;overflow:auto}.context-help-dialog ol{padding-left:1.3rem}.context-help-dialog li{margin:.6rem 0}
+
+/* Keep contextual help immediately after its heading or field label. */
+.context-help-heading{display:flex;align-items:center;justify-content:flex-start;gap:.75rem}
+.context-help-heading>:first-child{min-width:0}
+.context-help-heading>:is(h1,h2,h3,label){margin:0}

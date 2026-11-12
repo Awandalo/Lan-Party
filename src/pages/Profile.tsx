@@ -38,7 +38,7 @@ export function ProfileEditor({proof,refresh}:{proof:string;refresh:()=>Promise<
   finally{pending.current=false;if(alive.current)setBusy(false);}
  }
  const changed=!!snapshot&&!!draft&&JSON.stringify(draft)!==JSON.stringify(snapshot.profile),prefix=snapshot?.prefixes.find(p=>p.id===draft?.prefixId&&NAME_PREFIXES.some(n=>n.id===p.id))?.label;
- return <section className="page-section profile-page"><div className="panel profile-card"><p className="eyebrow">User settings</p><h1>Your profile</h1>
+ return <section className="page-section profile-page"><div className="panel profile-card"><h1>Your profile</h1>
   <p>Your display name and optional prefix are visible to signed-in members in Who is coming. Your first and last names stay private.</p>
   <p className="profile-status" role="status" aria-live="polite">{message||(!snapshot?'Loading your profile…':'')}</p>
   {snapshot&&draft&&<form onSubmit={save}><fieldset disabled={busy}><legend className="visually-hidden">Profile details</legend>

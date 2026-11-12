@@ -24,7 +24,7 @@ export default function Account() {
     finally { setBusy(false); }
   }
   return <section className="page-section account-page"><div className="panel account-card">
-    <p className="eyebrow">Your account</p><h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
+    <h1>Welcome, {session.account.nickname} {formatMemberNumber(session.account.memberNumber)}</h1>
     <Link className="button button-secondary" to="/account/profile">Edit profile</Link>
     <RecoveryWarning remaining={session.recoveryCodesRemaining}/>
     <div className="account-updates">
