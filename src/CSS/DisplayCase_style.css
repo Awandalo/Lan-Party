@@ -1,8 +1,8 @@
 .display-case { max-width:68rem; margin-inline:auto; }
-.display-case-heading,.display-case-showcase { display:flex; align-items:center; gap:1.5rem; }
-.display-case-heading { justify-content:space-between; margin-bottom:1.5rem; }
+.display-case-showcase { display:flex; align-items:center; gap:1.5rem; }
+.display-case-heading { margin-bottom:1.5rem; }
 .display-case-heading h1,.display-case-showcase p { margin-bottom:0; }
-.display-case-showcase { margin-bottom:1.5rem; background:linear-gradient(120deg,var(--accent-dim),var(--surface)); }
+.display-case-showcase { min-block-size:11rem; margin-bottom:1.5rem; background:linear-gradient(120deg,var(--accent-dim),var(--surface)); }
 .display-case-medal { display:grid; place-items:center; flex-shrink:0; width:5rem; height:5rem; border:1px solid var(--border); border-radius:50%; font-size:2.6rem; color:var(--muted); background:var(--background); }
 .display-case-showcase .display-case-medal,.display-case-badge.unlocked .display-case-medal { color:var(--accent); border-color:var(--accent); }
 .display-case-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr)); gap:1rem; }

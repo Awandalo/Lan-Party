@@ -1,3 +1,3 @@
-.payment-request-label{display:flex;align-items:center;gap:.45rem}.payment-request-label>label{margin:0}
+.payment-request-label>label{margin:0}
 .payment-request-formats>div{display:grid;grid-template-columns:8rem minmax(0,1fr);gap:.75rem;padding:.7rem 0;border-bottom:1px solid var(--border)}.payment-request-formats dt{font-weight:700;color:var(--accent)}.payment-request-formats dd{margin:0;min-width:0}.payment-request-formats code{display:block;overflow-wrap:anywhere;font-size:.8rem;margin-bottom:.25rem}
 @media(max-width:540px){.payment-request-formats>div{grid-template-columns:minmax(0,1fr);gap:.3rem}}

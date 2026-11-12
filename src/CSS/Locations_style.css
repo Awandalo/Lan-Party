@@ -29,3 +29,5 @@
 @media(max-width:1100px){.location-info-columns{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){.locations-layout,.location-fields{grid-template-columns:1fr}.location-dialog fieldset{padding:1rem}.location-preview dl{grid-template-columns:1fr}.location-preview dd{margin-bottom:.6rem}}
 @media(max-width:450px){.location-dialog .wizard-actions{flex-direction:column-reverse}.location-dialog .wizard-actions>div{display:flex}.location-dialog .wizard-actions .button{flex:1}.location-review dl{grid-template-columns:1fr}.location-review dd{margin-bottom:.5rem}}
+
+.locations-heading>.button svg { width:1rem; height:1rem; flex-shrink:0; }
