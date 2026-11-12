@@ -852,3 +852,16 @@ DEV 0039 applied and verified on 2026-11-10 after a fresh private export,
 Time Travel checkpoint and isolated restore/migration. Existing rows in 57
 tables and permissions were preserved; existing events remain excluded, showcase
 choices empty, quick check OK and no foreign-key violations. PROD unchanged.
+
+## News polls — 0040, local only
+
+Adds four private poll/ballot tables alongside News, composite uniqueness and
+foreign keys, single-choice and post-vote editorial locks. Existing News rows,
+roles and permissions remain unchanged. Account/article deletion cascades ballots.
+Local migration/rollback and concurrency/privacy tests cover this addition. No
+remote execution is included. See [Polls](../docs/polls.md).
+
+DEV execution, 2026-11-12: separately approved 0040 applied after fresh private
+export, Time Travel checkpoint and isolated restore/migration. Existing rows in
+58 tables and permissions preserved; four poll tables empty, exact schema matches,
+quick check OK, no foreign-key violations. PROD unchanged.

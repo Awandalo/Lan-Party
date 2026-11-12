@@ -9,7 +9,7 @@ export function eventMenuPosition(rect:{top:number;bottom:number;left:number},sp
  return {above:flip,height,left:Math.max(12,Math.min(rect.left,space.width-12-space.menuWidth)),top:flip?rect.top-space.gap-Math.min(height,space.menuHeight):rect.bottom+space.gap};
 }
 
-export default function EventActionsMenu({actions}:{actions:EventMenuAction[]}){
+export default function EventActionsMenu({actions,label='Actions',menuLabel='Event actions',disabled=false}:{actions:EventMenuAction[];label?:string;menuLabel?:string;disabled?:boolean}){
  const id=useId(),root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),menu=useRef<HTMLDivElement>(null),initial=useRef(0);
  const [open,setOpen]=useState(false),[position,setPosition]=useState({above:false,height:320,left:0,top:0});
  const enabled=()=>Array.from(menu.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
@@ -44,8 +44,8 @@ export default function EventActionsMenu({actions}:{actions:EventMenuAction[]}){
  }
  if(!actions.length)return null;
  return <div ref={root} className="event-action-menu" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))close();}}>
-  <button ref={trigger} type="button" className="button button-secondary" aria-haspopup="menu" aria-expanded={open} aria-controls={id} onClick={()=>open?close():show()} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}if(event.key==='Escape')close(true);}}>Actions <span className={'event-menu-chevron'+(open?' expanded':'')} aria-hidden="true">⌄</span></button>
-  <div ref={menu} id={id} role="menu" tabIndex={-1} aria-label="Event actions" aria-hidden={!open} inert={!open} className={'event-menu-panel'+(open?' open':'')+(position.above?' above':'')} style={{maxHeight:position.height,left:position.left,top:position.top}} onKeyDown={navigate}>
+  <button ref={trigger} type="button" className="button button-secondary" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-controls={id} onClick={()=>open?close():show()} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}if(event.key==='Escape')close(true);}}>{label} <span className={'event-menu-chevron'+(open?' expanded':'')} aria-hidden="true">⌄</span></button>
+  <div ref={menu} id={id} role="menu" tabIndex={-1} aria-label={menuLabel} aria-hidden={!open} inert={!open} className={'event-menu-panel'+(open?' open':'')+(position.above?' above':'')} style={{maxHeight:position.height,left:position.left,top:position.top}} onKeyDown={navigate}>
    {actions.map(action=><button key={action.id} role="menuitem" type="button" tabIndex={-1} disabled={!!action.reason} className={action.danger?'event-menu-danger':''} onClick={()=>{close(true);action.onSelect();}}><span>{action.label}</span>{action.reason&&<small>{action.reason}</small>}</button>)}
   </div>
  </div>;

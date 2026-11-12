@@ -19,10 +19,11 @@ export async function news(request:Request,env:AuthenticationEnvironment){
   if(!await newsReady(env.DB))return reply(503,{error:'News is awaiting migration 0038'});
   if(!manager){
    if(url.pathname==='/api/news'){
-    if([...url.searchParams.keys()].some(k=>!['limit','offset'].includes(k)||url.searchParams.getAll(k).length!==1))throw new NewsError(400,'Invalid News query');
+    if([...url.searchParams.keys()].some(k=>!['limit','offset','polls'].includes(k)||url.searchParams.getAll(k).length!==1))throw new NewsError(400,'Invalid News query');
     const limit=Number(url.searchParams.get('limit')??12),offset=Number(url.searchParams.get('offset')??0);
     if(!Number.isSafeInteger(limit)||limit<1||limit>20||!Number.isSafeInteger(offset)||offset<0||offset>10000)throw new NewsError(400,'Invalid News page');
-    return reply(200,await newsList(env.DB,true,limit,offset));
+    if(url.searchParams.has('polls')&&url.searchParams.get('polls')!=='open')throw new NewsError(400,'Invalid Poll filter');
+    return reply(200,await newsList(env.DB,true,limit,offset,url.searchParams.get('polls')==='open'));
    }
    const slug=url.pathname.slice('/api/news/'.length);if(url.search||!slug||slug.length>120||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return reply(404,{error:'Article not found'});
    const article=await newsArticle(env.DB,slug,true);return article?reply(200,{article}):reply(404,{error:'Article not found'});

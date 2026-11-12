@@ -1,5 +1,7 @@
 import {useEffect,useState} from 'react';
-export interface NewsArticle {id:string;slug:string;title:string;excerpt:string|null;status:'draft'|'published'|'archived';createdAt:number;updatedAt:number;publishedAt:number|null;editorName:string|null;content?:string;revision?:number}
+export interface PollSummary {mode:'single'|'multiple';closed:boolean;locked:boolean;revision:number;voters:number;options:{id:string;label:string;votes:number}[]}
+export interface PollDraft {mode:'single'|'multiple';options:string[]}
+export interface NewsArticle {kind?:'poll';poll?:PollSummary;id:string;slug:string;title:string;excerpt:string|null;status:'draft'|'published'|'archived';createdAt:number;updatedAt:number;publishedAt:number|null;editorName:string|null;content?:string;revision?:number}
 export interface NewsResponse {articles?:NewsArticle[];article?:NewsArticle;hasMore?:boolean;permissions?:string[];administrator?:boolean;id?:string}
 export async function newsRequest(path:string,proof?:string,body?:object,signal?:AbortSignal):Promise<NewsResponse>{
  const response=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1',...proof?{'X-LAN-Session-Proof':proof}:{},...body?{'Content-Type':'application/json','X-CSRF-Token':proof??''}:{}},...body?{body:JSON.stringify(body)}:{},signal:signal??AbortSignal.timeout(15000)});

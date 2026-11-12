@@ -1659,3 +1659,13 @@ and preservation/integrity verification. This supersedes the earlier local-only
 publication boundary for the Display case, selected badge icons, automatic tier
 suffixes, navigation motion, shared event Share menu and account-card cleanup.
 Existing events remain excluded. No PROD operations, role assignments or emails.
+
+## Phase 6.3 Polls — approved local increment #57
+
+Owner approved Polls in News with Single choice / Multiple choices. Each member
+may vote once per option and replace their choices while open. Reuse News editor,
+lifecycle, permissions, public list/Home and sharing. Lock question/mode/options
+after first vote; introduction remains editable. Expose aggregates only. Details
+and acceptance steps: [Polls](docs/polls.md). Owner accepted local review and
+approved DEV publication with accepted #54–56 fixes, plus separate DEV migration
+0040 approval on 2026-11-12. Hosted acceptance pending; PROD unchanged.

@@ -1072,3 +1072,16 @@ News reactions/comments are deferred together to [Backlog #52](https://github.co
 
 Local companion cleanup: Events reuse the News Share menu; My account links to
 working Events/News and keeps Polls future-only. [Social polls #53](https://github.com/Awandalo/Lan-Party/issues/53) is a separate backlog item; no existing native Social parent was found.
+
+### Phase 6.3 — Polls #57, local review
+
+- [x] Implement single/multiple choices with one vote per option per member.
+- [x] Reuse News create dropdown, editor, permissions, lifecycle and public pages.
+- [x] Add anonymous aggregate bars, private changeable ballot and open-polls link.
+- [x] Prepare additive 0040 locally with integrity/privacy/concurrency coverage.
+- [x] Owner local acceptance; focused browser and responsive checks.
+- [x] Separately approved DEV migration 0040, recovery and integrity verification.
+- [ ] Authorized DEV publication, exact-head CI/deployment and owner hosted acceptance.
+
+This supersedes the earlier future-only Polls placeholder. Social backlog #53
+remains background; the current approved execution issue is #57.

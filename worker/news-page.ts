@@ -8,7 +8,7 @@ export async function newsPage(request:Request,env:AuthenticationEnvironment&{AS
  const url=new URL(request.url),slug=/^\/news\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(url.pathname)?.[1];
  let article:Record<string,unknown>|null=null,status=404;
  try{if(!await newsReady(env.DB))status=503;else if(slug&&slug.length<=120){article=await newsArticle(env.DB,slug,true);status=article?200:404;}}catch{status=503;}
- const title=article?String(article.title):'News',summary=article?String(article.excerpt??'News from the LAN Party crew.'):'News from the LAN Party crew.',canonical=new URL(article?'/news/'+article.slug:'/news',url.origin).href;
+ const title=article?String(article.title):'News',summary=article?(String(article.excerpt??'').trim()||(article.kind==='poll'?'Vote in this LAN Party poll.':'News from the LAN Party crew.')):'News from the LAN Party crew.',canonical=new URL(article?'/news/'+article.slug:'/news',url.origin).href;
  const tags=`<title>${escape('LAN Party | '+title)}</title><meta name="description" content="${escape(summary)}"><link rel="canonical" href="${escape(canonical)}">`+[['og:type','article'],['og:title',title],['og:description',summary],['og:url',canonical],['og:site_name','LAN Party']].map(([key,value])=>`<meta property="${key}" content="${escape(value)}">`).join('')+(article?'':'<meta name="robots" content="noindex">');
  const shell=await env.ASSETS.fetch(new Request(new URL(url.pathname,url.origin),{headers:{Accept:'text/html','Accept-Encoding':'identity'}})),headers=new Headers(shell.headers);
  for(const name of ['Content-Length','ETag','Last-Modified','Content-Range','Accept-Ranges'])headers.delete(name);headers.set('Cache-Control','no-store');headers.set('X-Content-Type-Options','nosniff');

@@ -1,3 +1,4 @@
+import {polls} from './polls';
 import {displayCase} from './achievements';
 import {news} from './news';
 import {newsPage} from './news-page';
@@ -36,6 +37,7 @@ export default {
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
+    if(pathname.startsWith('/api/polls/'))return polls(request,env);
     if(pathname==='/api/news'||pathname.startsWith('/api/news/')||pathname==='/api/manage/news')return news(request,env);
     if(pathname==='/api/auth/display-case')return displayCase(request,env);
     if(pathname==='/api/auth/profile')return accountProfile(request,env);

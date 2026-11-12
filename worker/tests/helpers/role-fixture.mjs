@@ -37,6 +37,22 @@ before(async()=>{
    }return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
    return app.fetch(request,{...env,DB:db},ctx);
   }
+  // Poll-only test interleaving, after preflight and before the atomic ballot write.
+  const lockPoll=request.headers.get('X-Fixture-Poll-Lock');
+  if(lockPoll&&path==='/api/manage/news'){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{
+    await env.DB.batch([env.DB.prepare('INSERT INTO news_poll_ballots(poll_id,user_id,revision,updated_at,window_started_at,changes) VALUES(?,?,1,unixepoch(),unixepoch(),1)').bind(lockPoll,request.headers.get('X-Fixture-Actor')),env.DB.prepare('INSERT INTO news_poll_selections(poll_id,user_id,option_id) SELECT ?,?,id FROM news_poll_options WHERE poll_id=? ORDER BY sort_order LIMIT 1').bind(lockPoll,request.headers.get('X-Fixture-Actor'),lockPoll)]);
+    return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
+  const pollFence=request.headers.get('X-Fixture-Poll-Fence');
+  if(pollFence&&path.startsWith('/api/polls/')){
+   const db=new Proxy(env.DB,{get(target,key){if(key==='batch')return async statements=>{
+    if(pollFence==='close')await env.DB.prepare('UPDATE news_polls SET closed=1,revision=revision+1 WHERE article_id=?').bind(path.slice('/api/polls/'.length)).run();
+    if(pollFence==='unpublish')await env.DB.prepare("UPDATE news_articles SET publication_status='archived' WHERE id=?").bind(path.slice('/api/polls/'.length)).run();
+    return target.batch(statements);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+   return app.fetch(request,{...env,DB:db},ctx);
+  }
   if(request.headers.get('X-Fixture-Read-Profile')==='1'){
    const sqls=[],tasks=[];
    const statement=(value,sql)=>new Proxy(value,{get(target,key){if(key==='bind')return(...args)=>statement(target.bind(...args),sql);const entry=Reflect.get(target,key);if(['first','all','run'].includes(key))return(...args)=>{sqls.push(sql);return entry.apply(target,args);};return typeof entry==='function'?entry.bind(target):entry;}});
