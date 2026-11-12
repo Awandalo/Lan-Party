@@ -207,3 +207,13 @@ test('profile prefix reaches confirmed member cards without publishing private n
  const other=await read(b);assert.equal(other.crew.find(p=>p.id===a.id).prefix,'LAN Legend');assert.equal(other.crew.find(p=>p.id===a.id).name,'Pixel Alice');assert.equal(JSON.stringify(other.crew).includes('Private Givenname'),false);assert.equal(JSON.stringify(other.crew).includes('Private Familyname'),false);
  const anonymous=await f.request('events/'+id);assert.equal(anonymous.status,200);assert.equal(JSON.stringify(await anonymous.json()).includes('Pixel Alice'),false);
 }));
+
+test('crew counts unique confirmed members and anonymous guests per day, excluding cancelled and waiting places',()=>local(async f=>{
+ const {a,b,c,read,change,days}=await setup(f,3),g=guest([days[1],days[2]],'private-count@example.test');
+ assert.equal((await change(a,'save',{draft:{days,guests:[g]}})).status,200);assert.equal((await change(b,'save',{draft:{days:[days[0]],guests:[]}})).status,200);
+ let data=await read(c);assert.deepEqual(data.crewCounts,{members:2,guests:1,total:3,days:[{date:days[0],members:2,guests:0,total:2},{date:days[1],members:1,guests:1,total:2},{date:days[2],members:1,guests:1,total:2}]});assert.equal(data.crew.length,2);
+ for(const secret of [g.name,g.email,g.id])assert.equal(JSON.stringify({crew:data.crew,counts:data.crewCounts}).includes(secret),false);
+ const waiting=guest([days[1]]);assert.equal((await change(c,'save',{draft:{days:[days[1]],guests:[waiting]}})).status,200);data=await read(b);assert.equal(data.days[1].waiting,2);assert.equal(data.crewCounts.total,3);assert.equal(data.crewCounts.guests,1);
+ assert.equal((await change(a,'cancel')).status,200);data=await read(a);assert.equal(data.crewCounts.total,3);assert.equal(data.crewCounts.guests,1);assert.equal(data.crew.some(m=>m.id===a.id),false);assert.equal(JSON.stringify(data.crewCounts).includes(waiting.id),false);
+ assert.equal((await change(c,'cancel')).status,200);data=await read(a);assert.equal(data.crewCounts.members,1);assert.equal(data.crewCounts.guests,0);assert.equal(data.crewCounts.total,1);
+}));

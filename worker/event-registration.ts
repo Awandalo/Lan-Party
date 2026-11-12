@@ -8,7 +8,7 @@ import {sessionCsrfToken} from './auth/csrf';
 import {fromHex} from './auth/encoding';
 import {administrationPermissions} from './manage';
 import {EventError,eventActor} from './event-data';
-import {effectiveRegisteredCrew,registrationReady,registrationSnapshot,registrationProjection,mutateRegistration,memberActor} from './event-registration-data';
+import {effectiveRegisteredAttendance,registrationReady,registrationSnapshot,registrationProjection,mutateRegistration,memberActor} from './event-registration-data';
 import {UUID} from './role-administration';
 import {deliverRegistrationNotifications} from './event-registration-mail';
 import {achievementsReady,memberAchievementRanks} from './achievement-data';
@@ -32,8 +32,7 @@ export async function eventRegistration(request:Request,env:AuthenticationEnviro
   if(request.method==='GET'){
    const snapshot=await registrationSnapshot(env.DB,match[2]);
    if(!manager&&(snapshot.meta.publication_status!=='published'||snapshot.meta.is_listed!==1))return reply(404,{error:'Event not found'});
-   const data=registrationProjection(snapshot,account.userId,manager);
-   if(!manager)data.crew=await effectiveRegisteredCrew(env.DB,match[2],snapshot);
+   const data={...registrationProjection(snapshot,account.userId,manager),...!manager?await effectiveRegisteredAttendance(env.DB,match[2],snapshot):{}};
    if(await achievementsReady(env.DB)){
     const ids=[...data.crew.map(m=>m.id),...(data.participants??[]).filter(p=>p.kind==='Member').map(p=>p.id)];
     const badges=(await env.DB.prepare("SELECT s.user_id,s.selected_code FROM member_achievement_showcase s JOIN users u ON u.id=s.user_id WHERE u.status='active' AND s.user_id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)).all<{user_id:string;selected_code:string|null}>()).results;

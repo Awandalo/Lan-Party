@@ -100,3 +100,11 @@ test('hosted DEV previews explain blocked guests/settings and reject the entire 
  const allowed=await action({action:'payment-info-preview'},{...env,AUTH_DEV_RECIPIENT_ALLOWLIST:JSON.stringify([address,s.guest.email])});assert.equal(allowed.sendBlockedReason,undefined);
  assert.equal(paymentInfoSendBlock(request,env,[{email:s.guest.email,state:'sent'},{email:s.guest.email,state:'unknown'}]),undefined);
 },35));
+
+test('anonymous crew counts follow explicit member and guest day corrections without leaking guest identities',()=>local(async f=>{
+ const s=await paymentExample(f),crew=async()=>{const r=await f.request('event-registration/'+s.id,s.outsider,undefined,proof(s.outsider));assert.equal(r.status,200);return r.json();};
+ let data=await crew();assert.equal(data.crewCounts.members,1);assert.equal(data.crewCounts.guests,1);assert.equal(data.crewCounts.total,2);assert.deepEqual(data.crewCounts.days.map(d=>d.total),[1,2,1]);
+ await s.end();const review=await s.review(),member=review.people.find(p=>p.id===s.member.id),guest=review.people.find(p=>p.id===s.guest.id);await s.edit(member,[s.days[2]]);await s.edit(guest,[s.days[0],s.days[2]]);
+ data=await crew();assert.deepEqual(data.crew[0].days,[s.days[2]]);assert.deepEqual(data.crewCounts.days.map(d=>[d.members,d.guests,d.total]),[[0,1,1],[0,0,0],[1,1,2]]);assert.equal(data.crewCounts.total,2);for(const secret of [s.guest.id,s.guest.name,s.guest.email])assert.equal(JSON.stringify({crew:data.crew,counts:data.crewCounts}).includes(secret),false);
+ await s.edit(member,[]);data=await crew();assert.deepEqual(data.crew,[]);assert.equal(data.crewCounts.members,0);assert.equal(data.crewCounts.guests,1);assert.equal(data.crewCounts.total,1);
+}));

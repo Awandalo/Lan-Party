@@ -310,3 +310,19 @@ now exclude deleted-account aggregates; historical review retains them separatel
 A new account receives no restored reservation or queue priority. See the occupied-
 seat correction in [attendance review](attendance-review.md). Twenty-eight focused
 checks, types/build and local browser verification cover this local-only follow-up.
+
+## Anonymous crew totals — #55, local review 2026-11-12
+
+Who is coming reports confirmed members, confirmed guests and their combined
+unique-person total, for all days and each selected day. Only member cards are
+listed. Guest identifiers, names and contacts are never included in these
+aggregates. The Worker counts distinct owner/person pairs, excludes cancelled
+parties, removed guests and waits, and applies explicit organizer day corrections
+to both members and guests. Payment status does not control attendance. Existing
+capacity and booking allocation are unchanged. No migration or remote operation.
+
+Owner accepted #55 locally on 2026-11-12. Issue closed with verification notes;
+the change remains uncommitted/unpublished pending the next authorized push.
+
+Owner approved including this accepted correction in the next DEV publication
+with Polls #57 on 2026-11-12. No real-email testing or PROD change is included.

@@ -1,5 +1,7 @@
 import type {OwnEventRegistration,RegistrationPlace} from './event-registration';
+export interface CrewCounts {members:number;guests:number;total:number;days:{date:string;members:number;guests:number;total:number}[]}
 export interface RegistrationData {
+ crewCounts?:CrewCounts;
  revision:number;open:boolean;ended:boolean;cancelled:boolean;maxGuests:number;startsAt:number;endsAt:number;
  days:{date:string;confirmed:number;waiting:number;capacity:number}[];
  own:(Omit<OwnEventRegistration,'revision'>)|null;
