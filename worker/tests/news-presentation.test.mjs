@@ -17,7 +17,15 @@ test('public cards use stable post links while role-aware navigation exposes onl
 test('public share composers preserve the canonical URL and encode article text as data',()=>{
  const title='Crew & games? #1 + café',url='https://example.test/news/crew-games';
  const links=ui.publicShareLinks(title,url);assert.deepEqual(links.map(x=>x.label),['WhatsApp','Facebook','X','Bluesky','LinkedIn','E-mail']);
- for(const link of links){const parsed=new URL(link.href);assert.ok(['https:','mailto:'].includes(parsed.protocol));const values=[...parsed.searchParams.values()];assert.ok(values.some(value=>value.includes(url)));}
+ const expected=[
+  {protocol:'https:',hostname:'wa.me',pathname:'/',query:[['text',title+'\n'+url]]},
+  {protocol:'https:',hostname:'www.facebook.com',pathname:'/sharer/sharer.php',query:[['u',url]]},
+  {protocol:'https:',hostname:'twitter.com',pathname:'/intent/tweet',query:[['text',title],['url',url]]},
+  {protocol:'https:',hostname:'bsky.app',pathname:'/intent/compose',query:[['text',title+'\n'+url]]},
+  {protocol:'https:',hostname:'www.linkedin.com',pathname:'/sharing/share-offsite/',query:[['url',url]]},
+  {protocol:'mailto:',hostname:'',pathname:'',query:[['subject',title],['body',title+'\n'+url]]},
+ ];
+ assert.deepEqual(links.map(link=>{const parsed=new URL(link.href);return {protocol:parsed.protocol,hostname:parsed.hostname,pathname:parsed.pathname,query:[...parsed.searchParams.entries()]};}),expected);
  assert.equal(new URL(links[0].href).searchParams.get('text'),title+'\n'+url);
  assert.equal(new URL(links[2].href).searchParams.get('text'),title);
  assert.equal(new URL(links[2].href).searchParams.get('url'),url);
