@@ -1,5 +1,26 @@
 # Phase 5.5 B — permanent event closure and member bills
 
+## DEV follow-up — wizard navigation, 2026-11-16
+
+Back/Next retains attendance, payment instructions and bills in memory for the
+open Finish event wizard. Fresh reads are shared across steps for five seconds;
+older same-context snapshots remain visible while a refresh blocks changes.
+Closing the wizard, changing event/revision/account/access, edits, explicit reloads
+and read errors invalidate the snapshots. Nothing is persisted in browser storage.
+Finalization still submits the displayed revision for server-side validation.
+The owner accepted local testing and authorized a separate DEV publication after
+the branch alignment. No migration or configuration change is required.
+
+Owner check: move Attendance → Bills → Confirm and back without edits; the
+previously loaded contents should stay visible. Save an attendance/Free or payment
+instruction change and check the updated bill totals/instructions before Confirm.
+Also close/reopen the wizard and check that it loads the latest review. Local
+cache/presentation and existing review/finalization/skip-email regression checks
+cover reuse, expiry, access invalidation and stale-revision rejection (57 focused
+checks passed, alongside strict TypeScript and builds). Automated interactive
+browser verification was unavailable; hosted interactive acceptance remains an
+owner check after DEV publication.
+
 ## Local follow-up — skip payment emails, 2026-11-16
 
 The final Confirm step has an optional, initially off **Skip payment emails for
