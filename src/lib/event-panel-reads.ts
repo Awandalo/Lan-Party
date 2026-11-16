@@ -1,7 +1,8 @@
 import type {RegistrationData} from './event-registration-api';
 import type {FinanceData} from './event-finance';
+import type {EventReviewData} from './event-review';
 
-export interface EventPanelData {participants:RegistrationData;finance:FinanceData}
+export interface EventPanelData {participants:RegistrationData;finance:FinanceData;review:EventReviewData}
 export type EventPanel=keyof EventPanelData;
 type Entry={data?:EventPanelData[EventPanel];at:number;abort:AbortController;pending?:Promise<EventPanelData[EventPanel]>};
 

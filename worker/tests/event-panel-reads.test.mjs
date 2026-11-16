@@ -50,3 +50,31 @@ test('synchronous snapshots never survive an event/access change or mutation inv
  reads.synchronize('other-event:account:proof:access');assert.equal(reads.peek('participants'),undefined);
  await reads.read('finance',async()=>({revision:2}));reads.invalidate();assert.equal(reads.peek('finance'),undefined);
 });
+
+test('finish wizard shares attendance/instructions and bills/confirmation reads until edits invalidate both',async()=>{
+ const reads=new EventPanelReads();reads.synchronize('wizard:event:account:proof:access:revision');
+ let reviewGets=0,financeGets=0;
+ const review=()=>reads.read('review',async()=>({revision:++reviewGets}));
+ const finance=()=>reads.read('finance',async()=>({revision:++financeGets,participantDays:reviewGets}));
+ const attendance=await review();
+ assert.equal(await review(),attendance); // Next: payment instructions.
+ const bills=await finance();
+ assert.equal(await finance(),bills); // Next: confirmation.
+ assert.equal(await review(),attendance); // Back through the wizard.
+ assert.deepEqual([reviewGets,financeGets],[1,1]);
+ reads.invalidate(); // Attendance, Pay/Free or instructions saved (or explicit reload).
+ assert.equal(reads.peek('review'),undefined);assert.equal(reads.peek('finance'),undefined);
+ assert.equal((await review()).revision,2);assert.equal((await finance()).revision,2);
+ reads.synchronize('');assert.equal(reads.peek('review'),undefined);assert.equal(reads.peek('finance'),undefined);
+ await assert.rejects(review(),{name:'AbortError'});
+});
+
+test('a stale wizard review keeps its snapshot while refreshing and a denied refresh discards billing data too',async()=>{
+ let now=0;const reads=new EventPanelReads(()=>now);reads.synchronize('wizard');
+ const attendance=await reads.read('review',async()=>({revision:1}));
+ await reads.read('finance',async()=>({revision:1}));now=5000;
+ let reject;const refresh=reads.read('review',()=>new Promise((_,fail)=>{reject=fail;}));await Promise.resolve();
+ assert.equal(reads.peek('review'),attendance);
+ reject(Error('Access denied'));await assert.rejects(refresh,/Access denied/);
+ assert.equal(reads.peek('review'),undefined);assert.equal(reads.peek('finance'),undefined);
+});
