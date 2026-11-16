@@ -1,4 +1,5 @@
 import {userActivityReady} from './auth/user-activity';
+import {memberAttendance} from './member-attendance';
 // Read-only projections: never join authentication tables or expose SELECT *.
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const memberNumber = (value: string) => /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n;
@@ -30,7 +31,8 @@ export async function memberRead(db: D1Database, url: URL): Promise<{status: num
     ${joins} LEFT JOIN name_prefixes p ON p.id=u.name_prefix_id WHERE u.id=?`).bind(id).first<Member & {verified:number}>();
    if (!row) return {status:404,body:{error:'Member not found'}};
    const assignments=await roles(db,[id]);
-   return {status:200,body:{member:{...row,verified:row.verified===1,roles:assignments.map(({code,name,active})=>({code,name,active:active===1}))}}};
+   const attendance=await memberAttendance(db,id);
+   return {status:200,body:{member:{...row,attendance,verified:row.verified===1,roles:assignments.map(({code,name,active})=>({code,name,active:active===1}))}}};
   }
   const params=url.searchParams;
   for (const key of params.keys()) if (!['status','search','limit','cursor','roleId'].includes(key) || params.getAll(key).length!==1) invalid();
