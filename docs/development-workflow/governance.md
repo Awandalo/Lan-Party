@@ -1,5 +1,30 @@
 # LAN Party workflow governance
 
+## Release metadata fallback — 2026-11-16
+
+Owner decision in this trusted LAN Party conversation: after reviewing a screenshot
+showing the ChatGPT Codex Connector's existing permissions, the owner explicitly
+approved the existing authenticated GitHub CLI for three read-only checks and
+requested an appropriate durable fix to avoid repeating the same approval hoops.
+The managed connector's tool description excludes Administration access; fresh
+branch-protection reads returned 403 while repository/PR/check access remained.
+
+The resulting narrow standing directive is AGENTS.md's **Release metadata
+fallback**, repeated by reference in RELEASE.md and the communication protocol.
+It is limited to this repository, authorized release work, the exact three MAIN
+protection/rules/CodeQL GETs, existing signed-in CLI identity and normal host gates.
+This is a project-specific owner decision, not a framework version update or a
+general CLI fallback. No GitHub permissions/protections are changed. It never
+authorizes login, new credentials, security bypass, CLI writes, other GitHub reads,
+automatic release initiation, merges, deployments or migrations. Changed targets,
+effects or missing/denied identity/access invalidate the dependent operation.
+
+Current execution evidence: repository/connector identity matches
+Awandalo/Lan-Party; CLI authentication status reports no signed-in host in this
+session. No metadata GET ran after that failed prerequisite and no authentication
+repair was attempted. The owner was asked to restore CLI sign-in directly. This
+record is evidence of the scoped decision, never a replacement for current access.
+
 ## Current source and adoption decision — 2026-11-08
 
 Source repository: `Awandalo/Development-Workflow`, approved framework **v1.4.0**,

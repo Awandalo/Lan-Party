@@ -34,13 +34,15 @@ authentication. `origin` must identify the intended personal GitHub repository.
 Stop if authentication, identity, or permissions cannot be verified.
 
 Use the existing authenticated GitHub connector for GitHub API reads, following
-`AGENTS.md` and `docs/GITHUB_COMMUNICATION.md`; do not fall back to CLI reads.
+`AGENTS.md` and `docs/GITHUB_COMMUNICATION.md`. The only CLI-read exception is
+AGENTS.md's owner-approved three-endpoint MAIN protection/rules/CodeQL metadata
+fallback; it may complement connector evidence when those reads are unavailable.
 CLI read commands below are historical examples, not an approved execution path.
 Verify the connected identity, access to `Awandalo/Lan-Party`, and
 permissions for each required operation. Git fetch/push access alone does not
 prove access to checks, security results, protection policies, or PR operations.
 
-The selected interface must provide exact-SHA CI/status and security evidence,
+The selected permitted interfaces together must provide exact-SHA CI/status and security evidence,
 applicable branch protection/rulesets and required reviews, PR discovery/read/write,
 base/head repository identities and SHAs, and mergeability. Use supported structured
 operations; do not extract credentials, print tokens, invent missing evidence, or
@@ -48,6 +50,10 @@ substitute unauthenticated public metadata for required authenticated access.
 If no approved interface can supply a required operation or evidence, report the
 specific blocker and stop. Missing CLI alone is not a blocker when a verified
 alternative provides all required capabilities. Record the interface and evidence.
+The metadata exception grants no new authentication or GitHub permission, no CLI
+PR/check/issue reads or writes, and no production or merge authority. Do not require
+another owner exception for the same three reads on each authorized release; verify
+current identity/access and reuse the standing decision. Preserve every release gate.
 
 Use read-only inspection, including:
 

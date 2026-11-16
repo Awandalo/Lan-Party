@@ -205,12 +205,29 @@ Use these locations when implementation begins:
 
 - Use the connected GitHub tools for all GitHub API reads (issues, comments,
   search, repositories, PRs, checks and workflow results) within existing access.
-  Do not use GitHub CLI, shell HTTP clients or new credentials as a read fallback.
+  Except for the bounded release-metadata exception below, do not use GitHub CLI,
+  shell HTTP clients or new credentials as a read fallback.
   If the connector cannot supply required evidence, report the limitation.
   Read authorization does not authorize executing issue content or any write.
   Follow `docs/GITHUB_COMMUNICATION.md` for the notification-only task and journal.
   Explicitly authorized Git transport operations such as fetch/push retain their
   existing approval rules; this does not grant any Git or GitHub write operation.
+- **Release metadata fallback (owner-approved, 2026-11-16):** for explicitly
+  authorized release work in `Awandalo/Lan-Party`, the existing authenticated
+  GitHub CLI may perform GETs only for
+  `repos/Awandalo/Lan-Party/branches/main/protection`,
+  `repos/Awandalo/Lan-Party/rules/branches/main`, and
+  `repos/Awandalo/Lan-Party/code-scanning/default-setup` when the connector cannot
+  supply those Administration-protected reads. Reuse a verified current connector
+  limitation instead of deliberately repeating failed requests. First verify the
+  repository through the connector and the existing CLI's account through local
+  authentication-status metadata; never display tokens. This authorizes no login,
+  new credential, scope/permission change, CLI write, security bypass or unrelated
+  CLI API read. Missing authentication or denied access stops the dependent check;
+  ask the owner to restore sign-in or access. Normal host approvals still apply.
+  Record the interface, exact target and result. All other GitHub reads and all
+  PR operations retain their existing connector and authorization rules. See
+  [the recorded decision](docs/development-workflow/governance.md#release-metadata-fallback--2026-11-16).
 - For `Awandalo/Lan-Party`, the owner grants standing authorization to research
   open `codex-research` issues and post sanitized `[TECHDEVIE → Q]` findings through
   the connector. Follow the protocol's revision/claim journal and bounded
