@@ -1,5 +1,11 @@
 # Simple payment information — local review
 
+Local follow-up, 2026-11-16: the Finish event confirmation can permanently skip
+payment emails for that event. This is recorded by migration 0041 and enforced
+before preparing recipients or claiming/sending any message. Later previews and
+retries also reject skipped events. Bills and manual payment tracking remain
+available. The default remains the existing explicit preview/confirm flow.
+
 Owner authorization, 2026-11-08: proceed with #41 (formerly #40C) and #38, keeping the scope small. #40 is accepted and closed. This increment remains local for owner review; no DEV publication, remote migration, PROD activation or real email sending is included.
 
 Send payment info sits beside Save payment instructions in Attendance review. It becomes available after finalization and uses saved instructions. Saving never sends. Planner plus Finance, or Administrator, can preview the exact recipient addresses and messages, then confirm sending. A missing optional payment link/bank instruction produces an honest contact-the-organizer fallback.

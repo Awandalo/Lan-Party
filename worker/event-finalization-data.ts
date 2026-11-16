@@ -4,6 +4,7 @@ import {calculateEventBills} from '../src/lib/event-billing';
 import {UUID} from './role-administration';
 
 export async function finalizationReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='event_finalizations'").first();}
+export async function paymentEmailChoiceReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM pragma_table_info('event_finalizations') WHERE name='skip_payment_emails'").first();}
 export async function finalizedEvent(db:D1Database,id:string){return await finalizationReady(db)?db.prepare('SELECT * FROM event_finalizations WHERE event_id=?').bind(id).first<Record<string,unknown>>():null;}
 export async function closurePreview(db:D1Database,id:string,userId:string){
  const review=await reviewSnapshot(db,id,userId);
@@ -14,7 +15,9 @@ export async function closurePreview(db:D1Database,id:string,userId:string){
  return {review,summary};
 }
 export async function finalizeEvent(db:D1Database,id:string,userId:string,digest:string,raw:Record<string,unknown>){
- if(Object.keys(raw).some(k=>!['action','revision','operationId','confirmation','acknowledgeEarly'].includes(k))||raw.action!=='finalize'||!UUID.test(String(raw.operationId))||!Number.isSafeInteger(raw.revision)||raw.acknowledgeEarly!==undefined&&typeof raw.acknowledgeEarly!=='boolean')throw new EventError(400,'Invalid finalization request');
+ if(Object.keys(raw).some(k=>!['action','revision','operationId','confirmation','acknowledgeEarly','skipPaymentEmails'].includes(k))||raw.action!=='finalize'||!UUID.test(String(raw.operationId))||!Number.isSafeInteger(raw.revision)||raw.acknowledgeEarly!==undefined&&typeof raw.acknowledgeEarly!=='boolean'||raw.skipPaymentEmails!==undefined&&typeof raw.skipPaymentEmails!=='boolean')throw new EventError(400,'Invalid finalization request');
+ const emailChoiceReady=await paymentEmailChoiceReady(db);
+ if(raw.skipPaymentEmails===true&&!emailChoiceReady)throw new EventError(503,'Skipping payment emails is awaiting its database migration');
  const {review,summary}=await closurePreview(db,id,userId),{snapshot}=review;
  if(await finalizedEvent(db,id))throw new EventError(409,'This event is already permanently finalized');
  if(snapshot.state.revision!==raw.revision)throw new EventError(409,'Attendance changed. Review the latest totals before finalizing');
@@ -27,7 +30,7 @@ export async function finalizeEvent(db:D1Database,id:string,userId:string,digest
   db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('Finalization conflict') END"),
   // Close signups in the same transaction, before the immutable finalization lock.
   db.prepare("UPDATE events SET registration_status='closed' WHERE id=?").bind(id),
-  db.prepare('INSERT INTO event_finalizations(event_id,operation_id,actor_id,closed_at,rental_cents,participant_days,daily_rate_cents,payment_url,instructions) VALUES (?,?,?,unixepoch(),?,?,?,?,?)').bind(id,raw.operationId,userId,summary.rentalCents,summary.participantDays,summary.dailyRateCents,String(review.settings.payment_url),String(review.settings.instructions)),
+  db.prepare(`INSERT INTO event_finalizations(event_id,operation_id,actor_id,closed_at,rental_cents,participant_days,daily_rate_cents,payment_url,instructions${emailChoiceReady?',skip_payment_emails':''}) VALUES (?,?,?,unixepoch(),?,?,?,?,?${emailChoiceReady?',?':''})`).bind(id,raw.operationId,userId,summary.rentalCents,summary.participantDays,summary.dailyRateCents,String(review.settings.payment_url),String(review.settings.instructions),...emailChoiceReady?[raw.skipPaymentEmails===true?1:0]:[]),
   db.prepare(`INSERT INTO event_bills(id,event_id,owner_id,lines,total_cents) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.owner'),json_extract(value,'$.lines'),json_extract(value,'$.totalCents') FROM json_each(?)`).bind(id,JSON.stringify(bills)),
   db.prepare("INSERT INTO event_activity(operation_id,occurred_at,actor_id,event_id,event_reference,event_title,operation,fields) VALUES (?,unixepoch(),?,?,?,?,'event.update','[\"finalization\"]')").bind(raw.operationId,userId,id,id,String(snapshot.meta.title))
  ]);}catch(e){if(/malformed JSON|UNIQUE constraint|Finalization conflict/i.test(String(e)))throw new EventError(409,'Event or permissions changed. Review again before finalizing');throw e;}

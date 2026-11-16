@@ -865,3 +865,18 @@ DEV execution, 2026-11-12: separately approved 0040 applied after fresh private
 export, Time Travel checkpoint and isolated restore/migration. Existing rows in
 58 tables and permissions preserved; four poll tables empty, exact schema matches,
 quick check OK, no foreign-key violations. PROD unchanged.
+
+## Optional event payment-email suppression — 0041, local only
+
+Adds one constrained boolean to event_finalizations, defaulting existing events
+to normal email behavior, with a trigger locking the choice after closure. No
+accounts, roles, registration days, bill amounts or send-history rows are changed.
+Local preservation/rollback tests cover populated finalizations. No remote
+application is included; see docs/event-finalization.md.
+
+DEV execution, 2026-11-16: owner-approved 0041 applied after a fresh private
+export, verified isolated restore/migration and Time Travel checkpoint. All
+existing rows in 62 tables, permissions, bill amounts and email history are
+preserved; existing finalizations default to normal email behavior. Exact schema
+matches the verified restore; quick_check OK and no foreign-key violations.
+PROD unchanged.

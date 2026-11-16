@@ -16,6 +16,7 @@
 .member-final-bill{margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1.25rem}.member-final-bill .bill-instructions{white-space:pre-wrap;overflow-wrap:anywhere}.member-final-bill ul{padding-left:1.2rem}.member-final-bill li{margin-block:.7rem}
 
 .finance-heading h3{margin:0}.finance-payment-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}.finance-payment-filters .button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.finance-final-confirm .finance-ack{display:flex;align-items:center;gap:.75rem;margin-block:1rem}
 
 @media (prefers-reduced-motion: no-preference) {
   @supports (interpolate-size: allow-keywords) {

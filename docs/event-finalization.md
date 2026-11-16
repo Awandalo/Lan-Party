@@ -1,5 +1,22 @@
 # Phase 5.5 B — permanent event closure and member bills
 
+## Local follow-up — skip payment emails, 2026-11-16
+
+The final Confirm step has an optional, initially off **Skip payment emails for
+this event** switch. The standard acknowledgement is still required. Finishing
+with this switch closes registration and publishes the same immutable bills, but
+does not open an email preview. Payment emails are permanently disabled for this
+event, including later previews, direct send requests and failed-send retries.
+Members can still read their own bill; staff can still record Paid/Unpaid.
+This does not mark an event as a test or change achievement qualification.
+
+Migration 0041 stores this immutable choice on the finalization row. Existing
+finalizations default to normal email behavior. Without 0041 the skip option is
+disabled and the server rejects skip requests without closing the event; ordinary
+finalization remains compatible. The choice, bills, audit and registration closure
+commit together. Local fictional fixtures only; no remote migration, commit, push,
+deployment or provider email is authorized by this iteration.
+
 The owner accepted A and authorized B locally on 2026-11-05, preserving the
 accepted working flows with only bounded UI cleanup. That initial local scope did not authorize publication or remote operations.
 The subsequent DEV authorization and migration verification are recorded below.
@@ -625,3 +642,21 @@ Exact DEV CI passed all 767 regression tests; deployment served Worker
 #37, #39 and #40 were already closed. Attachments (#36) and gallery/social (#42)
 remain deferred. This acceptance does not apply migrations or activate PROD; see
 [the isolated release plan](PHASE5_RELEASE.md).
+
+## DEV publication requested — 2026-11-16
+
+The owner accepted the local skip-email flow and requested DEV publication.
+The earlier local-only limit is superseded for this reviewed change and its
+normal DEV commit/push and automatic deployment. Migration 0041 to lan-party-dev
+requires its separate exact-target approval and fresh recovery/integrity checks
+before publication. No PROD action or real email sending is included.
+
+The owner separately approved DEV migration 0041. It was applied and verified
+on 2026-11-16 after fresh recovery/restore checks, preserving existing rows in
+62 tables, grants, bills and email behavior. Integrity checks pass. Validation:
+851 regression tests, 40 CI policy/public UI checks, TypeScript and both default
+and hosted-DEV-profile builds pass. Existing large-bundle warning is retained.
+Owner local UI acceptance is recorded in the trusted conversation; automated
+browser verification was unavailable because the tool could not identify the URL.
+Hosted DEV verification and owner online acceptance follow publication; PROD and
+real emails remain excluded.

@@ -1,5 +1,17 @@
 # GitHub Communication Protocol v1.2 — directional routing
 
+## Bounded release metadata exception — 2026-11-16
+
+The owner approved existing authenticated CLI reads for MAIN branch protection,
+MAIN branch rules and CodeQL default setup, then requested a durable fix for this
+recurring connector limitation in the trusted conversation. AGENTS.md's
+**Release metadata fallback** is the authoritative endpoint allowlist and scope.
+It applies only to explicitly authorized LAN Party release work. It supersedes
+connector-only wording in this protocol only for those three GETs and local CLI
+authentication-status inspection. It grants no authentication repair, credential
+or scope change, unrelated API read, write, issue-research or monitor expansion.
+All other connector-only rules and independent publication/release gates remain.
+
 Maintained under [issue #11](https://github.com/Awandalo/Lan-Party/issues/11).
 Owner approved connector-only reads and updating the existing notification task
 on 2026-10-20. Write and task-execution approvals remain separate.

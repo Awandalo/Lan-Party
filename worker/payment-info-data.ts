@@ -18,6 +18,7 @@ export async function paymentInfoReady(db:D1Database){return !!await db.prepare(
 async function plan(db:D1Database,id:string,userId:string){
  if(!await paymentInfoReady(db))throw new EventError(503,'Payment emails are awaiting their database migration');
  const final=await finalizedEvent(db,id);if(!final)throw new EventError(409,'Finish the event before sending payment information');
+ if(final.skip_payment_emails===1)throw new EventError(409,'Payment emails were skipped when this event was finished. Sending is disabled for this event.');
  const review=await reviewSnapshot(db,id,userId);
  const bills=(await db.prepare(`SELECT b.id,b.owner_id,b.lines,b.total_cents,u.email,coalesce(n.nickname,'Member') AS name,p.draft FROM event_bills b JOIN users u ON u.id=b.owner_id LEFT JOIN user_nicknames n ON n.user_id=u.id JOIN registrations r ON r.event_id=b.event_id AND r.user_id=b.owner_id JOIN event_registration_parties p ON p.registration_id=r.id WHERE b.event_id=? AND u.status='active' AND u.email_verified_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM account_lifecycle WHERE user_id=u.id) ORDER BY b.id`).bind(id).all<Record<string,unknown>>()).results;
  const records=(await db.prepare('SELECT bill_id,recipient_key,state FROM event_payment_info_emails WHERE bill_id IN (SELECT id FROM event_bills WHERE event_id=?)').bind(id).all<{bill_id:string;recipient_key:string;state:Recipient['state']}>()).results;
