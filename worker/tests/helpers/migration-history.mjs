@@ -33,4 +33,5 @@ export const expectedHistory = [
  '0038_create_news_activity.sql',
  '0039_create_member_display_case.sql',
  '0040_create_news_polls.sql',
+ '0041_skip_event_payment_emails.sql',
 ];

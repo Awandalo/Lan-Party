@@ -15,7 +15,7 @@ export default function PaymentInfoButton({id,disabled,onSent,openOnMount=false}
  useEffect(()=>{if(openOnMount&&proof){setOpen(true);void refresh();}},[context,openOnMount]);
  async function refresh(){
   if(!proof)return;const captured=context;setBusy(true);setMessage('');
-  try{const data=await financeRequest<FinanceData>(id,proof,true);const value=await financeRequest<PaymentInfoPreview>(id,proof,true,{action:'payment-info-preview',revision:data.revision});if(live.current===captured)setPreview(value);}
+  try{const data=await financeRequest<FinanceData>(id,proof,true);if(data.skipPaymentEmails)throw Error("Payment emails were skipped when this event was finished. Sending is disabled for this event.");const value=await financeRequest<PaymentInfoPreview>(id,proof,true,{action:'payment-info-preview',revision:data.revision});if(live.current===captured)setPreview(value);}
   catch(e){if(live.current===captured){setPreview(null);setMessage((e as Error).message);}}
   finally{if(live.current===captured)setBusy(false);}
  }
