@@ -880,3 +880,20 @@ existing rows in 62 tables, permissions, bill amounts and email history are
 preserved; existing finalizations default to normal email behavior. Exact schema
 matches the verified restore; quick_check OK and no foreign-key violations.
 PROD unchanged.
+
+## Independent achievement title selection — 0042, local only
+
+Adds nullable selected_title_code to member_achievement_showcase with an allowlist
+and default automatic. NULL explicitly means No title. Existing badge selections,
+revisions, accounts and permissions are preserved; badge and title choices remain
+independent. Old badge-only clients preserve the stored title. Pre-migration reads
+keep automatic titles and badge edits working, while explicit title writes fail
+closed. Local preservation/rollback and authenticated save tests cover this change.
+No DEV or PROD execution is authorized or included. See docs/display-case.md.
+
+DEV execution, 2026-11-17: the owner separately approved 0042. A fresh private
+export, Time Travel checkpoint and verified restore/migration preceded execution.
+Existing rows in 62 application tables, badge selections and permissions are
+preserved; existing title choices default to automatic. Exact schema matches the
+verified rehearsal, quick_check is OK and no foreign-key violations were found.
+PROD unchanged. This receipt supersedes the initial local-only status above.

@@ -21,7 +21,7 @@ window.fetch=async(input)=>{
   if(denied||readDenied||mode==='manage-only')return Response.json({},{status:403});
   if(fail)return Response.json({},{status:503});
   const id=url.pathname.split('/')[4];
-  if(id){const row=rows.find(r=>r.userId===id);return row?Response.json({member:{...row,nickname:row.nickname+' '+who,email:'fictional-'+who.toLowerCase()+'@example.test',firstName:'Fictional '+who,lastName:'Tester',prefix:null,createdAt:1790000000,verified:true,attendance:{available:true,events:[],hasMore:false}}}):Response.json({},{status:404});}
+  if(id){const row=rows.find(r=>r.userId===id);return row?Response.json({member:{...row,nickname:row.nickname+' '+who,email:'fictional-'+who.toLowerCase()+'@example.test',firstName:'Fictional '+who,lastName:'Tester',prefix:null,createdAt:1790000000,verified:true,achievementTitle:{available:true,code:null},attendance:{available:true,events:[],hasMore:false}}}):Response.json({},{status:404});}
  const state=url.searchParams.get('status')??'active';
  const filtered=rows.filter(r=>(state==='disabled'?['disabled','deleting'].includes(r.status):r.status===state) && (!search || r.memberNumber===search.replace(/^#/,'').replace(/^0+(?=\d)/,'') || r.nickname.toLowerCase().includes(search.toLowerCase())));
   const offset=url.searchParams.has('cursor')?20:0;

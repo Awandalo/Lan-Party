@@ -34,4 +34,5 @@ export const expectedHistory = [
  '0039_create_member_display_case.sql',
  '0040_create_news_polls.sql',
  '0041_skip_event_payment_emails.sql',
+ '0042_select_member_achievement_title.sql',
 ];

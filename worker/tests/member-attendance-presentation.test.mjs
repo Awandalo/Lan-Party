@@ -17,7 +17,7 @@ test('empty, unavailable and bounded history have distinct honest feedback',()=>
  assert.ok(mod.exports.render({available:true,events:[event],hasMore:true}).includes('100 most recent attended events'));
 });
 test('member reader validates the attendance projection and rejects malformed/unavailable snapshots without retaining private data',async()=>{
- const original=globalThis.fetch,member={userId:'fictional',nickname:'Pixel Alice',memberNumber:'1',status:'active',roles:[],email:'fictional@example.test',firstName:'Fictional',lastName:'Person',prefix:null,verified:true,createdAt:0};
+ const original=globalThis.fetch,member={userId:'fictional',nickname:'Pixel Alice',memberNumber:'1',status:'active',roles:[],email:'fictional@example.test',firstName:'Fictional',lastName:'Person',prefix:null,verified:true,createdAt:0,achievementTitle:{available:true,code:null}};
  async function read(attendance){globalThis.fetch=async()=>Response.json({member:{...member,attendance}});return mod.exports.loadMemberRead('/api/manage/users/fictional',true,'fictional',new AbortController().signal);}
  try{
   assert.equal((await read({available:true,events:[event],hasMore:false})).data.member.attendance.events.length,1);

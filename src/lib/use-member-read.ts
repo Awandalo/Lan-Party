@@ -2,6 +2,7 @@ import {useEffect, useState, useSyncExternalStore} from 'react';
 import {useAuth} from './auth';
 import {useAdministration} from './administration';
 import {isMemberNumber} from './member-number';
+import {ACHIEVEMENTS} from './achievements';
 import type {MemberDetail, MemberPage, MemberSummary} from './members';
 function member(value: MemberSummary): boolean {
  return !!value && typeof value.userId==='string' && (value.nickname===null || typeof value.nickname==='string')
@@ -11,10 +12,13 @@ function member(value: MemberSummary): boolean {
 function validAttendance(history:MemberDetail['attendance']):boolean {
  return !!history && typeof history.available==='boolean' && typeof history.hasMore==='boolean' && Array.isArray(history.events) && history.events.length<=100 && (history.available || !history.events.length&&!history.hasMore) && history.events.every(event=>event && typeof event.id==='string' && typeof event.title==='string' && (event.venue===null||typeof event.venue==='string') && typeof event.achievementsEnabled==='boolean' && Array.isArray(event.days) && event.days.length>0 && event.days.every(day=>typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)));
 }
+function validTitle(title:MemberDetail['achievementTitle']):boolean {
+ return !!title&&typeof title.available==='boolean'&&(title.code===null||title.available&&ACHIEVEMENTS.some(def=>def.code===title.code));
+}
 function valid(value: unknown, detail: boolean): value is MemberPage | {member:MemberDetail} {
  if (!value || typeof value!=='object') return false;
  if (detail) {const row=(value as {member:MemberDetail}).member;return member(row) && typeof row.email==='string'
-  && [row.firstName,row.lastName,row.prefix].every(v=>v===null || typeof v==='string') && typeof row.verified==='boolean' && Number.isSafeInteger(row.createdAt) && validAttendance(row.attendance);}
+  && [row.firstName,row.lastName,row.prefix].every(v=>v===null || typeof v==='string') && typeof row.verified==='boolean' && Number.isSafeInteger(row.createdAt) && validAttendance(row.attendance) && validTitle(row.achievementTitle);}
  const page=value as MemberPage;return Array.isArray(page.members) && page.members.length<=50 && page.members.every(member)
   && (page.nextCursor===null || typeof page.nextCursor==='string' && page.nextCursor.length<=140);
 }

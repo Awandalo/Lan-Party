@@ -1,5 +1,6 @@
 import {userActivityReady} from './auth/user-activity';
 import {memberAttendance} from './member-attendance';
+import {achievementsReady,memberAchievementRanks} from './achievement-data';
 // Read-only projections: never join authentication tables or expose SELECT *.
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const memberNumber = (value: string) => /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n;
@@ -32,7 +33,9 @@ export async function memberRead(db: D1Database, url: URL): Promise<{status: num
    if (!row) return {status:404,body:{error:'Member not found'}};
    const assignments=await roles(db,[id]);
    const attendance=await memberAttendance(db,id);
-   return {status:200,body:{member:{...row,attendance,verified:row.verified===1,roles:assignments.map(({code,name,active})=>({code,name,active:active===1}))}}};
+   const titleAvailable=await achievementsReady(db);
+   const achievementTitle={available:titleAvailable,code:titleAvailable?(await memberAchievementRanks(db,[id])).get(id)?.rankCode??null:null};
+   return {status:200,body:{member:{...row,attendance,achievementTitle,verified:row.verified===1,roles:assignments.map(({code,name,active})=>({code,name,active:active===1}))}}};
   }
   const params=url.searchParams;
   for (const key of params.keys()) if (!['status','search','limit','cursor','roleId'].includes(key) || params.getAll(key).length!==1) invalid();

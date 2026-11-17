@@ -1,6 +1,7 @@
-import {achievementAwards,highestAchievement} from '../src/lib/achievements';
-import type {AchievementFact} from '../src/lib/achievements';
+import {achievementAwards,effectiveAchievementTitle} from '../src/lib/achievements';
+import type {AchievementFact,AchievementTitleChoice} from '../src/lib/achievements';
 export async function achievementsReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='member_achievement_showcase'").first();}
+export async function achievementTitlesReady(db:D1Database){return !!await db.prepare("SELECT 1 FROM pragma_table_info('member_achievement_showcase') WHERE name='selected_title_code'").first();}
 async function achievementFacts(db:D1Database,userIds:string[]){
  // One bounded query for the roster. Missing attendance must remain in the
  // sequence to break streaks. Only the owner's Member line contributes days.
@@ -13,4 +14,8 @@ async function achievementFacts(db:D1Database,userIds:string[]){
  const facts=new Map<string,AchievementFact[]>();for(const row of rows){const list=facts.get(row.userId)??[];list.push({...row,days:JSON.parse(row.days),eventDays:JSON.parse(row.eventDays)});facts.set(row.userId,list);}return facts;
 }
 export async function memberAchievements(db:D1Database,userId:string){return achievementAwards((await achievementFacts(db,[userId])).get(userId)??[]);}
-export async function memberAchievementRanks(db:D1Database,userIds:string[]){const facts=await achievementFacts(db,userIds);return new Map([...facts].map(([id,events])=>{const awards=achievementAwards(events);return [id,{rankCode:highestAchievement(awards)?.code??null,earned:new Set(awards.filter(a=>a.unlocked).map(a=>a.code as string))}] as const;}));}
+export async function memberAchievementRanks(db:D1Database,userIds:string[]){
+ const facts=await achievementFacts(db,userIds);
+ const choices=await achievementTitlesReady(db)?(await db.prepare('SELECT user_id,selected_title_code FROM member_achievement_showcase WHERE user_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify([...new Set(userIds)])).all<{user_id:string;selected_title_code:AchievementTitleChoice}>()).results:[];
+ return new Map([...facts].map(([id,events])=>{const awards=achievementAwards(events),saved=choices.find(row=>row.user_id===id);return [id,{rankCode:effectiveAchievementTitle(awards,saved?saved.selected_title_code:'automatic')?.code??null,earned:new Set(awards.filter(a=>a.unlocked).map(a=>a.code as string))}] as const;}));
+}

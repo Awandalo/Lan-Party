@@ -6,9 +6,17 @@ export const ACHIEVEMENTS=[
  {code:'legendary',rank:'legendary',name:'Legendary',suffix:'the Legend',symbol:'♛',description:'Attend ten qualifying full weekends in a row. Missing a qualifying event returns your title to Gold.',target:10},
 ] as const;
 export type AchievementCode=typeof ACHIEVEMENTS[number]['code'];
+export type AchievementTitleChoice=AchievementCode|'automatic'|null;
 export interface AchievementFact {eventId:string;completedAt:number;startsAt?:number;days:string[];eventDays:string[]}
 export interface AchievementAward {code:AchievementCode;unlocked:boolean;progress:number;target:number;earnedAt:number|null}
 export function highestAchievement(awards:AchievementAward[]){return [...ACHIEVEMENTS].reverse().find(def=>awards.some(a=>a.code===def.code&&a.unlocked))??null;}
+export function effectiveAchievementTitle(awards:AchievementAward[],choice:AchievementTitleChoice='automatic'){
+ if(choice===null)return null;
+ return ACHIEVEMENTS.find(def=>def.code===choice&&awards.some(a=>a.code===def.code&&a.unlocked))??highestAchievement(awards);
+}
+export function effectiveTitleChoice(awards:AchievementAward[],choice:AchievementTitleChoice):AchievementTitleChoice{
+ return choice===null||choice==='automatic'||awards.some(a=>a.code===choice&&a.unlocked)?choice:'automatic';
+}
 export function achievementAwards(facts:AchievementFact[]):AchievementAward[]{
  const events=[...new Map(facts.map(f=>[f.eventId,f])).values()].sort((a,b)=>(a.startsAt??a.completedAt)-(b.startsAt??b.completedAt)||a.eventId.localeCompare(b.eventId));
  const attended=events.filter(f=>f.days.length>0),isFull=(f:AchievementFact)=>f.eventDays.length>=2&&f.eventDays.every(day=>f.days.includes(day)),full=events.filter(isFull);
@@ -17,4 +25,4 @@ export function achievementAwards(facts:AchievementFact[]):AchievementAward[]{
  let streak=0;for(const event of events)streak=isFull(event)?streak+1:0;
  return ACHIEVEMENTS.map(def=>{const matches=def.code==='first-lan'?attended:full,progress=def.code==='legendary'?streak:matches.length,unlocked=progress>=def.target,earned=def.code==='legendary'?events[events.length-streak+def.target-1]:matches[def.target-1];return {code:def.code,unlocked,progress:Math.min(progress,def.target),target:def.target,earnedAt:unlocked?earned.completedAt:null};});
 }
-export interface DisplayCaseData {awards:AchievementAward[];selectedCode:AchievementCode|null;revision:number}
+export interface DisplayCaseData {awards:AchievementAward[];selectedCode:AchievementCode|null;revision:number;titleSelectionAvailable?:boolean;selectedTitleCode?:AchievementTitleChoice}
