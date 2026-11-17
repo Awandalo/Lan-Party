@@ -43,7 +43,7 @@ test('native Workers fetch reaches only the intercepted Resend fixture and rejec
       assert.equal(request.headers.get('Idempotency-Key'), 'fictional-runtime-fixture');
       const body = await request.json();
       assert.deepEqual(body.to, ['participant@example.test']);
-      assert.equal(body.from, 'noreply@auth.lan-party.club');
+      assert.equal(body.from, 'LAN Party <noreply@auth.lan-party.club>');
       return new Response('private provider payload', {
         status, headers: { Location: 'https://untrusted.example.test/credential-leak' },
       });

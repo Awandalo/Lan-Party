@@ -74,7 +74,7 @@ const authenticationJourney = async ({ db, request, mails, proof }) => {
   assert.equal(await db.prepare('SELECT email_verified_at FROM users').first('email_verified_at'), null);
   const login = password => request('login', { email: profile.email, password });
   const denied = await login(profile.password); assert.equal(denied.status, 403); assert.equal(denied.headers.get('set-cookie'), null);
-  const verification = (await mails())[0]; assert.equal(verification.from, 'noreply@auth.lan-party.club');
+  const verification = (await mails())[0]; assert.equal(verification.from, 'LAN Party <noreply@auth.lan-party.club>');
   assert.equal((await request('verify-email', proof(verification))).status, 200);
   assert.equal((await request('verify-email', proof(verification))).status, 400);
   const signedIn = await login(profile.password); assert.equal(signedIn.status, 200);
@@ -91,7 +91,7 @@ const authenticationJourney = async ({ db, request, mails, proof }) => {
   assert.equal((await request('session', undefined, { Cookie: oldCookie })).status, 401);
   assert.equal((await login(profile.password)).status, 401); assert.equal((await login(password)).status, 200);
   assert.equal((await request('reset-password', { ...reset, password })).status, 400);
-  assert.deepEqual((await mails()).map(mail=>mail.subject),['Verify your LAN Party account','Reset your LAN Party password','Your LAN Party password was changed']);
+  assert.deepEqual((await mails()).map(mail=>mail.subject),['Confirm your email address for LAN Party','Reset your LAN Party password','Your LAN Party password was changed']);
   assert.equal(await db.prepare('SELECT SUM(attempts) AS n FROM auth_email_daily_budget').first('n'), 3);
   assert.equal((await request('local-mail', { email: profile.email })).status, 404);
 };
@@ -138,7 +138,7 @@ test('password recovery never verifies an address or lets an unverified account 
   assert.equal((await request('login', { email: profile.email, password })).status, 403);
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM auth_sessions').first('n'), 0);
   assert.equal((await request('resend-verification', { email: profile.email })).status, 202);
-  const latestVerification=(await mails()).filter(mail=>mail.subject==='Verify your LAN Party account').at(-1);
+  const latestVerification=(await mails()).filter(mail=>mail.subject==='Confirm your email address for LAN Party').at(-1);
   assert.equal((await request('verify-email', proof(latestVerification))).status, 200);
   assert.equal((await request('login', { email: profile.email, password })).status, 200);
 }));
