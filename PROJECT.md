@@ -1,6 +1,60 @@
 # LAN Party website
 
-## User settings — local profile iteration, 2026-11-10
+## Live release and post-launch status — 2026-11-18
+
+The application release was verified on PROD at `654e8d7`, the merge commit of
+[PR #73](https://github.com/Awandalo/Lan-Party/pull/73), and on DEV at
+`771ed33`. The two revisions contain the same application files. Both sites
+served the expected build and returned HTTP 200 from `/api/health`. Cloudflare
+confirmed the PROD Worker at 100% traffic. The automatic
+[DEV deployment](https://github.com/Awandalo/Lan-Party/actions/runs/44396328433)
+and [DEV CI regression](https://github.com/Awandalo/Lan-Party/actions/runs/44396328659)
+passed for the application revision. Documentation-only commits can advance the
+DEV build identifier without changing the application release.
+
+- Accounts and Administration are live, including email/password access,
+  verification and recovery, optional TOTP MFA, member and permission
+  management, and private member feedback.
+- [Phase 5](https://github.com/Awandalo/Lan-Party/pull/48) is live, including
+  reusable location details, event publication, member and guest registration,
+  waitlists and attendance, reviewed final bills, manual payment tracking and
+  organizer-controlled payment emails. Jotform remains operational pending a
+  separately approved cutover.
+- [Profile settings](https://github.com/Awandalo/Lan-Party/pull/49) and
+  [Phase 6](https://github.com/Awandalo/Lan-Party/pull/58) are live, including
+  editable profiles and display prefixes, public News, the member Display case,
+  and Polls with private ballots and public aggregate results.
+- PR #64 added completed-event attendance history for members, independent
+  choice of an unlocked achievement title in the Display case, the selected
+  title in Administration member details, and clearer email identity and
+  verification copy. Migration `0042` was applied and verified in DEV and
+  PROD.
+- PR #73 shipped crawler controls, public `robots.txt` and `sitemap.xml`,
+  correct 404 responses, public preview metadata, Dutch/English News and Poll
+  content, and the optimized artwork and homepage loading fix. DEV and private
+  PROD pages send `noindex`. Migration `0043` was applied and verified in both
+  environments, preserving existing content and defaulting it to Dutch.
+
+The final privacy review [#23](https://github.com/Awandalo/Lan-Party/issues/23),
+legacy DEV Google OAuth retirement verification
+[#25](https://github.com/Awandalo/Lan-Party/issues/25), and the SEO,
+accessibility and performance work [#34](https://github.com/Awandalo/Lan-Party/issues/34)
+are closed as completed. All 11 Sentinel checks for #34 passed, including the
+two owner checks on PROD.
+
+The deferred post-launch backlog covers location attachments
+[#36](https://github.com/Awandalo/Lan-Party/issues/36), a members-only gallery
+[#42](https://github.com/Awandalo/Lan-Party/issues/42), feedback screenshots and
+shared storage [#45](https://github.com/Awandalo/Lan-Party/issues/45), and News
+reactions or comments [#52](https://github.com/Awandalo/Lan-Party/issues/52).
+Storage and billing decisions remain pending. See the
+[post-launch checklist](TODO.md#post-launch-closeout--2026-11-18) for acceptance
+and separate Sentinel tracking work.
+
+The dated development notes below record the state at the time of each review.
+Use this release summary and the post-launch checklist for current status.
+
+## User settings — historical local profile iteration, 2026-11-10
 
 The owner authorizes local profile editing for display nickname, private first/last
 names and the eight optional preferred display prefixes. Keep existing nickname
@@ -10,7 +64,7 @@ and PROD during development. The owner accepted local testing and requested live
 release; prepare its exact-head PR and migration scope under RELEASE.md. See
 [the profile contract](docs/profile-settings.md).
 
-## Current accepted state — 2026-11-09
+## Historical Phase 5 acceptance and release preparation — 2026-11-09
 
 Accounts and Phase 4 Administration are live on PROD at `b667022`. The owner has
 accepted the Phase 5 launch scope on hosted DEV at `117d99a`: Locations metadata,
@@ -42,20 +96,13 @@ Typically there are two LAN parties per year, occasionally three. Traffic is ver
 low outside registration periods. Keep the implementation proportionate to this
 scale and independent of work infrastructure.
 
-Phase 1 configuration/infrastructure and Phase 2 database foundation are complete
-on DEV and PROD. The owner confirms that all seven migrations (0001–0007),
-including RBAC reference data and News storage, have been successfully applied
-and verified in both environments. This documentation update does not independently
-verify PROD migration state or complete the current post-release
-public website verification. Phase 3 Authentication & Accounts is the active
-development phase. Hosted DEV email/password registration, verification, login/recovery, optional TOTP MFA
-and account lifecycle are implemented. Phase 3.9 DEV acceptance is recorded in #16,
-with administrator-assisted reactivation deliberately deferred to the end of Phase 4
-using two disposable accounts. Phase 3.10 DEV polish was accepted by the owner at `82f7b34`; Phase 3 closeout
-and release preparation are tracked in #19.
-Phase 4 Administration precedes Phase 5 Events; actual event registration and replacing
-Jotform remain future milestones. PROD authentication is separately gated.
-Google OAuth is permanently discontinued.
+Phase 1 configuration and infrastructure and Phase 2 database foundations are
+complete in DEV and PROD. The owner confirmed migrations 0001–0007 in both
+environments, including RBAC reference data and News storage. Phase 3.9
+account lifecycle acceptance is recorded in #16, and Phase 3.10 polish was
+accepted at `82f7b34`. Phase 3 closeout was tracked in #19. The application
+discontinued Google OAuth. Retirement of the unused legacy DEV client is tracked
+separately in #25.
 
 Phase 4.1 Administration navigation is owner-accepted in #26. Phase 4.2 (#27)
 adds read-only member browsing/detail behind explicit users.view grants and is
@@ -1424,11 +1471,11 @@ owner approval before enabling public registration or replacing Jotform.
 | 1 | Project foundation, tooling, and basic frontend | Complete: React, TypeScript, Vite, npm, folder conventions, safe ignore/configuration examples, and responsive frontend basics established; types and build validated. |
 | 2.1–2.7 | Database foundations: events, accounts, authentication, authorization, registrations | Complete on DEV and PROD (owner-reported); migrations 0001–0005 form the foundation. Functionality remains separate future work. |
 | 2.8 | Initial RBAC reference data | Complete on DEV and PROD (owner-reported); migration 0006 supplies reference data. No accounts or role assignments created. |
-| 2.9 | News database foundation | Complete on DEV and PROD (owner-reported); migration 0007 supplies News storage. Current post-release website verification remains separate; see the environment reference above and RELEASE.md. |
-| 3 | Authentication and account functionality | Implement reviewed authentication, sessions and account tools with secure ownership and permission checks; verify login and recovery behavior. |
-| 4 | Administration | Implement authorized event and participant management, publication and registration lifecycle tools; verify every backend permission boundary. |
-| 5 | Event registration functionality | Implement authenticated registration, selected-day attendance durations, cancellation/editing and attendance views/totals; verify server validation, persistence and privacy boundaries. |
-| 6 | News and community features | Implement News after its database foundation, with authorized editing/publication and private drafts; keep additional future features in the backlog until separately approved. |
+| 2.9 | News database foundation | Complete on DEV and PROD (owner-reported). Migration 0007 supplies News storage. |
+| 3 | Authentication and account functionality | Live on PROD and DEV. Legacy DEV OAuth retirement verification is complete (#25). |
+| 4 | Administration | Live on PROD and DEV, including member and permission management and private feedback. Feedback screenshots remain deferred in #45. |
+| 5 | Event registration functionality | Launch scope live on PROD and DEV. Attachments (#36), the optional gallery (#42) and the Jotform cutover remain separate. |
+| 6 | News and community features | News, Display case and Polls are live on PROD and DEV. The final privacy review (#23) is complete. News reactions or comments (#52) are deferred. |
 
 Security, behavior testing, accessibility, privacy decisions, and backup/recovery
 readiness apply throughout development. Phase 3 authentication and server-side
