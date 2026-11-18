@@ -1,15 +1,68 @@
 # TODO / To remember
 
-## User settings — local profile review
+## Post-launch closeout — 2026-11-18
+
+- [x] Verify the application release is live on PROD at `654e8d7` after
+  [PR #73](https://github.com/Awandalo/Lan-Party/pull/73) and on DEV at
+  `771ed33`. Both homepages and health endpoints returned HTTP 200. Cloudflare
+  confirmed PROD at 100% traffic, and the automatic
+  [DEV deployment](https://github.com/Awandalo/Lan-Party/actions/runs/44396328433)
+  and [DEV CI regression](https://github.com/Awandalo/Lan-Party/actions/runs/44396328659)
+  passed for the application revision.
+- [x] Verify migration `0042` in DEV and PROD for independent member title
+  selection. [PR #64](https://github.com/Awandalo/Lan-Party/pull/64) also shipped
+  completed-event attendance history, the selected title in Administration
+  member details, and clearer verification email copy.
+- [x] Apply and verify migration `0043` in DEV and PROD for Dutch and English
+  News and Poll content. The PROD backup restore and migration rehearsal
+  passed, and existing rows were preserved across all 62 tables.
+
+### Completed owner checks in Meridara Sentinel
+
+- [x] **Final privacy review.** Owner acceptance recorded and issue closed.
+  [Issue #23](https://github.com/Awandalo/Lan-Party/issues/23)
+- [x] **Legacy DEV Google OAuth.** Verified retirement of the unused client and
+  closed the issue.
+  [Issue #25](https://github.com/Awandalo/Lan-Party/issues/25)
+- [x] **SEO, accessibility and performance.** Shipped indexing, HTTP 404s,
+  public previews, content language, optimized artwork and stable homepage
+  loading. All 11 Sentinel checks passed, including the two PROD checks for
+  private-page `noindex` and signed-out access protection, and for the robots
+  file and canonical public sitemap. The issue is closed.
+  [Issue #34](https://github.com/Awandalo/Lan-Party/issues/34)
+
+### Deferred product backlog
+
+- [ ] Review storage feasibility for location attachments and event snapshots.
+  Location metadata already shipped. [Issue #36](https://github.com/Awandalo/Lan-Party/issues/36)
+- [ ] Decide whether to pursue the optional members-only event gallery after
+  reviewing storage and costs. [Issue #42](https://github.com/Awandalo/Lan-Party/issues/42)
+- [ ] Prioritize feedback screenshots and shared storage management after
+  reviewing privacy, quota and billing. [Issue #45](https://github.com/Awandalo/Lan-Party/issues/45)
+- [ ] Prioritize News reactions or comments and agree the initial scope.
+  [Issue #52](https://github.com/Awandalo/Lan-Party/issues/52)
+- [ ] Keep Jotform operational until the owner approves its cutover.
+
+### Sentinel phase tracking
+
+GitHub also has open Sentinel-generated overview issues for
+[Base Site #65](https://github.com/Awandalo/Lan-Party/issues/65),
+[Foundation #66](https://github.com/Awandalo/Lan-Party/issues/66),
+[Database #67](https://github.com/Awandalo/Lan-Party/issues/67), and
+[Authentication #68](https://github.com/Awandalo/Lan-Party/issues/68).
+Sentinel shows incomplete publication for Phases 3–6 and the post-launch
+backlog. The open overview issues and incomplete publication are plan tracking
+work. The release status is recorded above.
+
+## User settings — release history
 
 - [x] Add an authenticated owner-only profile editor and the eight approved prefix choices.
 - [x] Preserve private names, nickname uniqueness/cooldown, stable IDs and permissions.
 - [x] Show the selected public prefix on confirmed-member Who is coming cards.
 - [x] Match existing input/dropdown/button styling and verify a phone-width layout.
 - [x] Owner accepts the local profile and attendance cards and requests live release.
-- [ ] Publish the isolated MAIN release PR and complete its exact-head review gates.
-- [ ] Apply only the approved PROD migration 0037 with recovery/preservation checks,
-  merge and verify the deployed profile. DEV publication/migration is excluded.
+- [x] Ship the isolated profile settings release to PROD via
+  [PR #49](https://github.com/Awandalo/Lan-Party/pull/49).
 
 See [the local profile contract](docs/profile-settings.md).
 
@@ -20,8 +73,8 @@ See [the local profile contract](docs/profile-settings.md).
 - [x] Keep #36 open only for deferred attachments/files and #42 for deferred gallery/social.
 - [x] Reclaim 38 verified obsolete local generated files (12,236,253 bytes), preserving current/prior builds and all recovery evidence.
 - [x] Prepare an isolated Phase 5 release candidate integrating existing MAIN; leave DEV unchanged.
-- [ ] Complete exact-candidate CI/security review and the MAIN release PR.
-- [ ] Obtain exact-head Investigate and Deploy acceptance for the explicitly listed PROD migrations and activation, then verify the deployed revision.
+- [x] Ship the accepted Phase 5 scope to PROD via
+  [PR #48](https://github.com/Awandalo/Lan-Party/pull/48).
 
 See [the Phase 5 release plan](docs/PHASE5_RELEASE.md). Earlier local-review and
 handover checklists below are historical and superseded by this owner acceptance;
@@ -632,7 +685,11 @@ remote database changes are not implemented or authorized by Phase 3.1.
 
 - [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.
 
-## Phase 6 — News & Community
+## Historical Phase 6 planning — News & Community
+
+The original planning checklist below records the design questions that preceded
+the shipped News increment. Current release and open-work status is recorded in
+[post-launch closeout](#post-launch-closeout--2026-11-18).
 
 - [ ] Add a public news listing and individual article pages after the Phase 2.9
   database foundation is implemented and verified.
@@ -1055,7 +1112,7 @@ See [registration contract](docs/event-registration.md); this preview does not c
 - [x] Owner authorize scoped DEV commit/push for online testing.
 - [x] Separately approve remote 0038 and DEV News routing; apply/verify DEV migration.
 - [x] Verify exact-head CI/deployment and owner hosted acceptance (News #50, 01b5693).
-- [ ] Approve exact production release when ready.
+- [x] Release News on PROD via [PR #58](https://github.com/Awandalo/Lan-Party/pull/58).
 
 See [local News contract](docs/news-posting.md). Achievements #51 is now approved for the bounded local Display case increment.
 
@@ -1083,7 +1140,7 @@ working Events/News/Polls; Polls is implemented in #57. [Social polls #53](https
 - [x] Owner local acceptance; focused browser and responsive checks.
 - [x] Separately approved DEV migration 0040, recovery and integrity verification.
 - [x] Authorized DEV publication, exact-head CI/deployment and owner hosted acceptance.
-- [ ] Exact release PR acceptance, approved PROD migrations 0038–0040 and deployment.
+- [x] Release Polls on PROD via [PR #58](https://github.com/Awandalo/Lan-Party/pull/58).
 
 This supersedes the earlier future-only Polls placeholder. Social backlog #53
 remains background; the current approved execution issue is #57.
