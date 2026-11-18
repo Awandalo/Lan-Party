@@ -198,6 +198,11 @@ retain useful full-list navigation. Home, list, detail and share metadata use on
 shared reference to the existing public LAN artwork with descriptive alt text.
 The dark/mint layout, hover/focus behavior and responsive stacking remain.
 
+For the post-launch #34 artwork check, Home now reserves the Up Next artwork,
+content and button space while the upcoming event is loading. Latest news keeps
+space for its lead card while loading. The decorative side artwork uses the
+viewport height so it keeps the same crop as the page gains content.
+
 The existing Worker uses HTMLRewriter on event detail GET/HEAD responses, leaving
 the SPA shell and scripts intact. Initial HTML contains an escaped title,
 description, canonical link, Open Graph and Twitter tags with absolute canonical

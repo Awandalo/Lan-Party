@@ -7,10 +7,11 @@ const m=new Module(import.meta.filename);m.paths=Module._nodeModulePaths(process
 const article={id:'fictional',slug:'crew-news',title:'<script>Title</script>',excerpt:'Crew news',status:'published',createdAt:0,publishedAt:1,updatedAt:2,editorName:'Pixel Alice',content:JSON.stringify({type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Safe & bold',marks:[{type:'bold'}]}]}]})};
 test('public article safely renders shared formatting, dates and display-name updates without editorial sharing',()=>{
  const html=ui.article(article);assert.ok(html.includes('&lt;script&gt;Title&lt;/script&gt;'));assert.ok(html.includes('<strong>Safe &amp; bold</strong>'));assert.ok(html.includes('Pixel Alice'));assert.ok(html.includes('Updated on'));assert.equal(html.includes('WhatsApp'),false);assert.equal(html.includes('Discord'),false);assert.equal(html.includes('<script>Title'),false);
- assert.equal(ui.article({...article,editorName:null}).includes('Pixel Alice'),false);assert.equal(ui.article({...article,updatedAt:1}).includes('Updated on'),false);assert.ok(ui.article(article,true).includes('<h2>'));
+ assert.equal(ui.article({...article,editorName:null}).includes('Pixel Alice'),false);assert.equal(ui.article({...article,updatedAt:1}).includes('Updated on'),false);assert.ok(ui.article(article,true).includes('<h2 lang="nl">'));
+ assert.ok(ui.article({...article,language:'en'}).includes('<h1 lang="en">'));
 });
 test('public cards use stable post links while role-aware navigation exposes only permitted News administration',()=>{
- const html=ui.cards([article]);assert.ok(html.includes('href="/news/crew-news"'));assert.equal(html.includes('Publish'),false);
+ const html=ui.cards([article]);assert.ok(html.includes('href="/news/crew-news"'));assert.ok(html.includes('lang="nl"'));assert.equal(html.includes('Publish'),false);
  assert.deepEqual(ui.contextualNavigation('/manage/news',['news'],true).map(x=>x.label),['Overview','News']);assert.deepEqual(ui.contextualNavigation('/manage/news',[],true),[]);assert.deepEqual(ui.contextualNavigation('/manage/news',['news'],false),[]);
 });
 

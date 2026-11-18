@@ -12,6 +12,23 @@ async function create(f,u,title='Crew announcement',content=doc('Bring your favo
 async function article(f,u,id){const r=await f.request('manage/news?id='+id,u,undefined,{'X-LAN-Session-Proof':u.csrf});assert.equal(r.status,200,await r.clone().text());return (await r.json()).article;}
 async function change(f,u,a,action,extra={}){return call(f,u,{action,operationId:randomUUID(),id:a.id,revision:a.revision,...extra});}
 
+test('content language preserves old articles and survives authorized edits after 0043',()=>local(async f=>{
+ const u=await actor(f),id=await create(f,u),initial=await article(f,u,id);
+ assert.equal(initial.language,'nl');
+ const english={title:initial.title,content:doc('English news'),language:'en'};
+ assert.equal((await change(f,u,initial,'update',english)).status,503);
+ await f.migrate(43);
+ assert.equal((await article(f,u,id)).content,initial.content);
+ assert.equal((await change(f,u,initial,'update',{...english,language:'invalid'})).status,400);
+ assert.equal((await change(f,u,initial,'update',english)).status,200);
+ const updated=await article(f,u,id);
+ assert.equal(updated.language,'en');
+ assert.equal((await change(f,u,updated,'update',{title:updated.title,content:doc('Edited content')})).status,200);
+ assert.equal((await change(f,u,await article(f,u,id),'publish')).status,200);
+ assert.equal((await (await f.request('news/'+initial.slug)).json()).article.language,'en');
+ assert.equal((await (await f.request('news')).json()).articles[0].language,'en');
+},42));
+
 test('older schemas hide News capabilities and fail closed until the additive migration is installed',()=>local(async f=>{
  const u=await actor(f,'admin'),caps=()=>f.request('manage/capabilities',u,undefined,{'X-LAN-Session-Proof':u.csrf});
  assert.equal((await (await caps()).json()).sections.includes('news'),false);assert.equal((await call(f,u)).status,503);assert.equal((await f.request('news')).status,503);
@@ -112,4 +129,4 @@ test('anonymous page metadata exposes only published posts, escapes HTML and ret
 }));
 
 
-test('News and Poll metadata routes reach the Worker in the explicit PROD profile while DEV routing stays aligned',async()=>{const{readFile}=await import('node:fs/promises');const config=JSON.parse((await readFile('wrangler.jsonc','utf8')).replace(/^\s*\/\/.*$/gm,''));assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,config.env.prod.assets.run_worker_first);assert.equal(config.env.prod.d1_databases[0].database_name,'lan-party-prod');assert.equal(config.env.dev.d1_databases[0].database_name,'lan-party-dev');});
+test('News and Poll metadata routes reach the Worker in the explicit PROD profile while DEV routing stays aligned',async()=>{const{readFile}=await import('node:fs/promises');const config=JSON.parse((await readFile('wrangler.jsonc','utf8')).replace(/^\s*\/\/.*$/gm,''));assert.equal(config.env.prod.assets.not_found_handling,'none');assert.equal(config.env.dev.assets.not_found_handling,'none');assert.equal(config.env.prod.d1_databases[0].database_name,'lan-party-prod');assert.equal(config.env.dev.d1_databases[0].database_name,'lan-party-dev');});

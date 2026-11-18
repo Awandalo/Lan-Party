@@ -23,6 +23,8 @@ import { passwordRecovery } from './auth/recovery';
 import {accountSecurity} from './auth/account-security';
 import {mfaAuthentication} from './auth/mfa-http';
 import {purgeUserActivity} from './auth/user-activity';
+import {pageResponse, sitePage} from './site-page';
+import {hostedProd} from './auth/production';
 
 interface Env extends AuthenticationEnvironment {
   ASSETS: Fetcher;
@@ -44,8 +46,8 @@ export default {
     if(pathname.startsWith('/api/event-finance/'))return eventFinance(request,env);
     if(pathname.startsWith('/api/event-review/'))return eventReview(request,env);
     if(pathname.startsWith('/api/event-registration/')||pathname.startsWith('/api/event-participants/'))return eventRegistration(request,env,ctx);
-    if(pathname.startsWith('/news/')){const page=await newsPage(request,env);if(page)return page;}
-    if(pathname.startsWith('/events/')){const page=await eventPage(request,env);if(page)return page;}
+    if(pathname.startsWith('/news/')&&pathname!=='/news/'){const page=await newsPage(request,env);if(page)return pageResponse(request,page,hostedProd(request,env));}
+    if(pathname.startsWith('/events/')&&pathname!=='/events/'){const page=await eventPage(request,env);if(page)return pageResponse(request,page,hostedProd(request,env)&&!/^\/events\/[^/]+\/registration\/?$/.test(pathname));}
     if(pathname==='/api/events'||pathname.startsWith('/api/events/'))return publicEvents(request,env);
     if(pathname.startsWith('/api/feedback/')||pathname==='/api/manage/feedback'||pathname.startsWith('/api/manage/feedback/'))return feedback(request,env,ctx);
     if(pathname.startsWith('/api/manage/'))return manage(request,env,ctx);
@@ -74,6 +76,6 @@ export default {
       return Response.json({ error: 'Not found' }, { status: 404 });
     }
 
-    return env.ASSETS.fetch(request);
+    return sitePage(request,env);
   },
 } satisfies ExportedHandler<Env>;

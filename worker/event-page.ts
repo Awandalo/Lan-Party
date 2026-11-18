@@ -6,6 +6,7 @@ import {UUID} from './role-administration';
 import {eventDocument} from '../src/lib/event-document';
 import type {EventNode} from '../src/lib/event-document';
 import {EVENT_ARTWORK,EVENT_ARTWORK_ALT} from '../src/lib/event-artwork';
+import {pageShell} from './site-page';
 
 const genericDescription='Find your next LAN party, dates and event details on LAN Party.';
 const escape=(text:string)=>text.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -40,8 +41,7 @@ export async function eventPage(request:Request,env:AuthenticationEnvironment&{A
   ...event?[]:['<meta name="robots" content="noindex">']].join('');
  // Strip conditional/session/query headers so the shell cannot return 304 or
  // inherit a private response. ASSETS.fetch bypasses Worker routing recursion.
- const assetUrl=new URL(url.pathname,url.origin);
- const shell=await env.ASSETS.fetch(new Request(assetUrl,{headers:{Accept:'text/html','Accept-Encoding':'identity'}}));
+ const shell=await pageShell(request,env);
  const headers=new Headers(shell.headers);
  for(const key of ['Content-Length','ETag','Last-Modified','Content-Range','Accept-Ranges'])headers.delete(key);
  headers.set('Cache-Control','no-store');headers.set('X-Content-Type-Options','nosniff');
