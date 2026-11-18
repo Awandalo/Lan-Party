@@ -80,7 +80,8 @@ export class ResendEmailTransport implements EmailTransport {
         method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(mail.purpose==='event-payment'?8000:10000),
         headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json',
           'Idempotency-Key': mail.idempotencyKey },
-        body: JSON.stringify({ from: this.from, to: [mail.to], ...template }),
+        // Keep mailbox validation separate from the fixed, trusted display name.
+        body: JSON.stringify({ from: `LAN Party <${this.from}>`, to: [mail.to], ...template }),
       });
       if(payment){
         if(!response.ok){await response.body?.cancel();throw new EmailDeliveryError([400,401,403,404,413,422,429].includes(response.status)?'failed':'unknown');}

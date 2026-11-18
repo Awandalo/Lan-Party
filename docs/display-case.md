@@ -22,8 +22,9 @@ continues, as explicitly chosen by the owner. Any completed qualifying event
 without a full-weekend visit breaks it; excluded/cancelled/unfinished events do
 not enter the sequence. Sequence uses scheduled start, then stable event ID for
 ties, independent of finalization order. A new ten-event streak restores it.
-Highest earned tier determines the automatic suffix, independent of the optional
-showcased badge; loss of Legendary falls back to Gold. Saved nicknames are unchanged.
+Highest earned tier determines the default automatic suffix, independent of the
+optional showcased badge; loss of Legendary falls back to Gold. Members can choose
+another unlocked title or explicitly choose no title. Saved nicknames are unchanged.
 Owner-supplied PNGs live in public/images/achievements; the Iron asset was
 regenerated with real transparency at the owner’s request.
 
@@ -68,20 +69,75 @@ buttons, help dialogs, loading/error handling and reduced-motion navigation appl
 
 GET/POST /api/auth/display-case derive identity only from the live session.
 Require verified email, current MFA/session generation, session proof, same-origin
-request boundary and CSRF for writes. Strict POST fields are selectedCode and
-revision; reject locked/unknown badges and stale saves. The transaction rechecks
+request boundary and CSRF for writes. Strict POST fields are selectedCode,
+revision and optionally selectedTitleCode; reject locked/unknown choices and stale saves. The transaction rechecks
 live membership/session authority, and concurrent saves cannot overwrite each other.
 Private responses are no-store. Account deletion removes the preference and existing
 billing deletion behavior removes identifying attendance links; recreated accounts
 inherit nothing.
 
-The existing signed-in Who is coming projection adds only the eligible opted-in badge code and automatic highest rank code.
+The existing signed-in Who is coming projection adds only the eligible opted-in badge code and resolved title code.
 It exposes no private progress, earned date, historical events, prices or guest
 identities. Clearing the showcase removes that code on the next read. Deactivated
 accounts do not publish their showcase. Existing registration access/final authority
 checks remain in place. Other organizer card placeholders are not a new award feed.
 
 ## Local review and verification
+
+### Independent title choice — #63, local review 2026-11-17
+
+Display case now saves an achievement title independently from the badge, with
+Automatic (highest unlocked title), No title, and earned titles only. Choosing a
+title updates the colored suffix preview; Save persists both choices together
+under the existing revision/session/CSRF guards. Crew and organizer participant
+names resolve the same preference. A lost title falls back to the highest unlocked
+tier; explicit No title never falls back. No title is written into the nickname.
+
+Local-only migration 0042 adds nullable selected_title_code to the existing
+showcase table. Existing rows default to automatic, preserving current behavior.
+Old clients saving only a badge preserve the saved title. Before migration, the
+title selector is disabled while existing badge controls remain usable. No remote
+migration, commit, push or provider sends is included. The owner accepted local
+testing and authorized closure of #63 on 2026-11-17. Its GitHub closure records
+local acceptance only; code and migration remain unpublished.
+
+Local tests cover independent persistence, no-title, locked/unknown values,
+CSRF/session/revision boundaries, concurrent saves, revoked sessions during commit,
+lost-title fallback, migration preservation/rollback and old-schema compatibility.
+The fictional local browser review is at http://127.0.0.1:5206/account/profile/display-case.
+
+### Member-detail title — #62, local review 2026-11-17
+
+Administration → Members → Member details now includes a read-only Achievement
+title field alongside Name prefix. The authorized detail projection returns only
+the resolved title code and availability, using the same resolver as crew names.
+The field uses the existing suffix wording and tier colors, respects an explicit
+No title, and preserves the automatic/highest-unlocked fallback from #63. It
+distinguishes No achievement title from Unavailable on pre-achievement schemas.
+No awards, progress, earned dates or saved preference internals are added to this
+projection, and member listings remain unchanged. Existing users.view, session,
+proof, private no-store responses and cache invalidation remain controlling.
+
+This fix adds no migration beyond #63's local 0042 and performs no data writes.
+Focused Worker, presentation, member/administration/attendance and cache checks
+plus strict TypeScript/build passed. Local fictional browser checks cover selected
+and explicit no-title members and narrow layout. Full regression/hosted testing
+remains for publication. The owner accepted #62 locally on 2026-11-17 and
+authorized its closure and DEV publication together with #63 and the email fixes.
+
+### DEV publication preparation — 2026-11-17
+
+The combined update passed all 878 regressions, 40 CI policy/public UI checks,
+strict TypeScript, the hosted-DEV build and the DEV Worker dry run. Both #62 and
+#63 are closed on explicit owner local acceptance. Hosted acceptance remains for
+the owner after publication; no real email sends are included.
+
+The owner separately approved only migration 0042 on lan-party-dev. It was applied
+after a fresh private export, Time Travel checkpoint and verified isolated restore
+and migration rehearsal. All existing rows across 62 application tables, including
+badge choices and permissions, were preserved. Existing titles default to automatic;
+the exact schema matches the verified rehearsal, quick_check is OK and there are
+no foreign-key violations. No PROD operation or configuration change is included.
 
 Ignored .wrangler/display-case-review-server.mjs runs the real React app/Worker
 against disposable fictional D1 on http://127.0.0.1:5202. Existing 5201 review data

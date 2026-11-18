@@ -253,7 +253,7 @@ test('Resend adapter uses only the documented API through a fake transport and s
     calls++; assert.equal(url, 'https://api.resend.com/emails'); assert.equal(init.method, 'POST');
     assert.equal(init.redirect, 'manual'); assert.equal(init.headers.Authorization, 'Bearer fictional-api-key');
     assert.equal(init.headers['Idempotency-Key'], mail.idempotencyKey);
-    const body = JSON.parse(init.body); assert.deepEqual(body.to, [mail.to]); assert.equal(body.from, 'sender@example.test');
+    const body = JSON.parse(init.body); assert.deepEqual(body.to, [mail.to]); assert.equal(body.from, 'LAN Party <sender@example.test>');
     assert.ok(body.text.includes(mail.url)); assert.equal(body.text.includes('fictional-api-key'), false);
     return new Response('{}', { status: 200 });
   });

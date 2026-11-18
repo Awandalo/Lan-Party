@@ -71,7 +71,7 @@ test('list has only approved columns; detail projects only approved private fiel
  const admin=await f.user({admin:true}),t=await target(f,{verified:false});
  const before=await f.sql('SELECT * FROM users WHERE id=?',t.id).first();
  const page=await body(f,'',admin);assert.equal(page.members.length,2);assert.deepEqual(Object.keys(page.members[0]).sort(),['memberNumber','nickname','roles','status','userId']);assert.equal(page.members.find(r=>r.userId===t.id).memberNumber,t.number);
- const detail=(await body(f,'/'+t.id,admin)).member;assert.deepEqual(Object.keys(detail).sort(),['createdAt','email','firstName','lastName','memberNumber','nickname','prefix','roles','status','userId','verified']);assert.equal(detail.verified,false);assert.equal(detail.firstName,'Fictional');assert.equal(detail.prefix,null);
+ const detail=(await body(f,'/'+t.id,admin)).member;assert.deepEqual(Object.keys(detail).sort(),['achievementTitle','attendance','createdAt','email','firstName','lastName','memberNumber','nickname','prefix','roles','status','userId','verified']);assert.equal(detail.verified,false);assert.equal(detail.firstName,'Fictional');assert.equal(detail.prefix,null);
  assert.deepEqual(await f.sql('SELECT * FROM users WHERE id=?',t.id).first(),before);
 }));
 test('lifecycle filters distinguish disabled/deactivated/deleting; scrubbed names stay unavailable; reserved and tombstone rows never become accounts',()=>local(async f=>{

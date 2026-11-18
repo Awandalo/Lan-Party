@@ -17,9 +17,28 @@ test('MFA notifications describe committed changes without secret material or ap
  }
 });
 
+test('verification explains the registration request in HTML and plain text without changing either link or its lifetime',()=>{
+ for(const origin of ['https://dev.lan-party.club','https://www.lan-party.club']){
+  const link=origin+'/verify-email#user=fictional&token=fictional';
+  const mail=authenticationEmail(link,'email-verification');
+  assert.deepEqual(authenticationEmail(link),mail);
+  assert.equal(mail.subject,'Confirm your email address for LAN Party');
+  for(const body of [mail.text,mail.html]){
+   assert.ok(body.includes('We received a request to create a LAN Party account using this email address.'));
+   assert.ok(body.includes('Confirm your email address to finish setting up your account.'));
+   assert.ok(body.includes('If you didn’t request a LAN Party account, you can ignore this email.'));
+   assert.ok(body.includes('This link expires in 24 hours and works once.'));
+   assert.ok(body.includes('Confirm email address'));
+  }
+  const hrefs=[...mail.html.matchAll(/href="([^"]*)"/g)].map(match=>match[1].replaceAll('&amp;','&'));
+  assert.deepEqual(hrefs,[link,link]);
+  assert.deepEqual(mail.text.match(/https:\/\/\S+/g),[link]);
+ }
+});
+
 test('verification and recovery share branded HTML and explicit plain text without external assets', () => {
   for (const [purpose, path, subject, expiry, action] of [
-    ['email-verification', 'verify-email', 'Verify your LAN Party account', '24 hours', 'Continue verification'],
+    ['email-verification', 'verify-email', 'Confirm your email address for LAN Party', '24 hours', 'Confirm email address'],
     ['password-reset', 'reset-password', 'Reset your LAN Party password', '30 minutes', 'Reset password'],
   ]) {
     const url = `https://dev.lan-party.club/${path}#user=fictional&token=fictional`;
@@ -28,7 +47,7 @@ test('verification and recovery share branded HTML and explicit plain text witho
     for (const body of [result.html, result.text]) {
       assert.ok(body.includes('LAN / PARTY')); assert.ok(body.includes(expiry));
       assert.ok(body.includes(action)); assert.ok(body.includes('works once'));
-      assert.ok(body.includes('If you did not request this, ignore this email.'));
+      assert.ok(body.includes(purpose==='email-verification'?'If you didn’t request a LAN Party account, you can ignore this email.':'If you did not request this, ignore this email.'));
     }
     assert.ok(result.text.includes(url)); assert.doesNotMatch(result.text, /<[^>]+>/);
     assert.match(result.html, /href="https:\/\/dev\.lan-party\.club\/[^" ]+&amp;token=fictional"/);

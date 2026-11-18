@@ -62,3 +62,51 @@ accepted locally and remain uncommitted/unpublished pending owner instruction.
 
 Owner approved including this accepted correction in the next DEV publication
 with Polls #57 on 2026-11-12. No real-email testing or PROD change is included.
+
+## Sender identity and verification copy — local review, 2026-11-17
+
+The owner approved a minimal local correction after reviewing the deliverability
+investigation. No commit, push, deployment, DNS/provider change or real email send
+is authorized by this iteration.
+
+The shared Resend adapter now sends `LAN Party <noreply@auth.lan-party.club>` for
+both DEV and PROD. The existing bare mailbox remains independently validated;
+the fixed display name is added only when constructing the provider payload.
+All declared mail purposes use this adapter, including registration, payments and
+security notifications. No environment setting, recipient, budget, idempotency,
+redirect, timeout or error-handling behavior changes.
+
+Verification alone uses the subject **Confirm your email address for LAN Party**,
+explains that an account-registration request generated the email, and uses
+**Confirm email address** for its button/link label. Both HTML and plain text say
+that recipients can ignore an unrequested LAN Party account registration. The
+existing branded shell, welcome heading, exact fragment-bearing URL, 24-hour
+single-use policy and security behavior remain unchanged.
+
+Validation: 59 focused template, adapter, budget, verification and offline hosted
+DEV/PROD authentication checks pass with intercepted providers. Strict TypeScript
+and hosted-DEV build pass. A comparison with committed baseline `2c79d84` confirms
+26 non-verification rendered messages (13 variants across two origins) remain
+byte-identical; the shared sender display name changes for every outgoing purpose.
+Browser review covered the verification HTML at 600px/320px preview widths and
+its plain-text fallback. This is browser rendering, not Gmail/Outlook certification.
+No full regression suite was rerun for this bounded local change; the affected
+authentication/mail boundaries were exercised directly.
+
+Local fictional gallery (14 message variants, no sends):
+http://127.0.0.1:5205/.wrangler/email-identity-review.html
+
+A later, separately approved inbox test should use owner-controlled Gmail and
+personal/test Microsoft 365 mailboxes. Generate fresh verification and event
+registration-update messages through normal guarded flows, compare Inbox/Junk/
+quarantine placement before safe-sender exceptions, and inspect the visible sender,
+authentication headers, HTML/text rendering and actual verification behavior.
+No artificial message volume, filter-bypass wording or sender-domain change is
+part of this correction. Fresh live inbox placement remains unverified.
+
+Owner accepted the local changes and authorized DEV publication with #62–63 on
+2026-11-17. The combined candidate passed 878 regressions, 40 policy/public UI
+checks, strict TypeScript, hosted-DEV build and DEV Worker dry run. This supersedes
+the preparation-only scope above for DEV publication only. No real email send,
+DNS/provider/configuration change or PROD operation is included; fresh inbox
+acceptance still requires a separately approved provider test.

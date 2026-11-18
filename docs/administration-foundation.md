@@ -162,6 +162,9 @@ The DEV/local-only read contract is:
 - `GET /api/manage/users/:uuid`: the summary plus email, stored first/last name,
   name prefix, verification state and creation time. Lifecycle-scrubbed names/prefix
   are null/unavailable; do not reconstruct them. No auth internals are selected.
+  The owner-requested [attendance history update](member-attendance.md) adds
+  completed reviewed member days, saved venue and event qualification to detail
+  only; it does not expose prices, payment state or guest/contact data.
 - Both endpoints require `X-LAN-Request: 1` and `X-LAN-Session-Proof` from the
   current session, preserve origin restrictions and return no-store/no-referrer.
   Denial, invalid query, context change, missing account and outage have distinct

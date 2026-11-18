@@ -32,13 +32,13 @@ export function authenticationEmail(link: string, purpose: MailPurpose = 'email-
     || url.pathname !== path || url.search || (notification ? !!url.hash : !url.hash) || /[\s\u0000-\u001f\u007f]/.test(link)) {
     throw new Error('Invalid authentication email URL');
   }
-  const subject = reactivation ? 'Reactivate your LAN Party account' : mfa?.[0] ?? (notification ? 'Your LAN Party password was changed' : reset ? 'Reset your LAN Party password' : 'Verify your LAN Party account');
+  const subject = reactivation ? 'Reactivate your LAN Party account' : mfa?.[0] ?? (notification ? 'Your LAN Party password was changed' : reset ? 'Reset your LAN Party password' : 'Confirm your email address for LAN Party');
   const heading = reactivation ? 'Account reactivation invitation' : mfa?.[1] ?? (notification ? 'Password changed' : reset ? 'Reset your password' : 'Welcome to LAN Party');
   const explanation = reactivation ? 'A LAN Party administrator invited you to reactivate your account. You must confirm your existing password and two-factor authentication if enabled. Opening this email does not activate your account.' : mfa?.[2] ?? (notification ? 'Your LAN Party account password was changed. If you made this change, no further action is needed.' : reset ? 'Choose a new password using this link.'
-    : 'Confirm your email to finish setting up your account.');
+    : 'We received a request to create a LAN Party account using this email address. Confirm your email address to finish setting up your account.');
   const expiry = notification ? "If you didn't make this change, secure your account and contact the LAN Party organizers. Visit LAN Party directly and recover your account if possible." : `This link expires in ${reset || reactivation ? '30 minutes' : '24 hours'} and works once.`;
-  const action = reactivation ? 'Continue reactivation' : notification ? 'Review account security' : reset ? 'Reset password' : 'Continue verification';
-  const security = notification ? 'This is a security notification, not an email confirmation or password reset.' : 'If you did not request this, ignore this email.';
+  const action = reactivation ? 'Continue reactivation' : notification ? 'Review account security' : reset ? 'Reset password' : 'Confirm email address';
+  const security = notification ? 'This is a security notification, not an email confirmation or password reset.' : reset || reactivation ? 'If you did not request this, ignore this email.' : 'If you didn’t request a LAN Party account, you can ignore this email.';
   const support = 'Need a hand? Contact the LAN Party organizers if this link does not work.';
   const href = escapeHTML(url.href);
   return {

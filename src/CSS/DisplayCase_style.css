@@ -12,4 +12,8 @@
 .display-case-badge .button { margin-top:auto; }
 .display-case-badge .button[aria-pressed=true] { border-color:var(--accent); background:var(--accent-dim); }
 .display-case-actions { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.75rem; margin-block:1.5rem 1rem; }
+.display-case-title-choice { margin-block:1.5rem; max-width:36rem; }
+.display-case-title-choice label { display:block; margin-bottom:.5rem; font-weight:600; }
+.display-case-title-choice select { width:100%; min-height:44px; padding:.65rem; border:1px solid var(--border); border-radius:.5rem; color:var(--text); background:var(--surface-raised); font:inherit; }
+.display-case-title-choice p { margin-block:.5rem 0; color:var(--muted); }
 @media(max-width:540px){.display-case-showcase{align-items:flex-start;gap:1rem}.display-case-medal{width:4rem;height:4rem;font-size:2rem}}
