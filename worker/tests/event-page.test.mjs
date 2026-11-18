@@ -17,7 +17,7 @@ test('anonymous initial HTML carries escaped event metadata, canonical/image URL
  assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');assert.equal(response.headers.get('ETag'),null);assert.equal(response.headers.get('Last-Modified'),null);
  assert.equal(meta(html,'og:title'),'Fictional &quot;LAN&quot; &lt;script&gt;alert(1)&lt;/script&gt; &amp; crew');
  assert.equal(meta(html,'og:description'),'Welcome &lt;img src=x onerror=evil&gt; &amp; game night');assert.equal(meta(html,'twitter:description'),meta(html,'og:description'));
- assert.equal(meta(html,'og:url'),origin+'/events/'+id);assert.equal(meta(html,'og:image'),origin+'/lan-hall.png');assert.equal(meta(html,'twitter:image'),meta(html,'og:image'));assert.equal(meta(html,'twitter:card'),'summary_large_image');
+ assert.equal(meta(html,'og:url'),origin+'/events/'+id);assert.equal(meta(html,'og:image'),origin+'/lan-hall.jpg');assert.equal(meta(html,'twitter:image'),meta(html,'og:image'));assert.equal(meta(html,'twitter:card'),'summary_large_image');
  assert.ok(html.includes('<link rel="canonical" href="'+origin+'/events/'+id+'">'));assert.ok(html.includes('<div id="root"></div>'));assert.ok(html.includes('src="/src/main.tsx"'));
  assert.equal(html.includes('<script>alert(1)</script>'),false);assert.equal((html.match(/<title>/g)??[]).length,1);assert.equal(html.includes('LAN Party | Home'),false);
  assert.equal((html.match(/name="description"/g)??[]).length,1);
@@ -49,8 +49,12 @@ test('metadata omits management/venue data, bounds plain descriptions and does n
 test('missing publication schema returns generic 503 without an event projection',()=>local(async f=>{
  const response=await get(f,randomUUID()),html=await response.text();assert.equal(response.status,503);assert.equal(meta(html,'og:title'),'LAN Party | Events');assert.equal(meta(html,'og:url'),origin+'/events');
 },27));
-test('existing artwork is a PNG and approved event routing covers DEV and production',async()=>{
- const art=await readFile('public/lan-hall.png');assert.deepEqual([...art.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+test('optimized artwork is a JPEG and known HTML pages go through Worker routing',async()=>{
+ const art=await readFile('public/lan-hall.jpg');assert.deepEqual([...art.subarray(0,3)],[255,216,255]);
+ assert.ok(art.length < (await readFile('public/lan-hall.png')).length / 6);
  const source=await readFile('wrangler.jsonc','utf8'),config=JSON.parse(source.replace(/^\s*\/\/.*$/gm,''));
- assert.deepEqual(config.assets.run_worker_first,['/api','/api/*','/events/*']);assert.deepEqual(config.env.prod.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);assert.deepEqual(config.env.dev.assets.run_worker_first,['/api','/api/*','/events/*','/news/*']);
+ for(const assets of [config.assets,config.env.prod.assets,config.env.dev.assets]){
+  assert.equal(assets.not_found_handling,'none');assert.equal(assets.html_handling,'none');
+  assert.deepEqual(assets.run_worker_first,['/','/index.html','/api','/api/*']);
+ }
 });

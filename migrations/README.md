@@ -897,3 +897,18 @@ Existing rows in 62 application tables, badge selections and permissions are
 preserved; existing title choices default to automatic. Exact schema matches the
 verified rehearsal, quick_check is OK and no foreign-key violations were found.
 PROD unchanged. This receipt supersedes the initial local-only status above.
+
+## News and Poll content language — 0043
+
+`0043_news_content_language.sql` adds an allowlisted Dutch/English language
+column to `news_articles`. Existing posts retain their content, slugs and
+publication state. They default to Dutch, matching the existing public posts
+reviewed for #34. Editors can select English for English posts. The application
+can still read and edit Dutch content before the migration. An English choice
+requires the column so a save cannot silently discard it.
+
+DEV execution, 2026-11-18: owner-approved 0043 applied after a fresh private
+export, Time Travel checkpoint and verified isolated restore/migration.
+Existing rows in all 62 application tables are preserved and existing News
+defaults to Dutch. The schema matches the rehearsal, quick check passed and
+no foreign-key violations were found. PROD application remains pending.

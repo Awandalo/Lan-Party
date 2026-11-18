@@ -3,6 +3,7 @@ import {validateEventDocument} from '../src/lib/event-document';
 import type {EventNode} from '../src/lib/event-document';
 import {eventActor} from './event-data';
 import {UUID} from './role-administration';
+import {isNewsLanguage,newsLanguage} from '../src/lib/news-language';
 
 export class NewsError extends Error {constructor(public status:number,message:string){super(message);}}
 export const newsPermissions=['news.create','news.update','news.publish','news.archive'] as const;
@@ -12,20 +13,31 @@ export async function newsReady(db:D1Database){return !!await db.prepare("SELECT
 export function newsText(node:EventNode):string{return [node.text??'',...(node.content??[]).map(newsText)].join(' ').replace(/\s+/g,' ').trim();}
 const columns=`a.id,a.slug,a.title,a.excerpt,a.publication_status AS status,a.created_at AS createdAt,a.updated_at AS updatedAt,a.published_at AS publishedAt,(SELECT nickname FROM user_nicknames WHERE user_id=a.updated_by_user_id) AS editorName`;
 const revision=`coalesce((SELECT max(sequence) FROM news_activity WHERE article_id=a.id),0)`;
+async function languageReady(db:D1Database){
+ return !!await db.prepare("SELECT 1 FROM pragma_table_info('news_articles') WHERE name='language'").first();
+}
 export async function newsList(db:D1Database,publicView:boolean,limit=20,offset=0,openPolls=false){
  if(openPolls&&!await pollsReady(db))return {articles:[],hasMore:false};
- const articles=(await db.prepare(`SELECT ${columns}${publicView?'':','+revision+' AS revision'} FROM news_articles a ${publicView?"WHERE a.publication_status='published'":''}${openPolls?" AND EXISTS(SELECT 1 FROM news_polls p WHERE p.article_id=a.id AND p.closed=0)":''} ORDER BY ${publicView?'a.published_at':'a.created_at'} DESC,a.id DESC LIMIT ? OFFSET ?`).bind(limit+1,offset).all()).results;
+ const language=await languageReady(db)?',a.language':'';
+ const articles=(await db.prepare(`SELECT ${columns}${language}${publicView?'':','+revision+' AS revision'} FROM news_articles a ${publicView?"WHERE a.publication_status='published'":''}${openPolls?" AND EXISTS(SELECT 1 FROM news_polls p WHERE p.article_id=a.id AND p.closed=0)":''} ORDER BY ${publicView?'a.published_at':'a.created_at'} DESC,a.id DESC LIMIT ? OFFSET ?`).bind(limit+1,offset).all()).results;
  const summaries=await pollSummaries(db,articles.slice(0,limit).map(a=>String(a.id)));
- return {articles:articles.slice(0,limit).map(a=>summaries.has(String(a.id))?{...a,kind:'poll',poll:summaries.get(String(a.id))}:a),hasMore:articles.length>limit};
+ return {articles:articles.slice(0,limit).map(a=>({...a,language:newsLanguage(a.language),
+   ...(summaries.has(String(a.id))?{kind:'poll',poll:summaries.get(String(a.id))}:{})})),hasMore:articles.length>limit};
 }
-export async function newsArticle(db:D1Database,key:string,publicView:boolean){const row=await db.prepare(`SELECT ${columns},a.content${publicView?'':','+revision+' AS revision'} FROM news_articles a WHERE a.${publicView?'slug':'id'}=? ${publicView?"AND a.publication_status='published'":''}`).bind(key).first<{id:string;title:string;content:string;status:string;revision:number;[key:string]:unknown}>();if(!row)return null;const poll=(await pollSummaries(db,[String(row.id)])).get(String(row.id));return {...row,...poll?{kind:'poll',poll}:{}};}
+export async function newsArticle(db:D1Database,key:string,publicView:boolean){
+ const language=await languageReady(db)?',a.language':'';
+ const row=await db.prepare(`SELECT ${columns},a.content${language}${publicView?'':','+revision+' AS revision'} FROM news_articles a WHERE a.${publicView?'slug':'id'}=? ${publicView?"AND a.publication_status='published'":''}`).bind(key).first<{id:string;title:string;content:string;status:string;revision:number;[key:string]:unknown}>();
+ if(!row)return null;
+ const poll=(await pollSummaries(db,[String(row.id)])).get(String(row.id));
+ return {...row,language:newsLanguage(row.language),...poll?{kind:'poll',poll}:{}};
+}
 
 const assertChange=(db:D1Database)=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('news-stale-or-permission-changed') END");
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
 export async function writeNews(db:D1Database,userId:string,digest:string,raw:Record<string,unknown>){
  const action=String(raw.action) as NewsAction;
  if(!Object.hasOwn(permission,action)||typeof raw.operationId!=='string'||!UUID.test(raw.operationId))throw new NewsError(400,'Invalid News action');
- const allowed=['action','operationId',...(action==='create'?['title','content','poll']:['id','revision',...(action==='update'?['title','content','poll']:action==='delete'?['confirmation']:[])])];
+ const allowed=['action','operationId',...(action==='create'?['title','content','poll','language']:['id','revision',...(action==='update'?['title','content','poll','language']:action==='delete'?['confirmation']:[])])];
  if(Object.keys(raw).some(k=>!allowed.includes(k)))throw new NewsError(400,'Unsupported News fields');
  const payload=await hash(JSON.stringify(raw));
  const previous=await db.prepare('SELECT article_id,actor_id,payload_digest FROM news_activity WHERE operation_id=?').bind(raw.operationId).first<{article_id:string;actor_id:string|null;payload_digest:string}>();
@@ -44,9 +56,14 @@ export async function writeNews(db:D1Database,userId:string,digest:string,raw:Re
  if(draft&&action!=='create'&&!oldPoll)throw new NewsError(400,'News and Poll types cannot be changed');
  if(['close-poll','reopen-poll'].includes(action)&&(!oldPoll||old?.status!=='published'||oldPoll.closed===(action==='close-poll')))throw new NewsError(409,'Poll voting state changed');
  let title='',content='',excerpt='';
+ const language=newsLanguage(raw.language??old?.language);
+ const storesLanguage=(action==='create'||action==='update')&&await languageReady(db);
  if(action==='create'||action==='update'){
   if(typeof raw.title!=='string'||!raw.title.trim()||raw.title.length>160||/[\u0000-\u001f\u007f]/.test(raw.title))throw new NewsError(400,'Enter a title up to 160 characters');title=raw.title.trim();
-  let doc:EventNode;try{doc=validateEventDocument(raw.content);}catch(e){throw new NewsError(400,(e as Error).message);}content=JSON.stringify(doc);excerpt=Array.from(newsText(doc)).slice(0,180).join('');
+  if(raw.language!==undefined&&!isNewsLanguage(raw.language))throw new NewsError(400,'Choose Dutch or English');
+  if(!storesLanguage&&language==='en')throw new NewsError(503,'English content selection is awaiting a database update');
+  let doc:EventNode;try{doc=validateEventDocument(raw.content);}catch(e){throw new NewsError(400,(e as Error).message);}
+  content=JSON.stringify(doc);excerpt=Array.from(newsText(doc)).slice(0,180).join('');
   if(old?.status==='published'&&!oldPoll&&!excerpt)throw new NewsError(400,'Published posts need content');
  }
  if(action==='publish'){
@@ -61,10 +78,10 @@ export async function writeNews(db:D1Database,userId:string,digest:string,raw:Re
  const current=`coalesce((SELECT max(sequence) FROM news_activity WHERE article_id=news_articles.id),0)=?`;
  if(action==='create'){
   const stem=title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60).replace(/-$/,'')||'news';
-  statements.push(db.prepare(`INSERT INTO news_articles(id,title,slug,content,excerpt,author_user_id,updated_by_user_id,created_at,updated_at) SELECT ?,?,?,?,?,?,?,unixepoch(),unixepoch() WHERE ${guard}`).bind(id,title,stem+'-'+id,content,excerpt,userId,userId,userId,digest));
+  statements.push(db.prepare(`INSERT INTO news_articles(id,title,slug,content,excerpt,author_user_id,updated_by_user_id,created_at,updated_at${storesLanguage?',language':''}) SELECT ?,?,?,?,?,?,?,unixepoch(),unixepoch()${storesLanguage?',?':''} WHERE ${guard}`).bind(id,title,stem+'-'+id,content,excerpt,userId,userId,...storesLanguage?[language]:[],userId,digest));
  }else{
   const where=`WHERE id=? AND ${current} AND ${guard}`;
-  if(action==='update')statements.push(db.prepare(`UPDATE news_articles SET title=?,content=?,excerpt=?,updated_by_user_id=?,updated_at=max(updated_at,unixepoch()) ${where}`).bind(title,content,excerpt,userId,id,raw.revision,userId,digest));
+  if(action==='update')statements.push(db.prepare(`UPDATE news_articles SET title=?,content=?,excerpt=?,updated_by_user_id=?,updated_at=max(updated_at,unixepoch())${storesLanguage?',language=?':''} ${where}`).bind(title,content,excerpt,userId,...storesLanguage?[language]:[],id,raw.revision,userId,digest));
   else if(action==='delete')statements.push(db.prepare(`DELETE FROM news_articles ${where}`).bind(id,raw.revision,userId,digest));
   else if(action==='close-poll'||action==='reopen-poll')statements.push(db.prepare(`UPDATE news_articles SET updated_at=max(updated_at,unixepoch()),updated_by_user_id=? ${where}`).bind(userId,id,raw.revision,userId,digest));
   else statements.push(db.prepare(`UPDATE news_articles SET publication_status=?,published_at=${action==='publish'?'coalesce(published_at,unixepoch())':'published_at'},updated_at=max(updated_at,unixepoch()),updated_by_user_id=? ${where}`).bind(action==='publish'?'published':'archived',userId,id,raw.revision,userId,digest));

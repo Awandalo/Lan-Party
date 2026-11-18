@@ -7,7 +7,7 @@ const mod=new Module(import.meta.filename);mod.paths=Module._nodeModulePaths(pro
 const event={id:'20000000-0000-4000-8000-000000000001',title:'Fictional weekend LAN',startsAt:1,endsAt:2,registrationStatus:'closed',venue:null,days:[{date:'2030-11-01',remaining:32}]};
 test('Home removes the redundant hero CTA only when an event exists and retains full-list navigation',()=>{
  const html=home([event]);assert.equal(html.includes('Explore events'),false);assert.ok(html.includes('View event'));assert.ok(html.includes('Browse all events'));assert.ok(html.includes('href="/events/'+event.id+'"'));assert.ok(html.includes('href="/events"'));
- assert.ok(html.includes('class="home-event-artwork" src="/lan-hall.png" alt="Rows of gaming setups at a LAN party"'));assert.ok(card(event).includes('src="/lan-hall.png" alt="Rows of gaming setups at a LAN party"'));
+ assert.ok(html.includes('class="home-event-artwork" src="/lan-hall.jpg" alt="Rows of gaming setups at a LAN party"'));assert.ok(card(event).includes('src="/lan-hall.jpg" alt="Rows of gaming setups at a LAN party"'));
  assert.ok(html.includes('class="button button-secondary home-browse-events" href="/events"'));
 });
 test('Home keeps a useful Events CTA when no upcoming event is available',()=>{

@@ -17,7 +17,9 @@ before(async()=>{
  let paymentOutcome='sent';const paymentMessages=[];let rejectRegistrationMail=false;const originalMail=localMailbox.send.bind(localMailbox);localMailbox.send=async mail=>{if(rejectRegistrationMail&&mail.purpose==='event-registration')throw Error('Fictional mail failure');if(mail.purpose==='event-payment'){paymentMessages.push(mail);if(paymentOutcome!=='sent')throw new EmailDeliveryError(paymentOutcome);await originalMail(mail);return {id:crypto.randomUUID()};}return originalMail(mail);};
  const background=new Set();
  export default{async fetch(request,env,ctx){const path=new URL(request.url).pathname;
- if(path.startsWith('/events/')||path.startsWith('/news/'))env={...env,ASSETS:{fetch:async()=>new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})}};
+ if(!path.startsWith('/api/'))env={...env,ASSETS:{fetch:async asset=>new URL(asset.url).pathname==='/index.html'
+  ?new Response(${JSON.stringify(pageShell)},{headers:{'Content-Type':'text/html; charset=utf-8','ETag':'"fixture-shell"','Cache-Control':'public, max-age=31536000'}})
+  :new Response(null,{status:404})}};
  if(path==='/fixture-news-delete'){await deleteAccount(env.DB,request.headers.get('X-Fixture-Actor'),0,request.headers.get('X-Fixture-Digest'));return new Response('deleted');}
  if(path==='/fixture-payment-emails')return Response.json(paymentMessages);
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}

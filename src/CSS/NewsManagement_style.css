@@ -1,9 +1,9 @@
 .news-management-heading { display:flex; align-items:center; gap:.75rem; justify-content:space-between; }
 .news-management-heading h2 { margin: 0; }
 .news-field { display: grid; gap: .5rem; font-weight: 600; margin-block: 1rem; min-width: 0; }
-.news-field input, .news-field textarea { width: 100%; min-width: 0; min-height: 44px; padding: .75rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface-raised); color: var(--text); font: inherit; font-weight: 400; }
-.news-field input:hover, .news-field textarea:hover { border-color: var(--accent); }
-.news-field input:focus-visible, .news-field textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.news-field :is(input, textarea, select) { width: 100%; min-width: 0; min-height: 44px; padding: .75rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface-raised); color: var(--text); font: inherit; font-weight: 400; }
+.news-field :is(input, textarea, select):hover { border-color: var(--accent); }
+.news-field :is(input, textarea, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .news-workspace { display: grid; grid-template-columns: minmax(15rem,1fr) minmax(0,2fr); gap: 1.5rem; align-items: start; }
 .news-post-list { display: grid; gap: .75rem; }
 .news-post-choice { width: 100%; min-width: 0; overflow-wrap: anywhere; text-align: left; color: var(--text); font: inherit; display: grid; gap: .5rem; cursor: pointer; border: 1px solid var(--border); }

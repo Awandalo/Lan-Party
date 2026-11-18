@@ -21,7 +21,7 @@
 
 .home-page { position: relative; isolation: isolate; }
 /* Side photos live outside the opaque central column, never behind its content. */
-.home-page::before, .home-page::after { content: ""; position: absolute; top: 0; bottom: 0; width: max(0px, calc((100vw - 1120px) / 2 - 1.5rem)); background-image: linear-gradient(#10131755, #101317aa), url('/lan-hall.png'); background-size: auto 100%; pointer-events: none; z-index: -1; }
+.home-page::before, .home-page::after { content: ""; position: absolute; top: 0; bottom: 0; width: max(0px, calc((100vw - 1120px) / 2 - 1.5rem)); background-image: linear-gradient(#10131755, #101317aa), url('/lan-hall.jpg'); background-size: auto 100%; pointer-events: none; z-index: -1; }
 .home-page::before { right: calc(100% + 1.5rem); background-position: left center; mask-image: linear-gradient(to right, black 60%, transparent); }
 .home-page::after { left: calc(100% + 1.5rem); background-position: right center; mask-image: linear-gradient(to left, black 60%, transparent); }
 .home-news { margin-top: 2rem; margin-bottom: 1.5rem; }
