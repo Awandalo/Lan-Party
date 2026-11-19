@@ -1,8 +1,34 @@
+import { useEffect } from 'react';
+import { Link, useParams } from 'react-router';
+import NewsReactions from '../components/NewsReactions';
+import { NewsReading } from '../components/NewsReading';
 import PollVoting from '../components/PollVoting';
-import {useEffect} from 'react';
-import {Link,useParams} from 'react-router';
-import {useNews} from '../lib/news';
-import {NewsReading} from '../components/NewsReading';
 import PublicShare from '../components/PublicShare';
+import { useNews } from '../lib/news';
+import { newsLanguage } from '../lib/news-language';
 import '../CSS/News_style.css';
-export default function NewsArticle(){const {slug}=useParams(),state=useNews('/api/news/'+encodeURIComponent(slug??''));useEffect(()=>{document.title='LAN Party | '+(state.data?.article?.title??(state.loading?'News':'Article unavailable'));},[state.data,state.loading]);return <article className="page-section news-page news-article"><Link className="text-link" to="/news">← All news</Link>{state.loading?<p role="status">Loading article…</p>:state.data?.article?<><NewsReading article={state.data.article}/>{state.data.article.poll?<PollVoting article={state.data.article} actions={<PublicShare key={state.data.article.id} title={state.data.article.title} url={new URL('/news/'+state.data.article.slug,location.origin).href}/>}/>:(<PublicShare key={state.data.article.id} title={state.data.article.title} url={new URL('/news/'+state.data.article.slug,location.origin).href}/>)}</>:<><h1>Article unavailable</h1><p role="status">{state.error||'This article is no longer published.'}</p></>}</article>;}
+
+export default function NewsArticle() {
+  const { slug } = useParams();
+  const { data, loading, error } = useNews('/api/news/' + encodeURIComponent(slug ?? ''));
+  const article = data?.article?.slug === slug ? data?.article : undefined;
+  const waiting = loading || (!!data?.article && !article);
+  useEffect(() => {
+    document.title = 'LAN Party | ' + (article?.title ?? (waiting ? 'News' : 'Article unavailable'));
+  }, [article, waiting]);
+
+  const actions = article && <NewsReactions articleId={article.id} language={newsLanguage(article.language)}
+    actions={<PublicShare key={article.id} compact title={article.title}
+      url={new URL('/news/' + article.slug, location.origin).href} />} />;
+  return <article className="page-section news-page news-article">
+    <Link className="text-link" to="/news">← All news</Link>
+    {waiting ? <p role="status">Loading article…</p> : article ? <>
+      <NewsReading article={article} />
+      {article.poll ? <PollVoting article={article} actions={actions} /> :
+        <div className="news-article-actions">{actions}</div>}
+    </> : <>
+      <h1>Article unavailable</h1>
+      <p role="status">{error || 'This article is no longer published.'}</p>
+    </>}
+  </article>;
+}
