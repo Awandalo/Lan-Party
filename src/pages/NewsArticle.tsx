@@ -17,14 +17,15 @@ export default function NewsArticle() {
     document.title = 'LAN Party | ' + (article?.title ?? (waiting ? 'News' : 'Article unavailable'));
   }, [article, waiting]);
 
-  const share = article && <PublicShare key={article.id} title={article.title}
-    url={new URL('/news/' + article.slug, location.origin).href} />;
+  const actions = article && <NewsReactions articleId={article.id} language={newsLanguage(article.language)}
+    actions={<PublicShare key={article.id} compact title={article.title}
+      url={new URL('/news/' + article.slug, location.origin).href} />} />;
   return <article className="page-section news-page news-article">
     <Link className="text-link" to="/news">← All news</Link>
     {waiting ? <p role="status">Loading article…</p> : article ? <>
       <NewsReading article={article} />
-      {article.poll ? <PollVoting article={article} actions={share} /> : share}
-      <NewsReactions articleId={article.id} language={newsLanguage(article.language)} />
+      {article.poll ? <PollVoting article={article} actions={actions} /> :
+        <div className="news-article-actions">{actions}</div>}
     </> : <>
       <h1>Article unavailable</h1>
       <p role="status">{error || 'This article is no longer published.'}</p>

@@ -144,9 +144,11 @@ by this source fix. Release application requires exact-PR acceptance and migrati
 
 News posts and polls share six reactions and a single selection per verified
 active member per article. Published detail pages show public totals. A member's
-own selection requires a live session and proof. Reactions remain available when
-poll voting closes. Unpublishing hides the totals and blocks changes until the
-article is republished.
+own selection requires a live session and proof. The reaction icon and total sit
+beside Share. The reaction button opens six choices above it, and selecting the
+saved reaction again removes it. Reactions remain available when poll voting
+closes. Unpublishing hides the totals and blocks changes until the article is
+republished.
 
 Migration `0044` adds reaction storage without changing existing articles or
 ballots. Account deletion removes the account link and keeps the reaction in the

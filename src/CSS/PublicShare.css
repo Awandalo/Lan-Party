@@ -2,6 +2,9 @@
 .public-share>.button { display:inline-flex; align-items:center; gap:.5rem; }
 .public-share-options { margin-top:.5rem; width:min(19rem,calc(100vw - 3rem)); padding:.5rem; border:1px solid var(--border); border-radius:.75rem; background:var(--surface); box-shadow:0 .5rem 2rem #0006; }
 .public-share-options[hidden] { display:none; }
+.public-share--compact { position:static; }
+.public-share--compact>.button { justify-content:center; min-width:44px; min-height:44px; padding:.375rem; border-radius:.5rem; }
+.public-share--compact .public-share-options { position:absolute; z-index:2; inset-inline-start:0; inset-block-start:100%; }
 .public-share-options ul { list-style:none; margin:0; padding:0; }
 .public-share-options a,.public-share-options button { display:flex; align-items:center; justify-content:space-between; width:100%; padding:.65rem .75rem; border:1px solid transparent; border-radius:.4rem; background:transparent; color:var(--text); text-decoration:none; font:inherit; text-align:left; cursor:pointer; }
 .public-share-options a:hover,.public-share-options button:hover { background:#ffffff0a; border-color:var(--accent); }
