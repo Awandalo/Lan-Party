@@ -97,6 +97,7 @@ function ReactionPicker({ articleId, language, proof, signIn, verifyEmail, actio
 
   const selected = reactionChoices.find(({ id }) => id === data?.reaction);
   const total = data ? Object.values(data.counts).reduce((sum, count) => sum + count, 0) : 0;
+  const publicReactions = !proof && data ? reactionChoices.filter(({ id }) => data.counts[id] > 0) : [];
   return <section className="news-reactions" lang={language} aria-labelledby={heading}>
     <h2 id={heading} className="visually-hidden">{copy.title}</h2>
     <div className="news-reaction-bar" aria-busy={pending}>
@@ -134,8 +135,8 @@ function ReactionPicker({ articleId, language, proof, signIn, verifyEmail, actio
           </ul>
         </div>
       </div>}
-      {!proof && data && <ul className="news-reaction-summary" aria-label={copy.title}>
-        {reactionChoices.map(({ id, emoji, [language]: label }) => <li key={id}>
+      {data && publicReactions.length > 0 && <ul className="news-reaction-summary" aria-label={copy.title}>
+        {publicReactions.map(({ id, emoji, [language]: label }) => <li key={id}>
           <span aria-hidden="true">{emoji}</span><span className="visually-hidden">{label} </span>{data.counts[id]}
         </li>)}
       </ul>}
