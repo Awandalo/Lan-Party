@@ -912,3 +912,17 @@ export, Time Travel checkpoint and verified isolated restore/migration.
 Existing rows in all 62 application tables are preserved and existing News
 defaults to Dutch. The schema matches the rehearsal, quick check passed and
 no foreign-key violations were found. PROD application remains pending.
+
+## Article reactions — 0044
+
+`0044_create_news_article_reactions.sql` adds one table for reactions on
+published News posts and polls. One account can save one reaction per article.
+Permanent account deletion clears the account link while keeping the reaction
+in the public count. Permanent article deletion removes its reactions. Poll
+ballots and existing articles use their existing schema.
+
+DEV execution, 2026-11-19. After a fresh private export and Time Travel
+checkpoint, the isolated restore and migration rehearsal passed. Applying
+0044 preserved all existing rows in 62 application tables and added an empty
+reaction table. The applied schema matched the rehearsal, the quick check
+passed, and no foreign-key violations were found.

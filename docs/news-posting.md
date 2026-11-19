@@ -139,3 +139,19 @@ metadata now has the same routing path as DEV; publication/privacy/origin guards
 remain unchanged. No remote configuration or production operation is performed
 by this source fix. Release application requires exact-PR acceptance and migrations
 0038–0040 after fresh production recovery/integrity verification.
+
+## Article reactions — #52
+
+News posts and polls share six reactions and a single selection per verified
+active member per article. Published detail pages show public totals. A member's
+own selection requires a live session and proof. Reactions remain available when
+poll voting closes. Unpublishing hides the totals and blocks changes until the
+article is republished.
+
+Migration `0044` adds reaction storage without changing existing articles or
+ballots. Account deletion removes the account link and keeps the reaction in the
+total. Permanently deleting an article removes its reactions. Older schemas
+continue serving News while the reaction endpoint awaits `0044`.
+
+Thread controls and moderation are the next increment once the outstanding
+moderation-record retention decision is settled. Comment reactions are deferred.
