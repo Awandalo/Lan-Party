@@ -26,7 +26,7 @@ before(async()=>{
  try{
  if(action==='mailMode'){mailMode=args[0];return Response.json(true);}
  if(action==='purge')return Response.json(await purgeUserActivity(env.DB));
- if(action==='scheduled'){const tasks=[];await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev',AUTH_LIFECYCLE_ADMIN_MODE:args[0]??'enabled',AUTH_SESSION_MODE:args[1]??env.AUTH_SESSION_MODE},{waitUntil(task){tasks.push(task);}});await Promise.all(tasks);return Response.json(tasks.length);}
+ if(action==='scheduled'){const tasks=[];await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev',AUTH_LIFECYCLE_ADMIN_MODE:args[0]??'enabled',AUTH_SESSION_MODE:args[1]??env.AUTH_SESSION_MODE},{waitUntil(task){tasks.push(task);}});await Promise.all(tasks);return Response.json(true);}
  localMailbox.send=async mail=>{if(mailMode==='claim-fail'){await reactivate.claimReactivation(env.DB,new URL(mail.url).hash.slice(1));throw Error('Fictional uncertain delivery');}if(mailMode==='fail')throw Error('Fictional rejected delivery');await originalSend(mail);};
  if(action==='credential')return Response.json(await hashPassword(args[0],env.PASSWORD_PEPPER));
  if(action==='session'){const token=generateToken(),digest=await digestToken(token,'session');return Response.json({token,digest,csrf:await sessionCsrfToken(digest,env.AUTH_RATE_LIMIT_SECRET)});}
@@ -533,7 +533,13 @@ test('two-calendar-year maintenance purges history and expired receipts without 
  const a=await f.user({admin:true}),u=await f.user();await f.value('deactivateAccount',u.id,0,u.digest);await f.request('command',a,await memberCommand(f,a,u));
  await f.sql("INSERT INTO user_activity(event,actor_kind,occurred_at) VALUES ('account.created','anonymous',CAST(strftime('%s','now','-2 years') AS INTEGER))").run();
  await f.sql("INSERT INTO user_activity(event,actor_kind,occurred_at) VALUES ('account.created','anonymous',CAST(strftime('%s','now','-2 years') AS INTEGER)+86400)").run();
- assert.equal(await f.value('scheduled','disabled'),0);assert.equal(await f.value('scheduled'),1);assert.equal(await f.sql("SELECT count(*) n FROM user_activity WHERE actor_kind='anonymous'").first('n'),1);
+ const anonymousHistory=()=>f.sql("SELECT occurred_at FROM user_activity WHERE actor_kind='anonymous' ORDER BY occurred_at").all();
+ const before=(await anonymousHistory()).results;
+ assert.equal(before.length,2);
+ await f.value('scheduled','disabled');
+ assert.deepEqual((await anonymousHistory()).results,before);
+ await f.value('scheduled');
+ assert.deepEqual((await anonymousHistory()).results,[before[1]]);
  assert.equal(await f.sql("SELECT count(*) n FROM account_reactivation WHERE phase='invited'").first('n'),1);
  assert.ok(!(JSON.stringify((await f.sql('SELECT * FROM user_activity').all()).results).includes('@example.test')));
 },21));
@@ -636,7 +642,8 @@ test('Phase 4.6 feedback cascades inside real permanent account deletion and ano
 test('existing DEV scheduler purges feedback past 30 days while preserving open, reopened and younger closures',()=>local(async({user,value,sql})=>{
  const u=await user(),ids=[];
  for(const days of [31,29,null]){const id=randomUUID();ids.push(id);await sql("INSERT INTO feedback_requests(id,owner_id,creation_id,creation_hash,kind,title,description,progress,closed_at) VALUES (?,?,?,?,?,?,?,CASE WHEN ? IS NULL THEN 'new' ELSE 'closed' END,CASE WHEN ? IS NULL THEN NULL ELSE unixepoch()-?*86400 END)",id,u.id,randomUUID(),'fixture','bug','Fictional retention','Fictional content',days,days,days).run();}
- assert.equal(await value('scheduled','enabled','disabled'),2);
+ assert.equal(await sql('SELECT count(*) n FROM feedback_requests').first('n'),3);
+ await value('scheduled','enabled','disabled');
  assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',ids[0]).first('n'),0);
  for(const id of ids.slice(1))assert.equal(await sql('SELECT count(*) n FROM feedback_requests WHERE id=?',id).first('n'),1);
 },23));

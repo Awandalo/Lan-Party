@@ -177,7 +177,10 @@ test('0009 preserves prior schemas and enforces strict bounded digest-only count
     ['b'.repeat(64), 31, 1], ['c'.repeat(64), 1.5, 1], ['d'.repeat(64), 1, -1]]) {
     await assert.rejects(db.prepare('INSERT INTO registration_rate_limits VALUES (?,?,?)').bind(key, hits, expiry).run());
   }
-  assert.equal(await db.prepare("SELECT count(*) n FROM roles WHERE code IN ('admin','user')").first('n'), 2); assert.equal(await count(db, 'permissions'), 15);
+  assert.equal(await db.prepare("SELECT count(*) n FROM roles WHERE code IN ('admin','user')").first('n'), 2);
+  // This fixture applies the full migration chain. Migration 0045 adds News moderation.
+  assert.equal(await count(db, 'permissions'), 16);
+  assert.equal(await db.prepare("SELECT count(*) n FROM permissions WHERE code='news.moderate_comments'").first('n'),1);
   assert.equal(await db.prepare("SELECT count(*) n FROM permissions WHERE code='finance.manage'").first('n'),1);
   assert.equal(await db.prepare("SELECT count(*) n FROM role_permissions WHERE permission_id IN (SELECT id FROM permissions WHERE code='finance.manage')").first('n'),0);
   assert.equal(await db.prepare("SELECT count(*) n FROM permissions WHERE code='roles.protect_admin'").first('n'),1);
