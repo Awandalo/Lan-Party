@@ -2,8 +2,8 @@ import {useEffect,useState} from 'react';
 import type {NewsLanguage} from './news-language';
 export interface PollSummary {mode:'single'|'multiple';closed:boolean;locked:boolean;revision:number;voters:number;options:{id:string;label:string;votes:number}[]}
 export interface PollDraft {mode:'single'|'multiple';options:string[]}
-export interface NewsArticle {kind?:'poll';poll?:PollSummary;id:string;slug:string;title:string;excerpt:string|null;status:'draft'|'published'|'archived';createdAt:number;updatedAt:number;publishedAt:number|null;editorName:string|null;content?:string;revision?:number;language?:NewsLanguage}
-export interface NewsResponse {articles?:NewsArticle[];article?:NewsArticle;hasMore?:boolean;permissions?:string[];administrator?:boolean;id?:string}
+export interface NewsArticle {kind?:'poll';poll?:PollSummary;id:string;slug:string;title:string;excerpt:string|null;status:'draft'|'published'|'archived';createdAt:number;updatedAt:number;publishedAt:number|null;editorName:string|null;content?:string;revision?:number;language?:NewsLanguage;commentsOpen?:boolean;commentsRevision?:number}
+export interface NewsResponse {articles?:NewsArticle[];article?:NewsArticle;hasMore?:boolean;permissions?:string[];administrator?:boolean;id?:string;commentsAvailable?:boolean}
 export async function newsRequest<Result = NewsResponse>(path:string,proof?:string,body?:object,signal?:AbortSignal):Promise<Result>{
  const response=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1',...proof?{'X-LAN-Session-Proof':proof}:{},...body?{'Content-Type':'application/json','X-CSRF-Token':proof??''}:{}},...body?{body:JSON.stringify(body)}:{},signal:signal??AbortSignal.timeout(15000)});
  const data=await response.json();if(!response.ok)throw Error(data.error??'News unavailable');return data;

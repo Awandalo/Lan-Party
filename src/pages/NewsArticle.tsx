@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 import NewsReactions from '../components/NewsReactions';
+import NewsComments from '../components/NewsComments';
 import { NewsReading } from '../components/NewsReading';
 import PollVoting from '../components/PollVoting';
 import PublicShare from '../components/PublicShare';
@@ -26,6 +27,7 @@ export default function NewsArticle() {
       <NewsReading article={article} />
       {article.poll ? <PollVoting article={article} actions={actions} /> :
         <div className="news-article-actions">{actions}</div>}
+      <NewsComments articleId={article.id} language={newsLanguage(article.language)} />
     </> : <>
       <h1>Article unavailable</h1>
       <p role="status">{error || 'This article is no longer published.'}</p>

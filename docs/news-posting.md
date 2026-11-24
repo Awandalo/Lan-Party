@@ -155,5 +155,30 @@ ballots. Account deletion removes the account link and keeps the reaction in the
 total. Permanently deleting an article removes its reactions. Older schemas
 continue serving News while the reaction endpoint awaits `0044`.
 
-Thread controls and moderation are the next increment once the outstanding
-moderation-record retention decision is settled. Comment reactions are deferred.
+## Discussion and moderation — #52
+
+News posts and polls share the same member-only discussion. New and existing
+articles default to comments off. News Editors can change the setting in the
+editor and can open or close a published discussion. News Moderators can open
+or close a discussion from its page. Poll voting and reactions are independent.
+Unpublishing hides the discussion and preserves its setting for republication.
+
+Verified active members can post, edit, and delete their own plain-text comments
+while open. Closed threads remain readable and block all author writes. The
+thread loads 20 comments at a time. Posting is limited to five comments per
+account in ten minutes across threads. Permanent account deletion removes the
+account link while retaining the comment under an unavailable-user label.
+
+The assignable News Moderator role has only the `news.moderate_comments`
+permission. Moderators can preview the selected passage before redacting it.
+The comment shows a placeholder at the redaction and the moderator note below
+the remaining text. Moderators can also remove a whole comment with a visible
+reason and restore whole removals during the 14-day window. Author edits keep
+the server-owned notes and cannot reinsert the
+same normalized passage. The Worker stores a keyed fingerprint for that check.
+
+Whole removals and author deletions leave placeholders. The existing daily
+maintenance clears expired recovery text and private moderation records, which
+expire after 90 days. The 14-day restore deadline is enforced even before that
+maintenance runs. Moderator notes remain part of the visible discussion. The
+privacy notice explains this behavior. Comment reactions remain deferred.

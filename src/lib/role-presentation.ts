@@ -3,6 +3,7 @@ export const administratorRole='1ff3ba6a-1567-4b90-bd5f-74d4d35a7ca7';
 const labels:Record<string,string>={
  'events.create':'Create events','events.update':'Edit events','events.publish':'Publish events','events.cancel':'Cancel events','events.manage_registrations':'Manage event registrations',
  'news.create':'Write news','news.update':'Edit news','news.publish':'Publish news','news.archive':'Archive news',
+ 'news.moderate_comments':'Moderate News and Poll comments',
  'users.view':'View members','users.manage':'Manage members','roles.manage':'Manage ordinary roles','roles.protect_admin':'Protected role capability','locations.manage':'Manage locations',
 };
 export const groupLabels:Record<string,string>={events:'Events',news:'News',users:'Members',roles:'Roles',locations:'Locations'};

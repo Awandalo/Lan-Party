@@ -4,6 +4,7 @@ import type {EventNode} from '../src/lib/event-document';
 import {eventActor} from './event-data';
 import {UUID} from './role-administration';
 import {isNewsLanguage,newsLanguage} from '../src/lib/news-language';
+import {commentsReady} from './news-comment-data';
 
 export class NewsError extends Error {constructor(public status:number,message:string){super(message);}}
 export const newsPermissions=['news.create','news.update','news.publish','news.archive'] as const;
@@ -26,10 +27,11 @@ export async function newsList(db:D1Database,publicView:boolean,limit=20,offset=
 }
 export async function newsArticle(db:D1Database,key:string,publicView:boolean){
  const language=await languageReady(db)?',a.language':'';
- const row=await db.prepare(`SELECT ${columns},a.content${language}${publicView?'':','+revision+' AS revision'} FROM news_articles a WHERE a.${publicView?'slug':'id'}=? ${publicView?"AND a.publication_status='published'":''}`).bind(key).first<{id:string;title:string;content:string;status:string;revision:number;[key:string]:unknown}>();
+ const comments=!publicView&&await commentsReady(db)?',a.comments_open AS commentsOpen,a.comments_revision AS commentsRevision':'';
+ const row=await db.prepare(`SELECT ${columns},a.content${language}${comments}${publicView?'':','+revision+' AS revision'} FROM news_articles a WHERE a.${publicView?'slug':'id'}=? ${publicView?"AND a.publication_status='published'":''}`).bind(key).first<{id:string;title:string;content:string;status:string;revision:number;commentsOpen?:number;commentsRevision?:number;[key:string]:unknown}>();
  if(!row)return null;
  const poll=(await pollSummaries(db,[String(row.id)])).get(String(row.id));
- return {...row,language:newsLanguage(row.language),...poll?{kind:'poll',poll}:{}};
+ return {...row,...comments?{commentsOpen:row.commentsOpen===1}:{},language:newsLanguage(row.language),...poll?{kind:'poll',poll}:{}};
 }
 
 const assertChange=(db:D1Database)=>db.prepare("SELECT CASE WHEN changes()=1 THEN 1 ELSE json('news-stale-or-permission-changed') END");
@@ -37,7 +39,7 @@ const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.di
 export async function writeNews(db:D1Database,userId:string,digest:string,raw:Record<string,unknown>){
  const action=String(raw.action) as NewsAction;
  if(!Object.hasOwn(permission,action)||typeof raw.operationId!=='string'||!UUID.test(raw.operationId))throw new NewsError(400,'Invalid News action');
- const allowed=['action','operationId',...(action==='create'?['title','content','poll','language']:['id','revision',...(action==='update'?['title','content','poll','language']:action==='delete'?['confirmation']:[])])];
+ const allowed=['action','operationId',...(action==='create'?['title','content','poll','language','commentsOpen']:['id','revision',...(action==='update'?['title','content','poll','language','commentsOpen','commentsRevision']:action==='delete'?['confirmation']:[])])];
  if(Object.keys(raw).some(k=>!allowed.includes(k)))throw new NewsError(400,'Unsupported News fields');
  const payload=await hash(JSON.stringify(raw));
  const previous=await db.prepare('SELECT article_id,actor_id,payload_digest FROM news_activity WHERE operation_id=?').bind(raw.operationId).first<{article_id:string;actor_id:string|null;payload_digest:string}>();
@@ -50,6 +52,12 @@ export async function writeNews(db:D1Database,userId:string,digest:string,raw:Re
  const old=action==='create'?null:await newsArticle(db,id,false);
  if(action!=='create'&&!old)throw new NewsError(404,'Article not found');
  if(old&&old.revision!==raw.revision)throw new NewsError(409,'This article changed. Reload before continuing');
+ const changesComments=Object.hasOwn(raw,'commentsOpen');
+ if(changesComments){
+  if(typeof raw.commentsOpen!=='boolean')throw new NewsError(400,'Choose whether to allow comments');
+  if(!await commentsReady(db))throw new NewsError(503,'Comments are awaiting their database migration');
+  if(action==='update'&&(!Number.isSafeInteger(raw.commentsRevision)||old?.commentsRevision!==raw.commentsRevision))throw new NewsError(409,'The discussion changed. Reopen the editor before saving');
+ }else if(Object.hasOwn(raw,'commentsRevision'))throw new NewsError(400,'Invalid discussion setting');
  const oldPoll=old?.poll;
  const draft=raw.poll===undefined?null:pollDraft(raw.poll);
  if(draft&&!await pollsReady(db))throw new NewsError(503,'Polls are awaiting their database migration');
@@ -78,10 +86,10 @@ export async function writeNews(db:D1Database,userId:string,digest:string,raw:Re
  const current=`coalesce((SELECT max(sequence) FROM news_activity WHERE article_id=news_articles.id),0)=?`;
  if(action==='create'){
   const stem=title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60).replace(/-$/,'')||'news';
-  statements.push(db.prepare(`INSERT INTO news_articles(id,title,slug,content,excerpt,author_user_id,updated_by_user_id,created_at,updated_at${storesLanguage?',language':''}) SELECT ?,?,?,?,?,?,?,unixepoch(),unixepoch()${storesLanguage?',?':''} WHERE ${guard}`).bind(id,title,stem+'-'+id,content,excerpt,userId,userId,...storesLanguage?[language]:[],userId,digest));
+  statements.push(db.prepare(`INSERT INTO news_articles(id,title,slug,content,excerpt,author_user_id,updated_by_user_id,created_at,updated_at${storesLanguage?',language':''}${changesComments?',comments_open':''}) SELECT ?,?,?,?,?,?,?,unixepoch(),unixepoch()${storesLanguage?',?':''}${changesComments?',?':''} WHERE ${guard}`).bind(id,title,stem+'-'+id,content,excerpt,userId,userId,...storesLanguage?[language]:[],...changesComments?[Number(raw.commentsOpen)]:[],userId,digest));
  }else{
   const where=`WHERE id=? AND ${current} AND ${guard}`;
-  if(action==='update')statements.push(db.prepare(`UPDATE news_articles SET title=?,content=?,excerpt=?,updated_by_user_id=?,updated_at=max(updated_at,unixepoch())${storesLanguage?',language=?':''} ${where}`).bind(title,content,excerpt,userId,...storesLanguage?[language]:[],id,raw.revision,userId,digest));
+  if(action==='update')statements.push(db.prepare(`UPDATE news_articles SET title=?,content=?,excerpt=?,updated_by_user_id=?,updated_at=max(updated_at,unixepoch())${storesLanguage?',language=?':''}${changesComments?',comments_open=?,comments_revision=comments_revision+1':''} ${where}${changesComments?' AND comments_revision=?':''}`).bind(title,content,excerpt,userId,...storesLanguage?[language]:[],...changesComments?[Number(raw.commentsOpen)]:[],id,raw.revision,userId,digest,...changesComments?[raw.commentsRevision]:[]));
   else if(action==='delete')statements.push(db.prepare(`DELETE FROM news_articles ${where}`).bind(id,raw.revision,userId,digest));
   else if(action==='close-poll'||action==='reopen-poll')statements.push(db.prepare(`UPDATE news_articles SET updated_at=max(updated_at,unixepoch()),updated_by_user_id=? ${where}`).bind(userId,id,raw.revision,userId,digest));
   else statements.push(db.prepare(`UPDATE news_articles SET publication_status=?,published_at=${action==='publish'?'coalesce(published_at,unixepoch())':'published_at'},updated_at=max(updated_at,unixepoch()),updated_by_user_id=? ${where}`).bind(action==='publish'?'published':'archived',userId,id,raw.revision,userId,digest));

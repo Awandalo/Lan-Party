@@ -2,6 +2,8 @@ import {polls} from './polls';
 import {displayCase} from './achievements';
 import {news} from './news';
 import {newsReactions} from './news-reactions';
+import {newsComments} from './news-comments';
+import {purgeNewsComments} from './news-comment-data';
 import {newsPage} from './news-page';
 import {accountProfile} from './auth/profile';
 import {eventReview} from './event-review';
@@ -36,12 +38,14 @@ export default {
   async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext) {
     if((env.AUTH_ENVIRONMENT==='dev'||env.AUTH_ENVIRONMENT==='prod'&&productionBuild()&&env.EVENTS_MODE==='enabled')&&await registrationReady(env.DB))ctx.waitUntil(deliverPendingRegistrationNotifications(env));
     if((env.AUTH_ENVIRONMENT==='dev'||env.AUTH_ENVIRONMENT==='prod'&&productionBuild())&&await feedbackReady(env.DB))ctx.waitUntil(purgeFeedback(env.DB,20));
+    if(env.AUTH_ENVIRONMENT==='dev'||env.AUTH_ENVIRONMENT==='prod'&&productionBuild())ctx.waitUntil(purgeNewsComments(env.DB));
     if(['dev','prod'].includes(env.AUTH_ENVIRONMENT??'')&&env.AUTH_LIFECYCLE_ADMIN_MODE==='enabled')ctx.waitUntil(purgeUserActivity(env.DB));
   },
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url);
     if(pathname.startsWith('/api/polls/'))return polls(request,env);
     if(pathname.startsWith('/api/news-reactions/'))return newsReactions(request,env);
+    if(pathname.startsWith('/api/news-comments/'))return newsComments(request,env);
     if(pathname==='/api/news'||pathname.startsWith('/api/news/')||pathname==='/api/manage/news')return news(request,env);
     if(pathname==='/api/auth/display-case')return displayCase(request,env);
     if(pathname==='/api/auth/profile')return accountProfile(request,env);

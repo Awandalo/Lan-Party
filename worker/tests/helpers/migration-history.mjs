@@ -37,4 +37,5 @@ export const expectedHistory = [
  '0042_select_member_achievement_title.sql',
  '0043_news_content_language.sql',
  '0044_create_news_article_reactions.sql',
+ '0045_create_news_comments.sql',
 ];

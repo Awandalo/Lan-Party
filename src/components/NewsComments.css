@@ -1,0 +1,19 @@
+.news-comments { margin-block-start: 1.5rem; padding-block-start: 1rem; border-top: 1px solid var(--border); }
+.news-comments-heading, .news-comments-switch, .news-comment-meta, .news-comment-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .75rem; }
+.news-comments-heading { justify-content: space-between; }
+.news-comments-heading h2 { margin: 0; }
+.news-comment-field { display: grid; gap: .35rem; margin-block: .75rem; }
+.news-comment-field :is(textarea,input,select) { width: 100%; min-width: 0; min-height: 44px; padding: .5rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface-raised); color: var(--text); font: inherit; }
+.news-comment-field textarea { resize: vertical; }
+.news-comment-list { list-style: none; margin: 1rem 0; padding: 0; }
+.news-comment { padding-block: 1rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.news-comment-meta { color: var(--muted); font-size: .875rem; }
+.news-comment-meta strong { color: var(--text); }
+.news-comment-text { white-space: pre-wrap; }
+.news-comment-redaction { color: var(--muted); }
+.news-moderator-note, .news-redaction-preview { padding: .5rem .75rem; border-radius: .5rem; background: var(--surface-raised); color: var(--text); }
+.news-moderator-note strong { color: var(--accent); }
+.news-redaction-preview p { margin: .25rem 0 0; }
+.news-redaction-preview mark, .news-comment-field textarea[readonly]::selection { background: #f8d475; color: #221900; }
+.news-comment-actions:empty { display: none; }
+.news-comment-actions .button { min-height: 44px; }
