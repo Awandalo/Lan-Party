@@ -9,6 +9,7 @@ import {administrationPermissions} from './manage';
 import {isAdministrator,UUID} from './role-administration';
 import {eventActor} from './event-data';
 import {NewsError,newsReady,newsPermissions,newsArticle,newsList,writeNews} from './news-data';
+import {commentsReady} from './news-comment-data';
 
 const reply=(status:number,body:unknown)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, X-LAN-Session-Proof','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'}});
 export async function news(request:Request,env:AuthenticationEnvironment){
@@ -40,7 +41,7 @@ export async function news(request:Request,env:AuthenticationEnvironment){
   if(request.method==='GET'){
    if([...url.searchParams.keys()].some(k=>k!=='id'||url.searchParams.getAll(k).length!==1))throw new NewsError(400,'Invalid News query');
    const id=url.searchParams.get('id');if(id&&!UUID.test(id))throw new NewsError(400,'Invalid article');
-   const data=id?{article:await newsArticle(env.DB,id,false)}:await newsList(env.DB,false,200);
+   const data=id?{article:await newsArticle(env.DB,id,false)}:{...await newsList(env.DB,false,200),commentsAvailable:await commentsReady(env.DB)};
    // Fence reads against a concurrently revoked role/session after the first lookup.
    const guards=newsPermissions.map(p=>eventActor(p)).join(' OR ');
    if(!await env.DB.prepare('SELECT 1 WHERE '+guards).bind(...newsPermissions.flatMap(()=>[account.userId,digest])).first())return reply(403,{error:'News access changed'});

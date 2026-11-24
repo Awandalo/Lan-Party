@@ -22,6 +22,7 @@ before(async()=>{
   :new Response(null,{status:404})}};
  if(path==='/fixture-news-delete'){await deleteAccount(env.DB,request.headers.get('X-Fixture-Actor'),0,request.headers.get('X-Fixture-Digest'));return new Response('deleted');}
  if(path==='/fixture-payment-emails')return Response.json(paymentMessages);
+ if(path==='/fixture-news-comment-maintenance'){const tasks=[];await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev'},{waitUntil:task=>tasks.push(task)});await Promise.all(tasks);return new Response('purged');}
  if(path==='/fixture-drain'){await Promise.all([...background]);return new Response('drained');}
  if(path==='/fixture-registration-maintenance'){await app.scheduled({cron:'0 3 * * *'},{...env,AUTH_ENVIRONMENT:'dev'},ctx);return new Response('scheduled');}
  const runtime=ctx;ctx={waitUntil(task){background.add(task);runtime.waitUntil(task.finally(()=>background.delete(task)));}};

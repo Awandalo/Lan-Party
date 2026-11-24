@@ -926,3 +926,17 @@ checkpoint, the isolated restore and migration rehearsal passed. Applying
 0044 preserved all existing rows in 62 application tables and added an empty
 reaction table. The applied schema matched the rehearsal, the quick check
 passed, and no foreign-key violations were found.
+
+## News and Poll comments — 0045
+
+`0045_create_news_comments.sql` adds default-off discussion settings, comments,
+and private moderation records. It adds the assignable News Moderator role and
+the `news.moderate_comments` permission without assigning any accounts or
+changing News Editor grants. Comment author and moderation actor links become
+null when their accounts are deleted.
+
+Whole moderated comments are recoverable for 14 days. Private action records
+expire after 90 days. The Worker enforces these limits when reading or restoring
+comments and clears expired recovery text and records through existing scheduled
+maintenance. Apply the migration with a verified recovery checkpoint and
+preservation checks only after approval for the named environment.

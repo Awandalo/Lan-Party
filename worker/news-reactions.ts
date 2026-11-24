@@ -1,19 +1,14 @@
 import { isNewsReaction, reactionChoices, type NewsReaction, type NewsReactionState } from '../src/lib/news-reactions';
-import { readSessionCookie } from './auth/cookies';
-import { sessionCsrfToken } from './auth/csrf';
-import { fromHex } from './auth/encoding';
 import { authOrigin, authRouteEnabled, validAuthMutation } from './auth/environment';
 import type { AuthenticationEnvironment } from './auth/http';
 import { readInput } from './auth/registration';
-import { resolveSession } from './auth/sessions';
-import { digestToken } from './auth/tokens';
 import { memberActor } from './event-registration-data';
+import { verifiedNewsMember, type NewsMember } from './news-member';
 import { UUID } from './role-administration';
 
 const publishedArticle = "SELECT 1 FROM news_articles WHERE id=? AND publication_status='published'";
 const writeGuard = `EXISTS(${publishedArticle}) AND ${memberActor}`;
 
-interface Viewer { userId: string; digest: string }
 interface ReactionRow { reaction: NewsReaction | null; total: number; selected: number; verified: number }
 
 function reply(status: number, body: unknown) {
@@ -23,7 +18,7 @@ function reply(status: number, body: unknown) {
   } });
 }
 
-function readReactions(db: D1Database, articleId: string, viewer?: Viewer) {
+function readReactions(db: D1Database, articleId: string, viewer?: NewsMember) {
   return db.prepare(`WITH viewer AS (SELECT ? AS user_id WHERE ${memberActor})
     SELECT r.reaction, COUNT(r.reaction) AS total,
       MAX(CASE WHEN r.user_id = viewer.user_id THEN 1 ELSE 0 END) AS selected,
@@ -35,7 +30,7 @@ function readReactions(db: D1Database, articleId: string, viewer?: Viewer) {
     GROUP BY r.reaction`).bind(viewer?.userId ?? null, viewer?.userId ?? null, viewer?.digest ?? null, articleId);
 }
 
-function reactionResponse(rows: ReactionRow[], viewer?: Viewer) {
+function reactionResponse(rows: ReactionRow[], viewer?: NewsMember) {
   if (!rows.length) return reply(404, { error: 'Article not found' });
   if (viewer && !rows[0].verified) return reply(401, { error: 'Sign in again' });
   const counts = Object.fromEntries(reactionChoices.map(({ id }) => [id, 0])) as NewsReactionState['counts'];
@@ -46,17 +41,6 @@ function reactionResponse(rows: ReactionRow[], viewer?: Viewer) {
     if (row.selected) reaction = row.reaction;
   }
   return reply(200, { counts, reaction } satisfies NewsReactionState);
-}
-
-async function verifiedViewer(request: Request, env: AuthenticationEnvironment): Promise<Viewer | undefined> {
-  const token = readSessionCookie(request);
-  const proof = fromHex(request.headers.get('X-LAN-Session-Proof') ?? '', 32);
-  if (!token || !proof || !env.AUTH_RATE_LIMIT_SECRET) return;
-  const account = await resolveSession(env.DB, token, Math.floor(Date.now() / 1000));
-  if (!account || account.emailVerifiedAt === null) return;
-  const digest = await digestToken(token, 'session');
-  const expected = fromHex(await sessionCsrfToken(digest, env.AUTH_RATE_LIMIT_SECRET), 32)!;
-  if (crypto.subtle.timingSafeEqual(proof, expected)) return { userId: account.userId, digest };
 }
 
 export async function newsReactions(request: Request, env: AuthenticationEnvironment) {
@@ -74,7 +58,7 @@ export async function newsReactions(request: Request, env: AuthenticationEnviron
         (wantsOwn && request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin')) {
       return reply(403, { error: 'Request rejected' });
     }
-    const viewer = wantsOwn ? await verifiedViewer(request, env) : undefined;
+    const viewer = wantsOwn ? await verifiedNewsMember(request, env) : undefined;
     if (wantsOwn && !viewer) return reply(401, { error: 'Sign in with a verified account to react' });
     const ready = await env.DB.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='news_article_reactions'").first();
     if (!ready) return reply(503, { error: 'Reactions are awaiting their database migration' });
