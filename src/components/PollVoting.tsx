@@ -15,5 +15,26 @@ function BallotForm({article,proof,actions}:{article:NewsArticle;proof:string;ac
  useEffect(()=>{const c=new AbortController();setChecking(true);setMessage('');void fetch(endpoint,{credentials:'same-origin',redirect:'error',headers:{'X-LAN-Request':'1','X-LAN-Session-Proof':proof},signal:AbortSignal.any([c.signal,AbortSignal.timeout(15000)])}).then(async r=>{const b=await r.json();if(!r.ok)throw Error(b.error??'Voting unavailable');if(!valid(b))throw Error('Reload to check your vote');if(!c.signal.aborted){setBallot(b);setPoll(b.poll);setSelection(b.selection);}}).catch(e=>{if(!c.signal.aborted)setMessage(e.message);}).finally(()=>{if(!c.signal.aborted)setChecking(false);});return()=>c.abort();},[endpoint,proof,retry]);
  async function save(){if(!ballot||checking||sending.current)return;sending.current=true;setPending(true);setMessage('');try{const r=await fetch(endpoint,{method:'POST',credentials:'same-origin',redirect:'error',headers:{...headers,'Content-Type':'application/json','X-CSRF-Token':proof},body:JSON.stringify({selection,revision:ballot.revision,pollRevision:ballot.pollRevision}),signal:AbortSignal.timeout(15000)}),b=await r.json();if(!r.ok)throw Error(b.error??'Vote could not be confirmed. Refresh results before retrying');if(!valid(b))throw Error('Refresh results to confirm your vote');if(alive.current){setBallot(b);setSelection(b.selection);setPoll(b.poll);setMessage('Your vote is saved.');}}catch(e){if(alive.current)setMessage(e instanceof Error?e.message:'Vote could not be confirmed. Refresh results');}finally{sending.current=false;if(alive.current)setPending(false);}}
  const unchanged=ballot&&JSON.stringify([...selection].sort())===JSON.stringify([...ballot.selection].sort());
- return <section className="poll-voting" aria-busy={checking||pending}><h2>Your vote</h2>{!poll.closed&&<form onSubmit={e=>{e.preventDefault();void save();}}><fieldset disabled={pending||checking||!ballot}><legend>{poll.mode==='multiple'?'Choose every option that suits you. One vote per option per person.':'Choose one answer.'}</legend><div className="poll-choices">{poll.options.map(option=><label className="poll-choice" key={option.id}><input type={poll.mode==='multiple'?'checkbox':'radio'} name={group} checked={selection.includes(option.id)} onChange={e=>setSelection(current=>poll.mode==='single'?[option.id]:e.target.checked?[...current,option.id]:current.filter(id=>id!==option.id))}/><span><span lang={newsLanguage(article.language)}>{option.label}</span><small>{ballot?.selection.includes(option.id)?'Your saved choice':''}</small></span></label>)}</div><button className="button" disabled={!selection.length||!!unchanged}>{pending?'Saving…':ballot?.revision?'Save changes':'Vote'}</button></fieldset></form>}<p className="poll-vote-status" role="status">{checking?'Checking your saved vote…':message}</p><PollResults poll={poll} language={newsLanguage(article.language)}/><div className="poll-actions"><button type="button" className="button button-secondary" disabled={pending||checking} onClick={()=>{setChecking(true);setRetry(n=>n+1);}}>Refresh results</button>{actions}</div></section>;
+ return <section className="poll-voting" aria-busy={checking||pending}>
+  <h2>Your vote</h2>
+  {!poll.closed&&<form onSubmit={e=>{e.preventDefault();void save();}}>
+   <fieldset disabled={pending||checking||!ballot}>
+    <legend>{poll.mode==='multiple'?'Choose every option that suits you. One vote per option per person.':'Choose one answer.'}</legend>
+    <div className="poll-choices">
+     {poll.options.map(option=><label className="poll-choice" key={option.id}>
+      <input type={poll.mode==='multiple'?'checkbox':'radio'} name={group} checked={selection.includes(option.id)}
+       onChange={e=>setSelection(current=>poll.mode==='single'?[option.id]:e.target.checked?[...current,option.id]:current.filter(id=>id!==option.id))}/>
+      <span lang={newsLanguage(article.language)}>{option.label}</span>
+     </label>)}
+    </div>
+    <button className="button" disabled={!selection.length||!!unchanged}>{pending?'Saving…':ballot?.revision?'Save changes':'Vote'}</button>
+   </fieldset>
+  </form>}
+  <p className="poll-vote-status" role="status">{checking?'Checking your saved vote…':message}</p>
+  <PollResults poll={poll} language={newsLanguage(article.language)}/>
+  <div className="poll-actions">
+   <button type="button" className="button button-secondary" disabled={pending||checking} onClick={()=>{setChecking(true);setRetry(n=>n+1);}}>Refresh results</button>
+   {actions}
+  </div>
+ </section>;
 }
