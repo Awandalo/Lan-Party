@@ -1,5 +1,17 @@
 # TODO / To remember
 
+## Version 1.0 closeout — 2026-11-28
+
+- [x] Confirm the live website is in use and designate `e80321d` as the
+  version 1.0 application baseline on PROD and DEV.
+- [x] Ship comments, moderation and poll button styling in
+  [PR #76](https://github.com/Awandalo/Lan-Party/pull/76). Verify migration
+  `0045` in both environments and close [#52](https://github.com/Awandalo/Lan-Party/issues/52)
+  after all four PROD Sentinel checks pass.
+- [x] Defer location attachments, the photo gallery and feedback screenshots
+  with shared storage. See the long-term storage backlog below.
+- [ ] Keep Jotform operational until the owner approves its cutover.
+
 ## Post-launch closeout — 2026-11-18
 
 - [x] Verify the application release is live on PROD at `654e8d7` after
@@ -31,17 +43,15 @@
   file and canonical public sitemap. The issue is closed.
   [Issue #34](https://github.com/Awandalo/Lan-Party/issues/34)
 
-### Deferred product backlog
+### Long-term storage backlog — 2026-11-28
 
-- [ ] Review storage feasibility for location attachments and event snapshots.
-  Location metadata already shipped. [Issue #36](https://github.com/Awandalo/Lan-Party/issues/36)
-- [ ] Decide whether to pursue the optional members-only event gallery after
-  reviewing storage and costs. [Issue #42](https://github.com/Awandalo/Lan-Party/issues/42)
-- [ ] Prioritize feedback screenshots and shared storage management after
-  reviewing privacy, quota and billing. [Issue #45](https://github.com/Awandalo/Lan-Party/issues/45)
-- [ ] Prioritize News reactions or comments and agree the initial scope.
-  [Issue #52](https://github.com/Awandalo/Lan-Party/issues/52)
-- [ ] Keep Jotform operational until the owner approves its cutover.
+The owner deferred these items. GitHub closed them as Not planned. Revisit
+storage feasibility, quotas, access, cleanup and billing if the owner reopens the work.
+
+- Location attachments and file-backed event snapshots. Location metadata and
+  text-only snapshots already shipped. [Issue #36](https://github.com/Awandalo/Lan-Party/issues/36)
+- Optional members-only event photo gallery. [Issue #42](https://github.com/Awandalo/Lan-Party/issues/42)
+- Feedback screenshots and shared upload quota administration. [Issue #45](https://github.com/Awandalo/Lan-Party/issues/45)
 
 ### Sentinel phase tracking
 
@@ -680,8 +690,8 @@ remote database changes are not implemented or authorized by Phase 3.1.
 - [ ] Owner hosted functional acceptance: create/edit/cancel, filters, archive/restore, permissions and Locations logs. Code and schema deployment are not functional acceptance.
 - [x] Implement iteration 2: three-step Add Location, name-only/optional fields, second-column pin/directions link, distinct action footer and central-only log navigation; correct Administration titles without changing access/routes.
 - [ ] Owner iteration-2 DEV walkthrough: mobile/desktop wizard, Back/Enter/Cancel, edit/archive/restore, Maps links, central Logs and route titles on deep link/refresh/Back/Forward. Local fictional browser/changed-area checks pass; hosted owner acceptance remains pending.
-- [ ] Increment B: separately approve storage/R2/files and quota lifecycle; R2 billing is not approved.
-- [ ] Integrate independent event snapshots/publication checks with #37. Keep #36 open; see [Locations scope and verification](docs/locations.md).
+- [x] Deliver text-only location snapshots and publication checks through #37.
+- Increment B, including file-backed snapshots and storage quotas, was deferred to the long-term backlog on 2026-11-28. See [Locations scope and verification](docs/locations.md).
 
 - [ ] Implement separately approved authenticated event registration and event/participant workflows, preserving privacy and registration totals. Keep Jotform until replacement acceptance.
 
