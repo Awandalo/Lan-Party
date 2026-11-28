@@ -1,6 +1,16 @@
 # LAN Party website
 
-## Live release and post-launch status — 2026-11-18
+## Version 1.0 — live baseline, 2026-11-28
+
+The owner designated the live, in-use website as LAN Party 1.0. The accepted
+application baseline is `e80321d` on PROD and DEV. It includes News and Poll
+reactions, member discussions, moderation and the updated poll buttons.
+Migration `0045` was applied and verified in both environments. All four PROD
+Sentinel checks passed and [#52](https://github.com/Awandalo/Lan-Party/issues/52)
+was closed as completed. See [PR #76](https://github.com/Awandalo/Lan-Party/pull/76)
+for the rollout record. Subsequent feature work is new development beyond 1.0.
+
+## Historical live release and post-launch status — 2026-11-18
 
 The application release was verified on PROD at `654e8d7`, the merge commit of
 [PR #73](https://github.com/Awandalo/Lan-Party/pull/73), and on DEV at
@@ -42,17 +52,18 @@ accessibility and performance work [#34](https://github.com/Awandalo/Lan-Party/i
 are closed as completed. All 11 Sentinel checks for #34 passed, including the
 two owner checks on PROD.
 
-The deferred post-launch backlog covers location attachments
+The long-term storage backlog covers location attachments
 [#36](https://github.com/Awandalo/Lan-Party/issues/36), a members-only gallery
 [#42](https://github.com/Awandalo/Lan-Party/issues/42), feedback screenshots and
-shared storage [#45](https://github.com/Awandalo/Lan-Party/issues/45), and News
-reactions or comments [#52](https://github.com/Awandalo/Lan-Party/issues/52).
-Storage and billing decisions remain pending. See the
-[post-launch checklist](TODO.md#post-launch-closeout--2026-11-18) for acceptance
+shared storage [#45](https://github.com/Awandalo/Lan-Party/issues/45). The owner
+deferred all three on 2026-11-28, and GitHub closed them as Not planned. Reopen
+them only if the owner decides to revisit storage. R2 provisioning and billing
+require separate approval. See the
+[version 1.0 closeout](TODO.md#version-10-closeout--2026-11-28) for acceptance
 and separate Sentinel tracking work.
 
 The dated development notes below record the state at the time of each review.
-Use this release summary and the post-launch checklist for current status.
+Use the version 1.0 baseline and closeout checklist for current status.
 
 ## User settings — historical local profile iteration, 2026-11-10
 
